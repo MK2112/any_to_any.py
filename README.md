@@ -23,6 +23,17 @@ E.g. I used it mainly to dissect camera input into frames for ML/AI training. Go
       - `-o` or `--output`: Directory to save MP3 files. If not provided, it will write to the MP4 path.
       - `-d` or `--delete`: Delete MP4 files after conversion (optional).
 
+## Supported Formats
+- [x] mp3
+- [x] png
+- [x] gif
+- [ ] webm
+- [ ] flac
+- [ ] avi
+- [ ] bmp
+- [ ] ogg
+- [ ] h.266 mp4
+
 ### License
 This project is licensed under the MIT License, granting users the freedom to modify and distribute the codebase.
 
