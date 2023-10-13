@@ -22,6 +22,7 @@ E.g. I used it mainly to dissect camera input into frames for ML/AI training. Go
       - `-f` or `--format`: File format of desired output, either `mp3`, `gif` or `png` (required)
       - `-o` or `--output`: Directory to save MP3 files. If not provided, it will write to the MP4 path.
       - `-d` or `--delete`: Delete MP4 files after conversion (optional).
+   - Flask-based interaction via Web Browser is in the making, for now it's CLI
 
 ## Supported Formats
 - [x] mp3
