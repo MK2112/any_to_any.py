@@ -2,6 +2,7 @@
 
 This Python script helps you convert MP4 files to MP3/PNG/GIF format.<br>
 It provides a cost-free and versatile solution, addressing shortcomings of certain proprietary software options.
+E.g. I used it mainly to dissect camera input into frames for ML/AI training. Good stuff.
 
 ## Key Features
 - **Efficiency**: A tool for swift file format transformation. Nothing more. Nothing less.
