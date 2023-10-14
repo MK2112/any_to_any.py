@@ -1,12 +1,7 @@
 # mp4-to-any.py - Convert MP4 to MP3/PNG/GIF
 
-This Python script helps you convert MP4 files to MP3/PNG/GIF format.<br>
-It provides a cost-free and versatile solution, addressing shortcomings of certain proprietary software options.
-E.g. I used it mainly to dissect camera input into frames for ML/AI training. Good stuff.
-
-## Key Features
-- **Efficiency**: A tool for swift file format transformation. Nothing more. Nothing less.
-- **Cost-Free**: Eliminates the need for expensive proprietary software to do just the same.
+This Python script helps you convert MP4 files to various different formats.<br>
+It provides a light-weight solution, addressing shortcomings of certain proprietary software options.
 
 ## Usage
 1. **Download/Clone**:
@@ -19,7 +14,7 @@ E.g. I used it mainly to dissect camera input into frames for ML/AI training. Go
     - Use the following command to convert MP4 files to MP3: `python mp4-to-any.py -i /path/to/mp4s -o /path/to/save/files -d`
     - Parameters:
       - `-i` or `--input`: Directory containing MP4 files to be converted (required).
-      - `-f` or `--format`: File format of desired output, either `mp3`, `gif` or `png` (required)
+      - `-f` or `--format`: File format of desired output, either `mp3`, `png`, `gif`, `webm`, `flac`, `avi`, `bmp`, or `h265` (required).
       - `-o` or `--output`: Directory to save MP3 files. If not provided, it will write to the MP4 path.
       - `-d` or `--delete`: Delete MP4 files after conversion (optional).
    - Flask-based interaction via Web Browser is in the making, for now it's CLI
@@ -28,12 +23,11 @@ E.g. I used it mainly to dissect camera input into frames for ML/AI training. Go
 - [x] mp3
 - [x] png
 - [x] gif
-- [ ] webm
-- [ ] flac
-- [ ] avi
-- [ ] bmp
-- [ ] ogg
-- [ ] h.266 mp4
+- [x] webm
+- [x] flac
+- [x] avi
+- [x] bmp
+- [x] h265 mp4
 
 ### License
 This project is licensed under the MIT License, granting users the freedom to modify and distribute the codebase.
