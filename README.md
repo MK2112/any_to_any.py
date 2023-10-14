@@ -9,14 +9,14 @@ It provides a light-weight solution, addressing shortcomings of certain propriet
 2. **Python Version**:
    - Ensure you have Python 3.x installed on your system. If not, you can download it from the official [Python website](https://www.python.org/downloads/).
 3. **Install MoviePy**:
-   - This script relies on the `moviepy` library for video processing. Install it via command prompt/terminal: `pip install moviepy`
+   - This script relies on the `moviepy` library for video processing. Install it via command prompt/terminal:<br>`pip install moviepy`
 4. **Running the Script**:
-    - Use the following command to convert MP4 files to MP3: `python mp4-to-any.py -i /path/to/mp4s -o /path/to/save/files -d`
+    - Use the following command to convert MP4 files to MP3:<br>`python mp4-to-any.py -i /path/to/mp4s -o /path/to/save/files -f mp3 -d`
     - Parameters:
-      - `-i` or `--input`: Directory containing MP4 files to be converted (required).
-      - `-f` or `--format`: File format of desired output, either `mp3`, `png`, `gif`, `webm`, `flac`, `avi`, `bmp`, or `h265` (required).
-      - `-o` or `--output`: Directory to save MP3 files. If not provided, it will write to the MP4 path.
-      - `-d` or `--delete`: Delete MP4 files after conversion (optional).
+      - `-i` or `--input` (required): Directory containing MP4 files to be converted.
+      - `-f` or `--format` (required): File format of desired output, either `mp3`, `png`, `gif`, `webm`, `flac`, `avi`, `bmp`, or `h265`.
+      - `-o` or `--output` (optional): Directory to save MP3 files. If not provided, it will write to the MP4 path.
+      - `-d` or `--delete` (optional): Delete MP4 files after conversion.
    - Flask-based interaction via Web Browser is in the making, for now it's CLI
 
 ## Supported Formats
