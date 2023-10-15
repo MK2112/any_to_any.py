@@ -1,4 +1,4 @@
-# mp4-to-any.py - Convert MP4 to MP3/PNG/GIF
+# mp4-to-any.py - Convert MP4
 
 This Python script helps you convert MP4 files to various different formats.<br>
 It provides a light-weight solution, addressing shortcomings of certain proprietary software options.
