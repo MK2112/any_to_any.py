@@ -4,14 +4,10 @@ This Python script helps you convert MP4 files to various different formats.<br>
 It provides a light-weight solution, addressing shortcomings of certain proprietary software options.
 
 ## Supported Formats
-- [x] mp3
-- [x] png
-- [x] gif
-- [x] webm
-- [x] flac
-- [x] avi
-- [x] bmp
-- [x] h265 mp4
+**Audio:** MP3, FLAC<br> 
+**Image:** PNG, GIF, BMP<br>
+**Video:** WebM, MOV, MKV, AVI<br>
+**Mp4 Codecs:** H265, H264, XVID, MPEG4
 
 ## Usage
 1. **Download/Clone**:
@@ -24,10 +20,10 @@ It provides a light-weight solution, addressing shortcomings of certain propriet
     - Use the following command to convert MP4 files to MP3:<br>`python mp4-to-any.py -i /path/to/mp4s -o /path/to/save/files -f mp3 -d`
     - Parameters:
       - `-i` or `--input` (required): Directory containing MP4 files to be converted.
-      - `-f` or `--format` (required): File format of desired output, either `mp3`, `png`, `gif`, `webm`, `flac`, `avi`, `bmp`, or `h265`.
+      - `-f` or `--format` (required): File format of desired output, either `mp3`, `png`, `gif`, `webm`, `flac`, `avi`, `bmp`, or mp4 codecs like `h265`, `h264`, `xvid` and `mpeg4`.
       - `-o` or `--output` (optional): Directory to save MP3 files. If not provided, it will write to the MP4 path.
       - `-d` or `--delete` (optional): Delete MP4 files after conversion.
-   - Flask-based interaction via Web Browser is in the making, for now it's CLI
+   - Interaction via Web Browser is in the making, for now it's CLI
 
 ### License
 This project is licensed under the MIT License, granting users the freedom to modify and distribute the codebase.
