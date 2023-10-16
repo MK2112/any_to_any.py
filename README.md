@@ -4,7 +4,7 @@ This Python script helps you convert MP4 files to various different formats.<br>
 It provides a light-weight solution, addressing shortcomings of certain proprietary software options.
 
 ## Supported Formats
-**Audio:** MP3, FLAC<br> 
+**Audio:** MP3, FLAC, WAV, OGG<br> 
 **Image:** PNG, GIF, BMP<br>
 **Video:** WebM, MOV, MKV, AVI<br>
 **Mp4 Codecs:** H265, H264, XVID, MPEG4
