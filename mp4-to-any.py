@@ -35,29 +35,42 @@ def _get_mp4_paths(args):
     return mp4_paths
 
 
-def to_mp3(args, mp4_paths):
+def to_audio(args, mp4_paths, output_format, codec):
     for mp4_path in mp4_paths:
-        # Obtain absolute paths for mp4 and mp3 files
-        # Combine args['output'] and mp4_path's basename
-        mp3_path = os.path.abspath(os.path.join(args['output'], str(os.path.basename(mp4_path)).lower().replace('.mp4', '.mp3')))
-
-        # Initialize video with audio and specific time base reference
+        # Instantiate a video file clip for each mp4
         video = VideoFileClip(mp4_path, audio=True, fps_source='tbr')
+        # Build output path
+        output_path = os.path.abspath(os.path.join(args['output'], str(os.path.basename(mp4_path)).lower().replace('.mp4', f'.{output_format}')))
+        # Grab audio from video (AudioFileClip object)
         audio = video.audio
-
+        # Check if audio was found
         if audio is None:
             print(f'[!] Warning: No audio found in "{mp4_path}" - Skipping\n')
             continue
-
-        # Write audio to mp3 file
-        audio.write_audiofile(mp3_path)
-        
-        # Close video and audio file handles
+        # Write audio to file
+        audio.write_audiofile(output_path, codec=codec)
         audio.close()
         video.close()
+        # Post process (delete mp4, print success)
+        _post_process(mp4_path, output_path, args['delete'])
 
-        # Post-flight dialogue for this file
-        _post_process(mp4_path, mp3_path, args['delete'])
+
+def to_codec(args, _, codec, mp4_paths):
+    for mp4_path in mp4_paths:
+        video = VideoFileClip(mp4_path, audio=True, fps_source='tbr')
+        codec_mp4_path = os.path.abspath(os.path.join(args['output'], str(os.path.basename(mp4_path)).lower().replace('.mp4', f'_{codec}.mp4')))
+        video.write_videofile(codec_mp4_path, codec=codec, fps=video.fps if args['framerate'] is None else args['framerate'], audio=True)
+        video.close()
+        _post_process(mp4_path, codec_mp4_path, args['delete'])
+
+
+def to_movie(args, format, codec, mp4_paths):
+    for mp4_path in mp4_paths:
+        video = VideoFileClip(mp4_path, audio=True, fps_source='tbr')
+        out_path = os.path.abspath(os.path.join(args['output'], str(os.path.basename(mp4_path)).lower().replace('.mp4', f'.{format}')))
+        video.write_videofile(out_path, codec=codec, fps=video.fps if args['framerate'] is None else args['framerate'], audio=True)
+        video.close()
+        _post_process(mp4_path, out_path, args['delete'])
 
 
 def to_frames_png(args, mp4_paths):
@@ -87,72 +100,6 @@ def to_bmp(args, mp4_paths):
         _post_process(mp4_path, bmp_path, args['delete'])
 
 
-def to_flac(args, mp4_paths):
-    for mp4_path in mp4_paths:
-        video = VideoFileClip(mp4_path, audio=True, fps_source='tbr')
-        flac_path = os.path.abspath(os.path.join(args['output'], str(os.path.basename(mp4_path)).lower().replace('.mp4', '.flac')))
-        audio = video.audio
-
-        if audio is None:
-            print(f'[!] Warning: No audio found in "{mp4_path}" - Skipping\n')
-            continue
-
-        audio.write_audiofile(flac_path, codec='flac')
-        audio.close()
-        video.close()
-        _post_process(mp4_path, flac_path, args['delete'])
-
-
-def to_ogg(args, mp4_paths):
-    for mp4_path in mp4_paths:
-        video = VideoFileClip(mp4_path, audio=True, fps_source='tbr')
-        ogg_path = os.path.abspath(os.path.join(args['output'], str(os.path.basename(mp4_path)).lower().replace('.mp4', '.ogg')))
-        audio = video.audio
-
-        if audio is None:
-            print(f'[!] Warning: No audio found in "{mp4_path}" - Skipping\n')
-            continue
-
-        audio.write_audiofile(ogg_path, codec='libvorbis')
-        audio.close()
-        video.close()
-        _post_process(mp4_path, ogg_path, args['delete'])
-
-
-def to_wav(args, mp4_paths):
-    for mp4_path in mp4_paths:
-        video = VideoFileClip(mp4_path, audio=True, fps_source='tbr')
-        wav_path = os.path.abspath(os.path.join(args['output'], str(os.path.basename(mp4_path)).lower().replace('.mp4', '.wav')))
-        audio = video.audio
-
-        if audio is None:
-            print(f'[!] Warning: No audio found in "{mp4_path}" - Skipping\n')
-            continue
-
-        audio.write_audiofile(wav_path, codec='pcm_s16le')
-        audio.close()
-        video.close()
-        _post_process(mp4_path, wav_path, args['delete'])
-
-
-def to_codec(args, _, codec, mp4_paths):
-    for mp4_path in mp4_paths:
-        video = VideoFileClip(mp4_path, audio=True, fps_source='tbr')
-        codec_mp4_path = os.path.abspath(os.path.join(args['output'], str(os.path.basename(mp4_path)).lower().replace('.mp4', f'_{codec}.mp4')))
-        video.write_videofile(codec_mp4_path, codec=codec, fps=video.fps if args['framerate'] is None else args['framerate'], audio=True)
-        video.close()
-        _post_process(mp4_path, codec_mp4_path, args['delete'])
-
-
-def to_movie(args, format, codec, mp4_paths):
-    for mp4_path in mp4_paths:
-        video = VideoFileClip(mp4_path, audio=True, fps_source='tbr')
-        out_path = os.path.abspath(os.path.join(args['output'], str(os.path.basename(mp4_path)).lower().replace('.mp4', f'.{format}')))
-        video.write_videofile(out_path, codec=codec, fps=video.fps if args['framerate'] is None else args['framerate'], audio=True)
-        video.close()
-        _post_process(mp4_path, out_path, args['delete'])
-
-
 def _post_process(mp4_path, out_path, delete):
     print(f'[+] Converted "{mp4_path}" to "{out_path}"')
 
@@ -162,10 +109,10 @@ def _post_process(mp4_path, out_path, delete):
 
 
 _supported_formats = {
-        'mp3': to_mp3,
-        'flac': to_flac,
-        'ogg': to_ogg,
-        'wav': to_wav,
+        'mp3': 'libmp3lame',
+        'flac': 'flac',
+        'ogg': 'libvorbis',
+        'wav': 'pcm_s16le',
         'gif': to_gif,
         'png': to_frames_png,
         'bmp': to_bmp,
@@ -185,6 +132,8 @@ def main(args):
     if args['format'] in _supported_formats:
         if isinstance(_supported_formats[args['format']], tuple):
             _supported_formats[args['format']][0](args, args['format'], _supported_formats[args['format']][1], _get_mp4_paths(args))
+        elif isinstance(_supported_formats[args['format']], str):
+            to_audio(args, _get_mp4_paths(args), args['format'], _supported_formats[args['format']])
         else:
             _supported_formats[args['format']](args, _get_mp4_paths(args))
     else:
