@@ -1,12 +1,10 @@
 import os
 import argparse
 from moviepy.editor import VideoFileClip
-
 """
 Taking an input directory of mp4 files, convert them to a multitude of formats using moviepy.
 Interact with the script using the command line arguments defined at the bottom of this file.
 """
-
 
 def _get_mp4_paths(args):
     # Check if output directory provided
@@ -105,6 +103,38 @@ def to_flac(args, mp4_paths):
         _post_process(mp4_path, flac_path, args['delete'])
 
 
+def to_ogg(args, mp4_paths):
+    for mp4_path in mp4_paths:
+        video = VideoFileClip(mp4_path, audio=True, fps_source='tbr')
+        ogg_path = os.path.abspath(os.path.join(args['output'], str(os.path.basename(mp4_path)).lower().replace('.mp4', '.ogg')))
+        audio = video.audio
+
+        if audio is None:
+            print(f'[!] Warning: No audio found in "{mp4_path}" - Skipping\n')
+            continue
+
+        audio.write_audiofile(ogg_path, codec='libvorbis')
+        audio.close()
+        video.close()
+        _post_process(mp4_path, ogg_path, args['delete'])
+
+
+def to_wav(args, mp4_paths):
+    for mp4_path in mp4_paths:
+        video = VideoFileClip(mp4_path, audio=True, fps_source='tbr')
+        wav_path = os.path.abspath(os.path.join(args['output'], str(os.path.basename(mp4_path)).lower().replace('.mp4', '.wav')))
+        audio = video.audio
+
+        if audio is None:
+            print(f'[!] Warning: No audio found in "{mp4_path}" - Skipping\n')
+            continue
+
+        audio.write_audiofile(wav_path, codec='pcm_s16le')
+        audio.close()
+        video.close()
+        _post_process(mp4_path, wav_path, args['delete'])
+
+
 def to_codec(args, _, codec, mp4_paths):
     for mp4_path in mp4_paths:
         video = VideoFileClip(mp4_path, audio=True, fps_source='tbr')
@@ -112,6 +142,7 @@ def to_codec(args, _, codec, mp4_paths):
         video.write_videofile(codec_mp4_path, codec=codec, fps=video.fps if args['framerate'] is None else args['framerate'], audio=True)
         video.close()
         _post_process(mp4_path, codec_mp4_path, args['delete'])
+
 
 def to_movie(args, format, codec, mp4_paths):
     for mp4_path in mp4_paths:
@@ -133,6 +164,8 @@ def _post_process(mp4_path, out_path, delete):
 _supported_formats = {
         'mp3': to_mp3,
         'flac': to_flac,
+        'ogg': to_ogg,
+        'wav': to_wav,
         'gif': to_gif,
         'png': to_frames_png,
         'bmp': to_bmp,
