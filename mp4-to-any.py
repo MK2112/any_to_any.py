@@ -33,6 +33,11 @@ class Mp4ToAny:
         return self._supported_formats.keys()
 
 
+    def end_with_msg(self, msg):
+        print(msg)
+        exit(1)
+
+
     def convert(self, args):
         # Check if supported format was specified
         if args['format'] in self._supported_formats:
@@ -43,8 +48,7 @@ class Mp4ToAny:
             else:
                 self._supported_formats[args['format']](args, self._get_mp4_paths(args))
         else:
-            print(f'[!] Error: Output format must be one of {list(self._supported_formats.keys())}')
-            exit(1)
+            end_with_msg(f'[!] Error: Output format must be one of {list(self._supported_formats.keys())}')
 
 
     def _get_mp4_paths(self, args):
@@ -55,8 +59,7 @@ class Mp4ToAny:
         # Check if either input or output directory faulty
         for dir in [args['input'], args['output']]:
             if not os.path.exists(dir):
-                print(f'[!] Error: Directory {dir} does not exist.')
-                exit(1)
+                end_with_msg(f'[!] Error: Directory {dir} does not exist.')
 
         print(f'MP4->{str(args["format"]).upper()} | Job started for {args["input"]}\n')
 
@@ -70,8 +73,7 @@ class Mp4ToAny:
 
         # Gracefully exit if no mp4s found
         if len(mp4_paths) == 0:
-            print(f'[!] Warning: No mp4 files found in {args["input"]}')
-            exit(1)
+            end_with_msg(f'[!] Warning: No mp4 files found in {args["input"]}')
 
         return mp4_paths
 
@@ -151,6 +153,10 @@ class Mp4ToAny:
             print(f'[-] Removed "{mp4_path}"')
 
 
+# The class is interacted with through a CLI-interface
+# If not desired, simply hand over a dict with values to these keys:
+# 'input', 'output', 'format', 'framerate', 'delete'
+# In a minimal configuration, make sure at least 'input' and 'format' exist
 if __name__ == '__main__':
     # Check if required libraries are installed
     for lib in ['moviepy']:
