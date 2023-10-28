@@ -23,6 +23,7 @@ It provides a light-weight solution, addressing shortcomings of certain propriet
       - `-f` or `--format` (required): File format of desired output, either `mp3`, `png`, `gif`, `webm`, `flac`, `avi`, `bmp`, or mp4 codecs like `h265`, `h264`, `xvid` and `mpeg4`.
       - `-o` or `--output` (optional): Directory to save MP3 files. If not provided, it will write to the MP4 path.
       - `-d` or `--delete` (optional): Delete MP4 files after conversion.
+      - `-fps` or `--framerate` (optional): Designate the framerate (fps) when converting to a movie format or codec; default maintains input fps.
    - Interaction via Web Browser is in the making, for now it's CLI
 
 ### License

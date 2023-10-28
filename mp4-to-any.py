@@ -185,4 +185,8 @@ if __name__ == '__main__':
     args = vars(parser.parse_args())
 
     # Run main function with parsed arguments
-    mp4_to_any.convert(args['input'], args['format'], args['output'], args['framerate'], args['delete'])
+    mp4_to_any.convert(input=args['input'], 
+                       format=args['format'], 
+                       output=args['output'], 
+                       framerate=args['framerate'], 
+                       delete=args['delete'])
