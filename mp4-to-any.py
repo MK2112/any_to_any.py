@@ -38,52 +38,58 @@ class Mp4ToAny:
         exit(1)
 
 
-    def convert(self, args):
+    def convert(self, input, format, output, framerate, delete):
+        self.input = input
+        self.format = format
+        self.output = output
+        self.framerate = framerate
+        self.delete = delete
+        
         # Check if supported format was specified
-        if args['format'] in self._supported_formats:
-            if isinstance(self._supported_formats[args['format']], tuple):
-                self._supported_formats[args['format']][0](args, args['format'], self._supported_formats[args['format']][1], self._get_mp4_paths(args))
-            elif isinstance(self._supported_formats[args['format']], str):
-                self.to_audio(args, self._get_mp4_paths(args), args['format'], self._supported_formats[args['format']])
+        if self.format in self._supported_formats:
+            if isinstance(self._supported_formats[self.format], tuple):
+                self._supported_formats[self.format][0](self.format, self._supported_formats[self.format][1], self._get_mp4_paths())
+            elif isinstance(self._supported_formats[self.format], str):
+                self.to_audio(self._get_mp4_paths(), self.format, self._supported_formats[self.format])
             else:
-                self._supported_formats[args['format']](args, self._get_mp4_paths(args))
+                self._supported_formats[self.format](self._get_mp4_paths())
         else:
-            end_with_msg(f'[!] Error: Output format must be one of {list(self._supported_formats.keys())}')
+            self.end_with_msg(f'[!] Error: Output format must be one of {list(self._supported_formats.keys())}')
 
 
-    def _get_mp4_paths(self, args):
+    def _get_mp4_paths(self):
         # Check if output directory provided
-        if args['output'] is None:
-            args['output'] = args['input']
+        if self.output is None:
+            self.output = self.input
 
         # Check if either input or output directory faulty
-        for dir in [args['input'], args['output']]:
+        for dir in [self.input, self.output]:
             if not os.path.exists(dir):
-                end_with_msg(f'[!] Error: Directory {dir} does not exist.')
+                self.end_with_msg(f'[!] Error: Directory {dir} does not exist.')
 
-        print(f'MP4->{str(args["format"]).upper()} | Job started for {args["input"]}\n')
+        print(f'MP4->{str(self.format).upper()} | Job started for {self.input}\n')
 
         mp4_paths = []
 
         # Get mp4 files from input dir
-        for file in os.listdir(args['input']):
+        for file in os.listdir(self.input):
             if file.lower().endswith('.mp4'):
                 print(f'[+] Scheduling: {file}')
-                mp4_paths.append(os.path.abspath(os.path.join(args['input'], file)))
+                mp4_paths.append(os.path.abspath(os.path.join(self.input, file)))
 
         # Gracefully exit if no mp4s found
         if len(mp4_paths) == 0:
-            end_with_msg(f'[!] Warning: No mp4 files found in {args["input"]}')
+            self.end_with_msg(f'[!] Warning: No mp4 files found in {self.input}')
 
         return mp4_paths
 
 
-    def to_audio(self, args, mp4_paths, output_format, codec):
+    def to_audio(self, mp4_paths, output_format, codec):
         for mp4_path in mp4_paths:
             # Instantiate a video file clip for each mp4
             video = VideoFileClip(mp4_path, audio=True, fps_source='tbr')
             # Build output path
-            output_path = os.path.abspath(os.path.join(args['output'], str(os.path.basename(mp4_path)).lower().replace('.mp4', f'.{output_format}')))
+            output_path = os.path.abspath(os.path.join(self.output, str(os.path.basename(mp4_path)).lower().replace('.mp4', f'.{output_format}')))
             # Grab audio from video (AudioFileClip object)
             audio = video.audio
             
@@ -97,52 +103,52 @@ class Mp4ToAny:
             audio.close()
             video.close()
             # Post process (delete mp4, print success)
-            self._post_process(mp4_path, output_path, args['delete'])
+            self._post_process(mp4_path, output_path, self.delete)
 
 
-    def to_codec(self, args, _, codec, mp4_paths):
+    def to_codec(self, _, codec, mp4_paths):
         for mp4_path in mp4_paths:
             video = VideoFileClip(mp4_path, audio=True, fps_source='tbr')
-            codec_mp4_path = os.path.abspath(os.path.join(args['output'], str(os.path.basename(mp4_path)).lower().replace('.mp4', f'_{codec}.mp4')))
-            video.write_videofile(codec_mp4_path, codec=codec, fps=video.fps if args['framerate'] is None else args['framerate'], audio=True)
+            codec_mp4_path = os.path.abspath(os.path.join(self.output, str(os.path.basename(mp4_path)).lower().replace('.mp4', f'_{codec}.mp4')))
+            video.write_videofile(codec_mp4_path, codec=codec, fps=video.fps if self.framerate is None else self.framerate, audio=True)
             video.close()
-            self._post_process(mp4_path, codec_mp4_path, args['delete'])
+            self._post_process(mp4_path, codec_mp4_path, self.delete)
 
 
-    def to_movie(self, args, format, codec, mp4_paths):
+    def to_movie(self, format, codec, mp4_paths):
         for mp4_path in mp4_paths:
             video = VideoFileClip(mp4_path, audio=True, fps_source='tbr')
-            out_path = os.path.abspath(os.path.join(args['output'], str(os.path.basename(mp4_path)).lower().replace('.mp4', f'.{format}')))
-            video.write_videofile(out_path, codec=codec, fps=video.fps if args['framerate'] is None else args['framerate'], audio=True)
+            out_path = os.path.abspath(os.path.join(self.output, str(os.path.basename(mp4_path)).lower().replace('.mp4', f'.{format}')))
+            video.write_videofile(out_path, codec=codec, fps=video.fps if self.framerate is None else self.framerate, audio=True)
             video.close()
-            self._post_process(mp4_path, out_path, args['delete'])
+            self._post_process(mp4_path, out_path, self.delete)
 
 
-    def to_frames_png(self, args, mp4_paths):
+    def to_frames_png(self, mp4_paths):
         for mp4_path in mp4_paths:
             video = VideoFileClip(mp4_path, audio=False, fps_source='tbr')
-            png_path = os.path.join(args['output'], str(os.path.basename(mp4_path)).lower().replace('.mp4', ''))
+            png_path = os.path.join(self.output, str(os.path.basename(mp4_path)).lower().replace('.mp4', ''))
             video.write_images_sequence(f"{png_path}-frame_%06d.png", fps=video.fps) # Write every frame as png
             video.close()
-            self._post_process(mp4_path, png_path, args['delete'])
+            self._post_process(mp4_path, png_path, self.delete)
 
 
-    def to_gif(self, args, mp4_paths):
+    def to_gif(self, mp4_paths):
         for mp4_path in mp4_paths:
             video = VideoFileClip(mp4_path, audio=False, fps_source='tbr')
-            gif_path = os.path.join(args['output'], str(os.path.basename(mp4_path)).lower().replace('.mp4', '.gif'))
+            gif_path = os.path.join(self.output, str(os.path.basename(mp4_path)).lower().replace('.mp4', '.gif'))
             video.write_gif(gif_path, fps=video.fps) # Combine all frames to gif
             video.close()
-            self._post_process(mp4_path, gif_path, args['delete'])
+            self._post_process(mp4_path, gif_path, self.delete)
 
 
-    def to_bmp(self, args, mp4_paths):
+    def to_bmp(self, mp4_paths):
         for mp4_path in mp4_paths:
             video = VideoFileClip(mp4_path, audio=False, fps_source='tbr')
-            bmp_path = os.path.join(args['output'], str(os.path.basename(mp4_path)).lower().replace('.mp4', ''))
+            bmp_path = os.path.join(self.output, str(os.path.basename(mp4_path)).lower().replace('.mp4', ''))
             for i, frame in enumerate(video.iter_frames(fps=video.fps, dtype='uint8')):
                 frame.save(f"{bmp_path}-frame_{i:06d}.bmp", format='bmp')
-            self._post_process(mp4_path, bmp_path, args['delete'])
+            self._post_process(mp4_path, bmp_path, self.delete)
 
 
     def _post_process(self, mp4_path, out_path, delete):
@@ -176,5 +182,7 @@ if __name__ == '__main__':
     parser.add_argument('-fps', '--framerate', help='Set the output framerate (default: same as input)', type=int, required=False)
     parser.add_argument('-d', '--delete', help='Delete mp4 files after conversion', action='store_true', required=False)
 
+    args = vars(parser.parse_args())
+
     # Run main function with parsed arguments
-    mp4_to_any.convert(vars(parser.parse_args()))
+    mp4_to_any.convert(args['input'], args['format'], args['output'], args['framerate'], args['delete'])
