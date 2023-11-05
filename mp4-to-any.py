@@ -11,27 +11,32 @@ class Mp4ToAny:
 
     def __init__(self):
         self._supported_formats = {
-            'mp3': 'libmp3lame',
-            'flac': 'flac',
-            'ogg': 'libvorbis',
-            'wav': 'pcm_s16le',
-            'gif': self.to_gif,
-            'png': self.to_frames_png,
-            'bmp': self.to_bmp,
-            'webm': (self.to_movie, 'libvpx'),
-            'mov': (self.to_movie, 'libx264'),
-            'mkv': (self.to_movie, 'libx264'),
-            'h265': (self.to_codec, 'libx265'),
-            'h264': (self.to_codec, 'libx264'),
-            'xvid': (self.to_codec, 'libxvid'),
-            'mpeg4': (self.to_codec, 'mpeg4'),
-            'avi': (self.to_movie, 'libx264'),
+            'audio': {
+                'mp3': 'libmp3lame',
+                'flac': 'flac',
+                'ogg': 'libvorbis',
+                'wav': 'pcm_s16le',
+            },
+            'image': {
+                'gif': self.to_gif,
+                'png': self.to_frames_png,
+                'bmp': self.to_bmp,
+            },
+            'movie': {
+                'webm': (self.to_movie, 'libvpx'),
+                'mov': (self.to_movie, 'libx264'),
+                'mkv': (self.to_movie, 'libx264'),
+                'avi': (self.to_movie, 'libx264'),
+            },
+            'movie_codecs': {
+                'h265': (self.to_codec, 'libx265'),
+                'h264': (self.to_codec, 'libx264'),
+                'xvid': (self.to_codec, 'libxvid'),
+                'mpeg4': (self.to_codec, 'mpeg4'),
+            },
         }
 
-
-    # Getter for formats to convert to; Useful for CLI interface
-    def supported_formats(self):
-        return self._supported_formats.keys()
+        self.formats_summary = [format for formats in self._supported_formats.values() for format in formats.keys()]
 
 
     # Single point of exit for the script
@@ -48,17 +53,17 @@ class Mp4ToAny:
         self.framerate = framerate
         self.delete = delete
         
-        # Check if specified format is supported
-        if self.format in self._supported_formats:
-            # Check if value associated to format is tuple/string or function to call specific conversion
-            if isinstance(self._supported_formats[self.format], tuple):
-                self._supported_formats[self.format][0](self.format, self._supported_formats[self.format][1], self._get_mp4_paths())
-            elif isinstance(self._supported_formats[self.format], str):
-                self.to_audio(self._get_mp4_paths(), self.format, self._supported_formats[self.format])
-            else:
-                self._supported_formats[self.format](self._get_mp4_paths())
+        # Check if value associated to format is tuple/string or function to call specific conversion
+        if isinstance(self._supported_formats['movie'][self.format], tuple):
+            self._supported_formats['movie'][self.format][0](self.format, self._supported_formats['movie'][self.format][1], self._get_mp4_paths())
+        elif isinstance(self._supported_formats['movie_codecs'][self.format], tuple):
+            self._supported_formats['movie_codecs'][self.format][0](self.format, self._supported_formats['movie_codecs'][self.format][1], self._get_mp4_paths())
+        elif isinstance(self._supported_formats['image'][self.format], str):
+            self._supported_formats['image'][self.format](self._get_mp4_paths())
+        elif isinstance(self._supported_formats['audio'][self.format], str):
+            self.to_audio(self._get_mp4_paths(), self.format, self._supported_formats['audio'][self.format])
         else:
-            self.end_with_msg(f'[!] Error: Output format must be one of {list(self._supported_formats.keys())}')
+            self.end_with_msg(f'[!] Error: Output format must be one of {list(self.formats_summary)}')
 
 
     # Get mp4 files from input directory
@@ -192,7 +197,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Convert mp4 files to different media formats')
     parser.add_argument('-i', '--input', help='Directory containing mp4 files to be converted', type=str, required=False)
     parser.add_argument('-o', '--output', help='Directory to save files, writing to mp4 path if not provided', type=str, required=False)
-    parser.add_argument('-f', '--format', help=f'Set the output format ({format(mp4_to_any.supported_formats())})', type=str, required=True)
+    parser.add_argument('-f', '--format', help=f'Set the output format ({format(mp4_to_any.formats_summary)})', type=str, required=True)
     parser.add_argument('-fps', '--framerate', help='Set the output framerate (default: same as input)', type=int, required=False)
     parser.add_argument('-d', '--delete', help='Delete mp4 files after conversion', action='store_true', required=False)
 
