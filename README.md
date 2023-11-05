@@ -19,7 +19,7 @@ It provides a light-weight solution, addressing shortcomings of certain propriet
 4. **Running the Script**:
     - Use the following command to convert MP4 files to MP3:<br>`python mp4-to-any.py -i /path/to/mp4s -o /path/to/save/files -f mp3 -d`
     - Parameters:
-      - `-i` or `--input` (required): Directory containing MP4 files to be converted.
+      - `-i` or `--input` (optional): Directory containing MP4 files to be converted. If not provided, the directory from where script is called will be used
       - `-f` or `--format` (required): File format of desired output, either `mp3`, `png`, `gif`, `webm`, `flac`, `avi`, `bmp`, or mp4 codecs like `h265`, `h264`, `xvid` and `mpeg4`.
       - `-o` or `--output` (optional): Directory to save MP3 files. If not provided, it will write to the MP4 path.
       - `-d` or `--delete` (optional): Delete MP4 files after conversion.
