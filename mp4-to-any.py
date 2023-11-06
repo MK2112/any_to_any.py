@@ -54,13 +54,13 @@ class Mp4ToAny:
         self.delete = delete
         
         # Check if value associated to format is tuple/string or function to call specific conversion
-        if isinstance(self._supported_formats['movie'][self.format], tuple):
+        if self.format in self._supported_formats['movie'].keys():
             self._supported_formats['movie'][self.format][0](self.format, self._supported_formats['movie'][self.format][1], self._get_mp4_paths())
-        elif isinstance(self._supported_formats['movie_codecs'][self.format], tuple):
+        elif self.format in self._supported_formats['movie_codecs'].keys():
             self._supported_formats['movie_codecs'][self.format][0](self.format, self._supported_formats['movie_codecs'][self.format][1], self._get_mp4_paths())
-        elif isinstance(self._supported_formats['image'][self.format], str):
+        elif self.format in self._supported_formats['image'].keys():
             self._supported_formats['image'][self.format](self._get_mp4_paths())
-        elif isinstance(self._supported_formats['audio'][self.format], str):
+        elif self.format in self._supported_formats['audio'].keys():
             self.to_audio(self._get_mp4_paths(), self.format, self._supported_formats['audio'][self.format])
         else:
             self.end_with_msg(f'[!] Error: Output format must be one of {list(self.formats_summary)}')
