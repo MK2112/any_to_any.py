@@ -37,6 +37,7 @@ class Mp4ToAny:
         }
 
         self.formats_summary = [format for formats in self._supported_formats.values() for format in formats.keys()]
+        self.file_ending = '.mp4'
 
 
     # Single point of exit for the script
@@ -83,7 +84,7 @@ class Mp4ToAny:
 
         # Get mp4 files from input dir; os.listdir() is explicitly not recursive
         for file in os.listdir(self.input):
-            if file.lower().endswith('.mp4'):
+            if file.lower().endswith(self.file_ending):
                 print(f'[+] Scheduling: {file}')
                 file_paths.append(os.path.abspath(os.path.join(self.input, file)))
 
@@ -100,7 +101,7 @@ class Mp4ToAny:
             # Instantiate a video file clip for each mp4
             video = VideoFileClip(file_path, audio=True, fps_source='tbr')
             # Build output path
-            output_path = os.path.abspath(os.path.join(self.output, str(os.path.basename(file_path)).lower().replace('.mp4', f'.{output_format}')))
+            output_path = os.path.abspath(os.path.join(self.output, str(os.path.basename(file_path)).lower().replace(FILE_ENDING, f'.{output_format}')))
             # Grab audio from video (AudioFileClip object)
             audio = video.audio
             
@@ -122,7 +123,7 @@ class Mp4ToAny:
     def to_codec(self, _, codec, file_paths):
         for file_path in file_paths:
             video = VideoFileClip(file_path, audio=True, fps_source='tbr')
-            codec_mp4_path = os.path.abspath(os.path.join(self.output, str(os.path.basename(file_path)).lower().replace('.mp4', f'_{codec}.mp4')))
+            codec_mp4_path = os.path.abspath(os.path.join(self.output, str(os.path.basename(file_path)).lower().replace(self.file_ending, f'_{codec}.mp4')))
             # Write video with new codec and (customized or original) framerate
             video.write_videofile(codec_mp4_path, codec=codec, fps=video.fps if self.framerate is None else self.framerate, audio=True)
             video.close()
@@ -133,7 +134,7 @@ class Mp4ToAny:
     def to_movie(self, format, codec, file_paths):
         for file_path in file_paths:
             video = VideoFileClip(file_path, audio=True, fps_source='tbr')
-            out_path = os.path.abspath(os.path.join(self.output, str(os.path.basename(file_path)).lower().replace('.mp4', f'.{format}')))
+            out_path = os.path.abspath(os.path.join(self.output, str(os.path.basename(file_path)).lower().replace(self.file_ending, f'.{format}')))
             # File format is different, codec is file type specific, framerate is customized or original
             video.write_videofile(out_path, codec=codec, fps=video.fps if self.framerate is None else self.framerate, audio=True)
             video.close()
@@ -144,7 +145,7 @@ class Mp4ToAny:
     def to_frames_png(self, file_paths):
         for file_path in file_paths:
             video = VideoFileClip(file_path, audio=False, fps_source='tbr')
-            png_path = os.path.join(self.output, str(os.path.basename(file_path)).lower().replace('.mp4', ''))
+            png_path = os.path.join(self.output, str(os.path.basename(file_path)).lower().replace(self.file_ending, ''))
             # Split video into individual png frame images at original framerate
             video.write_images_sequence(f"{png_path}-frame_%06d.png", fps=video.fps)
             video.close()
@@ -155,7 +156,7 @@ class Mp4ToAny:
     def to_gif(self, file_paths):
         for file_path in file_paths:
             video = VideoFileClip(file_path, audio=False, fps_source='tbr')
-            gif_path = os.path.join(self.output, str(os.path.basename(file_path)).lower().replace('.mp4', '.gif'))
+            gif_path = os.path.join(self.output, str(os.path.basename(file_path)).lower().replace(self.file_ending, '.gif'))
             # Write gif with original framerate and all frames
             video.write_gif(gif_path, fps=video.fps)
             video.close()
@@ -165,7 +166,7 @@ class Mp4ToAny:
     def to_bmp(self, file_paths):
         for file_path in file_paths:
             video = VideoFileClip(file_path, audio=False, fps_source='tbr')
-            bmp_path = os.path.join(self.output, str(os.path.basename(file_path)).lower().replace('.mp4', ''))
+            bmp_path = os.path.join(self.output, str(os.path.basename(file_path)).lower().replace(self.file_ending, ''))
             # Split video into individual bmp frame images at original framerate
             for i, frame in enumerate(video.iter_frames(fps=video.fps, dtype='uint8')):
                 frame.save(f"{bmp_path}-frame_{i:06d}.bmp", format='bmp')
