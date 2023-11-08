@@ -14,7 +14,7 @@ This Python script helps you convert between various media file formats.
 2. **Python Version**:
    - Ensure you have Python 3.x installed on your system. If not, you can download it from the official [Python website](https://www.python.org/downloads/).
 3. **Install MoviePy**:
-   - This script relies on the `moviepy` library for video processing. Install it via command prompt/terminal:<br>`pip install moviepy`
+   - This script relies on the libraries `moviepy` and `pillow`. Install ithem via terminal:<br>`pip install moviepy pillow`
 4. **Running the Script**:
     - Use the following command to convert e.g. MP4 files to MP3:<br>`python any-to-any.py -i /path/to/mp4s -o /path/to/save/files -f mp3 -d`
     - Parameters:
