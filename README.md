@@ -1,12 +1,11 @@
-# mp4-to-any.py - Convert MP4
+# any-to-any.py - Convert Media Files
 
-This Python script helps you convert MP4 files to various different formats.<br>
-It provides a light-weight solution, addressing shortcomings of certain proprietary software options.
+This Python script helps you convert between various media file formats.
 
 ## Supported Formats
 **Audio:** MP3, FLAC, WAV, OGG<br> 
 **Image:** PNG, GIF, BMP<br>
-**Video:** WebM, MOV, MKV, AVI<br>
+**Video:** MP4, WebM, MOV, MKV, AVI<br>
 **Mp4 Codecs:** H265, H264, XVID, MPEG4
 
 ## Usage
@@ -17,13 +16,13 @@ It provides a light-weight solution, addressing shortcomings of certain propriet
 3. **Install MoviePy**:
    - This script relies on the `moviepy` library for video processing. Install it via command prompt/terminal:<br>`pip install moviepy`
 4. **Running the Script**:
-    - Use the following command to convert MP4 files to MP3:<br>`python mp4-to-any.py -i /path/to/mp4s -o /path/to/save/files -f mp3 -d`
+    - Use the following command to convert e.g. MP4 files to MP3:<br>`python any-to-any.py -i /path/to/mp4s -o /path/to/save/files -f mp3 -d`
     - Parameters:
       - `-i` or `--input` (optional): Directory containing MP4 files to be converted. If not provided, the directory from where script is called will be used
-      - `-f` or `--format` (required): File format of desired output, either `mp3`, `png`, `gif`, `webm`, `flac`, `avi`, `bmp`, or mp4 codecs like `h265`, `h264`, `xvid` and `mpeg4`.
-      - `-o` or `--output` (optional): Directory to save MP3 files. If not provided, it will write to the MP4 path.
-      - `-d` or `--delete` (optional): Delete MP4 files after conversion.
-      - `-fps` or `--framerate` (optional): Designate the framerate (fps) when converting to a movie format or codec; default maintains input fps.
+      - `-f` or `--format` (required): File format of desired output, either `mp3`, `flac`, `wav`, `ogg`, `png`, `gif`, `bmp`, `mp4`, `webm`, `mov`, `mkv`, `avi`, or mp4 codecs like `h265`, `h264`, `xvid` and `mpeg4`.
+      - `-o` or `--output` (optional): Directory to save converted files. If not provided, it will write to the input file path.
+      - `-d` or `--delete` (optional): Delete input files after conversion.
+      - `-fps` or `--framerate` (optional): Set the framerate (fps) when converting to a movie format or codec; default maintains input fps.
    - Interaction via Web Browser is in the making, for now it's CLI
 
 ### License
