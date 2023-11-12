@@ -10,9 +10,10 @@ class AnyToAny:
     Interact with the script using the command line arguments defined at the bottom of this file.
     """
 
-    # DONE
     def __init__(self):
 
+        # Setting up a dictionary of supported formats 
+        # and respective information
         self._supported_formats = {
             'audio': {
                 'mp3':  'libmp3lame',
@@ -40,22 +41,21 @@ class AnyToAny:
             },
         }
 
+        # This is used in the CLI information output
         self.supported_formats = [format for formats in self._supported_formats.values() for format in formats.keys()]
     
 
     # Single point of exit for the script
-    # DONE
     def end_with_msg(self, msg):
         print(msg)
         exit(1)
 
 
-    # Main function to convert mp4 files to defined formats
-    # DONE
+    # Main function to convert media files to defined formats
     def convert(self, input, format, output, framerate, delete):
-        self.input = input if input is not None else os.getcwd()
+        self.input = input if input is not None else os.getcwd() # No input means working directory
         self.format = format.lower()
-        self.output = output if output is not None else self.input
+        self.output = output if output is not None else self.input # No output means same as input
         self.framerate = framerate
         self.delete = delete
 
@@ -69,33 +69,36 @@ class AnyToAny:
         elif self.format in self._supported_formats['image'].keys():
             self._supported_formats['image'][self.format](self._get_file_paths())
         else:
+            # Handle unsupported formats here
             self.end_with_msg(f'[!] Error: Output format must be one of {list(self.supported_formats)}')
 
 
-    # Get mp4 files from input directory
-    # DONE
+    # Get media files from input directory
     def _get_file_paths(self):
         if self.output is None:
             self.output = self.input
 
+        # Sanity check for existence of input and output directories
         for dir in [self.input, self.output]:
             if not os.path.exists(dir):
                 self.end_with_msg(f'[!] Error: Directory {dir} Does Not Exist.')
 
         print(f'Convert To {str(self.format).upper()} | Job Started For {self.input}\n')
 
+        # Discover and immediately attribute files to their specific category
         categories = self._supported_formats.keys()
         file_paths = {category: [] for category in categories}
 
         for file in os.listdir(self.input):
-            file = os.path.abspath(os.path.join(self.input, file))
-            file_ending = file[file.rfind('.')+1:].lower()
-            file_name = file[file.rfind(os.sep)+1:file.rfind('.')]
-            path_to_file = file[:file.rfind(os.sep)+1]
+            file = os.path.abspath(os.path.join(self.input, file)) # Get absolute path to file
+            file_ending = file[file.rfind('.')+1:].lower()         # Get file ending (e.g. mp4)
+            file_name = file[file.rfind(os.sep)+1:file.rfind('.')] # Get file name (e.g. video)
+            path_to_file = file[:file.rfind(os.sep)+1]             # Get path to file (e.g. /home/user/)
 
             found = False
 
             for category in categories:
+                # Check if file ending is supported for any category
                 if file_ending in self._supported_formats[category].keys() or (file_ending in self._supported_formats['movie'].keys() and category == 'movie_codecs'):
                     file_paths[category].append([path_to_file, file_name, file_ending])
                     print(f'[+] Scheduling: {file_name}.{file_ending}')
@@ -103,18 +106,21 @@ class AnyToAny:
                     break
 
             if not found:
+                # Handle files with unsupported formats here
                 print(f'[!] Warning: Skipping {file_name}.{file_ending} - Unsupported Format')
                 continue
 
+        # Check if any files were found
         if len(file_paths['audio']) == 0 and len(file_paths['image']) == 0 and len(file_paths['movie']) == 0:
             self.end_with_msg(f'[!] Warning: No Convertable Media Files Found In {self.input}')
 
+        # A dictionary of lists of file paths, one list per file category, it being the key
         return file_paths
 
 
-    # Convert mp4 to audio
-    # DONE
+    # Convert to audio
     def to_audio(self, file_paths, format, codec):
+        # Audio to audio conversion
         for audio_path_set in file_paths['audio']:
             audio = AudioFileClip(self._join_back(audio_path_set))
             if audio_path_set[2] != format:
@@ -125,6 +131,7 @@ class AnyToAny:
             else:   
                 print(f'[!] Warning: Skipping "{self._join_back(audio_path_set)}"\n')
 
+        # Movie to audio conversion
         for movie_path_set in file_paths['movie']:
             video = VideoFileClip(self._join_back(movie_path_set), audio=True, fps_source='tbr')
             output_path = os.path.abspath(os.path.join(self.output, f'{movie_path_set[1]}.{format}'))
@@ -141,8 +148,7 @@ class AnyToAny:
             self._post_process(movie_path_set, output_path, self.delete)
 
 
-    # Convert mp4 to mp4 with different codec
-    # DONE
+    # Convert movie to same movie with different codec
     def to_codec(self, file_paths, codec):
         for codec_path_set in file_paths['movie_codecs']:
             video = VideoFileClip(self._join_back(codec_path_set), audio=True, fps_source='tbr')
@@ -152,14 +158,12 @@ class AnyToAny:
             self._post_process(codec_path_set, output_path, self.delete)
 
 
-    # Convert mp4 to movie with different format
-    # This applies to image-sets and other movies only
-    # DONE
+    # Convert to movie with specified format
     def to_movie(self, file_paths, format, codec):
         pngs = bmps = []
-
         # Images (gif, png, bmp)
         for image_path_set in file_paths['image']:
+            # Depending on the format, different fragmentation is required
             if image_path_set[2].lower() == 'gif':
                 clip = ImageSequenceClip(self._join_back(image_path_set), fps=24)
                 out_path = os.path.abspath(os.path.join(self.output, f'{image_path_set[1]}.{format}'))
@@ -194,10 +198,11 @@ class AnyToAny:
             self._post_process(movie_path_set, out_path, self.delete)
 
 
+    # Converting to image frame sets
     # This works for images and movies only
-    # DONE
     def to_frames_png(self, file_paths):
         for image_path_set in file_paths['image']:
+            # We only need to care for gif and bmp, rather obvisouly
             if image_path_set[2].lower() == 'gif':
                 clip = ImageSequenceClip(self._join_back(image_path_set), fps=24)
                 for i, frame in enumerate(clip.iter_frames(fps=clip.fps, dtype='uint8')):
@@ -210,7 +215,8 @@ class AnyToAny:
                 with Image.open(self._join_back(image_path_set)) as img:
                     img.convert("RGB").save(png_path, format='png')
                 self._post_process(image_path_set, png_path, self.delete)
-            
+        
+        # Audio cant be image-framed, but movies certrainly can
         for movie_path_set in file_paths['movie']:
             video = VideoFileClip(self._join_back(movie_path_set), audio=False, fps_source='tbr')
             if not os.path.exists(os.path.join(self.output, movie_path_set[1])):
@@ -222,8 +228,8 @@ class AnyToAny:
 
 
     # Convert to gif
-    # DONE
     def to_gif(self, file_paths):
+        # For now, all images in the input directory are merged into one gif
         if len(file_paths['image']) > 0:
             images = []
             for image_path_set in file_paths['image']:
@@ -231,6 +237,7 @@ class AnyToAny:
                     images.append(image.convert('RGBA'))
             images[0].save(os.path.join(self.output, 'merged.gif'), save_all=True, append_images=images[1:])
         
+        # Movies are converted to gifs as well, incorporating all frames
         for movie_path_set in file_paths['movie']:
             video = VideoFileClip(self._join_back(movie_path_set), audio=False, fps_source='tbr')
             gif_path = os.path.join(self.output, f'{movie_path_set[1]}.gif')
@@ -239,17 +246,18 @@ class AnyToAny:
             self._post_process(movie_path_set, gif_path, self.delete)
 
 
-    # Convert mp4 to frames in bmp format
-    # DONE
+    # Convert frames in bmp format
     def to_bmp(self, file_paths):
+        # Movies are converted to bmps, frame by frame
         for movie_path_set in file_paths['movie']:
             video = VideoFileClip(self._join_back(movie_path_set), audio=False, fps_source='tbr')
             bmp_path = os.path.join(self.output, f'{movie_path_set[1]}.bmp')
             # Split video into individual bmp frame images at original framerate
-            for i, frame in enumerate(video.iter_frames(fps=video.fps, dtype='uint8')):
+            for _, frame in enumerate(video.iter_frames(fps=video.fps, dtype='uint8')):
                 frame.save(f"{bmp_path}-%06d.bmp", format='bmp')
             self._post_process(movie_path_set, bmp_path, self.delete)
 
+        # Pngs and gifs are converted to bmps as well
         for image_path_set in file_paths['images']:
             if not image_path_set[2].lower() == 'bmp':
                 if image_path_set[2].lower() == 'png':
@@ -258,7 +266,7 @@ class AnyToAny:
                         img.convert("RGB").save(bmp_path, format='BMP')
                 elif image_path_set[2].lower() == 'gif':
                     clip = VideoFileClip(self._join_back(image_path_set))
-                    for i, frame in enumerate(clip.iter_frames(fps=clip.fps, dtype='uint8')):
+                    for _, frame in enumerate(clip.iter_frames(fps=clip.fps, dtype='uint8')):
                         frame_path = os.path.join(self.output, f"{image_path_set[1]}-%06d.bmp")
                         Image.fromarray(frame).convert("RGB").save(frame_path, format='BMP')
                 else:
@@ -267,7 +275,6 @@ class AnyToAny:
             
 
     # Post process after conversion, print, delete source file if desired
-    # DONE
     def _post_process(self, file_path_set, out_path, delete):
         print(f'[+] Converted "{self._join_back(file_path_set)}" to "{out_path}"')
         if delete:
@@ -275,7 +282,7 @@ class AnyToAny:
             print(f'[-] Removed "{file_path_set}"')
 
 
-    # DONE
+    # Join back the file path set to a concurrent path
     def _join_back(self, file_path_set):
         return os.path.abspath(f'{file_path_set[0]}{file_path_set[1]}.{file_path_set[2]}')
 
