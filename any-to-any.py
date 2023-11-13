@@ -20,6 +20,7 @@ class AnyToAny:
                 'flac': 'flac',
                 'ogg':  'libvorbis',
                 'wav':  'pcm_s16le',
+                'm4a':  'aac',
             },
             'image': {
                 'gif': self.to_gif,

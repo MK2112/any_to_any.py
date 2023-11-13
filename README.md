@@ -3,7 +3,7 @@
 This Python script helps you convert between various media file formats.
 
 ## Supported Formats
-**Audio:** MP3, FLAC, WAV, OGG<br> 
+**Audio:** MP3, FLAC, WAV, OGG, M4A<br> 
 **Image:** PNG, GIF, BMP<br>
 **Video:** MP4, WebM, MOV, MKV, AVI<br>
 **Mp4 Codecs:** H265, H264, XVID, MPEG4
@@ -19,7 +19,7 @@ This Python script helps you convert between various media file formats.
     - Use the following command to convert e.g. MP4 files to MP3:<br>`python any-to-any.py -i /path/to/mp4s -o /path/to/save/files -f mp3 -d`
     - Parameters:
       - `-i` or `--input` (optional): Directory containing MP4 files to be converted. If not provided, the directory from where script is called will be used
-      - `-f` or `--format` (required): File format of desired output, either `mp3`, `flac`, `wav`, `ogg`, `png`, `gif`, `bmp`, `mp4`, `webm`, `mov`, `mkv`, `avi`, or mp4 codecs like `h265`, `h264`, `xvid` and `mpeg4`.
+      - `-f` or `--format` (required): File format of desired output, either `mp3`, `flac`, `wav`, `ogg`, `m4a`, `png`, `gif`, `bmp`, `mp4`, `webm`, `mov`, `mkv`, `avi`, or mp4 codecs like `h265`, `h264`, `xvid` and `mpeg4`.
       - `-o` or `--output` (optional): Directory to save converted files. If not provided, it will write to the input file path.
       - `-d` or `--delete` (optional): Delete input files after conversion.
       - `-fps` or `--framerate` (optional): Set the framerate (fps) when converting to a movie format or codec; default maintains input fps.
