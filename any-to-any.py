@@ -176,27 +176,28 @@ class AnyToAny:
             elif image_path_set[2].lower() == 'bmp':
                 bmps.append(ImageClip(self._join_back(image_path_set)).set_duration(1))
 
-        # PNGs
+        # PNG to movie
         if len(pngs) > 0:
             final_clip = concatenate_videoclips(pngs, method="compose")
             out_path = os.path.abspath(os.path.join(self.output, f'png_merged.{format}'))
             final_clip.write_videofile(out_path, fps=24 if self.framerate is None else self.framerate, codec=codec)
             final_clip.close()
 
-        # BMPs
+        # BMP to movie
         if len(bmps) > 0:
             final_clip = concatenate_videoclips(bmps, method="compose")
             out_path = os.path.abspath(os.path.join(self.output, f'bmp_merged.{format}'))
             final_clip.write_videofile(out_path, fps=24 if self.framerate is None else self.framerate, codec=codec)
             final_clip.close()
             
-        # Movies
+        # Movie ... to other movie
         for movie_path_set in file_paths['movie']:
-            video = VideoFileClip(self._join_back(movie_path_set), audio=True, fps_source='tbr')
-            out_path = os.path.abspath(os.path.join(self.output, f'{movie_path_set[1]}.{format}'))
-            video.write_videofile(out_path, codec=codec, fps=video.fps if self.framerate is None else self.framerate, audio=True)
-            video.close()
-            self._post_process(movie_path_set, out_path, self.delete)
+            if not movie_path_set[2].lower() == format:
+                video = VideoFileClip(self._join_back(movie_path_set), audio=True, fps_source='tbr')
+                out_path = os.path.abspath(os.path.join(self.output, f'{movie_path_set[1]}.{format}'))
+                video.write_videofile(out_path, codec=codec, fps=video.fps if self.framerate is None else self.framerate, audio=True)
+                video.close()
+                self._post_process(movie_path_set, out_path, self.delete)
 
 
     # Converting to image frame sets
@@ -292,7 +293,7 @@ class AnyToAny:
 # In a minimal configuration, make sure at least 'input' and 'format' exist
 if __name__ == '__main__':
     # Check if required libraries are installed
-    for lib in ['moviepy']:
+    for lib in ['moviepy', 'PIL']:
         try:
             __import__(lib)
         except ImportError as ie:
