@@ -51,10 +51,29 @@ class AnyToAny:
         print(msg)
         exit(1)
 
+    
+    # Return bitrate for audio conversion
+    def _audio_bitrate(self, format, quality):
+        if format in ['flac', 'wav']:
+            bitrate_dict = {
+                'high': '500k',
+                'medium': '320k',
+                'low': '192k'
+            }
+        else:
+            bitrate_dict = {
+                'high': '320k',
+                'medium': '192k',
+                'low': '128k'
+            }
+
+        return bitrate_dict.get(quality, None)
+
 
     # Main function to convert media files to defined formats
-    def convert(self, input, format, output, framerate, delete):
+    def convert(self, input, format, output, framerate, quality, delete):
         self.input = input if input is not None else os.getcwd() # No input means working directory
+        self.quality = quality.lower() if quality.lower() in ['high', 'medium', 'low'] else None
         self.format = format.lower()
         self.output = output if output is not None else self.input # No output means same as input
         self.framerate = framerate
@@ -72,6 +91,8 @@ class AnyToAny:
         else:
             # Handle unsupported formats here
             self.end_with_msg(f'[!] Error: Output format must be one of {list(self.supported_formats)}')
+
+        print("\n[+] Job Finished")
 
 
     # Get media files from input directory
@@ -108,7 +129,7 @@ class AnyToAny:
 
             if not found:
                 # Handle files with unsupported formats here
-                print(f'[!] Warning: Skipping {file_name}.{file_ending} - Unsupported Format')
+                print(f'[!] Skipping {file_name}.{file_ending} - Unsupported Format')
                 continue
 
         # Check if any files were found
@@ -126,11 +147,12 @@ class AnyToAny:
             audio = AudioFileClip(self._join_back(audio_path_set))
             if audio_path_set[2] != format:
                 output_path = os.path.abspath(os.path.join(self.output, f'{audio_path_set[1]}.{format}'))
-                audio.write_audiofile(output_path, codec=codec)
+                # Write audio to file
+                audio.write_audiofile(output_path, codec=codec, bitrate=self._audio_bitrate(format, self.quality))
                 audio.close()
                 self._post_process(audio_path_set, output_path, self.delete)
             else:   
-                print(f'[!] Warning: Skipping "{self._join_back(audio_path_set)}"\n')
+                print(f'[!] Skipping "{self._join_back(audio_path_set)}"\n')
 
         # Movie to audio conversion
         for movie_path_set in file_paths['movie']:
@@ -142,7 +164,7 @@ class AnyToAny:
                 print(f'[!] Warning: No audio found in "{self._join_back(movie_path_set)}" - Skipping\n')
                 continue
             # Write audio to file
-            audio.write_audiofile(output_path, codec=codec)
+            audio.write_audiofile(output_path, codec=codec, bitrate=self._audio_bitrate(format, self.quality))
             audio.close()
             video.close()
             # Post process (delete mp4, print success)
@@ -273,7 +295,7 @@ class AnyToAny:
                         Image.fromarray(frame).convert("RGB").save(frame_path, format='BMP')
                 else:
                     # Handle unsupported file types here
-                    print(f"[!] Warning: Skipping {self._join_back(image_path_set)} - Unsupported format")
+                    print(f"[!] Skipping {self._join_back(image_path_set)} - Unsupported format")
             
 
     # Post process after conversion, print, delete source file if desired
@@ -308,6 +330,7 @@ if __name__ == '__main__':
     parser.add_argument('-o', '--output', help='Directory to save files, writing to mp4 path if not provided', type=str, required=False)
     parser.add_argument('-f', '--format', help=f'Set the output format ({any_to_any.supported_formats})', type=str, required=True)
     parser.add_argument('-fps', '--framerate', help='Set the output framerate (default: same as input)', type=int, required=False)
+    parser.add_argument('-q', '--quality', help='Set the output quality (high/medium/low)', type=str, required=False)
     parser.add_argument('-d', '--delete', help='Delete mp4 files after conversion', action='store_true', required=False)
 
     args = vars(parser.parse_args())
@@ -316,5 +339,6 @@ if __name__ == '__main__':
     any_to_any.convert(input=args['input'],
                        format=args['format'], 
                        output=args['output'], 
-                       framerate=args['framerate'], 
+                       framerate=args['framerate'],
+                       quality=args['quality'], 
                        delete=args['delete'])
