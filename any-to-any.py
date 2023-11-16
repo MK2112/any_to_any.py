@@ -35,6 +35,8 @@ class AnyToAny:
                 'mp4':  'libx264',
             },
             'movie_codecs': {
+                'av1':   'libaom-av1',
+                'vp9':   'libvpx-vp9',
                 'h265':  'libx265',
                 'h264':  'libx264',
                 'xvid':  'libxvid',
@@ -73,11 +75,15 @@ class AnyToAny:
     # Main function to convert media files to defined formats
     def convert(self, input, format, output, framerate, quality, delete):
         self.input = input if input is not None else os.getcwd() # No input means working directory
-        self.quality = quality.lower() if quality.lower() in ['high', 'medium', 'low'] else None
         self.format = format.lower()
         self.output = output if output is not None else self.input # No output means same as input
         self.framerate = framerate
         self.delete = delete
+
+        if quality is not None:
+            self.quality = quality.lower() if quality.lower() in ['high', 'medium', 'low'] else None
+        else:
+            self.quality = None
 
         # Check if value associated to format is tuple/string or function to call specific conversion
         if self.format in self._supported_formats['movie'].keys():
@@ -121,7 +127,7 @@ class AnyToAny:
 
             for category in categories:
                 # Check if file ending is supported for any category
-                if file_ending in self._supported_formats[category].keys() or (file_ending in self._supported_formats['movie'].keys() and category == 'movie_codecs'):
+                if file_ending in self._supported_formats[category].keys():
                     file_paths[category].append([path_to_file, file_name, file_ending])
                     print(f'[+] Scheduling: {file_name}.{file_ending}')
                     found = True
@@ -161,7 +167,7 @@ class AnyToAny:
             audio = video.audio
             # Check if audio was found
             if audio is None:
-                print(f'[!] Warning: No audio found in "{self._join_back(movie_path_set)}" - Skipping\n')
+                print(f'[!] No audio found in "{self._join_back(movie_path_set)}" - Skipping\n')
                 continue
             # Write audio to file
             audio.write_audiofile(output_path, codec=codec, bitrate=self._audio_bitrate(format, self.quality))
@@ -173,7 +179,7 @@ class AnyToAny:
 
     # Convert movie to same movie with different codec
     def to_codec(self, file_paths, codec):
-        for codec_path_set in file_paths['movie_codecs']:
+        for codec_path_set in file_paths['movie']: # Jup, this is on purpose
             video = VideoFileClip(self._join_back(codec_path_set), audio=True, fps_source='tbr')
             output_path = os.path.abspath(os.path.join(self.output, f'{codec_path_set[1]}_{codec}.{codec_path_set[2]}'))
             video.write_videofile(output_path, codec=codec, fps=video.fps if self.framerate is None else self.framerate, audio=True)

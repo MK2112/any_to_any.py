@@ -6,7 +6,7 @@ This Python script helps you convert between various media file formats.
 **Audio:** MP3, FLAC, WAV, OGG, M4A<br> 
 **Image:** PNG, GIF, BMP<br>
 **Video:** MP4, WebM, MOV, MKV, AVI<br>
-**Mp4 Codecs:** H265, H264, XVID, MPEG4
+**Mp4 Codecs:** H265, H264, XVID, MPEG4, AV1, VP9
 
 ## Usage
 1. **Download/Clone**:
