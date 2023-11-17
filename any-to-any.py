@@ -56,20 +56,19 @@ class AnyToAny:
     
     # Return bitrate for audio conversion
     def _audio_bitrate(self, format, quality):
+        # If formats allow for a higher bitrate, we shift our scale accordingly
         if format in ['flac', 'wav']:
-            bitrate_dict = {
+            return {
                 'high': '500k',
                 'medium': '320k',
                 'low': '192k'
-            }
+            }.get(quality, None)
         else:
-            bitrate_dict = {
+            return {
                 'high': '320k',
                 'medium': '192k',
                 'low': '128k'
-            }
-
-        return bitrate_dict.get(quality, None)
+            }.get(quality, None)
 
 
     # Main function to convert media files to defined formats
@@ -235,7 +234,7 @@ class AnyToAny:
             # We only need to care for gif and bmp, rather obvisouly
             if image_path_set[2].lower() == 'gif':
                 clip = ImageSequenceClip(self._join_back(image_path_set), fps=24)
-                for i, frame in enumerate(clip.iter_frames(fps=clip.fps, dtype='uint8')):
+                for _, frame in enumerate(clip.iter_frames(fps=clip.fps, dtype='uint8')):
                     frame_path = os.path.abspath(os.path.join(self.output, f'{image_path_set[1]}-%06d.png'))
                     Image.fromarray(frame).save(frame_path, format='png')
                 clip.close()
