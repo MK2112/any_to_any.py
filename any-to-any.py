@@ -26,6 +26,7 @@ class AnyToAny:
                 'gif': self.to_gif,
                 'png': self.to_frames_png,
                 'bmp': self.to_bmp,
+                'webp': self.to_webp,
             },
             'movie': {
                 'webm': 'libvpx',
@@ -301,7 +302,35 @@ class AnyToAny:
                 else:
                     # Handle unsupported file types here
                     print(f"[!] Skipping {self._join_back(image_path_set)} - Unsupported format")
-            
+    
+    
+    # Convert frames in webp format
+    def to_webp(self, file_paths):
+        # Movies are converted to webps, frame by frame
+        for movie_path_set in file_paths['movie']:
+            video = VideoFileClip(self._join_back(movie_path_set), audio=False, fps_source='tbr')
+            webp_path = os.path.join(self.output, f'{movie_path_set[1]}.webp')
+            # Split video into individual webp frame images at original framerate
+            for _, frame in enumerate(video.iter_frames(fps=video.fps, dtype='uint8')):
+                frame.save(f"{webp_path}-%06d.webp", format='webp')
+            self._post_process(movie_path_set, webp_path, self.delete)
+
+        # Pngs and gifs are converted to webps as well
+        for image_path_set in file_paths['images']:
+            if not image_path_set[2].lower() == 'webp':
+                if image_path_set[2].lower() == 'png':
+                    webp_path = os.path.join(self.output, f'{image_path_set[1]}.webp')
+                    with Image.open(self._join_back(image_path_set)) as img:
+                        img.convert("RGB").save(webp_path, format='webp')
+                elif image_path_set[2].lower() == 'gif':
+                    clip = VideoFileClip(self._join_back(image_path_set))
+                    for _, frame in enumerate(clip.iter_frames(fps=clip.fps, dtype='uint8')):
+                        frame_path = os.path.join(self.output, f"{image_path_set[1]}-%06d.webp")
+                        Image.fromarray(frame).convert("RGB").save(frame_path, format='webp')
+                else:
+                    # Handle unsupported file types here
+                    print(f"[!] Skipping {self._join_back(image_path_set)} - Unsupported format")
+
 
     # Post process after conversion, print, delete source file if desired
     def _post_process(self, file_path_set, out_path, delete):
