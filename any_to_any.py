@@ -373,7 +373,7 @@ if __name__ == '__main__':
 
     # Check if web frontend is desired
     if args['web']:
-        subprocess.run("python ./web-to-any.py")
+        subprocess.run("python ./web_to_any.py")
     else:
         # Run main function with parsed arguments
         any_to_any.convert(input=args['input'],
