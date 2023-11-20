@@ -1,5 +1,6 @@
 import os
 import argparse
+import subprocess
 from moviepy.editor import *
 from PIL import Image
 
@@ -75,7 +76,7 @@ class AnyToAny:
     # Main function to convert media files to defined formats
     def convert(self, input, format, output, framerate, quality, delete):
         self.input = input if input is not None else os.getcwd() # No input means working directory
-        self.format = format.lower()
+        self.format = format.lower() if format is not None else None
         self.output = output if output is not None else self.input # No output means same as input
         self.framerate = framerate
         self.delete = delete
@@ -362,17 +363,22 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Convert media files to different media formats')
     parser.add_argument('-i', '--input', help='Directory containing media files to be converted, Working Directory if none provided', type=str, required=False)
     parser.add_argument('-o', '--output', help='Directory to save files, writing to mp4 path if not provided', type=str, required=False)
-    parser.add_argument('-f', '--format', help=f'Set the output format ({any_to_any.supported_formats})', type=str, required=True)
+    parser.add_argument('-f', '--format', help=f'Set the output format ({any_to_any.supported_formats})', type=str, required=False)
     parser.add_argument('-fps', '--framerate', help='Set the output framerate (default: same as input)', type=int, required=False)
     parser.add_argument('-q', '--quality', help='Set the output quality (high/medium/low)', type=str, required=False)
     parser.add_argument('-d', '--delete', help='Delete mp4 files after conversion', action='store_true', required=False)
+    parser.add_argument('-w', '--web', help='Ignores all other arguments, starts web server + frontend', action='store_true', required=False)
 
     args = vars(parser.parse_args())
 
-    # Run main function with parsed arguments
-    any_to_any.convert(input=args['input'],
-                       format=args['format'], 
-                       output=args['output'], 
-                       framerate=args['framerate'],
-                       quality=args['quality'], 
-                       delete=args['delete'])
+    # Check if web frontend is desired
+    if args['web']:
+        subprocess.run("python ./web-to-any.py")
+    else:
+        # Run main function with parsed arguments
+        any_to_any.convert(input=args['input'],
+                           format=args['format'], 
+                           output=args['output'], 
+                           framerate=args['framerate'],
+                           quality=args['quality'], 
+                           delete=args['delete'])

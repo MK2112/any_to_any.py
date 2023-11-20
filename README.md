@@ -1,4 +1,4 @@
-# any-to-any.py - Convert Media Files
+# any_to_any.py - Convert Media Files
 
 This Python script helps you convert between various media file formats.
 
@@ -16,7 +16,7 @@ This Python script helps you convert between various media file formats.
 3. **Install MoviePy**:
    - This script relies on the libraries `moviepy` and `pillow`. Install ithem via terminal:<br>`pip install moviepy pillow`
 4. **Running the Script**:
-    - Use the following command to convert e.g. MP4 files MP3:<br>`python any-to-any.py -i /path/to/mp4s -o /path/to/save/files -f mp3 -q high -d`
+    - Use the following command to convert e.g. MP4 files MP3:<br>`python any_to_any.py -i /path/to/mp4s -o /path/to/save/files -f mp3 -q high -d`
     - Parameters:
       - `-i` or `--input` (optional): Directory containing MP4 files to be converted. If not provided, the directory from where script is called will be used
       - `-f` or `--format` (required): File format of desired output, either `mp3`, `flac`, `wav`, `ogg`, `m4a`, `png`, `gif`, `bmp`, `webp`, `mp4`, `webm`, `mov`, `mkv`, `avi`, or mp4 codecs like `h265`, `h264`, `xvid` and `mpeg4`.
