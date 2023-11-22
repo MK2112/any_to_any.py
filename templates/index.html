@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script async defer src="https://buttons.github.io/buttons.js"></script>
+</head>
+
+<body>
+    <header>
+        <h1>
+            <a class="static-anchor" target="_blank" href="https://github.com/mk2112/any_to_any.py">{{ title }}</a>
+            <p>Beta</p>
+            <a class="github-button" href="https://github.com/mk2112/any_to_any.py/fork" data-icon="octicon-repo-forked" aria-label="Fork mk2112/any_to_any.py on GitHub">Fork</a>
+            <a class="github-button" href="https://github.com/mk2112/any_to_any.py" data-icon="octicon-star" aria-label="Star mk2112/any_to_any.py on GitHub">Star</a>
+        </h1>
+    </header>
+    <div class="fade-in">
+        <main>
+            <form id="conversion-form" method="post" enctype="multipart/form-data">
+                <div id="drop-area" ondrop="drop(event)" ondragover="allowDrop(event)" onclick="triggerUploadDialogue(event)">
+                    <p>Drag and drop or click to select files</p>
+                    <input type="file" name="files" id="files" multiple onchange="handleFiles(this.files)">
+                    <ul id="file-list"></ul>
+                </div>
+                <div id="conversion-options">
+                    <label for="conversion-type">Convert To:</label>
+                    <select id="conversion-type">
+                        {% for option in options %}
+                        <option value="{{ option }}">{{ option }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="button" onclick="submitForm('/convert')">Convert</button>
+                    <button type="button" onclick="submitForm('/merge')">Merge</button>
+                </div>
+            </form>                    
+        </main>
+    </div>
+</body>
+</html>
