@@ -1,5 +1,6 @@
 import os
 import argparse
+import subprocess
 from moviepy.editor import *
 from PIL import Image
 
@@ -82,6 +83,11 @@ class AnyToAny:
         self.merge = merge
         self.delete = delete
 
+        # Check if the output dir exists, if not, create it
+        if not os.path.exists(self.output):
+            os.makedirs(self.output)
+
+        # Check if quality is set, if not, set it to None
         if quality is not None:
             self.quality = quality.lower() if quality.lower() in ['high', 'medium', 'low'] else None
         else:
@@ -364,7 +370,7 @@ class AnyToAny:
         print(f'[+] Converted "{self._join_back(file_path_set)}" to "{out_path}"')
         if delete:
             os.remove(self._join_back(file_path_set))
-            print(f'[-] Removed "{file_path_set}"')
+            print(f'[-] Removed "{self._join_back(file_path_set)}"')
 
 
     # Join back the file path set to a concurrent path
@@ -394,14 +400,19 @@ if __name__ == '__main__':
     parser.add_argument('-fps', '--framerate', help='Set the output framerate (default: same as input)', type=int, required=False)
     parser.add_argument('-q', '--quality', help='Set the output quality (high/medium/low)', type=str, required=False)
     parser.add_argument('-d', '--delete', help='Delete mp4 files after conversion', action='store_true', required=False)
-
+    parser.add_argument('-w', '--web', help='Ignores all other arguments, starts web server + frontend', action='store_true', required=False)
+    
     args = vars(parser.parse_args())
-
-    # Run main function with parsed arguments
-    any_to_any.convert(input=args['input'],
-                        format=args['format'], 
-                        output=args['output'], 
-                        framerate=args['framerate'],
-                        quality=args['quality'], 
-                        merge=args['merge'],
-                        delete=args['delete'])
+    
+    # Check if web frontend is desired
+    if args['web']:
+        subprocess.run("python ./web_to_any.py")
+    else:
+        # Run main function with parsed arguments
+        any_to_any.convert(input=args['input'],
+                           format=args['format'], 
+                           output=args['output'], 
+                           framerate=args['framerate'],
+                           quality=args['quality'],
+                           merge=args['merge'], 
+                           delete=args['delete'])
