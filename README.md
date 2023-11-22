@@ -13,9 +13,9 @@ This Python script helps you convert between various media file formats.
    - Either download the most recent version from this Git repository directly, or use `git clone` to do so
 2. **Python Version**:
    - Ensure you have Python 3.x installed on your system. If not, you can download it from the official [Python website](https://www.python.org/downloads/).
-3. **Install MoviePy**:
+3. **Install Dependencies**:
    - This script relies on `moviepy` and `pillow`. Install them via terminal:<br>`pip install moviepy pillow`
-   - If you want to use the web interface, you'll additionally need `flask` and `flask-reuploaded`
+   - If you want to use the web interface, you'll additionally need `flask` and `flask-reuploaded`:<br>`pip install flask flask-reuploaded`
 4. **Running the Script**:
    Fundamentally, you can use Any_to_Any.py in two ways:
    - *Web Interface*
