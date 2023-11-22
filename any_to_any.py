@@ -1,6 +1,5 @@
 import os
 import argparse
-import subprocess
 from moviepy.editor import *
 from PIL import Image
 
@@ -22,6 +21,7 @@ class AnyToAny:
                 'ogg':  'libvorbis',
                 'wav':  'pcm_s16le',
                 'm4a':  'aac',
+                'weba': 'libopus',
             },
             'image': {
                 'gif': self.to_gif,
@@ -74,11 +74,12 @@ class AnyToAny:
 
 
     # Main function to convert media files to defined formats
-    def convert(self, input, format, output, framerate, quality, delete):
-        self.input = input if input is not None else os.getcwd() # No input means working directory
+    def convert(self, input, format, output, framerate, quality, merge, delete):
+        self.input = input if input is not None else os.getcwd()    # No input means working directory
+        self.output = output if output is not None else self.input  # No output means same as input
         self.format = format.lower() if format is not None else None
-        self.output = output if output is not None else self.input # No output means same as input
         self.framerate = framerate
+        self.merge = merge
         self.delete = delete
 
         if quality is not None:
@@ -95,6 +96,8 @@ class AnyToAny:
             self.to_codec(file_paths=self._get_file_paths(), codec=self._supported_formats['movie_codecs'][self.format])
         elif self.format in self._supported_formats['image'].keys():
             self._supported_formats['image'][self.format](self._get_file_paths())
+        elif self.merge:
+            self.concatenate(self._get_file_paths())
         else:
             # Handle unsupported formats here
             self.end_with_msg(f'[!] Error: Output format must be one of {list(self.supported_formats)}')
@@ -333,6 +336,29 @@ class AnyToAny:
                     print(f"[!] Skipping {self._join_back(image_path_set)} - Unsupported format")
 
 
+    # For movie files that have an equally named audio file, merge them together under same name (with '_merged' addition)
+    def concatenate(self, file_paths):
+        # Iterate over all movie file path sets
+        found_audio = False
+        for movie_path_set in file_paths['movie']:
+            # Check if there is a corresponding audio file
+            audio_fit = next((audio_set for audio_set in file_paths['audio'] if audio_set[1] == movie_path_set[1]), None)
+            if audio_fit is not None:
+                found_audio = True
+                # Merge movie and audio file
+                video = VideoFileClip(self._join_back(movie_path_set), audio=False, fps_source='tbr')
+                audio = AudioFileClip(self._join_back(audio_fit))
+                video.audio = audio
+                video.write_videofile(os.path.join(self.output, f'{movie_path_set[1]}_merged.{movie_path_set[2]}'), fps=video.fps if self.framerate is None else self.framerate, codec='libx264')
+                video.close()
+                audio.close()
+                # Post process (delete mp4, print success)
+                self._post_process(movie_path_set, self.output, self.delete)
+        
+        if not found_audio:
+            print('[!] No audio files found to merge with movie files')
+            
+
     # Post process after conversion, print, delete source file if desired
     def _post_process(self, file_path_set, out_path, delete):
         print(f'[+] Converted "{self._join_back(file_path_set)}" to "{out_path}"')
@@ -364,21 +390,18 @@ if __name__ == '__main__':
     parser.add_argument('-i', '--input', help='Directory containing media files to be converted, Working Directory if none provided', type=str, required=False)
     parser.add_argument('-o', '--output', help='Directory to save files, writing to mp4 path if not provided', type=str, required=False)
     parser.add_argument('-f', '--format', help=f'Set the output format ({any_to_any.supported_formats})', type=str, required=False)
+    parser.add_argument('-m', '--merge', help='Per movie file, merge to movie with equally named audio file', action='store_true', required=False)
     parser.add_argument('-fps', '--framerate', help='Set the output framerate (default: same as input)', type=int, required=False)
     parser.add_argument('-q', '--quality', help='Set the output quality (high/medium/low)', type=str, required=False)
     parser.add_argument('-d', '--delete', help='Delete mp4 files after conversion', action='store_true', required=False)
-    parser.add_argument('-w', '--web', help='Ignores all other arguments, starts web server + frontend', action='store_true', required=False)
 
     args = vars(parser.parse_args())
 
-    # Check if web frontend is desired
-    if args['web']:
-        subprocess.run("python ./web_to_any.py")
-    else:
-        # Run main function with parsed arguments
-        any_to_any.convert(input=args['input'],
-                           format=args['format'], 
-                           output=args['output'], 
-                           framerate=args['framerate'],
-                           quality=args['quality'], 
-                           delete=args['delete'])
+    # Run main function with parsed arguments
+    any_to_any.convert(input=args['input'],
+                        format=args['format'], 
+                        output=args['output'], 
+                        framerate=args['framerate'],
+                        quality=args['quality'], 
+                        merge=args['merge'],
+                        delete=args['delete'])
