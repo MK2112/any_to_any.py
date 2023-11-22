@@ -1,0 +1,101 @@
+body {
+    margin-left: 0;
+    margin-right: 0;
+    margin-top: 0;
+    font-size: large;
+    background-color: white;
+    font-family: ui-sans-serif, Segoe UI, Helvetica Neue, Roboto, Arial, sans-serif;
+}
+
+h1 p {
+    display: inline-block;
+    font-weight: 100;
+    margin: 0;
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+    width: auto;
+    margin-top: 5%;
+}
+
+.fade-in {
+    animation: fade-in 0.75s forwards;
+}
+
+.static-anchor {
+    text-decoration: none;
+    color: black;
+}
+
+@keyframes fade-in {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+
+@media only screen and (max-width: 799px) {
+    .fade-in {
+        margin-left: 2%;
+        margin-right: 2%;
+    }
+
+    header {
+        margin-left: 2%;
+        margin-right: 2%;
+    }
+}
+
+@media only screen and (min-width: 800px) and (max-width: 999px) {
+    .fade-in {
+        margin-left: 10%;
+        margin-right: 10%;
+    }
+
+    header {
+        margin-left: 10%;
+        margin-right: 10%;
+    }
+}
+
+@media only screen and (min-width: 1000px) {
+    .fade-in {
+        margin-left: 27%;
+        margin-right: 27%;
+    }
+
+    header {
+        margin-left: 27%;
+        margin-right: 27%;
+    }
+}
+
+#drop-area {
+    border: 2px dashed #ccc;
+    border-radius: 8px;
+    text-align: center;
+    padding: 50px;
+    cursor: pointer;
+    transition: 0.3s ease-in-out;
+}
+
+#drop-area:hover {
+    background-color: #f5f5f5;
+    border: 2px dashed #bbb;
+}
+
+#file-list {
+    list-style-type: none;
+    padding: 0;
+    font-size: 0.75rem;
+}
+
+#conversion-options {
+    margin-top: 20px;
+}
