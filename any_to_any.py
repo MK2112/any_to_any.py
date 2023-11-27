@@ -12,7 +12,6 @@ class AnyToAny:
     """
 
     def __init__(self):
-
         # Setting up a dictionary of supported formats 
         # and respective information
         self._supported_formats = {
@@ -52,11 +51,16 @@ class AnyToAny:
     
 
     # Single point of exit for the script
-    def end_with_msg(self, msg):
-        print(msg)
-        exit(1)
-
+    def end_with_msg(self, exception, msg):
+        # Exception is the exception to be raised, msg is the message to be printed within
+        if exception is not None:
+            print(msg, '\n')
+            raise exception(msg)
+        else:
+            print(msg)
+            exit(1)
     
+
     # Return bitrate for audio conversion
     def _audio_bitrate(self, format, quality):
         # If formats allow for a higher bitrate, we shift our scale accordingly
@@ -76,12 +80,12 @@ class AnyToAny:
 
     # Main function to convert media files to defined formats
     def convert(self, input, format, output, framerate, quality, merge, delete):
-        self.input = input if input is not None else os.getcwd()    # No input means working directory
-        self.output = output if output is not None else self.input  # No output means same as input
-        self.format = format.lower() if format is not None else None
-        self.framerate = framerate
-        self.merge = merge
-        self.delete = delete
+        self.input = input if input is not None else os.getcwd()     # No input means working directory
+        self.output = output if output is not None else self.input   # No output means same as input
+        self.format = format.lower() if format is not None else None # No format means no conversion
+        self.framerate = framerate  # Possibly no framerate means same as input
+        self.merge = merge          # Merge movie files with equally named audio files
+        self.delete = delete        # Delete mp4 files after conversion
 
         # Check if the output dir exists, if not, create it
         if not os.path.exists(self.output):
@@ -106,9 +110,9 @@ class AnyToAny:
             self.concatenate(self._get_file_paths())
         else:
             # Handle unsupported formats here
-            self.end_with_msg(f'[!] Error: Output format must be one of {list(self.supported_formats)}')
+            self.end_with_msg(ValueError, f'[!] Error: Output format must be one of {list(self.supported_formats)}')
 
-        print("\n[+] Job Finished")
+        print("[+] Job Finished")
 
 
     # Get media files from input directory
@@ -119,7 +123,7 @@ class AnyToAny:
         # Sanity check for existence of input and output directories
         for dir in [self.input, self.output]:
             if not os.path.exists(dir):
-                self.end_with_msg(f'[!] Error: Directory {dir} Does Not Exist.')
+                self.end_with_msg(FileNotFoundError, f'[!] Error: Directory {dir} Does Not Exist.')
 
         print(f'Convert To {str(self.format).upper()} | Job Started For {self.input}\n')
 
@@ -133,24 +137,18 @@ class AnyToAny:
             file_name = file[file.rfind(os.sep)+1:file.rfind('.')] # Get file name (e.g. video)
             path_to_file = file[:file.rfind(os.sep)+1]             # Get path to file (e.g. /home/user/)
 
-            found = False
-
             for category in categories:
                 # Check if file ending is supported for any category
                 if file_ending in self._supported_formats[category].keys():
                     file_paths[category].append([path_to_file, file_name, file_ending])
                     print(f'[+] Scheduling: {file_name}.{file_ending}')
-                    found = True
                     break
-
-            if not found:
-                # Handle files with unsupported formats here
-                print(f'[!] Skipping {file_name}.{file_ending} - Unsupported Format')
-                continue
 
         # Check if any files were found
         if len(file_paths['audio']) == 0 and len(file_paths['image']) == 0 and len(file_paths['movie']) == 0:
-            self.end_with_msg(f'[!] Warning: No Convertable Media Files Found In {self.input}')
+            self.end_with_msg(FileNotFoundError, f'[!] Warning: No Convertable Media Files Found in {self.input}')
+
+        print()
 
         # A dictionary of lists of file paths, one list per file category, it being the key
         return file_paths
@@ -228,7 +226,7 @@ class AnyToAny:
             final_clip.write_videofile(out_path, fps=24 if self.framerate is None else self.framerate, codec=codec)
             final_clip.close()
             
-        # Movie ... to other movie
+        # Movie to different movie
         for movie_path_set in file_paths['movie']:
             if not movie_path_set[2].lower() == format:
                 video = VideoFileClip(self._join_back(movie_path_set), audio=True, fps_source='tbr')
@@ -260,7 +258,12 @@ class AnyToAny:
         for movie_path_set in file_paths['movie']:
             video = VideoFileClip(self._join_back(movie_path_set), audio=False, fps_source='tbr')
             if not os.path.exists(os.path.join(self.output, movie_path_set[1])):
-                os.makedirs(os.path.join(self.output, movie_path_set[1]))
+                try:
+                    os.makedirs(os.path.join(self.output, movie_path_set[1]))
+                except OSError as e:
+                    print(f'[!] Error: {e} - Setting output directory to {self.input}')
+                    self.output = self.input
+
             png_path = os.path.abspath(os.path.join(os.path.join(self.output, movie_path_set[1]), f'{movie_path_set[1]}-%06d.png'))
             video.write_images_sequence(png_path, fps=video.fps)
             video.close()
@@ -367,7 +370,7 @@ class AnyToAny:
 
     # Post process after conversion, print, delete source file if desired
     def _post_process(self, file_path_set, out_path, delete):
-        print(f'[+] Converted "{self._join_back(file_path_set)}" to "{out_path}"')
+        print(f'[+] Converted "{self._join_back(file_path_set)}" to "{out_path}"\n')
         if delete:
             os.remove(self._join_back(file_path_set))
             print(f'[-] Removed "{self._join_back(file_path_set)}"')
