@@ -52,19 +52,25 @@ function allowDrop(event) {
 
 function drop(event) {
     event.preventDefault();
-
     var files = event.dataTransfer.files;
-    handleFiles(files);
+    handleFiles(files, false);
 }
 
-function handleFiles(files) {
+function handleFiles(files, fromInput) {
+    
+    if (!fromInput) {
+        // handleFiles not called from within input element, we have to add files to it then
+        var input = document.getElementById('files');
+        input.files = files;
+    }
+
     // Adding file names to the file-list ul
-    var file_list = document.getElementById('file-list');
-    file_list.innerHTML = '';
+    var fileList = document.getElementById('file-list');
+    fileList.innerHTML = '';
 
     for (var i = 0; i < files.length; i++) {
         var li = document.createElement('li');
         li.textContent = files[i].name;
-        file_list.appendChild(li);
+        fileList.appendChild(li);
     }
 }

@@ -23,8 +23,8 @@
         <main>
             <form id="conversion-form" method="post" enctype="multipart/form-data">
                 <div id="drop-area" ondrop="drop(event)" ondragover="allowDrop(event)" onclick="triggerUploadDialogue(event)">
-                    <p>Click to select files</p>
-                    <input type="file" name="files" id="files" multiple onchange="handleFiles(this.files)">
+                    <p>Drag and drop or click to select files</p>
+                    <input type="file" name="files" id="files" multiple onchange="handleFiles(this.files, true)">
                     <ul id="file-list"></ul>
                 </div>
                 <div id="conversion-options">

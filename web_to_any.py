@@ -52,7 +52,6 @@ def create_and_send_zip():
 
 def process_params():
     uploaded_files = request.files.getlist('files')
-    uploaded_filenames = []
 
     format = request.form.get('conversionType')
 
@@ -60,7 +59,6 @@ def process_params():
         if file:
             filename = os.path.join(app.config['UPLOADED_FILES_DEST'], file.filename)
             file.save(filename)
-            uploaded_filenames.append(file.filename)
     
     # file format to convert to
     return format
