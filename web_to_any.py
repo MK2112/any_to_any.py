@@ -25,8 +25,7 @@ app.config['CONVERTED_FILES_DEST'] = 'converted'
 configure_uploads(app, files)
 
 
-@app.before_first_request
-def before_first_request():
+with app.app_context():
     # Make sure the upload and converted directories exist
     if not os.path.exists(app.config['UPLOADED_FILES_DEST']):
         os.makedirs(app.config['UPLOADED_FILES_DEST'])
