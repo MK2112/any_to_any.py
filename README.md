@@ -10,7 +10,7 @@ This Python script helps you convert between various media file formats.
 
 ## Usage
 1. **Download/Clone**:
-   - Either download the most recent version from this Git repository directly, or use `git clone` to do so
+   - Download the most recent version from this Git repository directly, or use `git clone` to do so
 2. **Python Version**:
    - Ensure you have Python 3.x installed on your system. If not, you can download it from the official [Python website](https://www.python.org/downloads/).
 3. **Install Dependencies**:
