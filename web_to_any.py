@@ -1,13 +1,10 @@
 import os
-import flask
 from any_to_any import AnyToAny
 from flask import Flask, render_template, request, send_file
 from werkzeug.datastructures import  FileStorage
 from flask_uploads import UploadSet, configure_uploads, ALL # pip install Flask-Reuploaded
 import shutil
 import tempfile
-import requests
-import jinja2
 
 """
 This is a web server providing a web interface as extension to the CLI-based any-to-any.py

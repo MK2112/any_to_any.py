@@ -57,7 +57,6 @@ function drop(event) {
 }
 
 function handleFiles(files, fromInput) {
-    
     if (!fromInput) {
         // handleFiles not called from within input element, we have to add files to it then
         var input = document.getElementById('files');
