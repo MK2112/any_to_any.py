@@ -1,7 +1,7 @@
 import os
 import argparse
 import subprocess
-from moviepy.editor import *
+from moviepy.editor import AudioFileClip, VideoFileClip, ImageSequenceClip, ImageClip, concatenate_videoclips
 from PIL import Image
 
 
@@ -24,9 +24,9 @@ class AnyToAny:
                 'weba': 'libopus',
             },
             'image': {
-                'gif': self.to_gif,
-                'png': self.to_frames_png,
-                'bmp': self.to_bmp,
+                'gif':  self.to_gif,
+                'png':  self.to_frames_png,
+                'bmp':  self.to_bmp,
                 'webp': self.to_webp,
             },
             'movie': {
@@ -128,8 +128,7 @@ class AnyToAny:
         print(f'Convert To {str(self.format).upper()} | Job Started For {self.input}\n')
 
         # Discover and immediately attribute files to their specific category
-        categories = self._supported_formats.keys()
-        file_paths = {category: [] for category in categories}
+        file_paths = {category: [] for category in self._supported_formats.keys()}
 
         for file in os.listdir(self.input):
             file = os.path.abspath(os.path.join(self.input, file)) # Get absolute path to file
@@ -137,7 +136,7 @@ class AnyToAny:
             file_name = file[file.rfind(os.sep)+1:file.rfind('.')] # Get file name (e.g. video)
             path_to_file = file[:file.rfind(os.sep)+1]             # Get path to file (e.g. /home/user/)
 
-            for category in categories:
+            for category in self._supported_formats.keys():
                 # Check if file ending is supported for any category
                 if file_ending in self._supported_formats[category].keys():
                     file_paths[category].append([path_to_file, file_name, file_ending])
@@ -148,7 +147,7 @@ class AnyToAny:
         if len(file_paths['audio']) == 0 and len(file_paths['image']) == 0 and len(file_paths['movie']) == 0:
             self.end_with_msg(FileNotFoundError, f'[!] Warning: No Convertable Media Files Found in {self.input}')
 
-        print()
+        print() # Newline for readability
 
         # A dictionary of lists of file paths, one list per file category, it being the key
         return file_paths
