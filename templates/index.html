@@ -13,13 +13,19 @@
     <header>
         <h1>
             <a class="static-anchor" target="_blank" href="https://github.com/mk2112/any_to_any.py">{{ title }}</a>
-            <p>Beta</p>
+            <p>Web</p>
             <a class="github-button" href="https://github.com/mk2112/any_to_any.py/fork" data-icon="octicon-repo-forked" aria-label="Fork mk2112/any_to_any.py on GitHub">Fork</a>
             <a class="github-button" href="https://github.com/mk2112/any_to_any.py" data-icon="octicon-star" aria-label="Star mk2112/any_to_any.py on GitHub">Star</a>
         </h1>
     </header>
     <div class="fade-in">
         <main>
+            <noscript>
+                <div class="no-script">
+                    <p>{{ title }} Web requires JavaScript to work as intended.</p>
+                    <p>Please enable JavaScript in your browser settings.</p>
+                </div>
+            </noscript>
             <form id="conversion-form" method="post" enctype="multipart/form-data">
                 <div id="drop-area" ondrop="drop(event)" ondragover="allowDrop(event)" onclick="triggerUploadDialogue(event)">
                     <p>Drag and drop or click to select files</p>

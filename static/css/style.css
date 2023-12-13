@@ -99,3 +99,12 @@ header {
 #conversion-options {
     margin-top: 20px;
 }
+
+.no-script {
+    text-align: center;
+    padding: 20px; 
+    background-color: #f44336; 
+    color: white;
+    border-radius: 5px;
+    margin-bottom: 10px;
+}
