@@ -1,7 +1,6 @@
 import os
 from any_to_any import AnyToAny
 from flask import Flask, render_template, request, send_file
-from werkzeug.datastructures import  FileStorage
 from flask_uploads import UploadSet, configure_uploads, ALL # pip install Flask-Reuploaded
 import shutil
 import tempfile
@@ -14,7 +13,6 @@ app = Flask(__name__, template_folder=os.path.abspath('templates'))
 host = '127.0.0.1'
 port = 5000
 any_to_any = AnyToAny()
-
 
 files = UploadSet('files', ALL)
 app.config['UPLOADED_FILES_DEST'] = 'uploads'
@@ -30,7 +28,7 @@ with app.app_context():
     if not os.path.exists(app.config['CONVERTED_FILES_DEST']):
         os.makedirs(app.config['CONVERTED_FILES_DEST'])
 
-    # This helps any_to_any to allocate cache memory early
+    # This helps any_to_any to allocate memory early on
     _ = any_to_any.supported_formats
 
 
@@ -43,8 +41,7 @@ def create_and_send_zip():
     # Clear output dir
     for file in os.listdir(app.config['CONVERTED_FILES_DEST']):
         os.remove(os.path.join(app.config['CONVERTED_FILES_DEST'], file))
-    # Return zip file
-    return send_file(zip_filename, as_attachment=True)
+    return send_file(zip_filename, as_attachment=True) # Return zip file
 
 
 def process_params():
@@ -57,8 +54,7 @@ def process_params():
             filename = os.path.join(app.config['UPLOADED_FILES_DEST'], file.filename)
             file.save(filename)
     
-    # file format to convert to
-    return format
+    return format # File format to convert to
 
 
 @app.route('/')
@@ -76,14 +72,13 @@ def convert():
                        quality=None,
                        merge=None,
                        delete=True)
-
-    # Send zip file
-    return create_and_send_zip()
+    
+    return create_and_send_zip() # Send zip file
 
 
 @app.route('/merge', methods=['POST'])
 def merge():
-    _ = process_params()
+    _ = process_params() # Ignore format, we're merging anyway
 
     any_to_any.convert(input=app.config['UPLOADED_FILES_DEST'],
                        format=None, 
@@ -93,8 +88,7 @@ def merge():
                        merge=True,
                        delete=True)
 
-    # Send zip file
-    return create_and_send_zip()
+    return create_and_send_zip() # Send zip file
 
 
 if __name__ == '__main__':
