@@ -25,7 +25,8 @@ class AnyToAny:
             },
             'image': {
                 'gif':  self.to_gif,
-                'png':  self.to_frames_png,
+                'png':  self.to_frames,
+                'jpg':  self.to_frames,
                 'bmp':  self.to_bmp,
                 'webp': self.to_webp,
             },
@@ -105,7 +106,7 @@ class AnyToAny:
         elif self.format in self._supported_formats['movie_codecs'].keys():
             self.to_codec(file_paths=self._get_file_paths(), codec=self._supported_formats['movie_codecs'][self.format])
         elif self.format in self._supported_formats['image'].keys():
-            self._supported_formats['image'][self.format](self._get_file_paths())
+            self._supported_formats['image'][self.format](self._get_file_paths(), self.format)
         elif self.merge:
             self.concatenate(self._get_file_paths())
         else:
@@ -196,8 +197,7 @@ class AnyToAny:
 
     # Convert to movie with specified format
     def to_movie(self, file_paths, format, codec):
-        pngs = bmps = []
-        # Images (gif, png, bmp)
+        pngs = bmps = jpgs = []
         for image_path_set in file_paths['image']:
             # Depending on the format, different fragmentation is required
             if image_path_set[2].lower() == 'gif':
@@ -208,6 +208,8 @@ class AnyToAny:
                 self._post_process(image_path_set, out_path, self.delete)
             elif image_path_set[2].lower() == 'png':
                 pngs.append(ImageClip(self._join_back(image_path_set)).set_duration(1))
+            elif image_path_set[2].lower() == 'jpg':
+                jpgs.append(ImageClip(self._join_back(image_path_set)).set_duration(1))
             elif image_path_set[2].lower() == 'bmp':
                 bmps.append(ImageClip(self._join_back(image_path_set)).set_duration(1))
 
@@ -215,6 +217,13 @@ class AnyToAny:
         if len(pngs) > 0:
             final_clip = concatenate_videoclips(pngs, method="compose")
             out_path = os.path.abspath(os.path.join(self.output, f'png_merged.{format}'))
+            final_clip.write_videofile(out_path, fps=24 if self.framerate is None else self.framerate, codec=codec)
+            final_clip.close()
+
+        # JPG to movie
+        if len(jpgs) > 0:
+            final_clip = concatenate_videoclips(jpgs, method="compose")
+            out_path = os.path.abspath(os.path.join(self.output, f'jpg_merged.{format}'))
             final_clip.write_videofile(out_path, fps=24 if self.framerate is None else self.framerate, codec=codec)
             final_clip.close()
 
@@ -237,21 +246,21 @@ class AnyToAny:
 
     # Converting to image frame sets
     # This works for images and movies only
-    def to_frames_png(self, file_paths):
+    def to_frames(self, file_paths, format):
         for image_path_set in file_paths['image']:
             # We only need to care for gif and bmp, rather obvisouly
             if image_path_set[2].lower() == 'gif':
                 clip = ImageSequenceClip(self._join_back(image_path_set), fps=24)
                 for _, frame in enumerate(clip.iter_frames(fps=clip.fps, dtype='uint8')):
-                    frame_path = os.path.abspath(os.path.join(self.output, f'{image_path_set[1]}-%06d.png'))
-                    Image.fromarray(frame).save(frame_path, format='png')
+                    frame_path = os.path.abspath(os.path.join(self.output, f'{image_path_set[1]}-%06d.{format}'))
+                    Image.fromarray(frame).save(frame_path, format=format)
                 clip.close()
                 self._post_process(image_path_set, self.output, self.delete)
             elif image_path_set[2].lower() == 'bmp':
-                png_path = os.path.abspath(os.path.join(self.output, f'{image_path_set[1]}.png'))
+                img_path = os.path.abspath(os.path.join(self.output, f'{image_path_set[1]}.{format}'))
                 with Image.open(self._join_back(image_path_set)) as img:
-                    img.convert("RGB").save(png_path, format='png')
-                self._post_process(image_path_set, png_path, self.delete)
+                    img.convert("RGB").save(img_path, format=format)
+                self._post_process(image_path_set, img_path, self.delete)
         
         # Audio cant be image-framed, but movies certrainly can
         for movie_path_set in file_paths['movie']:
@@ -263,10 +272,10 @@ class AnyToAny:
                     print(f'[!] Error: {e} - Setting output directory to {self.input}')
                     self.output = self.input
 
-            png_path = os.path.abspath(os.path.join(os.path.join(self.output, movie_path_set[1]), f'{movie_path_set[1]}-%06d.png'))
-            video.write_images_sequence(png_path, fps=video.fps)
+            img_path = os.path.abspath(os.path.join(os.path.join(self.output, movie_path_set[1]), f'{movie_path_set[1]}-%06d.{format}'))
+            video.write_images_sequence(img_path, fps=video.fps)
             video.close()
-            self._post_process(movie_path_set, png_path, self.delete)
+            self._post_process(movie_path_set, img_path, self.delete)
 
 
     # Convert to gif
@@ -302,7 +311,7 @@ class AnyToAny:
         # Pngs and gifs are converted to bmps as well
         for image_path_set in file_paths['images']:
             if not image_path_set[2].lower() == 'bmp':
-                if image_path_set[2].lower() == 'png':
+                if image_path_set[2].lower() == 'png' or image_path_set[2].lower() == 'jpg':
                     bmp_path = os.path.join(self.output, f'{image_path_set[1]}.bmp')
                     with Image.open(self._join_back(image_path_set)) as img:
                         img.convert("RGB").save(bmp_path, format='BMP')
@@ -330,7 +339,7 @@ class AnyToAny:
         # Pngs and gifs are converted to webps as well
         for image_path_set in file_paths['images']:
             if not image_path_set[2].lower() == 'webp':
-                if image_path_set[2].lower() == 'png':
+                if image_path_set[2].lower() == 'png' or image_path_set[2].lower() == 'jpg':
                     webp_path = os.path.join(self.output, f'{image_path_set[1]}.webp')
                     with Image.open(self._join_back(image_path_set)) as img:
                         img.convert("RGB").save(webp_path, format='webp')
