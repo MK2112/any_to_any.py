@@ -4,7 +4,7 @@ This Python script helps you convert between various media file formats.
 
 ## Supported Formats
 **Audio:** MP3, FLAC, WAV, OGG, M4A, WEBA<br> 
-**Image:** PNG, GIF, BMP, WEBP<br>
+**Image:** JPG, PNG, GIF, BMP, WEBP<br>
 **Video:** MP4, WEBM, MOV, MKV, AVI<br>
 **Video Codecs:** H265, H264, XVID, MPEG4, AV1, VP9
 
@@ -32,7 +32,7 @@ This Python script helps you convert between various media file formats.
  - Use the following command to start the web interface:<br>`python any_to_any.py -w`
  - Parameters:
    - `-i` or `--input` (optional): Directory containing MP4 files to be converted. If not provided, the directory from where script is called will be used
-   - `-f` or `--format` (optional): File format of desired output, either `mp3`, `flac`, `wav`, `ogg`, `m4a`, `weba`, `png`, `gif`, `bmp`, `webp`, `mp4`, `webm`, `mov`, `mkv`, `avi`, or mp4 codecs like `h265`, `h264`, `xvid`, `mpeg4`, `av1` and `vp9`
+   - `-f` or `--format` (optional): File format of desired output, either `mp3`, `flac`, `wav`, `ogg`, `m4a`, `weba`, `jpg`, `png`, `gif`, `bmp`, `webp`, `mp4`, `webm`, `mov`, `mkv`, `avi`, or mp4 codecs like `h265`, `h264`, `xvid`, `mpeg4`, `av1` and `vp9`
    - `-o` or `--output` (optional): Directory to save converted files. If not provided, it will write to the input file path.
    - `-q` or `--quality` (optional): Set the quality of the output file, either `low`, `medium`, or `high`; default is same as input.
    - `-m` or `--merge` (optional): Per movie file, merge to movie with equally named audio file as its audio track.
