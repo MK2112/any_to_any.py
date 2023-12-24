@@ -80,7 +80,7 @@ class AnyToAny:
 
 
     # Main function to convert media files to defined formats
-    def convert(self, input, format, output, framerate, quality, merge, delete):
+    def run(self, input, format, output, framerate, quality, merge, delete):
         self.input = input if input is not None else os.getcwd()     # No input means working directory
         self.output = output if output is not None else self.input   # No output means same as input
         self.format = format.lower() if format is not None else None # No format means no conversion
@@ -108,11 +108,10 @@ class AnyToAny:
         elif self.format in self._supported_formats['image'].keys():
             self._supported_formats['image'][self.format](self._get_file_paths(), self.format)
         elif self.merge:
-            self.concatenate(self._get_file_paths())
+            self.merging(self._get_file_paths())
         else:
             # Handle unsupported formats here
             self.end_with_msg(ValueError, f'[!] Error: Output format must be one of {list(self.supported_formats)}')
-
         print("[+] Job Finished")
 
 
@@ -147,11 +146,8 @@ class AnyToAny:
         # Check if any files were found
         if len(file_paths['audio']) == 0 and len(file_paths['image']) == 0 and len(file_paths['movie']) == 0:
             self.end_with_msg(FileNotFoundError, f'[!] Warning: No Convertable Media Files Found in {self.input}')
-
         print() # Newline for readability
-
-        # A dictionary of lists of file paths, one list per file category, it being the key
-        return file_paths
+        return file_paths # Dict of lists of file paths, one list per file category, it being the key
 
 
     # Convert to audio
@@ -354,7 +350,7 @@ class AnyToAny:
 
 
     # For movie files that have an equally named audio file, merge them together under same name (with '_merged' addition)
-    def concatenate(self, file_paths):
+    def merging(self, file_paths):
         # Iterate over all movie file path sets
         found_audio = False
         for movie_path_set in file_paths['movie']:
@@ -420,10 +416,10 @@ if __name__ == '__main__':
         subprocess.run("python ./web_to_any.py")
     else:
         # Run main function with parsed arguments
-        any_to_any.convert(input=args['input'],
-                           format=args['format'], 
-                           output=args['output'], 
-                           framerate=args['framerate'],
-                           quality=args['quality'],
-                           merge=args['merge'], 
-                           delete=args['delete'])
+        any_to_any.run(input=args['input'],
+                       format=args['format'], 
+                       output=args['output'], 
+                       framerate=args['framerate'],
+                       quality=args['quality'],
+                       merge=args['merge'], 
+                       delete=args['delete'])
