@@ -39,8 +39,8 @@
                         <option value="{{ option }}">{{ option }}</option>
                         {% endfor %}
                     </select>
-                    <button type="button" onclick="submitForm('/convert')">Convert</button>
-                    <button type="button" onclick="submitForm('/merge')">Merge</button>
+                    <button title="Convert all given files to selected format." type="button" onclick="submitForm('/convert')">Convert</button>
+                    <button title="Merge movie data with the audio track of an equally named audio file." type="button" onclick="submitForm('/merge')">Merge</button>
                 </div>
             </form>                    
         </main>
