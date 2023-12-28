@@ -1,7 +1,7 @@
 import os
 import argparse
 import subprocess
-from moviepy.editor import AudioFileClip, VideoFileClip, ImageSequenceClip, ImageClip, concatenate_videoclips
+from moviepy.editor import AudioFileClip, VideoFileClip, ImageSequenceClip, ImageClip, concatenate_videoclips, concatenate_audioclips, clips_array
 from PIL import Image
 
 
@@ -80,12 +80,13 @@ class AnyToAny:
 
 
     # Main function to convert media files to defined formats
-    def run(self, input, format, output, framerate, quality, merge, delete):
+    def run(self, input, format, output, framerate, quality, merge, concat, delete):
         self.input = input if input is not None else os.getcwd()     # No input means working directory
         self.output = output if output is not None else self.input   # No output means same as input
         self.format = format.lower() if format is not None else None # No format means no conversion
         self.framerate = framerate  # Possibly no framerate means same as input
         self.merge = merge          # Merge movie files with equally named audio files
+        self.concat = concat        # Concatenate files of same format
         self.delete = delete        # Delete mp4 files after conversion
 
         # Check if the output dir exists, if not, create it
@@ -109,6 +110,8 @@ class AnyToAny:
             self._supported_formats['image'][self.format](self._get_file_paths(), self.format)
         elif self.merge:
             self.merging(self._get_file_paths())
+        elif self.concat:
+            self.concatenating(self._get_file_paths())
         else:
             # Handle unsupported formats here
             self.end_with_msg(ValueError, f'[!] Error: Output format must be one of {list(self.supported_formats)}')
@@ -127,7 +130,7 @@ class AnyToAny:
 
         print(f'Convert To {str(self.format).upper()} | Job Started For {self.input}\n')
 
-        # Discover and immediately attribute files to their specific category
+        # Discover and attribute files to their specific category
         file_paths = {category: [] for category in self._supported_formats.keys()}
 
         for file in os.listdir(self.input):
@@ -349,6 +352,30 @@ class AnyToAny:
                     print(f"[!] Skipping {self._join_back(image_path_set)} - Unsupported format")
 
 
+    def concatenating(self, file_paths):
+        if file_paths['audio']:
+            concat_audio = concatenate_audioclips([AudioFileClip(self._join_back(audio_path_set)) for audio_path_set in file_paths['audio']])
+            audio_out_path = os.path.join(self.output, 'concatenated_audio.mp3')
+            concat_audio.write_audiofile(audio_out_path, codec='libmp3lame', bitrate='320k')
+            concat_audio.close()
+            self._post_process(file_paths['audio'][0], self.output, self.delete)
+
+        if file_paths['movie']:
+            concat_video = concatenate_videoclips([VideoFileClip(self._join_back(movie_path_set), audio=False, fps_source='tbr') for movie_path_set in file_paths['movie']], method="compose")
+            video_out_path = os.path.join(self.output, 'concatenated_video.mp4')
+            concat_video.write_videofile(video_out_path, fps=concat_video.fps if self.framerate is None else self.framerate, codec='libx264')
+            concat_video.close()
+            self._post_process(file_paths['movie'][0], self.output, self.delete)
+
+        if file_paths['image']:
+            gif_output_path = os.path.join(self.output, 'concatenated_image.gif')
+            concatenated_image = clips_array([[ImageClip(self._join_back(image_path_set)).set_duration(1)] for image_path_set in file_paths['image']])
+            concatenated_image.write_gif(gif_output_path, fps=self.framerate)
+            self._post_process(file_paths['image'][0], self.output, self.delete)
+
+        print('[+] Concatenation completed')
+
+
     # For movie files that have an equally named audio file, merge them together under same name (with '_merged' addition)
     def merging(self, file_paths):
         # Iterate over all movie file path sets
@@ -404,6 +431,7 @@ if __name__ == '__main__':
     parser.add_argument('-o', '--output', help='Directory to save files, writing to mp4 path if not provided', type=str, required=False)
     parser.add_argument('-f', '--format', help=f'Set the output format ({any_to_any.supported_formats})', type=str, required=False)
     parser.add_argument('-m', '--merge', help='Per movie file, merge to movie with equally named audio file', action='store_true', required=False)
+    parser.add_argument('-c', '--concat', help='Concatenate files of same type (img/movie/audio) back to back', action='store_true', required=False)
     parser.add_argument('-fps', '--framerate', help='Set the output framerate (default: same as input)', type=int, required=False)
     parser.add_argument('-q', '--quality', help='Set the output quality (high/medium/low)', type=str, required=False)
     parser.add_argument('-d', '--delete', help='Delete mp4 files after conversion', action='store_true', required=False)
@@ -422,4 +450,5 @@ if __name__ == '__main__':
                        framerate=args['framerate'],
                        quality=args['quality'],
                        merge=args['merge'], 
+                       concat=args['concat'],
                        delete=args['delete'])
