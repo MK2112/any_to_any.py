@@ -361,7 +361,7 @@ class AnyToAny:
             self._post_process(file_paths['audio'][0], self.output, self.delete)
 
         if file_paths['movie']:
-            concat_video = concatenate_videoclips([VideoFileClip(self._join_back(movie_path_set), audio=False, fps_source='tbr') for movie_path_set in file_paths['movie']], method="compose")
+            concat_video = concatenate_videoclips([VideoFileClip(self._join_back(movie_path_set), audio=True, fps_source='tbr') for movie_path_set in file_paths['movie']], method="compose")
             video_out_path = os.path.join(self.output, 'concatenated_video.mp4')
             concat_video.write_videofile(video_out_path, fps=concat_video.fps if self.framerate is None else self.framerate, codec='libx264')
             concat_video.close()

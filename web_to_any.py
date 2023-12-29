@@ -65,6 +65,7 @@ def convert():
                        framerate=None,
                        quality=None,
                        merge=None,
+                       concat=None,
                        delete=True)
     return create_and_send_zip() # Send zip file
 
@@ -78,8 +79,23 @@ def merge():
                        framerate=None,
                        quality=None,
                        merge=True,
+                       concat=False,
                        delete=True)
     return create_and_send_zip() # Send zip file
+
+
+@app.route('/concat', methods=['POST'])
+def concat():
+    _ = process_params()
+    any_to_any.run(input=app.config['UPLOADED_FILES_DEST'],
+                       format=None, 
+                       output=app.config['CONVERTED_FILES_DEST'],  
+                       framerate=None,
+                       quality=None,
+                       merge=False,
+                       concat=True,
+                       delete=True)
+    return create_and_send_zip()
 
 if __name__ == '__main__':
     app.run(debug=True, host=host, port=port)
