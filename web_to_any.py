@@ -6,14 +6,16 @@ import shutil
 import tempfile
 
 """
-This is a web server providing a web interface as extension to the CLI-based any-to-any.py
+Web server providing a web interface as extension to the CLI-based any-to-any.py
 """
 
+# Flask configuration
 app = Flask(__name__, template_folder=os.path.abspath('templates'))
 host = '127.0.0.1'
 port = 5000
 any_to_any = AnyToAny()
 
+# Flask-Uploads configuration
 files = UploadSet('files', ALL)
 app.config['UPLOADED_FILES_DEST'] = 'uploads'
 app.config['CONVERTED_FILES_DEST'] = 'converted'
@@ -21,7 +23,7 @@ configure_uploads(app, files)
 
 
 with app.app_context():
-    # Make sure the upload and converted directories exist
+    # Make sure the upload and converted file dirs exist
     if not os.path.exists(app.config['UPLOADED_FILES_DEST']):
         os.makedirs(app.config['UPLOADED_FILES_DEST'])
     if not os.path.exists(app.config['CONVERTED_FILES_DEST']):
@@ -67,7 +69,7 @@ def convert():
                        merge=None,
                        concat=None,
                        delete=True)
-    return create_and_send_zip() # Send zip file
+    return create_and_send_zip()
 
 
 @app.route('/merge', methods=['POST'])
@@ -81,12 +83,12 @@ def merge():
                        merge=True,
                        concat=False,
                        delete=True)
-    return create_and_send_zip() # Send zip file
+    return create_and_send_zip()
 
 
 @app.route('/concat', methods=['POST'])
 def concat():
-    _ = process_params()
+    _ = process_params() # Ignore format again, backend will figure out details
     any_to_any.run(input=app.config['UPLOADED_FILES_DEST'],
                        format=None, 
                        output=app.config['CONVERTED_FILES_DEST'],  
@@ -96,6 +98,7 @@ def concat():
                        concat=True,
                        delete=True)
     return create_and_send_zip()
+
 
 if __name__ == '__main__':
     app.run(debug=True, host=host, port=port)
