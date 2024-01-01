@@ -32,15 +32,16 @@ This Python script helps you convert between various media file formats.
  - Use the following command to convert e.g. MP4 files MP3:<br>`python any_to_any.py -i /path/to/mp4s -o /path/to/save/files -f mp3 -q high -d`
  - Use the following command to merge e.g. MP4 files with equally named MP3 files:<br>`python any_to_any.py -i /path/to/files -o /path/to/save/files -m -d`
  - Use the following command to start the web interface:<br>`python any_to_any.py -w`
- - Parameters:
-   - `-i` or `--input` (optional): Directory containing MP4 files to be converted. If not provided, the directory from where script is called will be used
-   - `-f` or `--format` (optional): File format of desired output, either `mp3`, `flac`, `wav`, `ogg`, `m4a`, `weba`, `jpg`, `png`, `gif`, `bmp`, `webp`, `mp4`, `webm`, `mov`, `mkv`, `avi`, or mp4 codecs like `h265`, `h264`, `xvid`, `mpeg4`, `av1` and `vp9`
-   - `-o` or `--output` (optional): Directory to save converted files. If not provided, it will write to the input file path.
-   - `-q` or `--quality` (optional): Set the quality of the output file, either `low`, `medium`, or `high`; default is same as input.
-   - `-m` or `--merge` (optional): Per movie file, merge to movie with equally named audio file as its audio track.
-   - `-w` or `--web` (optional): Ignores all other arguments, starts a web server + frontend at `http://localhost:5000`
-   - `-d` or `--delete` (optional): Delete input files after conversion.
-   - `-fps` or `--framerate` (optional): Set the framerate (fps) when converting to a movie format or codec; default maintains input fps.
+ - Parameters, all of which are optional:
+   - `-i` or `--input`: Directory containing MP4 files to be converted. If not provided, the directory from where script is called will be used
+   - `-f` or `--format`: File format of desired output, either `mp3`, `flac`, `wav`, `ogg`, `m4a`, `weba`, `jpg`, `png`, `gif`, `bmp`, `webp`, `mp4`, `webm`, `mov`, `mkv`, `avi`, or mp4 codecs like `h265`, `h264`, `xvid`, `mpeg4`, `av1` and `vp9`
+   - `-o` or `--output`: Directory to save converted files. If not provided, it will write to the input file path.
+   - `-q` or `--quality`: Set the quality of the output file, either `low`, `medium`, or `high`; default is same as input.
+   - `-m` or `--merge`: Per movie file, merge to movie with equally named audio file as its audio track.
+   - `-c` or `--concat`: Concatenate input files of the same type (images, audio, video) into one output file (e.g. `concatenated_video.mp4` for movie files, `concatenated_audio.mp3` for audio files).
+   - `-w` or `--web`: Ignores all other arguments, starts a web server + frontend at `http://localhost:5000`
+   - `-d` or `--delete`: Delete input files after conversion.
+   - `-fps` or `--framerate`: Set the framerate (fps) when converting to a movie format or codec; default maintains input fps.
 
 ### License
 This project is licensed under the MIT License, granting users the freedom to modify and distribute the codebase.
