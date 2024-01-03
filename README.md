@@ -15,9 +15,9 @@ Movie files and audio files can be merged, files of same type (image/audio/video
 1. **Download/Clone**:
    - Download the most recent version from this Git repository directly, or use `git clone` to do so
 2. **Python Version**:
-   - Ensure you have Python 3.x installed on your system. If not, you can download it from the official [Python website](https://www.python.org/downloads/).
+   - Ensure you have Python 3.x installed on your system.<br>If not, you can download it from the official [Python website](https://www.python.org/downloads/).
 3. **Install Dependencies**:
-   - This script relies on packages listed in the `requirements.txt`. Open a terminal in the project folder and run:<br>`pip install -r requirements.txt`
+   - This script relies on packages listed in the `requirements.txt`.<br>Open a terminal in the project folder and run:<br>`pip install -r requirements.txt`
 4. **Running the Script**:
    Fundamentally, you can use Any_to_Any.py in two ways:
    - *Web Interface*
@@ -42,8 +42,8 @@ Movie files and audio files can be merged, files of same type (image/audio/video
    - `-fps` or `--framerate`: Set the framerate (fps) when converting to a movie format or codec; default maintains input fps.
 
 #### Usage Examples
-- Convert e.g. MP4 files MP3:<br>`python any_to_any.py -i /path/to/mp4s -o /path/to/save/files -f mp3 -q high -d`
-- Merge e.g. MP4 files with equally named MP3 files:<br>`python any_to_any.py -i /path/to/files -o /path/to/save/files -m -d`
+- Convert e.g. MP4 files to MP3:<br>`python any_to_any.py -i /path/to/mp4s -o /path/to/save/files -f mp3 -q high -d`
+- Merge e.g. MP4 files with respective, equally named MP3 files:<br>`python any_to_any.py -i /path/to/files -o /path/to/save/files -m -d`
 - Concatenate e.g. MP4 files:<br>`python any_to_any.py -i /path/to/mp4s -o /path/to/save/files -c -d`
 - Start the web interface:<br>`python any_to_any.py -w`
 
