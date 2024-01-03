@@ -6,11 +6,10 @@ function submitForm(endpoint) {
     // Append selected conversion type
     form_data.append('conversionType', conversion_type);
 
-    // Create XMLHttpRequest
     var xhr = new XMLHttpRequest();
     xhr.open('POST', endpoint, true);
 
-    // Define the onload and onerror functions
+    // Take backend response .zip, rename the file, make it downloadable
     xhr.onload = function () {
         if (xhr.status === 200) {
             var blob = new Blob([xhr.response], { type: 'application/octet-stream' });
@@ -19,7 +18,7 @@ function submitForm(endpoint) {
             var timestamp = new Date().toISOString().replace(/[-T:Z]/g, '');
             var file_name = 'any_to_any-' + timestamp + '.zip';
             link.download = file_name
-            link.click(); // Download the file
+            link.click(); // Offer .zip for download
         } else {
             alert('Error uploading files. Please try again.');
         }
@@ -29,11 +28,11 @@ function submitForm(endpoint) {
         alert('File transmission failed. Please try again.');
     };
 
-    // Send the FormData
+    // Provide form contents to backend
     xhr.responseType = 'arraybuffer';
     xhr.send(form_data);
 
-    // Reset file input and file-list ul
+    // Reset file input list
     document.getElementById('files').value = null;
     var file_list = document.getElementById('file-list');
     file_list.innerHTML = '';

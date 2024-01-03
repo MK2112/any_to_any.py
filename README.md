@@ -1,6 +1,7 @@
 # any_to_any.py - Convert Media Files
 
-This Python script helps you convert between various media file formats.
+This Python script helps you convert between various media file formats.<br>
+Movie files and audio files can be merged, files of same type (image/audio/video) can be concatenated back to back.
 
 ![screenshot](./img/Any-to-Any-Web.png)
 
@@ -29,9 +30,6 @@ This Python script helps you convert between various media file formats.
    - Halt the web application by pressing `CTRL+C` in the terminal you started it from
 
 ### Command Line Interface
- - Use the following command to convert e.g. MP4 files MP3:<br>`python any_to_any.py -i /path/to/mp4s -o /path/to/save/files -f mp3 -q high -d`
- - Use the following command to merge e.g. MP4 files with equally named MP3 files:<br>`python any_to_any.py -i /path/to/files -o /path/to/save/files -m -d`
- - Use the following command to start the web interface:<br>`python any_to_any.py -w`
  - Parameters, all of which are optional:
    - `-i` or `--input`: Directory containing MP4 files to be converted. If not provided, the directory from where script is called will be used
    - `-f` or `--format`: File format of desired output, either `mp3`, `flac`, `wav`, `ogg`, `m4a`, `weba`, `jpg`, `png`, `gif`, `bmp`, `webp`, `mp4`, `webm`, `mov`, `mkv`, `avi`, or mp4 codecs like `h265`, `h264`, `xvid`, `mpeg4`, `av1` and `vp9`
@@ -42,6 +40,12 @@ This Python script helps you convert between various media file formats.
    - `-w` or `--web`: Ignores all other arguments, starts a web server + frontend at `http://localhost:5000`
    - `-d` or `--delete`: Delete input files after conversion.
    - `-fps` or `--framerate`: Set the framerate (fps) when converting to a movie format or codec; default maintains input fps.
+
+#### Usage Examples
+- Convert e.g. MP4 files MP3:<br>`python any_to_any.py -i /path/to/mp4s -o /path/to/save/files -f mp3 -q high -d`
+- Merge e.g. MP4 files with equally named MP3 files:<br>`python any_to_any.py -i /path/to/files -o /path/to/save/files -m -d`
+- Concatenate e.g. MP4 files:<br>`python any_to_any.py -i /path/to/mp4s -o /path/to/save/files -c -d`
+- Start the web interface:<br>`python any_to_any.py -w`
 
 ### License
 This project is licensed under the MIT License, granting users the freedom to modify and distribute the codebase.

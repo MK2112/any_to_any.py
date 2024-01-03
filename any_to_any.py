@@ -352,7 +352,9 @@ class AnyToAny:
                     print(f"[!] Skipping {self._join_back(image_path_set)} - Unsupported format")
 
 
+    # Concatenate files of same type (img/movie/audio) back to back
     def concatenating(self, file_paths):
+        # Concatenate audio files
         if file_paths['audio']:
             concat_audio = concatenate_audioclips([AudioFileClip(self._join_back(audio_path_set)) for audio_path_set in file_paths['audio']])
             audio_out_path = os.path.join(self.output, 'concatenated_audio.mp3')
@@ -360,6 +362,7 @@ class AnyToAny:
             concat_audio.close()
             self._post_process(file_paths['audio'][0], self.output, self.delete)
 
+        # Concatenate movie files
         if file_paths['movie']:
             concat_video = concatenate_videoclips([VideoFileClip(self._join_back(movie_path_set), audio=True, fps_source='tbr') for movie_path_set in file_paths['movie']], method="compose")
             video_out_path = os.path.join(self.output, 'concatenated_video.mp4')
@@ -367,6 +370,7 @@ class AnyToAny:
             concat_video.close()
             self._post_process(file_paths['movie'][0], self.output, self.delete)
 
+        # Concatenate image files (make a gif out of them)
         if file_paths['image']:
             gif_output_path = os.path.join(self.output, 'concatenated_image.gif')
             concatenated_image = clips_array([[ImageClip(self._join_back(image_path_set)).set_duration(1)] for image_path_set in file_paths['image']])
@@ -376,7 +380,8 @@ class AnyToAny:
         print('[+] Concatenation completed')
 
 
-    # For movie files that have an equally named audio file, merge them together under same name (with '_merged' addition)
+    # For movie files and equally named audio file, merge them together under same name 
+    # (movie with audio with '_merged' addition to name)
     def merging(self, file_paths):
         # Iterate over all movie file path sets
         found_audio = False
@@ -390,8 +395,8 @@ class AnyToAny:
                 audio = AudioFileClip(self._join_back(audio_fit))
                 video.audio = audio
                 video.write_videofile(os.path.join(self.output, f'{movie_path_set[1]}_merged.{movie_path_set[2]}'), fps=video.fps if self.framerate is None else self.framerate, codec='libx264')
-                video.close()
                 audio.close()
+                video.close()
                 # Post process (delete mp4, print success)
                 self._post_process(movie_path_set, self.output, self.delete)
         
@@ -413,7 +418,6 @@ class AnyToAny:
 
 
 # An object is interacted with through a CLI-interface
-# In a minimal configuration, make sure at least 'input' and 'format' exist
 if __name__ == '__main__':
     # Check if required libraries are installed
     for lib in ['moviepy', 'PIL']:
@@ -425,7 +429,6 @@ if __name__ == '__main__':
 
     any_to_any = AnyToAny()
 
-    # Capture arguments from command line
     parser = argparse.ArgumentParser(description='Convert media files to different media formats')
     parser.add_argument('-i', '--input', help='Directory containing media files to be converted, Working Directory if none provided', type=str, required=False)
     parser.add_argument('-o', '--output', help='Directory to save files, writing to mp4 path if not provided', type=str, required=False)
@@ -439,7 +442,7 @@ if __name__ == '__main__':
     
     args = vars(parser.parse_args())
     
-    # Check if web frontend is desired
+    # Check if web frontend wanted
     if args['web']:
         subprocess.run("python ./web_to_any.py")
     else:
