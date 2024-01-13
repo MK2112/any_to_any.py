@@ -31,6 +31,7 @@ Movie files and audio files can be merged, files of same type (image/audio/video
 
 ### Command Line Interface
  - Parameters, all of which are optional:
+   - `-h` or `--help`: List all available parameters, their description and default values, then exit
    - `-i` or `--input`: Directory containing MP4 files to be converted. If not provided, the directory from where script is called will be used
    - `-f` or `--format`: File format of desired output, either `mp3`, `flac`, `wav`, `ogg`, `m4a`, `weba`, `jpg`, `png`, `gif`, `bmp`, `webp`, `mp4`, `webm`, `mov`, `mkv`, `avi`, or mp4 codecs like `h265`, `h264`, `xvid`, `mpeg4`, `av1` and `vp9`
    - `-o` or `--output`: Directory to save converted files. If not provided, it will write to the input file path.
@@ -42,10 +43,26 @@ Movie files and audio files can be merged, files of same type (image/audio/video
    - `-fps` or `--framerate`: Set the framerate (fps) when converting to a movie format or codec; default maintains input fps.
 
 #### Usage Examples
-- Convert e.g. MP4 files to MP3:<br>`python any_to_any.py -i /path/to/mp4s -o /path/to/save/files -f mp3 -q high -d`
-- Merge e.g. MP4 files with respective, equally named MP3 files:<br>`python any_to_any.py -i /path/to/files -o /path/to/save/files -m -d`
-- Concatenate e.g. MP4 files:<br>`python any_to_any.py -i /path/to/mp4s -o /path/to/save/files -c -d`
-- Start the web interface:<br>`python any_to_any.py -w`
+Start the web interface:
+```py
+python any_to_any.py -w
+```
+Convert MP4 files to MP3:
+```py
+python any_to_any.py -i /path/to/mp4s -f mp3
+```
+Convert MP4 files to MP3, save to a different directory, set conversion quality to high, delete mp4 files afterwards:
+```py
+python any_to_any.py -i /path/to/mp4s -o /path/to/save/files -f mp3 -q high -d
+```
+Merge e.g. MP4 files with respective, equally named MP3 files:
+```py
+python any_to_any.py -i /path/to/files -o /path/to/save/files -m -d
+```
+Concatenate e.g. MP4 files:
+```py
+python any_to_any.py -i /path/to/mp4s -o /path/to/save/files -c -d
+```
 
 ### License
 This project is licensed under the MIT License, granting users the freedom to modify and distribute the codebase.

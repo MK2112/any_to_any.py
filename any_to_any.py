@@ -432,7 +432,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Convert media files to different media formats')
     parser.add_argument('-i', '--input', help='Directory containing media files to be converted, Working Directory if none provided', type=str, required=False)
     parser.add_argument('-o', '--output', help='Directory to save files, writing to mp4 path if not provided', type=str, required=False)
-    parser.add_argument('-f', '--format', help=f'Set the output format ({any_to_any.supported_formats})', type=str, required=False)
+    parser.add_argument('-f', '--format', help=f'Set the output format ({", ".join(any_to_any.supported_formats)})', type=str, required=False)
     parser.add_argument('-m', '--merge', help='Per movie file, merge to movie with equally named audio file', action='store_true', required=False)
     parser.add_argument('-c', '--concat', help='Concatenate files of same type (img/movie/audio) back to back', action='store_true', required=False)
     parser.add_argument('-fps', '--framerate', help='Set the output framerate (default: same as input)', type=int, required=False)
