@@ -4,6 +4,7 @@ from flask import Flask, render_template, request, send_file
 from flask_uploads import UploadSet, configure_uploads, ALL # pip install Flask-Reuploaded needed
 import shutil
 import tempfile
+import webbrowser
 
 """
 Web server providing a web interface as extension to the CLI-based any-to-any.py
@@ -101,4 +102,5 @@ def concat():
 
 
 if __name__ == '__main__':
+    webbrowser.open(f'http://{host}:{port}/')
     app.run(debug=True, host=host, port=port)
