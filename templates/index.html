@@ -32,18 +32,19 @@
                     <ul id="file-list"></ul>
                 </div>
                 <div id="conversion-options">
-                    <label for="conversion-type">Convert To:</label>
+                    <label for="conversion-type">Convert to:</label>
                     <select id="conversion-type">
                         {% for option in options %}
                         <option value="{{ option }}">{{ option }}</option>
                         {% endfor %}
                     </select>
-                    <button title="Convert all given files to selected format." type="button" onclick="submitForm('/convert')">Convert</button>
-                    <button title="Merge movie data with the audio track of an equally named audio file." type="button" onclick="submitForm('/merge')">Merge</button>
-                    <button title="Glue files of same type together, back to back, in above displayed order" type="button" onclick="submitForm('/concat')">Concatenate</button>
+                    <button title="Convert All Given Files To Selected Format" type="button" onclick="submitForm('/convert')">Convert</button>
+                    <button title="Merge Movie Data With The Audio Track Of An Equally Named Audio File" type="button" onclick="submitForm('/merge')">Merge</button>
+                    <button title="Glue Files Of Same Type Together, Back To Back, In Above Displayed Order" type="button" onclick="submitForm('/concat')">Concatenate</button>
                 </div>
             </form>                    
         </main>
     </div>
+    <div class="loader" id="loader"></div>
 </body>
 </html>

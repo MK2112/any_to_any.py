@@ -9,9 +9,13 @@ function submitForm(endpoint) {
     var xhr = new XMLHttpRequest();
     xhr.open('POST', endpoint, true);
 
+    // Progress for file conversion (not upload)
+    showLoader();
+
     // Take backend response .zip, rename the file, make it downloadable
     xhr.onload = function () {
         if (xhr.status === 200) {
+            hideLoader();
             var blob = new Blob([xhr.response], { type: 'application/octet-stream' });
             var link = document.createElement('a');
             link.href = window.URL.createObjectURL(blob);
@@ -20,12 +24,14 @@ function submitForm(endpoint) {
             link.download = file_name
             link.click(); // Offer .zip for download
         } else {
-            alert('Error uploading files. Please try again.');
+            hideLoader();
+            alert('Error Uploading Files. Please Try Again.');
         }
     };
 
     xhr.onerror = function () {
-        alert('File transmission failed. Please try again.');
+        hideLoader();
+        alert('Communication To Backend Failed. Please Try Again.');
     };
 
     // Provide form contents to backend
@@ -71,4 +77,12 @@ function handleFiles(files, fromInput) {
         li.textContent = files[i].name;
         fileList.appendChild(li);
     }
+}
+
+function showLoader() {
+    document.getElementById('loader').style.display = 'block';
+}
+
+function hideLoader() {
+    document.getElementById('loader').style.display = 'none';
 }

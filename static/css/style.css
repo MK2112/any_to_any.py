@@ -108,3 +108,21 @@ header {
     border-radius: 5px;
     margin-bottom: 10px;
 }
+
+.loader {
+    display: none;
+    border: 6px solid #f3f3f3;
+    border-top: 6px solid #4F4F4F;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1.25s linear infinite;
+    margin: auto;
+    margin-top: 10vh;
+    z-index: 1000;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
