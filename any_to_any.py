@@ -360,7 +360,6 @@ class AnyToAny:
             audio_out_path = os.path.join(self.output, 'concatenated_audio.mp3')
             concat_audio.write_audiofile(audio_out_path, codec='libmp3lame', bitrate='320k')
             concat_audio.close()
-            self._post_process(file_paths['audio'][0], self.output, self.delete)
 
         # Concatenate movie files
         if file_paths['movie']:
@@ -368,14 +367,16 @@ class AnyToAny:
             video_out_path = os.path.join(self.output, 'concatenated_video.mp4')
             concat_video.write_videofile(video_out_path, fps=concat_video.fps if self.framerate is None else self.framerate, codec='libx264')
             concat_video.close()
-            self._post_process(file_paths['movie'][0], self.output, self.delete)
 
         # Concatenate image files (make a gif out of them)
         if file_paths['image']:
             gif_output_path = os.path.join(self.output, 'concatenated_image.gif')
             concatenated_image = clips_array([[ImageClip(self._join_back(image_path_set)).set_duration(1)] for image_path_set in file_paths['image']])
             concatenated_image.write_gif(gif_output_path, fps=self.framerate)
-            self._post_process(file_paths['image'][0], self.output, self.delete)
+        
+        for category in file_paths.keys():
+            for i, file_path in enumerate(file_paths[category]):
+                self._post_process(file_path, self.output, self.delete, show_status=(i == 0))
 
         print('[+] Concatenation completed')
 
@@ -397,16 +398,18 @@ class AnyToAny:
                 video.write_videofile(os.path.join(self.output, f'{movie_path_set[1]}_merged.{movie_path_set[2]}'), fps=video.fps if self.framerate is None else self.framerate, codec='libx264')
                 audio.close()
                 video.close()
-                # Post process (delete mp4, print success)
+                # Post process (delete mp4+audio, print success)
                 self._post_process(movie_path_set, self.output, self.delete)
+                self._post_process(audio_fit, self.output, self.delete, show_status=False)
         
         if not found_audio:
             print('[!] No audio files found to merge with movie files')
             
 
     # Post process after conversion, print, delete source file if desired
-    def _post_process(self, file_path_set, out_path, delete):
-        print(f'[+] Converted "{self._join_back(file_path_set)}" to "{out_path}"\n')
+    def _post_process(self, file_path_set, out_path, delete, show_status=True):
+        if show_status:
+            print(f'[+] Converted "{self._join_back(file_path_set)}" to "{out_path}"\n')
         if delete:
             os.remove(self._join_back(file_path_set))
             print(f'[-] Removed "{self._join_back(file_path_set)}"')
