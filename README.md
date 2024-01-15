@@ -6,7 +6,7 @@ Movie files and audio files can be merged, files of same type (image/audio/video
 ![screenshot](./img/Any-to-Any-Web.png)
 
 ## Supported Formats
-**Audio:** MP3, FLAC, WAV, OGG, M4A, WEBA<br> 
+**Audio:** MP3, FLAC, WAV, AAC, OGG, M4A, WEBA, WMA<br> 
 **Image:** JPG, PNG, GIF, BMP, WEBP<br>
 **Video:** MP4, WEBM, MOV, MKV, AVI<br>
 **Video Codecs:** H265, H264, XVID, MPEG4, AV1, VP9
@@ -33,7 +33,7 @@ Movie files and audio files can be merged, files of same type (image/audio/video
  - Parameters, all of which are optional:
    - `-h` or `--help`: List all available parameters, their description and default values, then exit
    - `-i` or `--input`: Directory containing MP4 files to be converted. If not provided, the directory from where script is called will be used
-   - `-f` or `--format`: File format of desired output, either `mp3`, `flac`, `wav`, `ogg`, `m4a`, `weba`, `jpg`, `png`, `gif`, `bmp`, `webp`, `mp4`, `webm`, `mov`, `mkv`, `avi`, or mp4 codecs like `h265`, `h264`, `xvid`, `mpeg4`, `av1` and `vp9`
+   - `-f` or `--format`: File format of desired output, either `mp3`, `flac`, `wav`, `aac`, `ogg`, `m4a`, `weba`, `wma`, `jpg`, `png`, `gif`, `bmp`, `webp`, `mp4`, `webm`, `mov`, `mkv`, `avi`, or mp4 codecs like `h265`, `h264`, `xvid`, `mpeg4`, `av1` and `vp9`
    - `-o` or `--output`: Directory to save converted files. If not provided, it will write to the input file path.
    - `-q` or `--quality`: Set the quality of the output file, either `low`, `medium`, or `high`; default is same as input.
    - `-m` or `--merge`: Per movie file, merge to movie with equally named audio file as its audio track.

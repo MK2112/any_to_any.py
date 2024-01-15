@@ -18,7 +18,9 @@ class AnyToAny:
             'audio': {
                 'mp3':  'libmp3lame',
                 'flac': 'flac',
+                'aac':  'aac',
                 'ogg':  'libvorbis',
+                'wma':  'wmav2',
                 'wav':  'pcm_s16le',
                 'm4a':  'aac',
                 'weba': 'libopus',
