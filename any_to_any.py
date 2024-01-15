@@ -38,6 +38,10 @@ class AnyToAny:
                 'mkv':  'libx264',
                 'avi':  'libx264',
                 'mp4':  'libx264',
+                'wmv':  'wmv2',
+                'flv':  'libx264',
+                'mjpeg': 'mjpeg',
+
             },
             'movie_codecs': {
                 'av1':   'libaom-av1',
@@ -67,7 +71,7 @@ class AnyToAny:
     # Return bitrate for audio conversion
     def _audio_bitrate(self, format, quality):
         # If formats allow for a higher bitrate, we shift our scale accordingly
-        if format in ['flac', 'wav']:
+        if format in ['flac', 'wav', 'aac']:
             return {
                 'high': '500k',
                 'medium': '320k',
@@ -280,20 +284,20 @@ class AnyToAny:
 
 
     # Convert to gif
-    def to_gif(self, file_paths):
+    def to_gif(self, file_paths, format):
         # For now, all images in the input directory are merged into one gif
         if len(file_paths['image']) > 0:
             images = []
             for image_path_set in file_paths['image']:
                 with Image.open(self._join_back(image_path_set)) as image:
-                    images.append(image.convert('RGBA'))
+                    images.append(image.convert('RGB'))
             images[0].save(os.path.join(self.output, 'merged.gif'), save_all=True, append_images=images[1:])
         
         # Movies are converted to gifs as well, incorporating all frames
         for movie_path_set in file_paths['movie']:
             video = VideoFileClip(self._join_back(movie_path_set), audio=False, fps_source='tbr')
             gif_path = os.path.join(self.output, f'{movie_path_set[1]}.gif')
-            video.write_gif(gif_path, fps=video.fps)
+            video.write_gif(gif_path, fps=video.fps//3)
             video.close()
             self._post_process(movie_path_set, gif_path, self.delete)
 

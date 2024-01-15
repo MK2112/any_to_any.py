@@ -8,14 +8,14 @@ Movie files and audio files can be merged, files of same type (image/audio/video
 ## Supported Formats
 **Audio:** MP3, FLAC, WAV, AAC, OGG, M4A, WEBA, WMA<br> 
 **Image:** JPG, PNG, GIF, BMP, WEBP<br>
-**Video:** MP4, WEBM, MOV, MKV, AVI<br>
+**Video:** MP4, WEBM, MOV, MKV, AVI, WMV, FLV, MJPEG<br>
 **Video Codecs:** H265, H264, XVID, MPEG4, AV1, VP9
 
 ## Usage
-1. **Download/Clone**:
-   - Download the most recent version from this Git repository directly, or use `git clone` to do so
+1. **Clone/Download**:
+   - Use `git clone` or download the most recent version from this Git repository
 2. **Python Version**:
-   - Ensure you have Python 3.x installed on your system.<br>If not, you can download it from the official [Python website](https://www.python.org/downloads/).
+   - Ensure you have Python 3.10.x or higher installed on your system
 3. **Install Dependencies**:
    - This script relies on packages listed in the `requirements.txt`.<br>Open a terminal in the project folder and run:<br>`pip install -r requirements.txt`
 4. **Running the Script**:
@@ -33,12 +33,12 @@ Movie files and audio files can be merged, files of same type (image/audio/video
  - Parameters, all of which are optional:
    - `-h` or `--help`: List all available parameters, their description and default values, then exit
    - `-i` or `--input`: Directory containing MP4 files to be converted. If not provided, the directory from where script is called will be used
-   - `-f` or `--format`: File format of desired output, either `mp3`, `flac`, `wav`, `aac`, `ogg`, `m4a`, `weba`, `wma`, `jpg`, `png`, `gif`, `bmp`, `webp`, `mp4`, `webm`, `mov`, `mkv`, `avi`, or mp4 codecs like `h265`, `h264`, `xvid`, `mpeg4`, `av1` and `vp9`
+   - `-f` or `--format`: File format of desired output, either `mp3`, `flac`, `wav`, `aac`, `ogg`, `m4a`, `weba`, `wma`, `jpg`, `png`, `gif`, `bmp`, `webp`, `mp4`, `webm`, `mov`, `mkv`, `avi`,  `wmv`, `flv`, `mjpeg` or mp4 codecs like `h265`, `h264`, `xvid`, `mpeg4`, `av1` and `vp9`
    - `-o` or `--output`: Directory to save converted files. If not provided, it will write to the input file path.
    - `-q` or `--quality`: Set the quality of the output file, either `low`, `medium`, or `high`; default is same as input.
    - `-m` or `--merge`: Per movie file, merge to movie with equally named audio file as its audio track.
    - `-c` or `--concat`: Concatenate input files of the same type (images, audio, video) into one output file (e.g. `concatenated_video.mp4` for movie files, `concatenated_audio.mp3` for audio files).
-   - `-w` or `--web`: Ignores all other arguments, starts a web server + frontend at `http://localhost:5000`
+   - `-w` or `--web`: Ignores all other arguments, starts a web server + browser at `http://localhost:5000`
    - `-d` or `--delete`: Delete input files after conversion.
    - `-fps` or `--framerate`: Set the framerate (fps) when converting to a movie format or codec; default maintains input fps.
 
