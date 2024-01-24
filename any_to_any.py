@@ -1,8 +1,8 @@
 import os
 import argparse
 import subprocess
-from moviepy.editor import AudioFileClip, VideoFileClip, ImageSequenceClip, ImageClip, concatenate_videoclips, concatenate_audioclips, clips_array
 from PIL import Image
+from moviepy.editor import AudioFileClip, VideoFileClip, ImageSequenceClip, ImageClip, concatenate_videoclips, concatenate_audioclips, clips_array
 
 
 class AnyToAny:
@@ -28,18 +28,18 @@ class AnyToAny:
             'image': {
                 'gif':  self.to_gif,
                 'png':  self.to_frames,
-                'jpg':  self.to_frames,
+                'jpeg': self.to_frames,
                 'bmp':  self.to_bmp,
                 'webp': self.to_webp,
             },
             'movie': {
-                'webm': 'libvpx',
-                'mov':  'libx264',
-                'mkv':  'libx264',
-                'avi':  'libx264',
-                'mp4':  'libx264',
-                'wmv':  'wmv2',
-                'flv':  'libx264',
+                'webm':  'libvpx',
+                'mov':   'libx264',
+                'mkv':   'libx264',
+                'avi':   'libx264',
+                'mp4':   'libx264',
+                'wmv':   'wmv2',
+                'flv':   'libx264',
                 'mjpeg': 'mjpeg',
 
             },
@@ -73,15 +73,15 @@ class AnyToAny:
         # If formats allow for a higher bitrate, we shift our scale accordingly
         if format in ['flac', 'wav', 'aac']:
             return {
-                'high': '500k',
+                'high':   '500k',
                 'medium': '320k',
-                'low': '192k'
+                'low':    '192k',
             }.get(quality, None)
         else:
             return {
-                'high': '320k',
+                'high':   '320k',
                 'medium': '192k',
-                'low': '128k'
+                'low':    '128k',
             }.get(quality, None)
 
 
@@ -164,14 +164,13 @@ class AnyToAny:
         # Audio to audio conversion
         for audio_path_set in file_paths['audio']:
             audio = AudioFileClip(self._join_back(audio_path_set))
-            if audio_path_set[2] != format:
-                output_path = os.path.abspath(os.path.join(self.output, f'{audio_path_set[1]}.{format}'))
-                # Write audio to file
-                audio.write_audiofile(output_path, codec=codec, bitrate=self._audio_bitrate(format, self.quality))
-                audio.close()
-                self._post_process(audio_path_set, output_path, self.delete)
-            else:   
-                print(f'[!] Skipping "{self._join_back(audio_path_set)}"\n')
+            if audio_path_set[2] == format:
+                continue
+            output_path = os.path.abspath(os.path.join(self.output, f'{audio_path_set[1]}.{format}'))
+            # Write audio to file
+            audio.write_audiofile(output_path, codec=codec, bitrate=self._audio_bitrate(format, self.quality))
+            audio.close()
+            self._post_process(audio_path_set, output_path, self.delete)
 
         # Movie to audio conversion
         for movie_path_set in file_paths['movie']:
@@ -253,7 +252,8 @@ class AnyToAny:
     # This works for images and movies only
     def to_frames(self, file_paths, format):
         for image_path_set in file_paths['image']:
-            # We only need to care for gif and bmp, rather obvisouly
+            if image_path_set[2].lower() == format:
+                continue
             if image_path_set[2].lower() == 'gif':
                 clip = ImageSequenceClip(self._join_back(image_path_set), fps=24)
                 for _, frame in enumerate(clip.iter_frames(fps=clip.fps, dtype='uint8')):
@@ -266,8 +266,13 @@ class AnyToAny:
                 with Image.open(self._join_back(image_path_set)) as img:
                     img.convert("RGB").save(img_path, format=format)
                 self._post_process(image_path_set, img_path, self.delete)
+            else:
+                img_path = os.path.abspath(os.path.join(self.output, f'{image_path_set[1]}.{format}'))
+                with Image.open(self._join_back(image_path_set)) as img:
+                    img.convert("RGB").save(img_path, format=format)
+                self._post_process(image_path_set, img_path, self.delete)
         
-        # Audio cant be image-framed, but movies certrainly can
+        # Audio cant be image-framed, movies certrainly can
         for movie_path_set in file_paths['movie']:
             video = VideoFileClip(self._join_back(movie_path_set), audio=False, fps_source='tbr')
             if not os.path.exists(os.path.join(self.output, movie_path_set[1])):
@@ -283,12 +288,13 @@ class AnyToAny:
             self._post_process(movie_path_set, img_path, self.delete)
 
 
-    # Convert to gif
     def to_gif(self, file_paths, format):
-        # For now, all images in the input directory are merged into one gif
+        # All images in the input directory are merged into one gif
         if len(file_paths['image']) > 0:
             images = []
             for image_path_set in file_paths['image']:
+                if image_path_set[2].lower() == 'gif':
+                    continue
                 with Image.open(self._join_back(image_path_set)) as image:
                     images.append(image.convert('RGB'))
             images[0].save(os.path.join(self.output, 'merged.gif'), save_all=True, append_images=images[1:])
@@ -302,8 +308,7 @@ class AnyToAny:
             self._post_process(movie_path_set, gif_path, self.delete)
 
 
-    # Convert frames in bmp format
-    def to_bmp(self, file_paths):
+    def to_bmp(self, file_paths, format):
         # Movies are converted to bmps, frame by frame
         for movie_path_set in file_paths['movie']:
             video = VideoFileClip(self._join_back(movie_path_set), audio=False, fps_source='tbr')
@@ -315,23 +320,24 @@ class AnyToAny:
 
         # Pngs and gifs are converted to bmps as well
         for image_path_set in file_paths['images']:
-            if not image_path_set[2].lower() == 'bmp':
-                if image_path_set[2].lower() == 'png' or image_path_set[2].lower() == 'jpg':
-                    bmp_path = os.path.join(self.output, f'{image_path_set[1]}.bmp')
-                    with Image.open(self._join_back(image_path_set)) as img:
-                        img.convert("RGB").save(bmp_path, format='BMP')
-                elif image_path_set[2].lower() == 'gif':
-                    clip = VideoFileClip(self._join_back(image_path_set))
-                    for _, frame in enumerate(clip.iter_frames(fps=clip.fps, dtype='uint8')):
-                        frame_path = os.path.join(self.output, f"{image_path_set[1]}-%06d.bmp")
-                        Image.fromarray(frame).convert("RGB").save(frame_path, format='BMP')
-                else:
-                    # Handle unsupported file types here
-                    print(f"[!] Skipping {self._join_back(image_path_set)} - Unsupported format")
+            if image_path_set[2].lower() == 'bmp':
+                continue
+            if image_path_set[2].lower() == 'png' or image_path_set[2].lower() == 'jpg':
+                bmp_path = os.path.join(self.output, f'{image_path_set[1]}.bmp')
+                with Image.open(self._join_back(image_path_set)) as img:
+                    img.convert("RGB").save(bmp_path, format='BMP')
+            elif image_path_set[2].lower() == 'gif':
+                clip = VideoFileClip(self._join_back(image_path_set))
+                for _, frame in enumerate(clip.iter_frames(fps=clip.fps, dtype='uint8')):
+                    frame_path = os.path.join(self.output, f"{image_path_set[1]}-%06d.bmp")
+                    Image.fromarray(frame).convert("RGB").save(frame_path, format='BMP')
+            else:
+                # Handle unsupported file types here
+                print(f"[!] Skipping {self._join_back(image_path_set)} - Unsupported format")
     
     
     # Convert frames in webp format
-    def to_webp(self, file_paths):
+    def to_webp(self, file_paths, format):
         # Movies are converted to webps, frame by frame
         for movie_path_set in file_paths['movie']:
             video = VideoFileClip(self._join_back(movie_path_set), audio=False, fps_source='tbr')
@@ -343,19 +349,20 @@ class AnyToAny:
 
         # Pngs and gifs are converted to webps as well
         for image_path_set in file_paths['images']:
-            if not image_path_set[2].lower() == 'webp':
-                if image_path_set[2].lower() == 'png' or image_path_set[2].lower() == 'jpg':
-                    webp_path = os.path.join(self.output, f'{image_path_set[1]}.webp')
-                    with Image.open(self._join_back(image_path_set)) as img:
-                        img.convert("RGB").save(webp_path, format='webp')
-                elif image_path_set[2].lower() == 'gif':
-                    clip = VideoFileClip(self._join_back(image_path_set))
-                    for _, frame in enumerate(clip.iter_frames(fps=clip.fps, dtype='uint8')):
-                        frame_path = os.path.join(self.output, f"{image_path_set[1]}-%06d.webp")
-                        Image.fromarray(frame).convert("RGB").save(frame_path, format='webp')
-                else:
-                    # Handle unsupported file types here
-                    print(f"[!] Skipping {self._join_back(image_path_set)} - Unsupported format")
+            if image_path_set[2].lower() == 'webp':
+                continue
+            if image_path_set[2].lower() == 'png' or image_path_set[2].lower() == 'jpg':
+                webp_path = os.path.join(self.output, f'{image_path_set[1]}.webp')
+                with Image.open(self._join_back(image_path_set)) as img:
+                    img.convert("RGB").save(webp_path, format='webp')
+            elif image_path_set[2].lower() == 'gif':
+                clip = VideoFileClip(self._join_back(image_path_set))
+                for _, frame in enumerate(clip.iter_frames(fps=clip.fps, dtype='uint8')):
+                    frame_path = os.path.join(self.output, f"{image_path_set[1]}-%06d.webp")
+                    Image.fromarray(frame).convert("RGB").save(frame_path, format='webp')
+            else:
+                # Handle unsupported file types here
+                print(f"[!] Skipping {self._join_back(image_path_set)} - Unsupported format")
 
 
     # Concatenate files of same type (img/movie/audio) back to back
