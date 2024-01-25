@@ -1,7 +1,7 @@
-# any_to_any.py - Convert Media Files
+# any_to_any.py - Converter For Media Files
 
-This Python script helps you convert between various media file formats.<br>
-Movie files and audio files can be merged, files of same type (image/audio/video) can be concatenated back to back.
+A Python tool to convert between various media file formats.<br>
+Movie files and audio files can be merged, files of the same type (image/audio/video) can be concatenated back to back.
 
 ![screenshot](./img/Any-to-Any-Web.png)
 
@@ -11,26 +11,43 @@ Movie files and audio files can be merged, files of same type (image/audio/video
 **Video:** MP4, WEBM, MOV, MKV, AVI, WMV, FLV, MJPEG<br>
 **Video Codecs:** H265, H264, XVID, MPEG4, AV1, VP9
 
-## Usage
+## Setup
 1. **Clone/Download**:
-   - Use `git clone` or download the most recent version from this Git repository
+   - Use `git clone` or download the most recent version of this Git repository
 2. **Python Version**:
-   - Ensure you have Python 3.10.x or higher installed on your system
+   - Ensure you have Python 3.10.x or higher installed
 3. **Install Dependencies**:
-   - This script relies on packages listed in the `requirements.txt`.<br>Open a terminal in the project folder and run:<br>`pip install -r requirements.txt`
+   - Open a terminal in the project folder and run: `pip install -r requirements.txt`
 4. **Running the Script**:
-   Fundamentally, you can use Any_to_Any.py in two ways:
+   You can use Any_to_Any.py in two ways:
    - *Web Interface*
    - *Command Line Interface*
 
-### Web Interface
-   - Use the following command to start the web interface:<br>`python any_to_any.py -w`
+## Web Interface
+   - Start the web interface: `python any_to_any.py -w`
    - This will start a web server at `http://localhost:5000`, which you can access via your browser
-   - From there, you can use it like any other web application
-   - Halt the web application by pressing `CTRL+C` in the terminal you started it from
+   - Halt the web interface by pressing `CTRL+C` in the terminal you started it from
 
-### Command Line Interface
- - Parameters, all of which are optional:
+## Command Line Interface
+Convert MP4 files to MP3:
+```py
+python any_to_any.py -i /path/to/mp4-folder -f mp3
+```
+Convert MP4 files to MP3, save to a different directory, set conversion quality to high, delete mp4 files afterwards:
+```py
+python any_to_any.py -i /path/to/mp4-folder -o /path/to/save/folder -f mp3 -q high -d
+```
+Merge e.g. MP4 files with respective, equally named MP3 files:
+```py
+python any_to_any.py -i /path/to/folder -o /path/to/save/folder -m -d
+```
+Concatenate e.g. MP4 files:
+```py
+python any_to_any.py -i /path/to/mp4-folder -o /path/to/save/folder -c -d
+```
+
+### Parameters
+ - All parameters are optional:
    - `-h` or `--help`: List all available parameters, their description and default values, then exit
    - `-i` or `--input`: Directory containing MP4 files to be converted. If not provided, the directory from where script is called will be used
    - `-f` or `--format`: File format of desired output, either `mp3`, `flac`, `wav`, `aac`, `aiff`, `ogg`, `m4a`, `weba`, `wma`, `jpg`, `png`, `gif`, `bmp`, `webp`, `mp4`, `webm`, `mov`, `mkv`, `avi`,  `wmv`, `flv`, `mjpeg` or mp4 codecs like `h265`, `h264`, `xvid`, `mpeg4`, `av1` and `vp9`
@@ -42,34 +59,12 @@ Movie files and audio files can be merged, files of same type (image/audio/video
    - `-d` or `--delete`: Delete input files after conversion.
    - `-fps` or `--framerate`: Set the framerate (fps) when converting to a movie format or codec; default maintains input fps.
 
-#### Usage Examples
-Start the web interface:
-```py
-python any_to_any.py -w
-```
-Convert MP4 files to MP3:
-```py
-python any_to_any.py -i /path/to/mp4s -f mp3
-```
-Convert MP4 files to MP3, save to a different directory, set conversion quality to high, delete mp4 files afterwards:
-```py
-python any_to_any.py -i /path/to/mp4s -o /path/to/save/files -f mp3 -q high -d
-```
-Merge e.g. MP4 files with respective, equally named MP3 files:
-```py
-python any_to_any.py -i /path/to/files -o /path/to/save/files -m -d
-```
-Concatenate e.g. MP4 files:
-```py
-python any_to_any.py -i /path/to/mp4s -o /path/to/save/files -c -d
-```
-
-### License
+## License
 This project is licensed under the MIT License, granting users the freedom to modify and distribute the codebase.
 
-### Contributions
+## Contributions
 Contributions and feedback are welcome. Feel free to open issues or pull requests.
 
-### Disclaimer
+## Disclaimer
 This script is provided as-is, without any warranties or guarantees.<br>
 Users are responsible for ensuring compliance with applicable laws and regulations.
