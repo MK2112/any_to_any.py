@@ -23,6 +23,7 @@ class AnyToAny:
                 'wma':  'wmav2',
                 'wav':  'pcm_s16le',
                 'm4a':  'aac',
+                'aiff': 'pcm_s16le',
                 'weba': 'libopus',
             },
             'image': {
@@ -71,7 +72,7 @@ class AnyToAny:
     # Return bitrate for audio conversion
     def _audio_bitrate(self, format, quality):
         # If formats allow for a higher bitrate, we shift our scale accordingly
-        if format in ['flac', 'wav', 'aac']:
+        if format in ['flac', 'wav', 'aac', 'aiff']:
             return {
                 'high':   '500k',
                 'medium': '320k',
