@@ -1,7 +1,7 @@
-# any_to_any.py - Converter For Media Files
+# any_to_any.py - Media File Converter
 
-A Python tool to convert between various media file formats.<br>
-Movie files and audio files can be merged, files of the same type (image/audio/video) can be concatenated back to back.
+Convert between various media file formats with this Python tool.<br>
+Merge movie and audio files, concatenate files of the same type (image/audio/video), and more.
 
 ![screenshot](./img/Any-to-Any-Web.png)
 
@@ -13,20 +13,20 @@ Movie files and audio files can be merged, files of the same type (image/audio/v
 
 ## Setup
 1. **Clone/Download**:
-   - Use `git clone` or download the most recent version of this Git repository
+   - Use `git clone` or download the latest version from this repository
 2. **Python Version**:
    - Ensure you have Python 3.10.x or higher installed
 3. **Install Dependencies**:
    - Open a terminal in the project folder and run: `pip install -r requirements.txt`
 4. **Running the Script**:
-   You can use Any_to_Any.py in two ways:
+   Use Any_to_Any.py in two ways:
    - *Web Interface*
    - *Command Line Interface*
 
 ## Web Interface
-   - Start the web interface: `python any_to_any.py -w`
-   - This will start a web server at `http://localhost:5000`, which you can access via your browser
-   - Halt the web interface by pressing `CTRL+C` in the terminal you started it from
+- Start the web interface: `python any_to_any.py -w`
+- Access the web view at `http://localhost:5000` via your browser
+- Stop the web interface by pressing `CTRL+C` in the terminal
 
 ## Command Line Interface
 Convert MP4 files to MP3:
