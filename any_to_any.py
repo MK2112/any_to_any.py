@@ -19,6 +19,8 @@ class AnyToAny:
                 'mp3':  'libmp3lame',
                 'flac': 'flac',
                 'aac':  'aac',
+                'ac3':  'ac3',
+                'dts':  'dts',
                 'ogg':  'libvorbis',
                 'wma':  'wmav2',
                 'wav':  'pcm_s16le',
@@ -192,9 +194,10 @@ class AnyToAny:
 
     # Convert movie to same movie with different codec
     def to_codec(self, file_paths, codec):
+        key = next(k for k, v in self._supported_formats['movie_codecs'].items() if v == codec)
         for codec_path_set in file_paths['movie']: # Jup, this is on purpose
             video = VideoFileClip(self._join_back(codec_path_set), audio=True, fps_source='tbr')
-            output_path = os.path.abspath(os.path.join(self.output, f'{codec_path_set[1]}_{codec}.{codec_path_set[2]}'))
+            output_path = os.path.abspath(os.path.join(self.output, f'{codec_path_set[1]}_{key}.{codec_path_set[2]}'))
             video.write_videofile(output_path, codec=codec, fps=video.fps if self.framerate is None else self.framerate, audio=True)
             video.close()
             self._post_process(codec_path_set, output_path, self.delete)
