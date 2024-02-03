@@ -29,6 +29,10 @@ Merge movie and audio files, concatenate files of the same type (image/audio/vid
 - Stop the web interface by pressing `CTRL+C` in the terminal
 
 ## Command Line Interface
+Convert WEBP files to PNG:
+```py
+python any_to_any.py -i /path/to/webp-folder -f png
+```
 Convert MP4 files to MP3:
 ```py
 python any_to_any.py -i /path/to/mp4-folder -f mp3
