@@ -8,7 +8,7 @@ Merge movie and audio files, concatenate files of the same type (image/audio/vid
 ## Supported Formats
 **Audio:** MP3, FLAC, WAV, AAC, AIFF, OGG, M4A, WEBA, WMA, AC3, DTS<br> 
 **Image:** JPEG, PNG, GIF, BMP, WEBP<br>
-**Video:** MP4, WEBM, MOV, MKV, AVI, WMV, FLV, MJPEG<br>
+**Video:** MP4, WEBM, MOV, MKV, AVI, WMV, FLV, OGV, MJPEG<br>
 **Video Codecs:** H265, H264, XVID, MPEG4, AV1, VP9
 
 ## Setup
@@ -54,7 +54,7 @@ python any_to_any.py -i /path/to/mp4-folder -o /path/to/save/folder -c -d
  - All parameters are optional:
    - `-h` or `--help`: List all available parameters, their description and default values, then exit
    - `-i` or `--input`: Directory containing MP4 files to be converted. If not provided, the directory from where script is called will be used
-   - `-f` or `--format`: File format of desired output, either `mp3`, `flac`, `wav`, `aac`, `aiff`, `ogg`, `m4a`, `ac3`, `dts`, `weba`, `wma`, `jpeg`, `png`, `gif`, `bmp`, `webp`, `mp4`, `webm`, `mov`, `mkv`, `avi`,  `wmv`, `flv`, `mjpeg` or mp4 codecs like `h265`, `h264`, `xvid`, `mpeg4`, `av1` and `vp9`
+   - `-f` or `--format`: File format of desired output, either `mp3`, `flac`, `wav`, `aac`, `aiff`, `ogg`, `m4a`, `ac3`, `dts`, `weba`, `wma`, `jpeg`, `png`, `gif`, `bmp`, `webp`, `mp4`, `webm`, `mov`, `mkv`, `avi`,  `wmv`, `flv`, `ogv`, `mjpeg` or mp4 codecs like `h265`, `h264`, `xvid`, `mpeg4`, `av1` and `vp9`
    - `-o` or `--output`: Directory to save converted files. If not provided, it will write to the input file path.
    - `-q` or `--quality`: Set the quality of the output file, either `low`, `medium`, or `high`; default is same as input.
    - `-m` or `--merge`: Per movie file, merge to movie with equally named audio file as its audio track.
