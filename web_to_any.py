@@ -10,13 +10,11 @@ import webbrowser
 Web server providing a web interface as extension to the CLI-based any-to-any.py
 """
 
-## ------------------- Flask configuration ------------------- ##
 app = Flask(__name__, template_folder=os.path.abspath('templates'))
 host = '127.0.0.1'
 port = 5000
 any_to_any = AnyToAny()
 
-## --------------- Flask-Uploads configuration --------------- ##
 files = UploadSet('files', ALL)
 app.config['UPLOADED_FILES_DEST'] = 'uploads'
 app.config['CONVERTED_FILES_DEST'] = 'converted'
@@ -62,6 +60,7 @@ def index():
 @app.route('/convert', methods=['POST'])
 def convert():
     format = process_params()
+    # Convert all files uploaded to the 'uploads' directory and save it in the 'converted' directory
     any_to_any.run(input=app.config['UPLOADED_FILES_DEST'],
                    format=format, 
                    output=app.config['CONVERTED_FILES_DEST'],  
@@ -76,6 +75,7 @@ def convert():
 @app.route('/merge', methods=['POST'])
 def merge():
     _ = process_params() # Ignore format, merging anyway
+    # Merge all files in the 'uploads' directory and save it in the 'converted' directory
     any_to_any.run(input=app.config['UPLOADED_FILES_DEST'],
                    format=None, 
                    output=app.config['CONVERTED_FILES_DEST'],  
@@ -90,6 +90,8 @@ def merge():
 @app.route('/concat', methods=['POST'])
 def concat():
     _ = process_params() # Ignore format, backend will figure this out
+    # Concatenation is always done with the same format, hand it off
+    # Await backend conclusion, return its result
     any_to_any.run(input=app.config['UPLOADED_FILES_DEST'],
                    format=None, 
                    output=app.config['CONVERTED_FILES_DEST'],  

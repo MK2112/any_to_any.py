@@ -40,7 +40,6 @@ class AnyToAny:
                 'mov':   'libx264',
                 'mkv':   'libx264',
                 'avi':   'libx264',
-                'ogv':   'libtheora',
                 'mp4':   'libx264',
                 'wmv':   'wmv2',
                 'flv':   'libx264',
