@@ -1,7 +1,7 @@
 import os
 from any_to_any import AnyToAny
 from flask import Flask, render_template, request, send_file
-from flask_uploads import UploadSet, configure_uploads, ALL # pip install Flask-Reuploaded needed
+from flask_uploads import UploadSet, configure_uploads, ALL # special `pip install flask-reuploaded` needed`
 import shutil
 import tempfile
 import webbrowser
@@ -31,7 +31,7 @@ with app.app_context():
 
 
 def create_send_zip():
-    # Temporary dir for zip file
+    # Create a temporary dir for zip file
     temp_dir = tempfile.mkdtemp()
     zip_filename = os.path.join(temp_dir, 'converted_files.zip')
     # Zip all files in the 'converted' directory and save it in the temporary directory

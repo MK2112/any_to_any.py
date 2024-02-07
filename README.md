@@ -15,11 +15,11 @@ Merge movie and audio files, concatenate files of the same type (image/audio/vid
 1. **Clone/Download**:
    - Use `git clone` or download the latest version from this repository
 2. **Python Version**:
-   - Ensure you have Python 3.10.x or higher installed
+   - Ensure you have Python `3.10.x` or higher installed
 3. **Install Dependencies**:
    - Open a terminal in the project folder and run: `pip install -r requirements.txt`
 4. **Running the Script**:
-   Use Any_to_Any.py in two ways:
+   Use Any_to_Any.py in either of two ways:
    - *Web Interface*
    - *Command Line Interface*
 

@@ -462,7 +462,7 @@ if __name__ == '__main__':
     
     args = vars(parser.parse_args())
     
-    # Check if web frontend wanted
+    # Check for web frontend request
     if args['web']:
         subprocess.run("python ./web_to_any.py")
     else:
