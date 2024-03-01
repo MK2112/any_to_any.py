@@ -464,7 +464,10 @@ if __name__ == '__main__':
     
     # Check for web frontend request
     if args['web']:
-        subprocess.run("python ./web_to_any.py")
+        if os.name == 'nt':
+            subprocess.run("python ./web_to_any.py", shell=True)
+        else:
+            subprocess.run("python3 ./web_to_any.py", shell=True)
     else:
         # Run main function with parsed arguments
         any_to_any.run(input=args['input'],
