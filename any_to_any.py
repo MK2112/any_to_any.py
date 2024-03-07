@@ -90,13 +90,20 @@ class AnyToAny:
 
     # Main function to convert media files to defined formats
     def run(self, input, format, output, framerate, quality, merge, concat, delete):
-        self.input = input if input is not None else os.getcwd()     # No input means working directory
+        # No input means working directory
+        if input is None:
+            self.input = os.getcwd()
+        elif os.path.isfile(input):
+            self.input = os.path.dirname(input)
+        else:
+            self.input = input
+
         self.output = output if output is not None else self.input   # No output means same as input
         self.format = format.lower() if format is not None else None # No format means no conversion
-        self.framerate = framerate  # Possibly no framerate means same as input
-        self.merge = merge          # Merge movie files with equally named audio files
-        self.concat = concat        # Concatenate files of same format
-        self.delete = delete        # Delete mp4 files after conversion
+        self.framerate = framerate # Possibly no framerate means same as input
+        self.merge = merge         # Merge movie files with equally named audio files
+        self.concat = concat       # Concatenate files of same format
+        self.delete = delete       # Delete mp4 files after conversion
 
         # Check if the output dir exists, if not, create it
         if not os.path.exists(self.output):
@@ -108,19 +115,22 @@ class AnyToAny:
         else:
             self.quality = None
 
+        # Special treatment for if individual file was passed
+        file_paths = self._get_file_paths(input) if os.path.isfile(input) else self._get_file_paths()
+
         # Check if value associated to format is tuple/string or function to call specific conversion
         if self.format in self._supported_formats['movie'].keys():
-            self.to_movie(file_paths=self._get_file_paths(), format=self.format, codec=self._supported_formats['movie'][self.format])
+            self.to_movie(file_paths=file_paths, format=self.format, codec=self._supported_formats['movie'][self.format])
         elif self.format in self._supported_formats['audio'].keys():
-            self.to_audio(file_paths=self._get_file_paths(), format=self.format, codec=self._supported_formats['audio'][self.format])
+            self.to_audio(file_paths=file_paths, format=self.format, codec=self._supported_formats['audio'][self.format])
         elif self.format in self._supported_formats['movie_codecs'].keys():
-            self.to_codec(file_paths=self._get_file_paths(), codec=self._supported_formats['movie_codecs'][self.format])
+            self.to_codec(file_paths=file_paths, codec=self._supported_formats['movie_codecs'][self.format])
         elif self.format in self._supported_formats['image'].keys():
-            self._supported_formats['image'][self.format](self._get_file_paths(), self.format)
+            self._supported_formats['image'][self.format](file_paths, self.format)
         elif self.merge:
-            self.merging(self._get_file_paths())
+            self.merging(file_paths)
         elif self.concat:
-            self.concatenating(self._get_file_paths())
+            self.concatenating(file_paths)
         else:
             # Handle unsupported formats here
             self.end_with_msg(ValueError, f'[!] Error: Output format must be one of {list(self.supported_formats)}')
@@ -128,38 +138,45 @@ class AnyToAny:
 
 
     # Get media files from input directory
-    def _get_file_paths(self):
+    def _get_file_paths(self, input=None):
+        def process_file(file_path):
+            file_ending = file_path.split('.')[-1].lower()
+            file_name = os.path.basename(file_path).split('.')[0]
+            path_to_file = os.path.dirname(file_path) + os.sep
+            return path_to_file, file_name, file_ending
+
+        def schedule_file(file_info):
+            for category in self._supported_formats.keys():
+                if file_info[2] in self._supported_formats[category]:
+                    file_paths[category].append(file_info)
+                    print(f'[+] Scheduling: {file_info[1]}.{file_info[2]}')
+                    break
+
         if self.output is None:
             self.output = self.input
 
-        # Sanity check for existence of input and output directories
-        for dir in [self.input, self.output]:
-            if not os.path.exists(dir):
-                self.end_with_msg(FileNotFoundError, f'[!] Error: Directory {dir} Does Not Exist.')
+        for directory in [self.input, self.output]:
+            if not os.path.exists(directory):
+                self.end_with_msg(FileNotFoundError, f'[!] Error: Directory {directory} does not exist.')
 
         print(f'Convert To {str(self.format).upper()} | Job Started For {self.input}\n')
 
-        # Discover and attribute files to their specific category
-        file_paths = {category: [] for category in self._supported_formats.keys()}
+        file_paths = {category: [] for category in self._supported_formats}
 
-        for file in os.listdir(self.input):
-            file = os.path.abspath(os.path.join(self.input, file)) # Get absolute path to file
-            file_ending = file[file.rfind('.')+1:].lower()         # Get file ending (e.g. mp4)
-            file_name = file[file.rfind(os.sep)+1:file.rfind('.')] # Get file name (e.g. video)
-            path_to_file = file[:file.rfind(os.sep)+1]             # Get path to file (e.g. /home/user/)
+        if input is not None and os.path.isfile(input):
+            file_info = process_file(os.path.abspath(input))
+            schedule_file(file_info)
+        else:
+            for file_name in os.listdir(self.input):
+                file_path = os.path.abspath(os.path.join(self.input, file_name))
+                file_info = process_file(file_path)
+                schedule_file(file_info)
 
-            for category in self._supported_formats.keys():
-                # Check if file ending is supported for any category
-                if file_ending in self._supported_formats[category].keys():
-                    file_paths[category].append([path_to_file, file_name, file_ending])
-                    print(f'[+] Scheduling: {file_name}.{file_ending}')
-                    break
+        if not any(file_paths.values()):
+            self.end_with_msg(FileNotFoundError, f'[!] Warning: No Convertible Media Files Found in {self.input}')
 
-        # Check if any files were found
-        if len(file_paths['audio']) == 0 and len(file_paths['image']) == 0 and len(file_paths['movie']) == 0:
-            self.end_with_msg(FileNotFoundError, f'[!] Warning: No Convertable Media Files Found in {self.input}')
-        print() # Newline for readability
-        return file_paths # Dict of lists of file paths, one list per file category, it being the key
+        print()  # Newline for readability
+        return file_paths
 
 
     # Convert to audio
@@ -456,7 +473,7 @@ if __name__ == '__main__':
     parser.add_argument('-m', '--merge', help='Per movie file, merge to movie with equally named audio file', action='store_true', required=False)
     parser.add_argument('-c', '--concat', help='Concatenate files of same type (img/movie/audio) back to back', action='store_true', required=False)
     parser.add_argument('-fps', '--framerate', help='Set the output framerate (default: same as input)', type=int, required=False)
-    parser.add_argument('-q', '--quality', help='Set the output quality (high/medium/low)', type=str, required=False)
+    parser.add_argument('-q', '--quality', help='Set the output quality (high, medium, low)', type=str, required=False)
     parser.add_argument('-d', '--delete', help='Delete mp4 files after conversion', action='store_true', required=False)
     parser.add_argument('-w', '--web', help='Ignores all other arguments, starts web server + frontend', action='store_true', required=False)
     
