@@ -89,51 +89,63 @@ class AnyToAny:
 
 
     # Main function to convert media files to defined formats
-    def run(self, input, format, output, framerate, quality, merge, concat, delete):
-        # No input means working directory
-        if input is None:
-            self.input = os.getcwd()
-        elif os.path.isfile(str(input)):
-            self.input = os.path.dirname(input)
-        else:
-            self.input = input
+    def run(self, inputs, format, output, framerate, quality, merge, concat, delete):
 
-        self.output = output if output is not None else self.input   # No output means same as input
-        self.format = format.lower() if format is not None else None # No format means no conversion
-        self.framerate = framerate # Possibly no framerate means same as input
-        self.merge = merge         # Merge movie files with equally named audio files
-        self.concat = concat       # Concatenate files of same format
-        self.delete = delete       # Delete mp4 files after conversion
+        input_paths = []
+        for i, arg in enumerate(inputs):
+            if arg.startswith('-') and arg[1:].isdigit():
+                input_paths.append(arg[2:])
+            else:
+                try:
+                    input_paths[-1] = (input_paths[-1] + f' {arg}').strip()
+                except IndexError:
+                    input_paths.append(arg)
 
-        # Check if the output dir exists, if not, create it
-        if not os.path.exists(self.output):
-            os.makedirs(self.output)
+        for input in input_paths:
+            # No input means working directory
+            if input is None:
+                self.input = os.getcwd()
+            elif os.path.isfile(str(input)):
+                self.input = os.path.dirname(input)
+            else:
+                self.input = input
 
-        # Check if quality is set, if not, set it to None
-        if quality is not None:
-            self.quality = quality.lower() if quality.lower() in ['high', 'medium', 'low'] else None
-        else:
-            self.quality = None
+            self.output = output if output is not None else self.input   # No output means same as input
+            self.format = format.lower() if format is not None else None # No format means no conversion
+            self.framerate = framerate # Possibly no framerate means same as input
+            self.merge = merge         # Merge movie files with equally named audio files
+            self.concat = concat       # Concatenate files of same format
+            self.delete = delete       # Delete mp4 files after conversion
 
-        # Special treatment for if individual file was passed
-        file_paths = self._get_file_paths(self.input) if os.path.isfile(self.input) else self._get_file_paths()
+            # Check if the output dir exists, if not, create it
+            if not os.path.exists(self.output):
+                os.makedirs(self.output)
 
-        # Check if value associated to format is tuple/string or function to call specific conversion
-        if self.format in self._supported_formats['movie'].keys():
-            self.to_movie(file_paths=file_paths, format=self.format, codec=self._supported_formats['movie'][self.format])
-        elif self.format in self._supported_formats['audio'].keys():
-            self.to_audio(file_paths=file_paths, format=self.format, codec=self._supported_formats['audio'][self.format])
-        elif self.format in self._supported_formats['movie_codecs'].keys():
-            self.to_codec(file_paths=file_paths, codec=self._supported_formats['movie_codecs'][self.format])
-        elif self.format in self._supported_formats['image'].keys():
-            self._supported_formats['image'][self.format](file_paths, self.format)
-        elif self.merge:
-            self.merging(file_paths)
-        elif self.concat:
-            self.concatenating(file_paths)
-        else:
-            # Handle unsupported formats here
-            self.end_with_msg(ValueError, f'[!] Error: Output format must be one of {list(self.supported_formats)}')
+            # Check if quality is set, if not, set it to None
+            if quality is not None:
+                self.quality = quality.lower() if quality.lower() in ['high', 'medium', 'low'] else None
+            else:
+                self.quality = None
+
+            # Special treatment for if individual file was passed
+            file_paths = self._get_file_paths(self.input) if os.path.isfile(self.input) else self._get_file_paths()
+
+            # Check if value associated to format is tuple/string or function to call specific conversion
+            if self.format in self._supported_formats['movie'].keys():
+                self.to_movie(file_paths=file_paths, format=self.format, codec=self._supported_formats['movie'][self.format])
+            elif self.format in self._supported_formats['audio'].keys():
+                self.to_audio(file_paths=file_paths, format=self.format, codec=self._supported_formats['audio'][self.format])
+            elif self.format in self._supported_formats['movie_codecs'].keys():
+                self.to_codec(file_paths=file_paths, codec=self._supported_formats['movie_codecs'][self.format])
+            elif self.format in self._supported_formats['image'].keys():
+                self._supported_formats['image'][self.format](file_paths, self.format)
+            elif self.merge:
+                self.merging(file_paths)
+            elif self.concat:
+                self.concatenating(file_paths)
+            else:
+                # Handle unsupported formats here
+                self.end_with_msg(ValueError, f'[!] Error: Output format must be one of {list(self.supported_formats)}')
         print("[+] Job Finished")
 
 
@@ -159,7 +171,7 @@ class AnyToAny:
             if not os.path.exists(directory):
                 self.end_with_msg(FileNotFoundError, f'[!] Error: Directory {directory} does not exist.')
 
-        print(f'Scheduling {self.input}\n')
+        print(f'[/] Scheduling {self.input}')
 
         file_paths = {category: [] for category in self._supported_formats}
 
@@ -173,7 +185,7 @@ class AnyToAny:
                 schedule_file(file_info)
 
         if not any(file_paths.values()):
-            self.end_with_msg(FileNotFoundError, f'[!] Error: No convertible media files found in {self.input}')
+            self.end_with_msg(None, f'[!] Error: No convertible media files found in {self.input}')
 
         print()  # Newline for readability
         return file_paths
@@ -412,7 +424,7 @@ class AnyToAny:
             for i, file_path in enumerate(file_paths[category]):
                 self._post_process(file_path, self.output, self.delete, show_status=(i == 0))
 
-        print('[+] Concatenation completed')
+        print('\t[+] Concatenation completed')
 
 
     # For movie files and equally named audio file, merge them together under same name 
@@ -467,7 +479,7 @@ if __name__ == '__main__':
     any_to_any = AnyToAny()
 
     parser = argparse.ArgumentParser(description='Convert media files to different media formats')
-    parser.add_argument('-i', '--input', help='Directory containing media files to be converted, Working Directory if none provided', type=str, required=False)
+    parser.add_argument('-i', '--input', nargs='+', help='Directory containing media files to be converted, Working Directory if none provided', type=str, required=False)
     parser.add_argument('-o', '--output', help='Directory to save files, writing to mp4 path if not provided', type=str, required=False)
     parser.add_argument('-f', '--format', help=f'Set the output format ({", ".join(any_to_any.supported_formats)})', type=str, required=False)
     parser.add_argument('-m', '--merge', help='Per movie file, merge to movie with equally named audio file', action='store_true', required=False)
@@ -487,7 +499,7 @@ if __name__ == '__main__':
             subprocess.run("python3 ./web_to_any.py", shell=True)
     else:
         # Run main function with parsed arguments
-        any_to_any.run(input=args['input'],
+        any_to_any.run(inputs=args['input'],
                        format=args['format'], 
                        output=args['output'], 
                        framerate=args['framerate'],
