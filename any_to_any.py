@@ -93,7 +93,7 @@ class AnyToAny:
         # No input means working directory
         if input is None:
             self.input = os.getcwd()
-        elif os.path.isfile(input):
+        elif os.path.isfile(str(input)):
             self.input = os.path.dirname(input)
         else:
             self.input = input
@@ -116,7 +116,7 @@ class AnyToAny:
             self.quality = None
 
         # Special treatment for if individual file was passed
-        file_paths = self._get_file_paths(input) if os.path.isfile(input) else self._get_file_paths()
+        file_paths = self._get_file_paths(self.input) if os.path.isfile(self.input) else self._get_file_paths()
 
         # Check if value associated to format is tuple/string or function to call specific conversion
         if self.format in self._supported_formats['movie'].keys():
@@ -159,7 +159,7 @@ class AnyToAny:
             if not os.path.exists(directory):
                 self.end_with_msg(FileNotFoundError, f'[!] Error: Directory {directory} does not exist.')
 
-        print(f'Convert To {str(self.format).upper()} | Job Started For {self.input}\n')
+        print(f'Scheduling {self.input}\n')
 
         file_paths = {category: [] for category in self._supported_formats}
 
@@ -173,7 +173,7 @@ class AnyToAny:
                 schedule_file(file_info)
 
         if not any(file_paths.values()):
-            self.end_with_msg(FileNotFoundError, f'[!] Warning: No Convertible Media Files Found in {self.input}')
+            self.end_with_msg(FileNotFoundError, f'[!] Error: No convertible media files found in {self.input}')
 
         print()  # Newline for readability
         return file_paths
