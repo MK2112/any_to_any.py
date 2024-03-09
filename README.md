@@ -56,8 +56,6 @@ You can structure a command in three fundamental ways:
 | `-fps` or</br>`--framerate` | Set the framerate (fps) when converting to a movie format or codec; default maintains input fps. |
 
 ### Single File Processing
-Here are three examples of how to convert a single file to another format:
-
 Convert WEBP to PNG:
 ```python
 python any_to_any.py -i /path/to/file.webp -f png
