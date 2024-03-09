@@ -171,7 +171,7 @@ class AnyToAny:
             if not os.path.exists(directory):
                 self.end_with_msg(FileNotFoundError, f'[!] Error: Directory {directory} does not exist.')
 
-        print(f'[/] Scheduling {self.input}')
+        print(f'[/] Scheduling: {self.input}')
 
         file_paths = {category: [] for category in self._supported_formats}
 

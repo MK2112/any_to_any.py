@@ -1,7 +1,7 @@
 import os
 from any_to_any import AnyToAny
 from flask import Flask, render_template, request, send_file
-from flask_uploads import UploadSet, configure_uploads, ALL # special `pip install flask-reuploaded` needed`
+from flask_uploads import UploadSet, configure_uploads, ALL # special `pip install flask-reuploaded` needed
 import shutil
 import tempfile
 import webbrowser
@@ -61,7 +61,7 @@ def index():
 def convert():
     format = process_params()
     # Convert all files uploaded to the 'uploads' directory and save it in the 'converted' directory
-    any_to_any.run(input=app.config['UPLOADED_FILES_DEST'],
+    any_to_any.run(inputs=app.config['UPLOADED_FILES_DEST'],
                    format=format, 
                    output=app.config['CONVERTED_FILES_DEST'],  
                    framerate=None,
@@ -76,7 +76,7 @@ def convert():
 def merge():
     _ = process_params() # Ignore format, merging anyway
     # Merge all files in the 'uploads' directory and save it in the 'converted' directory
-    any_to_any.run(input=app.config['UPLOADED_FILES_DEST'],
+    any_to_any.run(inputs=app.config['UPLOADED_FILES_DEST'],
                    format=None, 
                    output=app.config['CONVERTED_FILES_DEST'],  
                    framerate=None,
@@ -92,7 +92,7 @@ def concat():
     _ = process_params() # Ignore format, backend will figure this out
     # Concatenation is always done with the same format, hand it off
     # Await backend conclusion, return its result
-    any_to_any.run(input=app.config['UPLOADED_FILES_DEST'],
+    any_to_any.run(inputs=app.config['UPLOADED_FILES_DEST'],
                    format=None, 
                    output=app.config['CONVERTED_FILES_DEST'],  
                    framerate=None,
