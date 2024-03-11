@@ -27,6 +27,7 @@ class AnyToAny:
                 'm4a':  'aac',
                 'aiff': 'pcm_s16le',
                 'weba': 'libopus',
+                'mka':  'libvorbis',
             },
             'image': {
                 'gif':  self.to_gif,
@@ -224,7 +225,7 @@ class AnyToAny:
     # Convert movie to same movie with different codec
     def to_codec(self, file_paths, codec):
         key = next(k for k, v in self._supported_formats['movie_codecs'].items() if v == codec)
-        for codec_path_set in file_paths['movie']: # Jup, this is on purpose
+        for codec_path_set in file_paths['movie']:
             video = VideoFileClip(self._join_back(codec_path_set), audio=True, fps_source='tbr')
             output_path = os.path.abspath(os.path.join(self.output, f'{codec_path_set[1]}_{key}.{codec_path_set[2]}'))
             video.write_videofile(output_path, codec=codec, fps=video.fps if self.framerate is None else self.framerate, audio=True)
