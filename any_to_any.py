@@ -28,6 +28,8 @@ class AnyToAny:
                 'aiff': 'pcm_s16le',
                 'weba': 'libopus',
                 'mka':  'libvorbis',
+                'wv':   'wavpack',
+                'tta':  'tta',
             },
             'image': {
                 'gif':  self.to_gif,
