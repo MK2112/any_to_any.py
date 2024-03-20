@@ -45,13 +45,13 @@ You can structure a command in three fundamental ways:
 | Command Argument                | Meaning |
 | ----------------------- | ------- |
 | `-h` or </br>`--help`        | List all available parameters, their description and default values, then exit. |
-| `-i` or </br>`--input`       | Path to file itself or directory containing files to be converted. If not provided, the directory from where script is called will be used. |
-| `-f` or </br>`--format`      | File format of desired output, either `mp3`, `flac`, `wav`, `aac`, `aiff`, `ogg`, `m4a`, `ac3`, `dts`, `weba`, `wma`, `mka`, `wv`, `tta`, `jpg`, `png`, `gif`, `bmp`, `webp`, `mp4`, `webm`, `mov`, `mkv`, `avi`, `wmv`, `flv`, `mjpeg` or mp4 codecs like `h265`, `h264`, `xvid`, `mpeg4`, `av1` and `vp9`. |
-| `-o` or </br>`--output`      | Directory to save converted files. If not provided, it will write to the input file path. |
-| `-q` or </br>`--quality`     | Set the quality of the output file, either `low`, `medium`, or `high`; default is same as input. |
-| `-m` or </br>`--merge`       | Per movie file, merge to movie with equally named audio file as its audio track. |
+| `-i` or </br>`--input`       | Path to file itself or directory containing files to be converted. If not provided, the directory from where the script is called will be used. |
+| `-f` or </br>`--format`      | Desired output file format, either `mp3`, `flac`, `wav`, `aac`, `aiff`, `ogg`, `m4a`, `ac3`, `dts`, `weba`, `wma`, `mka`, `wv`, `tta`, `jpg`, `png`, `gif`, `bmp`, `webp`, `mp4`, `webm`, `mov`, `mkv`, `avi`, `wmv`, `flv`, `mjpeg` or movie codecs like `h265`, `h264`, `xvid`, `mpeg4`, `av1` and `vp9`. |
+| `-o` or </br>`--output`      | Directory to save converted files into. Writing to the input file path, if none provided. |
+| `-q` or </br>`--quality`     | Set output file quality, either `low`, `medium`, or `high`; default is same as input. |
+| `-m` or </br>`--merge`       | Merge movie file with equally named audio file to become its audio track. |
 | `-c` or </br>`--concat`      | Concatenate input files of the same type (images, audio, video) into one output file (e.g. `concatenated_video.mp4` for movie files, `concatenated_audio.mp3` for audio files). |
-| `-w` or </br>`--web`         | Ignores all other arguments, starts a web server + browser at `http://localhost:5000`. |
+| `-w` or </br>`--web`         | Ignores all other arguments, starts browser + a web server at `http://localhost:5000`. |
 | `-d` or </br>`--delete`      | Delete input files after conversion. |
 | `-fps` or</br>`--framerate` | Set the framerate (fps) when converting to a movie format or codec; default maintains input fps. |
 
