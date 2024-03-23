@@ -143,9 +143,9 @@ class AnyToAny:
             elif self.format in self._supported_formats['image'].keys():
                 self._supported_formats['image'][self.format](file_paths, self.format)
             elif self.merge:
-                self.merging(file_paths)
+                self.merging(file_paths, self.format)
             elif self.concat:
-                self.concatenating(file_paths)
+                self.concatenating(file_paths, self.format)
             else:
                 # Handle unsupported formats here
                 self.end_with_msg(ValueError, f'[!] Error: Output format must be one of {list(self.supported_formats)}')
@@ -402,25 +402,35 @@ class AnyToAny:
                 print(f"[!] Skipping {self._join_back(image_path_set)} - Unsupported format")
 
 
-    # TODO: Switchable output format for concatenated files
     # Concatenate files of same type (img/movie/audio) back to back
-    def concatenating(self, file_paths: dict) -> None:
+    def concatenating(self, file_paths: dict, format: str) -> None:
         # Concatenate audio files
-        if file_paths['audio']:
+        if file_paths['audio'] and (format is None or format in self._supported_formats['audio']):
             concat_audio = concatenate_audioclips([AudioFileClip(self._join_back(audio_path_set)) for audio_path_set in file_paths['audio']])
-            audio_out_path = os.path.join(self.output, 'concatenated_audio.mp3')
-            concat_audio.write_audiofile(audio_out_path, codec='libmp3lame', bitrate=self._audio_bitrate(format, self.quality))
+            if format is None:
+                # If no specific output format is set, default to most common one (mp3), allow for quality setting here too
+                audio_out_path = os.path.join(self.output, 'concatenated_audio.mp3')
+                concat_audio.write_audiofile(audio_out_path, codec='libmp3lame', bitrate=self._audio_bitrate(format, self.quality) if self.quality is not None else concat_audio.bitrate)
+            else:
+                # User-specified output format and quality
+                audio_out_path = os.path.join(self.output, f'concatenated_audio.{format}')
+                concat_audio.write_audiofile(audio_out_path, codec=self._supported_formats['audio'][format], bitrate=self._audio_bitrate(format, self.quality) if self.quality is not None else concat_audio.bitrate)
             concat_audio.close()
 
         # Concatenate movie files
-        if file_paths['movie']:
+        if file_paths['movie'] and (format is None or format in self._supported_formats['movie']):
             concat_video = concatenate_videoclips([VideoFileClip(self._join_back(movie_path_set), audio=True, fps_source='tbr') for movie_path_set in file_paths['movie']], method="compose")
-            video_out_path = os.path.join(self.output, 'concatenated_video.mp4')
-            concat_video.write_videofile(video_out_path, fps=concat_video.fps if self.framerate is None else self.framerate, codec='libx264')
+            if format is None:
+                # Revert to most common format (mp4) if no specific format is set
+                video_out_path = os.path.join(self.output, 'concatenated_video.mp4')
+                concat_video.write_videofile(video_out_path, fps=concat_video.fps if self.framerate is None else self.framerate, codec='libx264')
+            else:
+                video_out_path = os.path.join(self.output, f'concatenated_video.{format}')
+                concat_video.write_videofile(video_out_path, fps=concat_video.fps if self.framerate is None else concat_video.fps, codec=self._supported_formats['movie'][format])
             concat_video.close()
 
         # Concatenate image files (make a gif out of them)
-        if file_paths['image']:
+        if file_paths['image'] and (format is None or format in self._supported_formats['image']):
             gif_output_path = os.path.join(self.output, 'concatenated_image.gif')
             concatenated_image = clips_array([[ImageClip(self._join_back(image_path_set)).set_duration(1)] for image_path_set in file_paths['image']])
             concatenated_image.write_gif(gif_output_path, fps=self.framerate)
@@ -435,7 +445,7 @@ class AnyToAny:
     # TODO: This default codec might not always work, make a lookup table
     # For movie files and equally named audio file, merge them together under same name 
     # (movie with audio with '_merged' addition to name)
-    def merging(self, file_paths: dict) -> None:
+    def merging(self, file_paths: dict, format: str) -> None:
         # Iterate over all movie file path sets
         found_audio = False
         for movie_path_set in file_paths['movie']:
