@@ -143,7 +143,7 @@ class AnyToAny:
             elif self.format in self._supported_formats['image'].keys():
                 self._supported_formats['image'][self.format](file_paths, self.format)
             elif self.merge:
-                self.merging(file_paths, self.format)
+                self.merging(file_paths)
             elif self.concat:
                 self.concatenating(file_paths, self.format)
             else:
@@ -175,7 +175,7 @@ class AnyToAny:
             if not os.path.exists(directory):
                 self.end_with_msg(FileNotFoundError, f'[!] Error: Directory {directory} does not exist.')
 
-        print(f'[/] Scheduling: {input}')
+        print(f'[>] Scheduling: {input}')
 
         file_paths = {category: [] for category in self._supported_formats}
 
@@ -442,10 +442,9 @@ class AnyToAny:
         print('\t[+] Concatenation completed')
 
 
-    # TODO: This default codec might not always work, make a lookup table
     # For movie files and equally named audio file, merge them together under same name 
     # (movie with audio with '_merged' addition to name)
-    def merging(self, file_paths: dict, format: str) -> None:
+    def merging(self, file_paths: dict) -> None:
         # Iterate over all movie file path sets
         found_audio = False
         for movie_path_set in file_paths['movie']:
@@ -457,7 +456,7 @@ class AnyToAny:
                 video = VideoFileClip(self._join_back(movie_path_set), audio=False, fps_source='tbr')
                 audio = AudioFileClip(self._join_back(audio_fit))
                 video.audio = audio
-                video.write_videofile(os.path.join(self.output, f'{movie_path_set[1]}_merged.{movie_path_set[2]}'), fps=video.fps if self.framerate is None else self.framerate, codec='libx264')
+                video.write_videofile(os.path.join(self.output, f'{movie_path_set[1]}_merged.{movie_path_set[2]}'), fps=video.fps if self.framerate is None else self.framerate, codec=self._supported_formats['movie'][movie_path_set[2]])
                 audio.close()
                 video.close()
                 # Post process (delete mp4+audio, print success)
