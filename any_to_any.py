@@ -30,6 +30,9 @@ class AnyToAny:
                 'mka':  'libvorbis',
                 'wv':   'wavpack',
                 'tta':  'tta',
+                'm4b':  'aac',
+                'eac3': 'eac3',
+                'spx':  'libvorbis',
             },
             'image': {
                 'gif':  self.to_gif,
@@ -47,15 +50,17 @@ class AnyToAny:
                 'wmv':   'wmv2',
                 'flv':   'libx264',
                 'mjpeg': 'mjpeg',
-
+                'm2ts':  'mpeg2video',
+                '3gp':   'libx264',
             },
             'movie_codecs': {
-                'av1':   'libaom-av1',
-                'vp9':   'libvpx-vp9',
-                'h265':  'libx265',
-                'h264':  'libx264',
-                'xvid':  'libxvid',
-                'mpeg4': 'mpeg4',
+                'av1':    'libaom-av1',
+                'vp9':    'libvpx-vp9',
+                'h265':   'libx265',
+                'h264':   'libx264',
+                'xvid':   'libxvid',
+                'mpeg4':  'mpeg4',
+                'theora': 'libtheora',
             },
         }
 
@@ -77,7 +82,7 @@ class AnyToAny:
     # Return bitrate for audio conversion
     def _audio_bitrate(self, format: str, quality: str) -> str:
         # If formats allow for a higher bitrate, we shift our scale accordingly
-        if format in ['flac', 'wav', 'aac', 'aiff']:
+        if format in ['flac', 'wav', 'aac', 'aiff', 'eac3']:
             return {
                 'high':   '500k',
                 'medium': '320k',
