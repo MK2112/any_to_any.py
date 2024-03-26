@@ -40,6 +40,9 @@ class AnyToAny:
                 'jpg':  self.to_frames,
                 'bmp':  self.to_bmp,
                 'webp': self.to_webp,
+                'tiff': self.to_frames,
+                'tga':  self.to_frames,
+                'eps':  self.to_frames,
             },
             'movie': {
                 'webm':  'libvpx',
@@ -98,10 +101,9 @@ class AnyToAny:
 
     # Main function to convert media files to defined formats
     def run(self, inputs: list, format: str, output: str, framerate: int, quality: str, merge: bool, concat: bool, delete: bool) -> None:
-
         input_paths = []
         inputs = inputs if inputs is not None else [os.path.dirname(os.getcwd())]
-
+        
         # Custom handling of multiple input paths (e.g. "-1 path1 -2 path2 -n pathn")
         for _, arg in enumerate(inputs):
             if arg.startswith('-') and arg[1:].isdigit():
@@ -303,17 +305,10 @@ class AnyToAny:
                     Image.fromarray(frame).save(frame_path, format=format)
                 clip.close()
                 self._post_process(image_path_set, self.output, self.delete)
-            elif image_path_set[2].lower() == 'bmp':
-                img_path = os.path.abspath(os.path.join(self.output, f'{image_path_set[1]}.{format}'))
-                with Image.open(self._join_back(image_path_set)) as img:
-                    img.convert("RGB").save(img_path, format=format)
-                self._post_process(image_path_set, img_path, self.delete)
             else:
-                img_path = os.path.abspath(os.path.join(self.output, f'{image_path_set[1]}.{format}'))
                 with Image.open(self._join_back(image_path_set)) as img:
                     img.convert("RGB").save(img_path, format=format)
                 self._post_process(image_path_set, img_path, self.delete)
-        
         # Audio cant be image-framed, movies certrainly can
         for movie_path_set in file_paths['movie']:
             video = VideoFileClip(self._join_back(movie_path_set), audio=False, fps_source='tbr')
@@ -323,7 +318,6 @@ class AnyToAny:
                 except OSError as e:
                     print(f'[!] Error: {e} - Setting output directory to {self.input}')
                     self.output = self.input
-
             img_path = os.path.abspath(os.path.join(os.path.join(self.output, movie_path_set[1]), f'{movie_path_set[1]}-%{len(str(int(video.duration * video.fps)))}d.{format}'))
             video.write_images_sequence(img_path, fps=video.fps)
             video.close()
@@ -361,7 +355,7 @@ class AnyToAny:
             self._post_process(movie_path_set, bmp_path, self.delete)
 
         # Pngs and gifs are converted to bmps as well
-        for image_path_set in file_paths['images']:
+        for image_path_set in file_paths['image']:
             if image_path_set[2].lower() == format:
                 continue
             if image_path_set[2].lower() == 'png' or image_path_set[2].lower() == 'jpg':
@@ -383,14 +377,19 @@ class AnyToAny:
         # Movies are converted to webps, frame by frame
         for movie_path_set in file_paths['movie']:
             video = VideoFileClip(self._join_back(movie_path_set), audio=False, fps_source='tbr')
-            webp_path = os.path.join(self.output, f'{movie_path_set[1]}.{format}')
-            # Split video into individual webp frame images at original framerate
-            for _, frame in enumerate(video.iter_frames(fps=video.fps, dtype='uint8')):
-                frame.save(f"{webp_path}-%{len(str(int(video.duration * video.fps)))}d.{format}", format=format)
-            self._post_process(movie_path_set, webp_path, self.delete)
+            if not os.path.exists(os.path.join(self.output, movie_path_set[1])):
+                try:
+                    os.makedirs(os.path.join(self.output, movie_path_set[1]))
+                except OSError as e:
+                    print(f'[!] Error: {e} - Setting output directory to {self.input}')
+                    self.output = self.input
 
+            img_path = os.path.abspath(os.path.join(os.path.join(self.output, movie_path_set[1]), f'{movie_path_set[1]}-%{len(str(int(video.duration * video.fps)))}d.{format}'))
+            video.write_images_sequence(img_path, fps=video.fps)
+            video.close()
+            self._post_process(movie_path_set, img_path, self.delete)
         # Pngs and gifs are converted to webps as well
-        for image_path_set in file_paths['images']:
+        for image_path_set in file_paths['image']:
             if image_path_set[2].lower() == format:
                 continue
             if image_path_set[2].lower() == 'png' or image_path_set[2].lower() == 'jpg':

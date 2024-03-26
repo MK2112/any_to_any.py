@@ -7,7 +7,7 @@ Merge movie and audio files, concatenate files of the same type (image/audio/vid
 
 ## Supported Formats
 **Audio:** MP3, FLAC, AAC, AC3, DTS, OGG, WMA, WAV, M4A, AIFF, WEBA, MKA, WV, TTA, M4B, EAC3, SPX<br>
-**Image:** JPG, PNG, GIF, BMP, WEBP<br>
+**Image:** JPG, PNG, GIF, BMP, WEBP, TIFF, TGA, EPS<br>
 **Video:** MP4, WEBM, MOV, MKV, AVI, WMV, FLV, MJPEG, M2TS, 3GP<br>
 **Video Codecs:** AV1, VP9, H265, H264, XVID, MPEG4, THEORA
 
@@ -46,7 +46,7 @@ You can structure a command in three fundamental ways:
 | ----------------------- | ------- |
 | `-h` or </br>`--help`        | List all available parameters, their description and default values, then exit. |
 | `-i` or </br>`--input`       | Path to file itself or directory containing files to be converted. If not provided, the directory from where the script is called will be used. |
-| `-f` or </br>`--format`      | Desired output file format, either `mp3`, `flac`, `wav`, `aac`, `aiff`, `ogg`, `m4a`, `ac3`, `dts`, `weba`, `wma`, `mka`, `wv`, `tta`, `m4b`, `eac3`, `spx`, `jpg`, `png`, `gif`, `bmp`, `webp`, `mp4`, `webm`, `mov`, `mkv`, `avi`, `wmv`, `flv`, `m2ts`, `3gp`, `mjpeg` or movie codecs like `h265`, `h264`, `xvid`, `mpeg4`, `av1`, `theora` and `vp9`. |
+| `-f` or </br>`--format`      | Desired output file format, either `mp3`, `flac`, `wav`, `aac`, `aiff`, `ogg`, `m4a`, `ac3`, `dts`, `weba`, `wma`, `mka`, `wv`, `tta`, `m4b`, `eac3`, `spx`, `jpg`, `png`, `gif`, `bmp`, `webp`, `tiff`, `tga`, `eps`, `mp4`, `webm`, `mov`, `mkv`, `avi`, `wmv`, `flv`, `m2ts`, `3gp`, `mjpeg` or movie codecs like `h265`, `h264`, `xvid`, `mpeg4`, `av1`, `theora` and `vp9`. |
 | `-o` or </br>`--output`      | Directory to save converted files into. Writing to the input file path, if none provided. |
 | `-q` or </br>`--quality`     | Set output file quality, either `low`, `medium`, or `high`; default is same as input. |
 | `-m` or </br>`--merge`       | Merge movie file with equally named audio file to become its audio track. |
