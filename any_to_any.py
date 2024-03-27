@@ -306,6 +306,7 @@ class AnyToAny:
                 clip.close()
                 self._post_process(image_path_set, self.output, self.delete)
             else:
+                img_path = os.path.join(self.output, f'{image_path_set[1]}.{format}')
                 with Image.open(self._join_back(image_path_set)) as img:
                     img.convert("RGB").save(img_path, format=format)
                 self._post_process(image_path_set, img_path, self.delete)
