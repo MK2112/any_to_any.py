@@ -33,6 +33,7 @@ class AnyToAny:
                 'm4b':  'aac',
                 'eac3': 'eac3',
                 'spx':  'libvorbis',
+                'mp2':  'mp2',
             },
             'image': {
                 'gif':  self.to_gif,
