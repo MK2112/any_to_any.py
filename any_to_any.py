@@ -34,6 +34,7 @@ class AnyToAny:
                 'eac3': 'eac3',
                 'spx':  'libvorbis',
                 'mp2':  'mp2',
+                'caf':  'pcm_s16be',
             },
             'image': {
                 'gif':  self.to_gif,
