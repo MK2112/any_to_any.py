@@ -57,6 +57,7 @@ class AnyToAny:
                 'mjpeg': 'mjpeg',
                 'm2ts':  'mpeg2video',
                 '3gp':   'libx264',
+                'asf':   'wmv2',
             },
             'movie_codecs': {
                 'av1':    'libaom-av1',
@@ -87,7 +88,7 @@ class AnyToAny:
     # Return bitrate for audio conversion
     def _audio_bitrate(self, format: str, quality: str) -> str:
         # If formats allow for a higher bitrate, we shift our scale accordingly
-        if format in ['flac', 'wav', 'aac', 'aiff', 'eac3']:
+        if format in ['flac', 'wav', 'aac', 'aiff', 'eac3', 'dts']:
             return {
                 'high':   '500k',
                 'medium': '320k',
