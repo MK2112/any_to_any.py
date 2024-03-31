@@ -58,6 +58,7 @@ class AnyToAny:
                 'm2ts':  'mpeg2video',
                 '3gp':   'libx264',
                 'asf':   'wmv2',
+                'vob':   'mpeg2video',
             },
             'movie_codecs': {
                 'av1':    'libaom-av1',
