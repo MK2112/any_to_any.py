@@ -176,7 +176,7 @@ class AnyToAny:
             for category in self._supported_formats.keys():
                 if file_info[2] in self._supported_formats[category]:
                     file_paths[category].append(file_info)
-                    print(f'[+] Scheduling: {file_info[1]}.{file_info[2]}')
+                    print(f'\t[+] Scheduling: {file_info[1]}.{file_info[2]}')
                     break
 
         if not hasattr(self, 'output') or self.output is None:
@@ -265,26 +265,13 @@ class AnyToAny:
             elif image_path_set[2].lower() == 'bmp':
                 bmps.append(ImageClip(self._join_back(image_path_set)).set_duration(1))
 
-        # PNG to movie
-        if len(pngs) > 0:
-            final_clip = concatenate_videoclips(pngs, method="compose")
-            out_path = os.path.abspath(os.path.join(self.output, f'png_merged.{format}'))
-            final_clip.write_videofile(out_path, fps=24 if self.framerate is None else self.framerate, codec=codec)
-            final_clip.close()
-
-        # JPG to movie
-        if len(jpgs) > 0:
-            final_clip = concatenate_videoclips(jpgs, method="compose")
-            out_path = os.path.abspath(os.path.join(self.output, f'jpg_merged.{format}'))
-            final_clip.write_videofile(out_path, fps=24 if self.framerate is None else self.framerate, codec=codec)
-            final_clip.close()
-
-        # BMP to movie
-        if len(bmps) > 0:
-            final_clip = concatenate_videoclips(bmps, method="compose")
-            out_path = os.path.abspath(os.path.join(self.output, f'bmp_merged.{format}'))
-            final_clip.write_videofile(out_path, fps=24 if self.framerate is None else self.framerate, codec=codec)
-            final_clip.close()
+        # Pics to movie
+        for pics in [pngs, jpgs, bmps]:
+            if len(pics) > 0:
+                final_clip = concatenate_videoclips(pics, method="compose")
+                out_path = os.path.abspath(os.path.join(self.output, f'merged.{format}'))
+                final_clip.write_videofile(out_path, fps=24 if self.framerate is None else self.framerate, codec=codec)
+                final_clip.close()
             
         # Movie to different movie
         for movie_path_set in file_paths['movie']:
@@ -416,26 +403,17 @@ class AnyToAny:
         # Concatenate audio files
         if file_paths['audio'] and (format is None or format in self._supported_formats['audio']):
             concat_audio = concatenate_audioclips([AudioFileClip(self._join_back(audio_path_set)) for audio_path_set in file_paths['audio']])
-            if format is None:
-                # If no specific output format is set, default to most common one (mp3), allow for quality setting here too
-                audio_out_path = os.path.join(self.output, 'concatenated_audio.mp3')
-                concat_audio.write_audiofile(audio_out_path, codec='libmp3lame', bitrate=self._audio_bitrate(format, self.quality) if self.quality is not None else concat_audio.bitrate)
-            else:
-                # User-specified output format and quality
-                audio_out_path = os.path.join(self.output, f'concatenated_audio.{format}')
-                concat_audio.write_audiofile(audio_out_path, codec=self._supported_formats['audio'][format], bitrate=self._audio_bitrate(format, self.quality) if self.quality is not None else concat_audio.bitrate)
+            format = 'mp3' if format is None else format
+            audio_out_path = os.path.join(self.output, f'concatenated_audio.{format}')
+            concat_audio.write_audiofile(audio_out_path, codec=self._supported_formats['audio'][format], bitrate=self._audio_bitrate(format, self.quality) if self.quality is not None else concat_audio.bitrate)
             concat_audio.close()
 
         # Concatenate movie files
         if file_paths['movie'] and (format is None or format in self._supported_formats['movie']):
             concat_video = concatenate_videoclips([VideoFileClip(self._join_back(movie_path_set), audio=True, fps_source='tbr') for movie_path_set in file_paths['movie']], method="compose")
-            if format is None:
-                # Revert to most common format (mp4) if no specific format is set
-                video_out_path = os.path.join(self.output, 'concatenated_video.mp4')
-                concat_video.write_videofile(video_out_path, fps=concat_video.fps if self.framerate is None else self.framerate, codec='libx264')
-            else:
-                video_out_path = os.path.join(self.output, f'concatenated_video.{format}')
-                concat_video.write_videofile(video_out_path, fps=concat_video.fps if self.framerate is None else concat_video.fps, codec=self._supported_formats['movie'][format])
+            format = 'mp4' if format is None else format
+            video_out_path = os.path.join(self.output, f'concatenated_video.{format}')
+            concat_video.write_videofile(video_out_path, fps=concat_video.fps if self.framerate is None else concat_video.fps, codec=self._supported_formats['movie'][format])
             concat_video.close()
 
         # Concatenate image files (make a gif out of them)
@@ -479,10 +457,10 @@ class AnyToAny:
     # Post process after conversion, print, delete source file if desired
     def _post_process(self, file_path_set: tuple, out_path: str, delete: bool, show_status: bool = True) -> None:
         if show_status:
-            print(f'[+] Converted "{self._join_back(file_path_set)}" to "{out_path}"\n')
+            print(f'\t[+] Converted "{self._join_back(file_path_set)}" to "{out_path}"\n')
         if delete:
             os.remove(self._join_back(file_path_set))
-            print(f'[-] Removed "{self._join_back(file_path_set)}"')
+            print(f'\t[-] Removed "{self._join_back(file_path_set)}"')
 
 
     # Join back the file path set to a concurrent path
