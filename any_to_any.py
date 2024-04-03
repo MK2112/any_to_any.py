@@ -68,6 +68,7 @@ class AnyToAny:
                 'xvid':   'libxvid',
                 'mpeg4':  'mpeg4',
                 'theora': 'libtheora',
+                'mpeg2':  'mpeg2video',
             },
         }
 
@@ -75,7 +76,7 @@ class AnyToAny:
         self.supported_formats = [format for formats in self._supported_formats.values() for format in formats.keys()]
     
 
-    def end_with_msg(self, exception: Exception, msg: str) -> None:
+    def _end_with_msg(self, exception: Exception, msg: str) -> None:
         # Single point of exit for the script
         # Exception is the exception to be raised, msg is the message to be printed within
         if exception is not None:
@@ -128,8 +129,6 @@ class AnyToAny:
             self.output = output if output is not None else self.input   # No output means same as input
             self.format = format.lower() if format is not None else None # No format means no conversion
             self.framerate = framerate # Possibly no framerate means same as input
-            self.merge = merge   # Merge movie files with equally named audio files
-            self.concat = concat # Concatenate files of same format
             self.delete = delete # Delete mp4 files after conversion
 
             # Check if the output dir exists, if not, create it
@@ -149,13 +148,13 @@ class AnyToAny:
                 self.to_codec(file_paths=file_paths, codec=self._supported_formats['movie_codecs'][self.format])
             elif self.format in self._supported_formats['image'].keys():
                 self._supported_formats['image'][self.format](file_paths, self.format)
-            elif self.merge:
-                self.merging(file_paths)
-            elif self.concat:
-                self.concatenating(file_paths, self.format)
+            elif merge:
+                self.merge(file_paths)
+            elif concat:
+                self.concat(file_paths, self.format)
             else:
                 # Handle unsupported formats here
-                self.end_with_msg(ValueError, f'[!] Error: Output format must be one of {list(self.supported_formats)}')
+                self._end_with_msg(ValueError, f'[!] Error: Output format must be one of {list(self.supported_formats)}')
 
         print("[+] Job Finished")
 
@@ -164,10 +163,10 @@ class AnyToAny:
         # Get media files from input directory
         def process_file(file_path: str) -> tuple:
             # Dissect "path/to/file.txt" into [path/to, file, txt]
-            file_ending = file_path.split('.')[-1].lower()
+            file_type = file_path.split('.')[-1].lower()
             file_name = os.path.basename(file_path).split('.')[0]
             path_to_file = os.path.dirname(file_path) + os.sep
-            return path_to_file, file_name, file_ending
+            return path_to_file, file_name, file_type
 
         def schedule_file(file_info: tuple) -> None:
             # If supported, add file to respective category schedule
@@ -182,7 +181,7 @@ class AnyToAny:
 
         for directory in [input, self.output]:
             if not os.path.exists(directory):
-                self.end_with_msg(FileNotFoundError, f'[!] Error: Directory {directory} does not exist.')
+                self._end_with_msg(FileNotFoundError, f'[!] Error: Directory {directory} does not exist.')
 
         print(f'[>] Scheduling: {input}')
         file_paths = {category: [] for category in self._supported_formats}
@@ -197,7 +196,7 @@ class AnyToAny:
                 schedule_file(file_info)
 
         if not any(file_paths.values()):
-            self.end_with_msg(None, f'[!] Error: No convertible media files found in {input}')
+            self._end_with_msg(None, f'[!] Error: No convertible media files found in {input}')
 
         print()  # Newline for readability
         return file_paths
@@ -395,7 +394,7 @@ class AnyToAny:
                 print(f"[!] Skipping {self._join_back(image_path_set)} - Unsupported format")
 
 
-    def concatenating(self, file_paths: dict, format: str) -> None:
+    def concat(self, file_paths: dict, format: str) -> None:
         # Concatenate files of same type (img/movie/audio) back to back
         # Concatenate audio files
         if file_paths['audio'] and (format is None or format in self._supported_formats['audio']):
@@ -420,11 +419,10 @@ class AnyToAny:
         for category in file_paths.keys():
             for i, file_path in enumerate(file_paths[category]):
                 self._post_process(file_path, self.output, self.delete, show_status=(i == 0))
-
         print('\t[+] Concatenation completed')
 
 
-    def merging(self, file_paths: dict) -> None:
+    def merge(self, file_paths: dict) -> None:
         # For movie files and equally named audio file, merge them together under same name 
         # (movie with audio with '_merged' addition to name)
         # Iterate over all movie file path sets
