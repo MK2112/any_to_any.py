@@ -75,8 +75,8 @@ class AnyToAny:
         self.supported_formats = [format for formats in self._supported_formats.values() for format in formats.keys()]
     
 
-    # Single point of exit for the script
     def end_with_msg(self, exception: Exception, msg: str) -> None:
+        # Single point of exit for the script
         # Exception is the exception to be raised, msg is the message to be printed within
         if exception is not None:
             print(msg, '\n')
@@ -86,8 +86,8 @@ class AnyToAny:
             exit(1)
     
 
-    # Return bitrate for audio conversion
     def _audio_bitrate(self, format: str, quality: str) -> str:
+        # Return bitrate for audio conversion
         # If formats allow for a higher bitrate, we shift our scale accordingly
         if format in ['flac', 'wav', 'aac', 'aiff', 'eac3', 'dts']:
             return {
@@ -103,13 +103,13 @@ class AnyToAny:
             }.get(quality, None)
 
 
-    # Main function to convert media files to defined formats
     def run(self, inputs: list, format: str, output: str, framerate: int, quality: str, merge: bool, concat: bool, delete: bool) -> None:
+        # Main function to convert media files to defined formats
         input_paths = []
         inputs = inputs if inputs is not None else [os.path.dirname(os.getcwd())]
         
-        # Custom handling of multiple input paths (e.g. "-1 path1 -2 path2 -n pathn")
         for _, arg in enumerate(inputs):
+            # Custom handling of multiple input paths (e.g. "-1 path1 -2 path2 -n pathn")
             if arg.startswith('-') and arg[1:].isdigit():
                 input_paths.append(arg[2:])
             else:
@@ -128,20 +128,16 @@ class AnyToAny:
             self.output = output if output is not None else self.input   # No output means same as input
             self.format = format.lower() if format is not None else None # No format means no conversion
             self.framerate = framerate # Possibly no framerate means same as input
-            self.merge = merge         # Merge movie files with equally named audio files
-            self.concat = concat       # Concatenate files of same format
-            self.delete = delete       # Delete mp4 files after conversion
+            self.merge = merge   # Merge movie files with equally named audio files
+            self.concat = concat # Concatenate files of same format
+            self.delete = delete # Delete mp4 files after conversion
 
             # Check if the output dir exists, if not, create it
             if not os.path.exists(self.output):
                 os.makedirs(self.output)
 
             # Check if quality is set, if not, set it to None
-            if quality is not None:
-                self.quality = quality.lower() if quality.lower() in ['high', 'medium', 'low'] else None
-            else:
-                self.quality = None
-
+            self.quality = (quality.lower() if quality.lower() in ['high', 'medium', 'low'] else None) if quality is not None else None
             file_paths = self._get_file_paths(self.input)
 
             # Check if value associated to format is tuple/string or function to call specific conversion
@@ -160,19 +156,21 @@ class AnyToAny:
             else:
                 # Handle unsupported formats here
                 self.end_with_msg(ValueError, f'[!] Error: Output format must be one of {list(self.supported_formats)}')
+
         print("[+] Job Finished")
 
 
-    # Get media files from input directory
     def _get_file_paths(self, input: str) -> dict:
-
+        # Get media files from input directory
         def process_file(file_path: str) -> tuple:
+            # Dissect "path/to/file.txt" into [path/to, file, txt]
             file_ending = file_path.split('.')[-1].lower()
             file_name = os.path.basename(file_path).split('.')[0]
             path_to_file = os.path.dirname(file_path) + os.sep
             return path_to_file, file_name, file_ending
 
         def schedule_file(file_info: tuple) -> None:
+            # If supported, add file to respective category schedule
             for category in self._supported_formats.keys():
                 if file_info[2] in self._supported_formats[category]:
                     file_paths[category].append(file_info)
@@ -187,7 +185,6 @@ class AnyToAny:
                 self.end_with_msg(FileNotFoundError, f'[!] Error: Directory {directory} does not exist.')
 
         print(f'[>] Scheduling: {input}')
-
         file_paths = {category: [] for category in self._supported_formats}
 
         if input is not None and os.path.isfile(input):
@@ -206,8 +203,8 @@ class AnyToAny:
         return file_paths
 
 
-    # Convert to audio
     def to_audio(self, file_paths: dict, format: str, codec: str) -> None:
+        # Convert to audio
         # Audio to audio conversion
         for audio_path_set in file_paths['audio']:
             if audio_path_set[2] == format:
@@ -236,8 +233,8 @@ class AnyToAny:
             self._post_process(movie_path_set, output_path, self.delete)
 
 
-    # Convert movie to same movie with different codec
     def to_codec(self, file_paths: dict, codec: str) -> None:
+        # Convert movie to same movie with different codec
         key = next(k for k, v in self._supported_formats['movie_codecs'].items() if v == codec)
         for codec_path_set in file_paths['movie']:
             video = VideoFileClip(self._join_back(codec_path_set), audio=True, fps_source='tbr')
@@ -247,8 +244,8 @@ class AnyToAny:
             self._post_process(codec_path_set, output_path, self.delete)
 
 
-    # Convert to movie with specified format
     def to_movie(self, file_paths, format, codec):
+        # Convert to movie with specified format
         pngs = bmps = jpgs = []
         for image_path_set in file_paths['image']:
             # Depending on the format, different fragmentation is required
@@ -283,9 +280,9 @@ class AnyToAny:
                 self._post_process(movie_path_set, out_path, self.delete)
 
 
-    # Converting to image frame sets
-    # This works for images and movies only
     def to_frames(self, file_paths: dict, format: str) -> None:
+        # Converting to image frame sets
+        # This works for images and movies only
         for image_path_set in file_paths['image']:
             if image_path_set[2] == format:
                 continue
@@ -364,8 +361,8 @@ class AnyToAny:
                 print(f"[!] Skipping {self._join_back(image_path_set)} - Unsupported format")
     
     
-    # Convert frames in webp format
     def to_webp(self, file_paths: dict, format: str) -> None:
+        # Convert frames in webp format
         # Movies are converted to webps, frame by frame
         for movie_path_set in file_paths['movie']:
             video = VideoFileClip(self._join_back(movie_path_set), audio=False, fps_source='tbr')
@@ -375,11 +372,11 @@ class AnyToAny:
                 except OSError as e:
                     print(f'[!] Error: {e} - Setting output directory to {self.input}')
                     self.output = self.input
-
             img_path = os.path.abspath(os.path.join(os.path.join(self.output, movie_path_set[1]), f'{movie_path_set[1]}-%{len(str(int(video.duration * video.fps)))}d.{format}'))
             video.write_images_sequence(img_path, fps=video.fps)
             video.close()
             self._post_process(movie_path_set, img_path, self.delete)
+        
         # Pngs and gifs are converted to webps as well
         for image_path_set in file_paths['image']:
             if image_path_set[2] == format:
@@ -398,8 +395,8 @@ class AnyToAny:
                 print(f"[!] Skipping {self._join_back(image_path_set)} - Unsupported format")
 
 
-    # Concatenate files of same type (img/movie/audio) back to back
     def concatenating(self, file_paths: dict, format: str) -> None:
+        # Concatenate files of same type (img/movie/audio) back to back
         # Concatenate audio files
         if file_paths['audio'] and (format is None or format in self._supported_formats['audio']):
             concat_audio = concatenate_audioclips([AudioFileClip(self._join_back(audio_path_set)) for audio_path_set in file_paths['audio']])
@@ -407,7 +404,6 @@ class AnyToAny:
             audio_out_path = os.path.join(self.output, f'concatenated_audio.{format}')
             concat_audio.write_audiofile(audio_out_path, codec=self._supported_formats['audio'][format], bitrate=self._audio_bitrate(format, self.quality) if self.quality is not None else concat_audio.bitrate)
             concat_audio.close()
-
         # Concatenate movie files
         if file_paths['movie'] and (format is None or format in self._supported_formats['movie']):
             concat_video = concatenate_videoclips([VideoFileClip(self._join_back(movie_path_set), audio=True, fps_source='tbr') for movie_path_set in file_paths['movie']], method="compose")
@@ -415,7 +411,6 @@ class AnyToAny:
             video_out_path = os.path.join(self.output, f'concatenated_video.{format}')
             concat_video.write_videofile(video_out_path, fps=concat_video.fps if self.framerate is None else concat_video.fps, codec=self._supported_formats['movie'][format])
             concat_video.close()
-
         # Concatenate image files (make a gif out of them)
         if file_paths['image'] and (format is None or format in self._supported_formats['image']):
             gif_output_path = os.path.join(self.output, 'concatenated_image.gif')
@@ -429,9 +424,9 @@ class AnyToAny:
         print('\t[+] Concatenation completed')
 
 
-    # For movie files and equally named audio file, merge them together under same name 
-    # (movie with audio with '_merged' addition to name)
     def merging(self, file_paths: dict) -> None:
+        # For movie files and equally named audio file, merge them together under same name 
+        # (movie with audio with '_merged' addition to name)
         # Iterate over all movie file path sets
         found_audio = False
         for movie_path_set in file_paths['movie']:
@@ -440,8 +435,7 @@ class AnyToAny:
             if audio_fit is not None:
                 found_audio = True
                 # Merge movie and audio file
-                video = VideoFileClip(self._join_back(movie_path_set), audio=False, fps_source='tbr')
-                audio = AudioFileClip(self._join_back(audio_fit))
+                video, audio = VideoFileClip(self._join_back(movie_path_set), audio=False, fps_source='tbr'), AudioFileClip(self._join_back(audio_fit))
                 video.audio = audio
                 video.write_videofile(os.path.join(self.output, f'{movie_path_set[1]}_merged.{movie_path_set[2]}'), fps=video.fps if self.framerate is None else self.framerate, codec=self._supported_formats['movie'][movie_path_set[2]])
                 audio.close()
@@ -454,8 +448,8 @@ class AnyToAny:
             print('[!] No audio files found to merge with movie files')
             
 
-    # Post process after conversion, print, delete source file if desired
     def _post_process(self, file_path_set: tuple, out_path: str, delete: bool, show_status: bool = True) -> None:
+        # Post process after conversion, print, delete source file if desired
         if show_status:
             print(f'\t[+] Converted "{self._join_back(file_path_set)}" to "{out_path}"\n')
         if delete:
@@ -463,13 +457,13 @@ class AnyToAny:
             print(f'\t[-] Removed "{self._join_back(file_path_set)}"')
 
 
-    # Join back the file path set to a concurrent path
     def _join_back(self, file_path_set: tuple) -> str:
+        # Join back the file path set to a concurrent path
         return os.path.abspath(f'{file_path_set[0]}{file_path_set[1]}.{file_path_set[2]}')
 
 
-# An object is interacted with through a CLI-interface
 if __name__ == '__main__':
+    # An object is interacted with through a CLI-interface
     # Check if required libraries are installed
     for lib in ['moviepy', 'PIL']:
         try:
@@ -493,8 +487,8 @@ if __name__ == '__main__':
     
     args = vars(parser.parse_args())
     
-    # Check for web frontend request
     if args['web']:
+        # Check for web frontend request
         if os.name in ['nt']:
             subprocess.run("python ./web_to_any.py", shell=True)
         else:
