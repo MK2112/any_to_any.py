@@ -26,23 +26,23 @@ with app.app_context():
     _ = any_to_any.supported_formats
 
 
-def create_send_zip(up_dir: str, cv_dir: str):
+def create_send_zip(cv_dir: str):
     # Create a temporary dir for zip file
     temp_dir = tempfile.mkdtemp()
     zip_filename = os.path.join(temp_dir, 'converted_files.zip')
     # Zip all files in the 'converted' directory and save it in the temporary directory
     shutil.make_archive(zip_filename[:-4], 'zip', cv_dir)
     shutil.rmtree(cv_dir) # Clean up 'converted' dir
-    shutil.rmtree(up_dir) # Clean up 'uploads' dir (rather do that here, centralized)
     return send_file(zip_filename, as_attachment=True) # Return zip file
 
 
 def process_params():
     uploaded_files = request.files.getlist('files')
     format = request.form.get('conversionType')
-    conv_key: str = os.urandom(4).hex() # 4 bytes of randomness
-    up_dir: str = f'{app.config['UPLOADED_FILES_DEST']}_{conv_key}'
-    cv_dir: str = f'{app.config['CONVERTED_FILES_DEST']}_{conv_key}'
+    conv_key: str = os.urandom(4).hex() # Achieve some convert-session specificity; 4 Bytes = 8 chars (collision within 26^8 is unlikely)
+    # These are necessary because uploaded files are 'dumped' in there; Names may collide because of this, so we separate them from beginning
+    up_dir: str = f'{app.config['UPLOADED_FILES_DEST']}_{conv_key}' # separate upload directories for each conversion session
+    cv_dir: str = f'{app.config['CONVERTED_FILES_DEST']}_{conv_key}'# separate converted directories for each conversion session
 
     if not os.path.exists(up_dir):
         os.makedirs(up_dir)
@@ -62,50 +62,42 @@ def index():
     return render_template('index.html', title='Any_To_Any.py', options=any_to_any.supported_formats)
 
 
+def send_off(inputs: list, format: str, output: str, framerate: int, quality: str, merge: bool, concat: bool) -> None:
+    # A bit hacky, but now centralized point to talk to any-to-any.py backend
+    any_to_any.run(inputs=inputs,
+                   format=format, 
+                   output=output,  
+                   framerate=framerate,
+                   quality=quality,
+                   merge=merge,
+                   concat=concat,
+                   delete=True)
+    # Remove the upload dir and contents therein
+    shutil.rmtree(inputs)
+
+
 @app.route('/convert', methods=['POST'])
 def convert():
     format, up_dir, cv_dir = process_params()
     # Convert all files uploaded to the 'uploads' directory and save it in the 'converted' directory
-    any_to_any.run(inputs=[up_dir],
-                   format=format, 
-                   output=cv_dir,  
-                   framerate=None,
-                   quality=None,
-                   merge=None,
-                   concat=None,
-                   delete=True)
-    return create_send_zip(up_dir, cv_dir)
+    send_off(inputs=[up_dir], format=format, output=cv_dir, framerate=None, quality=None, merge=None, concat=None)
+    return create_send_zip(cv_dir)
 
 
 @app.route('/merge', methods=['POST'])
 def merge():
-    _, up_dir, cv_dir = process_params() # Ignore format, merging anyway
+    _, up_dir, cv_dir = process_params()
     # Merge all files in the 'uploads' directory and save it in the 'converted' directory
-    any_to_any.run(inputs=[up_dir],
-                   format=None, 
-                   output=cv_dir,  
-                   framerate=None,
-                   quality=None,
-                   merge=True,
-                   concat=False,
-                   delete=True)
-    return create_send_zip(up_dir, cv_dir)
+    send_off(inputs=[up_dir], format=None, output=cv_dir, framerate=None, quality=None, merge=True, concat=None)
+    return create_send_zip(cv_dir)
 
 
 @app.route('/concat', methods=['POST'])
 def concat():
-    _, up_dir, cv_dir = process_params() # Ignore format, backend will figure this out
-    # Concatenation is always done with the same format, hand it off
-    # Await backend conclusion, return its result
-    any_to_any.run(inputs=[up_dir],
-                   format=None, 
-                   output=cv_dir,  
-                   framerate=None,
-                   quality=None,
-                   merge=False,
-                   concat=True,
-                   delete=True)
-    return create_send_zip(up_dir, cv_dir)
+    _, up_dir, cv_dir = process_params()
+    # Concatenation is always done with the same format, we just don't explicitly care here which format that is
+    send_off(inputs=[up_dir], format=None, output=cv_dir, framerate=None, quality=None, merge=None, concat=True)
+    return create_send_zip(cv_dir)
 
 
 if __name__ == '__main__':
