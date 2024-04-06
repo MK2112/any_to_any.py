@@ -1,6 +1,6 @@
 import os
 from any_to_any import AnyToAny
-from flask import Flask, render_template, request, send_file
+from flask import Flask, render_template, request, send_file, Response
 from flask_uploads import UploadSet, configure_uploads, ALL # special `pip install flask-reuploaded` needed
 import shutil
 import tempfile
@@ -26,7 +26,7 @@ with app.app_context():
     _ = any_to_any.supported_formats
 
 
-def create_send_zip(cv_dir: str):
+def create_send_zip(cv_dir: str) -> Response:
     # Create a temporary dir for zip file
     temp_dir = tempfile.mkdtemp()
     zip_filename = os.path.join(temp_dir, 'converted_files.zip')
@@ -36,7 +36,7 @@ def create_send_zip(cv_dir: str):
     return send_file(zip_filename, as_attachment=True) # Return zip file
 
 
-def process_params():
+def process_params() -> tuple:
     uploaded_files = request.files.getlist('files')
     format = request.form.get('conversionType')
     conv_key: str = os.urandom(4).hex() # Achieve some convert-session specificity; 4 Bytes = 8 chars (collision within 26^8 is unlikely)
@@ -62,8 +62,9 @@ def index():
     return render_template('index.html', title='Any_To_Any.py', options=any_to_any.supported_formats)
 
 
-def send_off(inputs: list, format: str, output: str, framerate: int, quality: str, merge: bool, concat: bool) -> None:
-    # A bit hacky, but now centralized point to talk to any-to-any.py backend
+def send_to_backend(inputs: list, format: str, output: str, framerate: int, 
+                    quality: str, merge: bool, concat: bool) -> None:
+    # A bit hacky, centralized point to talk to any_to_any.py backend
     any_to_any.run(inputs=inputs,
                    format=format, 
                    output=output,  
@@ -72,15 +73,15 @@ def send_off(inputs: list, format: str, output: str, framerate: int, quality: st
                    merge=merge,
                    concat=concat,
                    delete=True)
-    # Remove the upload dir and contents therein
-    shutil.rmtree(inputs)
+    # Remove upload dir and contents therein
+    shutil.rmtree(inputs[0])
 
 
 @app.route('/convert', methods=['POST'])
 def convert():
     format, up_dir, cv_dir = process_params()
     # Convert all files uploaded to the 'uploads' directory and save it in the 'converted' directory
-    send_off(inputs=[up_dir], format=format, output=cv_dir, framerate=None, quality=None, merge=None, concat=None)
+    send_to_backend(inputs=[up_dir], format=format, output=cv_dir, framerate=None, quality=None, merge=None, concat=None)
     return create_send_zip(cv_dir)
 
 
@@ -88,7 +89,7 @@ def convert():
 def merge():
     _, up_dir, cv_dir = process_params()
     # Merge all files in the 'uploads' directory and save it in the 'converted' directory
-    send_off(inputs=[up_dir], format=None, output=cv_dir, framerate=None, quality=None, merge=True, concat=None)
+    send_to_backend(inputs=[up_dir], format=None, output=cv_dir, framerate=None, quality=None, merge=True, concat=None)
     return create_send_zip(cv_dir)
 
 
@@ -96,10 +97,10 @@ def merge():
 def concat():
     _, up_dir, cv_dir = process_params()
     # Concatenation is always done with the same format, we just don't explicitly care here which format that is
-    send_off(inputs=[up_dir], format=None, output=cv_dir, framerate=None, quality=None, merge=None, concat=True)
+    send_to_backend(inputs=[up_dir], format=None, output=cv_dir, framerate=None, quality=None, merge=None, concat=True)
     return create_send_zip(cv_dir)
 
 
 if __name__ == '__main__':
-    webbrowser.open(f'http://{host}:{port}/')
+    webbrowser.open(f'{'http' if host.lower() in ['127.0.0.1', 'localhost'] else 'https'}://{host}:{port}')
     app.run(debug=True, host=host, port=port)
