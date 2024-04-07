@@ -59,6 +59,7 @@ class AnyToAny:
                 '3gp':   'libx264',
                 'asf':   'wmv2',
                 'vob':   'mpeg2video',
+                'ts':    'hevc',
             },
             'movie_codecs': {
                 'av1':    'libaom-av1',
