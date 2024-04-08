@@ -62,14 +62,14 @@ class AnyToAny:
                 'ts':    'hevc',
             },
             'movie_codecs': {
-                'av1':    'libaom-av1',
-                'vp9':    'libvpx-vp9',
-                'h265':   'libx265',
-                'h264':   'libx264',
-                'xvid':   'libxvid',
-                'mpeg4':  'mpeg4',
-                'theora': 'libtheora',
-                'mpeg2':  'mpeg2video',
+                'av1':    {'lib': 'libaom-av1', 'fallback': 'mkv'},
+                'vp9':    {'lib': 'libvpx-vp9', 'fallback': 'mp4'},
+                'h265':   {'lib': 'libx265', 'fallback': 'mkv'},
+                'h264':   {'lib': 'libx264', 'fallback': 'mkv'},
+                'xvid':   {'lib': 'libxvid', 'fallback': 'mp4'},
+                'mpeg4':  {'lib': 'mpeg4', 'fallback': 'mp4'},
+                'theora': {'lib': 'libtheora', 'fallback': 'ogv'},
+                'mpeg2':  {'lib': 'mpeg2video', 'fallback': 'mp4'},
             },
         }
 
@@ -233,18 +233,23 @@ class AnyToAny:
             self._post_process(movie_path_set, output_path, self.delete)
 
 
-    def to_codec(self, file_paths: dict, codec: str) -> None:
+    def to_codec(self, file_paths: dict, codec: dict) -> None:
         # Convert movie to same movie with different codec
-        key = next(k for k, v in self._supported_formats['movie_codecs'].items() if v == codec)
         for codec_path_set in file_paths['movie']:
             video = VideoFileClip(self._join_back(codec_path_set), audio=True, fps_source='tbr')
-            output_path = os.path.abspath(os.path.join(self.output, f'{codec_path_set[1]}_{key}.{codec_path_set[2]}'))
-            video.write_videofile(output_path, codec=codec, fps=video.fps if self.framerate is None else self.framerate, audio=True)
+            output_path = os.path.abspath(os.path.join(self.output, f'{codec_path_set[1]}_{self.format}.{codec_path_set[2]}'))
+            try:
+                video.write_videofile(output_path, codec=codec['lib'], fps=video.fps if self.framerate is None else self.framerate, audio=True)
+            except Exception as e:
+                os.remove(output_path) # There might be some residue left, remove it
+                print(f'\n\n[!] Codec Incompatible with {codec_path_set[2]}: Trying Compatible Format {codec['fallback']} Instead...\n')
+                output_path = os.path.abspath(os.path.join(self.output, f'{codec_path_set[1]}_{self.format}.{codec["fallback"]}'))
+                video.write_videofile(output_path, codec=codec['lib'], fps=video.fps if self.framerate is None else self.framerate, audio=True)
             video.close()
             self._post_process(codec_path_set, output_path, self.delete)
 
 
-    def to_movie(self, file_paths, format, codec):
+    def to_movie(self, file_paths: dict, format: str, codec: str) -> None:
         # Convert to movie with specified format
         pngs = bmps = jpgs = []
         for image_path_set in file_paths['image']:
