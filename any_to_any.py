@@ -70,6 +70,9 @@ class AnyToAny:
                 'mpeg4':  {'lib': 'mpeg4', 'fallback': 'mp4'},
                 'theora': {'lib': 'libtheora', 'fallback': 'ogv'},
                 'mpeg2':  {'lib': 'mpeg2video', 'fallback': 'mp4'},
+                'mpeg1':  {'lib': 'mpeg1video', 'fallback': 'mp4'},
+                'hevc':   {'lib': 'libx265', 'fallback': 'mkv'}, 
+                'prores': {'lib': 'prores', 'fallback': 'mkv'},	
             },
         }
 
