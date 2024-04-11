@@ -6,10 +6,10 @@ Merge movie and audio files, concatenate files of the same type (image/audio/vid
 ![screenshot](./img/Any-to-Any-Web.png)
 
 ## Supported Formats
-**Audio:** MP2, MP3, FLAC, AAC, AC3, DTS, OGG, WMA, WAV, M4A, AIFF, WEBA, MKA, WV, CAF, TTA, M4B, EAC3, SPX<br>
+**Audio:** MP2, MP3, FLAC, AAC, AC3, DTS, OGG, OGA, WMA, WAV, M4A, AIFF, WEBA, MKA, WV, CAF, TTA, M4B, EAC3, SPX, AU, OPUS<br>
 **Image:** JPG, PNG, GIF, BMP, WEBP, TIFF, TGA, EPS<br>
 **Video:** MP4, WEBM, MOV, MKV, AVI, WMV, FLV, MJPEG, M2TS, 3GP, ASF, VOB, TS, RAW<br>
-**Video Codecs:** AV1, VP9, H265, H264, XVID, MPEG2, MPEG4, THEORA, MPEG1, HEVC, PRORES
+**Video Codecs:** AV1, VP8, VP9, H265, H264, XVID, MPEG2, MPEG4, THEORA, MPEG1, HEVC, PRORES, HUFFYUV, FFV1, FFVHUFF, V210, V410, V308, V408, ZLIB, QTRLE, SNOW, SVQ1
 
 ## Setup
 1. **Clone/Download**:
@@ -46,7 +46,7 @@ You can structure a command in three fundamental ways:
 | ----------------------- | ------- |
 | `-h` or </br>`--help`        | List all available parameters, their description and default values, then exit. |
 | `-i` or </br>`--input`       | Path to file itself or directory containing files to be converted. If not provided, the directory from where the script is called will be used. |
-| `-f` or </br>`--format`      | Desired output file format, either `mp2`, `mp3`, `flac`, `wav`, `aac`, `aiff`, `ogg`, `m4a`, `ac3`, `dts`, `weba`, `wma`, `mka`, `wv`, `caf`, `tta`, `m4b`, `eac3`, `spx`, `jpg`, `png`, `gif`, `bmp`, `webp`, `tiff`, `tga`, `eps`, `mp4`, `webm`, `mov`, `mkv`, `avi`, `wmv`, `flv`, `m2ts`, `3gp`, `mjpeg`, `asf`, `vob`, `ts`, `raw` or movie codecs like `h265`, `h264`, `xvid`, `mpeg1`, `mpeg2`, `mpeg4`, `av1`, `theora`, `vp9`, `hevc` and `prores`. |
+| `-f` or </br>`--format`      | Desired output file format, either `mp2`, `mp3`, `flac`, `wav`, `aac`, `aiff`, `ogg`, `oga`, `m4a`, `ac3`, `dts`, `weba`, `wma`, `mka`, `wv`, `caf`, `tta`, `m4b`, `eac3`, `spx`, `au`, `opus`, `jpg`, `png`, `gif`, `bmp`, `webp`, `tiff`, `tga`, `eps`, `mp4`, `webm`, `mov`, `mkv`, `avi`, `wmv`, `flv`, `m2ts`, `3gp`, `mjpeg`, `asf`, `vob`, `ts`, `raw` or movie codecs like `h265`, `h264`, `xvid`, `mpeg1`, `mpeg2`, `mpeg4`, `av1`, `theora`, `vp8`, `vp9`, `hevc`, `prores`, `huffyuv`, `ffv1`, `ffvhuff`, `v210`, `v410`, `v308`, `v408`, `zlib`, `qtrle`, `snow` and `svq1`. |
 | `-o` or </br>`--output`      | Directory to save converted files into. Writing to the input file path, if none provided. |
 | `-q` or </br>`--quality`     | Set output file quality, either `low`, `medium`, or `high`; default is same as input. |
 | `-m` or </br>`--merge`       | Merge movie file with equally named audio file to become its audio track. |
@@ -96,7 +96,7 @@ python any_to_any.py -i /path/to/mp4-folder -o /path/to/save/folder -c -d
 
 ### Multi Directory/File Processing
 You can also process multiple individual files or multiple directories at once.<br>
-Note that only one output directory can be specified (omitting the `-o` parameter works and will write to the input file paths).
+Note that only one output directory can be specified (omitting the `--output` parameter works and will write to the input file paths).
 ```python
 python any_to_any.py -i -1 /path/to/file1.mp4 -2 /path/to/mp4-folder -o /path/to/output-folder -f mp3
 ```

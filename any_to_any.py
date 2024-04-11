@@ -35,6 +35,9 @@ class AnyToAny:
                 'spx':  'libvorbis',
                 'mp2':  'mp2',
                 'caf':  'pcm_s16be',
+                'au':   'pcm_s16be',
+                'oga':  'libvorbis',
+                'opus': 'libopus',
             },
             'image': {
                 'gif':  self.to_gif,
@@ -63,21 +66,33 @@ class AnyToAny:
                 'raw':   'rawvideo',
             },
             'movie_codecs': {
-                'av1':    {'lib': 'libaom-av1', 'fallback': 'mkv'},
-                'vp9':    {'lib': 'libvpx-vp9', 'fallback': 'mp4'},
-                'h265':   {'lib': 'libx265', 'fallback': 'mkv'},
-                'h264':   {'lib': 'libx264', 'fallback': 'mkv'},
-                'xvid':   {'lib': 'libxvid', 'fallback': 'mp4'},
-                'mpeg4':  {'lib': 'mpeg4', 'fallback': 'mp4'},
-                'theora': {'lib': 'libtheora', 'fallback': 'ogv'},
-                'mpeg2':  {'lib': 'mpeg2video', 'fallback': 'mp4'},
-                'mpeg1':  {'lib': 'mpeg1video', 'fallback': 'mp4'},
-                'hevc':   {'lib': 'libx265', 'fallback': 'mkv'}, 
-                'prores': {'lib': 'prores', 'fallback': 'mkv'},	
+                'av1':     {'lib': 'libaom-av1', 'fallback': 'mkv'},
+                'vp9':     {'lib': 'libvpx-vp9', 'fallback': 'mp4'},
+                'h265':    {'lib': 'libx265', 'fallback': 'mkv'},
+                'h264':    {'lib': 'libx264', 'fallback': 'mkv'},
+                'xvid':    {'lib': 'libxvid', 'fallback': 'mp4'},
+                'mpeg4':   {'lib': 'mpeg4', 'fallback': 'mp4'},
+                'theora':  {'lib': 'libtheora', 'fallback': 'ogv'},
+                'mpeg2':   {'lib': 'mpeg2video', 'fallback': 'mp4'},
+                'mpeg1':   {'lib': 'mpeg1video', 'fallback': 'mp4'},
+                'hevc':    {'lib': 'libx265', 'fallback': 'mkv'}, 
+                'prores':  {'lib': 'prores', 'fallback': 'mkv'},
+                'vp8':     {'lib': 'libvpx', 'fallback': 'webm'},
+                'huffyuv': {'lib': 'huffyuv', 'fallback': 'mkv'},
+                'ffv1':    {'lib': 'ffv1', 'fallback': 'mkv'},
+                'ffvhuff': {'lib': 'ffvhuff', 'fallback': 'mkv'},
+                'v210':    {'lib': 'v210', 'fallback': 'mkv'},
+                'v410':    {'lib': 'v410', 'fallback': 'mkv'},
+                'v308':    {'lib': 'v308', 'fallback': 'mkv'},
+                'v408':    {'lib': 'v408', 'fallback': 'mkv'},
+                'zlib':    {'lib': 'zlib', 'fallback': 'mkv'},
+                'qtrle':   {'lib': 'qtrle', 'fallback': 'mkv'},
+                'snow':    {'lib': 'snow', 'fallback': 'mkv'},
+                'svq1':    {'lib': 'svq1', 'fallback': 'mkv'},
             },
         }
 
-        # This is used in the CLI information output
+        # This is used in CLI information output
         self.supported_formats = [format for formats in self._supported_formats.values() for format in formats.keys()]
     
 
@@ -95,7 +110,7 @@ class AnyToAny:
     def _audio_bitrate(self, format: str, quality: str) -> str:
         # Return bitrate for audio conversion
         # If formats allow for a higher bitrate, we shift our scale accordingly
-        if format in ['flac', 'wav', 'aac', 'aiff', 'eac3', 'dts']:
+        if format in ['flac', 'wav', 'aac', 'aiff', 'eac3', 'dts', 'au', 'wv', 'tta']:
             return {
                 'high':   '500k',
                 'medium': '320k',
@@ -216,7 +231,11 @@ class AnyToAny:
             audio = AudioFileClip(self._join_back(audio_path_set))
             output_path = os.path.abspath(os.path.join(self.output, f'{audio_path_set[1]}.{format}'))
             # Write audio to file
-            audio.write_audiofile(output_path, codec=codec, bitrate=self._audio_bitrate(format, self.quality))
+            try:
+                audio.write_audiofile(output_path, codec=codec, bitrate=self._audio_bitrate(format, self.quality), fps=audio.fps)
+            except Exception as _:
+                print('\n\n[!] Error: Source Sample Rate Incompatible With {format}: Trying Compatible Rate Instead...\n')
+                audio.write_audiofile(output_path, codec=codec, bitrate=self._audio_bitrate(format, self.quality), fps=48000)
             audio.close()
             self._post_process(audio_path_set, output_path, self.delete)
 
@@ -244,7 +263,7 @@ class AnyToAny:
             output_path = os.path.abspath(os.path.join(self.output, f'{codec_path_set[1]}_{self.format}.{codec_path_set[2]}'))
             try:
                 video.write_videofile(output_path, codec=codec['lib'], fps=video.fps if self.framerate is None else self.framerate, audio=True)
-            except Exception as e:
+            except Exception as _:
                 os.remove(output_path) # There might be some residue left, remove it
                 print(f'\n\n[!] Codec Incompatible with {codec_path_set[2]}: Trying Compatible Format {codec['fallback']} Instead...\n')
                 output_path = os.path.abspath(os.path.join(self.output, f'{codec_path_set[1]}_{self.format}.{codec["fallback"]}'))
