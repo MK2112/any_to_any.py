@@ -266,7 +266,7 @@ class AnyToAny:
                 video.write_videofile(output_path, codec=codec['lib'], fps=video.fps if self.framerate is None else self.framerate, audio=True)
             except Exception as _:
                 os.remove(output_path) # There might be some residue left, remove it
-                print(f'\n\n[!] Codec Incompatible with {codec_path_set[2]}: Trying Compatible Format {codec['fallback']} Instead...\n')
+                print(f'\n\n[!] Codec Incompatible with {codec_path_set[2]}: Trying Compatible Format {codec["fallback"]} Instead...\n')
                 output_path = os.path.abspath(os.path.join(self.output, f'{codec_path_set[1]}_{self.format}.{codec["fallback"]}'))
                 video.write_videofile(output_path, codec=codec['lib'], fps=video.fps if self.framerate is None else self.framerate, audio=True)
             video.close()
