@@ -27,6 +27,12 @@ with app.app_context():
 
 
 def create_send_zip(cv_dir: str) -> Response:
+    # Check if cv_dir is empty
+    print("Hi2")
+    if len(os.listdir(cv_dir)) == 0:
+        print(os.listdir(cv_dir))
+        print("HI")
+        return Response('No files to convert', status=100)
     # Create a temporary dir for zip file
     temp_dir = tempfile.mkdtemp()
     zip_filename = os.path.join(temp_dir, 'converted_files.zip')
@@ -41,8 +47,8 @@ def process_params() -> tuple:
     format = request.form.get('conversionType')
     conv_key: str = os.urandom(4).hex() # Achieve some convert-session specificity; 4 Bytes = 8 chars (collision within 26^8 is unlikely)
     # These are necessary because uploaded files are 'dumped' in there; Names may collide because of this, so we separate them from beginning
-    up_dir: str = f'{app.config['UPLOADED_FILES_DEST']}_{conv_key}' # separate upload directories for each conversion session
-    cv_dir: str = f'{app.config['CONVERTED_FILES_DEST']}_{conv_key}'# separate converted directories for each conversion session
+    up_dir: str = f'{app.config["UPLOADED_FILES_DEST"]}_{conv_key}' # separate upload directories for each conversion session
+    cv_dir: str = f'{app.config["CONVERTED_FILES_DEST"]}_{conv_key}'# separate converted directories for each conversion session
 
     if not os.path.exists(up_dir):
         os.makedirs(up_dir)
@@ -74,7 +80,8 @@ def send_to_backend(inputs: list, format: str, output: str, framerate: int,
                    concat=concat,
                    delete=True)
     # Remove upload dir and contents therein
-    shutil.rmtree(inputs[0])
+    if len(inputs[0])> 0:
+        shutil.rmtree(inputs[0])
 
 
 @app.route('/convert', methods=['POST'])
@@ -102,5 +109,5 @@ def concat():
 
 
 if __name__ == '__main__':
-    webbrowser.open(f'{'http' if host.lower() in ['127.0.0.1', 'localhost'] else 'https'}://{host}:{port}')
+    webbrowser.open(f'{"http" if host.lower() in ["127.0.0.1", "localhost"] else "https"}://{host}:{port}')
     app.run(debug=True, host=host, port=port)
