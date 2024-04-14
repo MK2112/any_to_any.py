@@ -248,6 +248,7 @@ class AnyToAny:
             # Check if audio was found
             if audio is None:
                 print(f'[!] No audio found in "{self._join_back(movie_path_set)}" - Skipping\n')
+                video.close()
                 continue
             # Write audio to file
             audio.write_audiofile(output_path, codec=codec, bitrate=self._audio_bitrate(format, self.quality))
