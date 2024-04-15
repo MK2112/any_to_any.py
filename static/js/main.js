@@ -31,7 +31,7 @@ function submitForm(endpoint) {
 
     xhr.onerror = function () {
         hideLoader();
-        alert('Communication To Backend Failed. Please Try Again.');
+        alert('Conversion Failed. Provided File May Be Corrupted/Incomplete. Please Try Again.');
     };
 
     // Provide form contents to backend
