@@ -9,7 +9,7 @@ function submitForm(endpoint) {
     var xhr = new XMLHttpRequest();
     xhr.open('POST', endpoint, true);
 
-    // Progress for file conversion (not upload)
+    // Just a progress bar, not the actual progress of conversion
     showLoader();
 
     // Take backend response .zip, rename the file, make it downloadable
@@ -25,13 +25,14 @@ function submitForm(endpoint) {
             link.click(); // Offer .zip for download
         } else {
             hideLoader();
-            alert('Error Uploading Files. Please Try Again.');
+            alert('Error Uploading Files.');
         }
     };
 
+    // If anything other than 200 status is received
     xhr.onerror = function () {
         hideLoader();
-        alert('Conversion Failed. Provided File May Be Corrupted/Incomplete. Please Try Again.');
+        alert('Conversion Failed. Provided File May Be Corrupted/Incomplete or Upload Failed.');
     };
 
     // Provide form contents to backend
@@ -46,22 +47,26 @@ function submitForm(endpoint) {
 
 
 function triggerUploadDialogue(event) {
+    // If user clicks on any element running this as onclick, redirect click to input element
     if (event.target.tagName !== 'INPUT') {
         document.getElementById('files').click();
     }
 }
 
 function allowDrop(event) {
+    // Prevent standard browser reaction of opening file in new tab
     event.preventDefault();
 }
 
 function drop(event) {
+    // On drop, prevent default browser action, get files, pass them to handleFiles for list assembly
     event.preventDefault();
     var files = event.dataTransfer.files;
     handleFiles(files, false);
 }
 
 function handleFiles(files, fromInput) {
+    // Assemble a list of files to process, either from input element or from drop event
     if (!fromInput) {
         // handleFiles not called from within input element, we have to add files to it then
         var input = document.getElementById('files');
