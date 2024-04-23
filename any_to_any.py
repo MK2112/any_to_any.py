@@ -64,6 +64,7 @@ class AnyToAny:
                 'vob':   'mpeg2video',
                 'ts':    'hevc',
                 'raw':   'rawvideo',
+                'mpg':   'mpeg2video',
             },
             'movie_codecs': {
                 'av1':     {'lib': 'libaom-av1', 'fallback': 'mkv'},
