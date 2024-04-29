@@ -68,6 +68,7 @@ class AnyToAny:
                 'mxf':   'mpeg2video',
                 'drc':   'libx265',
                 'swf':   'flv',
+                'f4v':   'libx264',
             },
             'movie_codecs': {
                 'av1':     {'lib': 'libaom-av1', 'fallback': 'mkv'},
