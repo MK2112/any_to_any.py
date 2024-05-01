@@ -39,6 +39,7 @@ class AnyToAny:
                 'oga':  'libvorbis',
                 'opus': 'libopus',
                 'm3u8': 'pcm_s16le',
+                'w64':  'pcm_s16le',
             },
             'image': {
                 'gif':  self.to_gif,
