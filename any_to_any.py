@@ -40,6 +40,7 @@ class AnyToAny:
                 'opus': 'libopus',
                 'm3u8': 'pcm_s16le',
                 'w64':  'pcm_s16le',
+                'mlp':  'mlp',
             },
             'image': {
                 'gif':  self.to_gif,
@@ -118,7 +119,7 @@ class AnyToAny:
     def _audio_bitrate(self, format: str, quality: str) -> str:
         # Return bitrate for audio conversion
         # If formats allow for a higher bitrate, we shift our scale accordingly
-        if format in ['flac', 'wav', 'aac', 'aiff', 'eac3', 'dts', 'au', 'wv', 'tta']:
+        if format in ['flac', 'wav', 'aac', 'aiff', 'eac3', 'dts', 'au', 'wv', 'tta', 'mlp']:
             return {
                 'high':   '500k',
                 'medium': '320k',
