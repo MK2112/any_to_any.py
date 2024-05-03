@@ -63,6 +63,7 @@ class AnyToAny:
                 'mjpeg': 'mjpeg',
                 'm2ts':  'mpeg2video',
                 '3gp':   'libx264',
+                '3g2':   'libx264',
                 'asf':   'wmv2',
                 'vob':   'mpeg2video',
                 'ts':    'hevc',
