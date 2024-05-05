@@ -41,6 +41,7 @@ class AnyToAny:
                 'm3u8': 'pcm_s16le',
                 'w64':  'pcm_s16le',
                 'mlp':  'mlp',
+                'adts': 'aac',
             },
             'image': {
                 'gif':  self.to_gif,
