@@ -100,6 +100,7 @@ class AnyToAny:
                 'snow':    {'lib': 'snow', 'fallback': 'mkv'},
                 'svq1':    {'lib': 'svq1', 'fallback': 'mkv'},
                 'utvideo': {'lib': 'utvideo', 'fallback': 'mkv'},
+                'cinepak': {'lib': 'cinepak', 'fallback': 'mkv'},
             },
         }
 
