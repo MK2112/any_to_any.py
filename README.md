@@ -38,7 +38,7 @@ You can structure a command in three fundamental ways:
    - You can merge and concatenate files, if multiple are present.
 - **Multi Directory/File Processing**: Process multiple files from different directories or multiple directories in full
    - You can convert,
-   - You can merge or concatenate per input directory, not across them, not with single files. Yet.
+   - You can merge or concatenate per input directory, and/or across them.
 
 ### Parameters
 
@@ -51,6 +51,7 @@ You can structure a command in three fundamental ways:
 | `-q` or </br>`--quality`     | Set output file quality, either `low`, `medium`, or `high`; default is same as input. |
 | `-m` or </br>`--merge`       | Merge movie file with equally named audio file to become its audio track. |
 | `-c` or </br>`--concat`      | Concatenate input files of the same type (images, audio, video) into one output file (e.g. `concatenated_video.mp4` for movie files, `concatenated_audio.mp3` for audio files). |
+| `-a` or </br>`--across`      | Merge/Concatenate across directories when multiple directories are provided. |
 | `-w` or </br>`--web`         | Ignores all other arguments, starts browser + a web server at `http://localhost:5000`. |
 | `-d` or </br>`--delete`      | Delete input files after conversion. |
 | `-fps` or</br>`--framerate` | Set the framerate (fps) when converting to a movie format or codec; default maintains input fps. |
@@ -100,6 +101,15 @@ Note that only one output directory can be specified (omitting the `--output` pa
 ```python
 python any_to_any.py -i -1 /path/to/file1.mp4 -2 /path/to/mp4-folder -o /path/to/output-folder -f mp3
 ```
+Merging across directories works when adding the `--across` parameter:
+```python
+python any_to_any.py -i -1 /path/to/folder1 -2 /path/to/folder2 -o /path/to/output-folder -m -a
+```
+Concatenating across directories works when adding the `--across` parameter:
+```python
+python any_to_any.py -i -1 /path/to/folder1 -2 /path/to/folder2 -o /path/to/output-folder -c -a
+```
+Omitting the `--across` parameter will merge/concatenate seperately within each input directory.
 
 ## License
 This project is licensed under the MIT License, granting users the freedom to modify and distribute the codebase.
