@@ -86,6 +86,7 @@ class AnyToAny:
             },
             "movie_codecs": {
                 "av1": {"lib": "libaom-av1", "fallback": "mkv"},
+                "avc": {"lib": "libx264", "fallback": "mp4"},
                 "vp9": {"lib": "libvpx-vp9", "fallback": "mp4"},
                 "h265": {"lib": "libx265", "fallback": "mkv"},
                 "h264": {"lib": "libx264", "fallback": "mkv"},
