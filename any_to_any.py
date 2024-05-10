@@ -111,6 +111,7 @@ class AnyToAny:
                 "svq1": {"lib": "svq1", "fallback": "mkv"},
                 "utvideo": {"lib": "utvideo", "fallback": "mkv"},
                 "cinepak": {"lib": "cinepak", "fallback": "mkv"},
+                "msmpeg4": {"lib": "msmpeg4", "fallback": "mkv"},
             },
         }
 
