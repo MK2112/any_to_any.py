@@ -67,7 +67,7 @@ class AnyToAny:
                 "webp": self.to_webp,
                 "tiff": self.to_frames,
                 "tga": self.to_frames,
-                "eps": self.to_frames,
+                "ps": self.to_frames,
             },
             Category.DOCUMENT: {
                 "pdf": self.to_frames,
