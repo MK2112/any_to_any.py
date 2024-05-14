@@ -58,6 +58,7 @@ class AnyToAny:
                 "w64": "pcm_s16le",
                 "mlp": "mlp",
                 "adts": "aac",
+                "sbc": "sbc",
             },
             Category.IMAGE: {
                 "gif": self.to_gif,
