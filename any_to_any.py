@@ -95,6 +95,9 @@ class AnyToAny:
                 "swf": "flv",
                 "f4v": "libx264",
                 "m4v": "libx264",
+                "mts": "mpeg2video",
+                "m2v": "mpeg2video",
+                "yuv": "rawvideo",
             },
             Category.MOVIE_CODECS: {
                 "av1": {"lib": "libaom-av1", "fallback": "mkv"},
