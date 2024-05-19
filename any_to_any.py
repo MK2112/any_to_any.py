@@ -127,6 +127,10 @@ class AnyToAny:
                 "utvideo": {"lib": "utvideo", "fallback": "mkv"},
                 "cinepak": {"lib": "cinepak", "fallback": "mkv"},
                 "msmpeg4": {"lib": "msmpeg4", "fallback": "mkv"},
+                "h264_nvenc": {"lib": "h264_nvenc", "fallback": "mp4"},
+                "vpx": {"lib": "libvpx", "fallback": "webm"},
+                "h264_rgb": {"lib": "libx264rgb", "fallback": "mkv"},
+                "mpeg2video": {"lib": "mpeg2video", "fallback": "mpg"},
             },
         }
 
