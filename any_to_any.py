@@ -131,6 +131,7 @@ class AnyToAny:
                 "vpx": {"lib": "libvpx", "fallback": "webm"},
                 "h264_rgb": {"lib": "libx264rgb", "fallback": "mkv"},
                 "mpeg2video": {"lib": "mpeg2video", "fallback": "mpg"},
+                "prores_ks": {"lib": "prores_ks", "fallback": "mkv"},
             },
         }
 
