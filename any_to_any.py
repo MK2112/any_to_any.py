@@ -132,6 +132,7 @@ class AnyToAny:
                 "h264_rgb": {"lib": "libx264rgb", "fallback": "mkv"},
                 "mpeg2video": {"lib": "mpeg2video", "fallback": "mpg"},
                 "prores_ks": {"lib": "prores_ks", "fallback": "mkv"},
+                "vc2": {"lib": "vc2", "fallback": "mkv"},
             },
         }
 
