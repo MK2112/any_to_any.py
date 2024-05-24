@@ -59,6 +59,7 @@ class AnyToAny:
                 "mlp": "mlp",
                 "adts": "aac",
                 "sbc": "sbc",
+                "thd": "truehd",
             },
             Category.IMAGE: {
                 "gif": self.to_gif,
