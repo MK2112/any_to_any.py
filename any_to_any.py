@@ -134,6 +134,7 @@ class AnyToAny:
                 "mpeg2video": {"lib": "mpeg2video", "fallback": "mpg"},
                 "prores_ks": {"lib": "prores_ks", "fallback": "mkv"},
                 "vc2": {"lib": "vc2", "fallback": "mkv"},
+                "flv1": {"lib": "flv", "fallback": "flv"},
             },
         }
 
@@ -433,7 +434,9 @@ class AnyToAny:
                     audio=True,
                 )
             except Exception as _:
-                os.remove(output_path)  # There might be some residue left, remove it
+                if os.path.exists(output_path):
+                    # There might be some residue left, remove it
+                    os.remove(output_path)
                 print(
                     f'\n\n[!] Codec Incompatible with {codec_path_set[2]}: Trying Compatible Format {codec["fallback"]} Instead...\n'
                 )
