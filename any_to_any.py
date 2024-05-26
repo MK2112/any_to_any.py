@@ -106,6 +106,7 @@ class AnyToAny:
                 "vp9": {"lib": "libvpx-vp9", "fallback": "mp4"},
                 "h265": {"lib": "libx265", "fallback": "mkv"},
                 "h264": {"lib": "libx264", "fallback": "mkv"},
+                "h263p": {"lib": "h263p", "fallback": "mkv"},
                 "xvid": {"lib": "libxvid", "fallback": "mp4"},
                 "mpeg4": {"lib": "mpeg4", "fallback": "mp4"},
                 "theora": {"lib": "libtheora", "fallback": "ogv"},
