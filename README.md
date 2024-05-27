@@ -6,10 +6,10 @@ Merge movie and audio files, concatenate files of the same type (image/audio/vid
 ![screenshot](./img/Any-to-Any-Web.png)
 
 ## Supported Formats
-**Audio:** MP2, MP3, FLAC, AAC, AC3, DTS, OGG, OGA, WMA, WAV, M4A, AIFF, WEBA, MKA, WV, CAF, TTA, M4B, EAC3, SPX, AU, OPUS, M3U8, W64, MLP, ADTS, SBC, THD<br>
-**Image:** JPG, PNG, GIF, BMP, WEBP, TIFF, TGA, EPS, PS<br>
-**Document:** PDF<br>
-**Video:** MP4, WEBM, MOV, MKV, AVI, WMV, FLV, MJPEG, M2TS, 3GP, 3G2, ASF, VOB, TS, RAW, MPG, MXF, DRC, SWF, F4V, M4V, MTS, M2V, YUV<br>
+**Audio:** MP2, MP3, FLAC, AAC, AC3, DTS, OGG, OGA, WMA, WAV, M4A, AIFF, WEBA, MKA, WV, CAF, TTA, M4B, EAC3, SPX, AU, OPUS, M3U8, W64, MLP, ADTS, SBC, THD<br><br>
+**Image:** JPG, PNG, GIF, BMP, WEBP, TIFF, TGA, EPS, PS<br><br>
+**Document:** PDF<br><br>
+**Video:** MP4, WEBM, MOV, MKV, AVI, WMV, FLV, MJPEG, M2TS, 3GP, 3G2, ASF, VOB, TS, RAW, MPG, MXF, DRC, SWF, F4V, M4V, MTS, M2V, YUV<br><br>
 **Video Codecs:** AV1, AVC, VP8, VP9, H263P, H264, H265, XVID, MPEG2, MPEG4, THEORA, MPEG1, HEVC, PRORES, HUFFYUV, FFV1, FFVHUFF, V210, V410, V308, V408, ZLIB, QTRLE, SNOW, SVQ1, UTVIDEO, CINEPAK, MSMPEG4, H264_NVENC, VPX; H264_RGB, MPEG2VIDEO, PRORES_KS, VC2, FLV1
 
 ## Setup
@@ -31,13 +31,13 @@ Merge movie and audio files, concatenate files of the same type (image/audio/vid
 
 ## Command Line Interface
 You can structure a command in three fundamental ways:
-- **Single File Processing**
+- [**Single File Processing**](#single-file-processing)
    - You can convert,
    - You can't merge or concatenate with only one file.
-- **Directory Processing**
+- [**Directory Processing**](#directory-processing)
    - You can convert,
    - You can merge and concatenate files, if multiple are present.
-- **Multi Directory/File Processing**
+- [**Multi Directory/File Processing**](#multi-directoryfile-processing)
    - You can convert,
    - You can merge or concatenate per input directory, or across them.
 
