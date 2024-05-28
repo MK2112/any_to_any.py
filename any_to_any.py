@@ -28,8 +28,7 @@ class AnyToAny:
     """
 
     def __init__(self):
-        # Setting up a dictionary of supported formats
-        # and respective information
+        # Setting up a dictionary of supported formats and respective information
         self._supported_formats = {
             Category.AUDIO: {
                 "mp3": "libmp3lame",
@@ -195,7 +194,8 @@ class AnyToAny:
         delete: bool,
         across: bool,
     ) -> None:
-        # Main function to convert media files to defined formats
+        # Main function, convert media files to defined formats 
+        # or merge or concatenate, according to the arguments
         input_paths = []
         input_path_args = (
             input_path_args
@@ -204,7 +204,8 @@ class AnyToAny:
         )
 
         for _, arg in enumerate(input_path_args):
-            # Custom handling of multiple input paths (e.g. "-1 path1 -2 path2 -n pathn")
+            # Custom handling of multiple input paths 
+            # (e.g. "-1 path1 -2 path2 -n pathn")
             if arg.startswith("-") and arg[1:].isdigit():
                 input_paths.append(arg[2:])
             else:
@@ -228,7 +229,7 @@ class AnyToAny:
 
         self.format = (
             format.lower() if format is not None else None
-        )  # No format means no conversion
+        )  # No format means no conversion (but maybe merge || concat)
         self.framerate = framerate  # Possibly no framerate means same as input
         self.delete = delete  # Delete mp4 files after conversion
         # Check if quality is set, if not, set it to None
