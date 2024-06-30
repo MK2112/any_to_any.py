@@ -5,13 +5,6 @@ Merge movie and audio files, concatenate files of the same type (image/audio/vid
 
 ![screenshot](./img/Any-to-Any-Web.png)
 
-## Supported Formats
-**Audio:** MP2, MP3, FLAC, AAC, AC3, DTS, OGG, OGA, WMA, WAV, M4A, AIFF, WEBA, MKA, WV, CAF, TTA, M4B, EAC3, SPX, AU, OPUS, M3U8, W64, MLP, ADTS, SBC, THD<br><br>
-**Image:** JPG, PNG, GIF, BMP, WEBP, TIFF, TGA, EPS, PS, ICO<br><br>
-**Document:** PDF<br><br>
-**Video:** MP4, WEBM, MOV, MKV, AVI, WMV, FLV, MJPEG, M2TS, 3GP, 3G2, ASF, VOB, TS, RAW, MPG, MXF, DRC, SWF, F4V, M4V, MTS, M2V, YUV<br><br>
-**Video Codecs:** AV1, AVC, VP8, VP9, H263P, H264, H265, XVID, MPEG2, MPEG4, THEORA, MPEG1, HEVC, PRORES, HUFFYUV, FFV1, FFVHUFF, V210, V410, V308, V408, ZLIB, QTRLE, SNOW, SVQ1, UTVIDEO, CINEPAK, MSMPEG4, H264_NVENC, VPX; H264_RGB, MPEG2VIDEO, PRORES_KS, VC2, FLV1
-
 ## Setup
 1. **Clone/Download**:
    - Use `git clone` or download this repository
@@ -111,6 +104,13 @@ Concatenating across directories works when adding `-a`/`--across` to the `-c`/`
 python any_to_any.py -i -1 /path/to/folder1 -2 /path/to/folder2 -o /path/to/output-folder -c -a
 ```
 Omitting the `-a`/`--across` parameter will execute merges or concatenations seperately, per each input directory.
+
+## Supported Formats
+**Audio:** MP2, MP3, FLAC, AAC, AC3, DTS, OGG, OGA, WMA, WAV, M4A, AIFF, WEBA, MKA, WV, CAF, TTA, M4B, EAC3, SPX, AU, OPUS, M3U8, W64, MLP, ADTS, SBC, THD<br><br>
+**Image:** JPG, PNG, GIF, BMP, WEBP, TIFF, TGA, EPS, PS, ICO<br><br>
+**Document:** PDF<br><br>
+**Video:** MP4, WEBM, MOV, MKV, AVI, WMV, FLV, MJPEG, M2TS, 3GP, 3G2, ASF, VOB, TS, RAW, MPG, MXF, DRC, SWF, F4V, M4V, MTS, M2V, YUV<br><br>
+**Video Codecs:** AV1, AVC, VP8, VP9, H263P, H264, H265, XVID, MPEG2, MPEG4, THEORA, MPEG1, HEVC, PRORES, HUFFYUV, FFV1, FFVHUFF, V210, V410, V308, V408, ZLIB, QTRLE, SNOW, SVQ1, UTVIDEO, CINEPAK, MSMPEG4, H264_NVENC, VPX; H264_RGB, MPEG2VIDEO, PRORES_KS, VC2, FLV1
 
 ## License
 This project is licensed under the MIT License, granting users the freedom to modify and distribute the codebase.
