@@ -7,6 +7,21 @@ body {
     font-family: ui-sans-serif, Segoe UI, Helvetica Neue, Roboto, Arial, sans-serif;
 }
 
+@media (prefers-color-scheme: dark) {
+    body {
+        background-color: #151515;
+        color: whitesmoke;
+    }
+
+    .static-anchor {
+        color: whitesmoke !important;
+    }
+
+    #drop-area:hover {
+        background-color: #252525 !important;
+    }
+}
+
 h1 p {
     display: inline-block;
     font-weight: 100;
