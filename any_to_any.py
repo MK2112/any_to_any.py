@@ -70,6 +70,9 @@ class AnyToAny:
                 "tga": self.to_frames,
                 "ps": self.to_frames,
                 "ico": self.to_frames,
+                "eps": self.to_frames,
+                "jpeg2000": self.to_frames,
+                "im": self.to_frames,
             },
             Category.DOCUMENT: {
                 "pdf": self.to_frames,
