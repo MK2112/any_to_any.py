@@ -1,4 +1,6 @@
 import os
+import io
+import fitz
 import PyPDF2
 import argparse
 import subprocess
@@ -14,12 +16,14 @@ from moviepy.editor import (
     clips_array,
 )
 
+
 class Category(Enum):
     AUDIO = "audio"
     IMAGE = "image"
     MOVIE = "movie"
     DOCUMENT = "document"
     MOVIE_CODECS = "movie_codecs"
+
 
 class AnyToAny:
     """
@@ -142,7 +146,7 @@ class AnyToAny:
             },
         }
 
-        # This is used in CLI information output
+        # Used in CLI information output
         self.supported_formats = [
             format
             for formats in self._supported_formats.values()
@@ -151,7 +155,6 @@ class AnyToAny:
 
     def _end_with_msg(self, exception: Exception, msg: str) -> None:
         # Single point of exit for the script
-        # Exception is the exception to be raised, msg is the message to be printed within
         if exception is not None:
             print(msg, "\n")
             raise exception(msg)
@@ -198,7 +201,7 @@ class AnyToAny:
         delete: bool,
         across: bool,
     ) -> None:
-        # Main function, convert media files to defined formats 
+        # Main function, convert media files to defined formats
         # or merge or concatenate, according to the arguments
         input_paths = []
         input_path_args = (
@@ -208,7 +211,7 @@ class AnyToAny:
         )
 
         for _, arg in enumerate(input_path_args):
-            # Custom handling of multiple input paths 
+            # Custom handling of multiple input paths
             # (e.g. "-1 path1 -2 path2 -n pathn")
             if arg.startswith("-") and arg[1:].isdigit():
                 input_paths.append(arg[2:])
@@ -218,14 +221,16 @@ class AnyToAny:
                 except IndexError:
                     input_paths.append(arg)
 
-        if (len(input_paths) == 1):
+        if len(input_paths) == 1:
             self.output = output if output is not None else input_paths[0]
         else:
             # len(input_paths) > 1
             if not across:
                 self.output = output if output is not None else None
             else:
-                self.output = output if output is not None else os.path.dirname(os.getcwd())
+                self.output = (
+                    output if output is not None else os.path.dirname(os.getcwd())
+                )
 
         # Check if the output dir exists - Create it otherwise
         if self.output is not None and not os.path.exists(self.output):
@@ -238,15 +243,11 @@ class AnyToAny:
         self.delete = delete  # Delete mp4 files after conversion
         # Check if quality is set, if not, set it to None
         self.quality = (
-            (
-                quality.lower()
-                if quality.lower() in ["high", "medium", "low"]
-                else None
-            )
+            (quality.lower() if quality.lower() in ["high", "medium", "low"] else None)
             if quality is not None
             else None
         )
-        
+
         # Merge movie files with equally named audio files
         self.merging = merge
         # Concatenate files of same type (img/movie/audio) back to back
@@ -298,9 +299,13 @@ class AnyToAny:
                 codec=self._supported_formats[Category.MOVIE_CODECS][self.format],
             )
         elif self.format in self._supported_formats[Category.IMAGE].keys():
-            self._supported_formats[Category.IMAGE][self.format](file_paths, self.format)
+            self._supported_formats[Category.IMAGE][self.format](
+                file_paths, self.format
+            )
         elif self.format in self._supported_formats[Category.DOCUMENT].keys():
-            self._supported_formats[Category.DOCUMENT][self.format](file_paths, self.format)
+            self._supported_formats[Category.DOCUMENT][self.format](
+                file_paths, self.format
+            )
         elif self.merging:
             self.merge(file_paths)
         elif self.concatenating:
@@ -311,7 +316,6 @@ class AnyToAny:
                 ValueError,
                 f"[!] Error: Output format must be one of {list(self.supported_formats)}",
             )
-
 
     def _get_file_paths(self, input: str, file_paths: dict = {}) -> dict:
         # Get media files from input directory
@@ -356,10 +360,7 @@ class AnyToAny:
             self._end_with_msg(
                 None, f"[!] Error: No convertible media files found in {input}"
             )
-
-        print()  # Newline for readability
         return file_paths
-
 
     def to_audio(self, file_paths: dict, format: str, codec: str) -> None:
         # Convert to audio
@@ -419,7 +420,6 @@ class AnyToAny:
             # Post process (delete mp4, print success)
             self._post_process(movie_path_set, output_path, self.delete)
 
-
     def to_codec(self, file_paths: dict, codec: dict) -> None:
         # Convert movie to same movie with different codec
         for codec_path_set in file_paths[Category.MOVIE]:
@@ -460,7 +460,6 @@ class AnyToAny:
                 )
             video.close()
             self._post_process(codec_path_set, output_path, self.delete)
-
 
     def to_movie(self, file_paths: dict, format: str, codec: str) -> None:
         # Convert to movie with specified format
@@ -519,7 +518,6 @@ class AnyToAny:
                 video.close()
                 self._post_process(movie_path_set, out_path, self.delete)
 
-
     def to_frames(self, file_paths: dict, format: str) -> None:
         # Converting to image frame sets
         # This works for images and movies only
@@ -542,20 +540,53 @@ class AnyToAny:
                 self._post_process(image_path_set, self.output, self.delete)
             else:
                 if not os.path.exists(os.path.join(self.output, image_path_set[1])):
-                    try:
-                        os.makedirs(os.path.join(self.output, image_path_set[1]))
-                    except OSError as e:
-                        print(f"[!] Error: {e} - Setting output directory to {self.input}")
-                        self.output = self.input
+                    self.output = self.input
                 img_path = os.path.abspath(
-                    os.path.join(
-                        os.path.join(self.output, image_path_set[1]), 
-                        f"{image_path_set[1]}.{format}"
-                    )
+                    os.path.join(self.output, f"{image_path_set[1]}.{format}")
                 )
                 with Image.open(self._join_back(image_path_set)) as img:
                     img.convert("RGB").save(img_path, format=format)
                 self._post_process(image_path_set, img_path, self.delete)
+
+        for doc_path_set in file_paths[Category.DOCUMENT]:
+            if doc_path_set[2] == format:
+                continue
+            if not os.path.exists(os.path.join(self.output, doc_path_set[1])):
+                try:
+                    os.makedirs(os.path.join(self.output, doc_path_set[1]))
+                except OSError as e:
+                    print(f"[!] Error: {e} - Setting output directory to {self.input}")
+                    self.output = self.input
+
+            if doc_path_set[2] == "pdf":
+                # Per page, convert pdf to image
+                pdf_path = self._join_back(doc_path_set)
+                pdf = PyPDF2.PdfReader(pdf_path)
+                img_path = os.path.abspath(
+                    os.path.join(
+                        os.path.join(self.output, doc_path_set[1]),
+                        f"{doc_path_set[1]}-%{len(str(len(pdf.pages)))}d.{format}",
+                    )
+                )
+
+                try:
+                    os.makedirs(os.path.dirname(img_path), exist_ok=True)
+                    self.output = os.path.dirname(img_path)
+                except OSError as e:
+                    print(f"[!] Error: {e} - Setting output directory to {self.input}")
+                    self.output = self.input
+
+                pdf_document = fitz.open(pdf_path)
+
+                for page_num in range(len(pdf_document)):
+                    pix = pdf_document[page_num].get_pixmap()
+                    img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                    img_file = img_path % (page_num + 1)
+                    img.save(img_file, format.upper())
+
+                pdf_document.close()
+                self._post_process(doc_path_set, img_path, self.delete)
+
         # Audio cant be image-framed, movies certrainly can
         for movie_path_set in file_paths[Category.MOVIE]:
             video = VideoFileClip(
@@ -573,12 +604,15 @@ class AnyToAny:
                     f"{movie_path_set[1]}-%{len(str(int(video.duration * video.fps)))}d.{format}",
                 )
             )
+
             video.write_images_sequence(img_path, fps=video.fps)
             video.close()
 
             if format == "pdf":
                 # Merge all freshly created 1-page pdfs into one big pdf
-                pdf_output_path = os.path.join(self.output, movie_path_set[1], "merged.pdf")
+                pdf_output_path = os.path.join(
+                    self.output, movie_path_set[1], "merged.pdf"
+                )
                 pdfs = [
                     os.path.join(self.output, movie_path_set[1], file)
                     for file in os.listdir(os.path.join(self.output, movie_path_set[1]))
@@ -622,7 +656,6 @@ class AnyToAny:
             video.close()
             self._post_process(movie_path_set, gif_path, self.delete)
 
-
     def to_bmp(self, file_paths: dict, format: str) -> None:
         # Movies are converted to bmps, frame by frame
         for movie_path_set in file_paths[Category.MOVIE]:
@@ -663,7 +696,6 @@ class AnyToAny:
                 print(
                     f"[!] Skipping {self._join_back(image_path_set)} - Unsupported format"
                 )
-
 
     def to_webp(self, file_paths: dict, format: str) -> None:
         # Convert frames in webp format
@@ -713,7 +745,6 @@ class AnyToAny:
                 print(
                     f"[!] Skipping {self._join_back(image_path_set)} - Unsupported format"
                 )
-
 
     def concat(self, file_paths: dict, format: str) -> None:
         # Concatenate files of same type (img/movie/audio) back to back
@@ -778,7 +809,6 @@ class AnyToAny:
                 )
         print("\t[+] Concatenation completed")
 
-
     def merge(self, file_paths: dict) -> None:
         # For movie files and equally named audio file, merge them together under same name
         # (movie with audio with '_merged' addition to name)
@@ -805,8 +835,8 @@ class AnyToAny:
                 )
                 video.audio = audio
                 merged_out_path = os.path.join(
-                        self.output, f"{movie_path_set[1]}_merged.{movie_path_set[2]}"
-                    )
+                    self.output, f"{movie_path_set[1]}_merged.{movie_path_set[2]}"
+                )
                 video.write_videofile(
                     merged_out_path,
                     fps=video.fps if self.framerate is None else self.framerate,
@@ -816,11 +846,12 @@ class AnyToAny:
                 video.close()
                 # Post process (delete mp4+audio, print success)
                 self._post_process(movie_path_set, merged_out_path, self.delete)
-                self._post_process(audio_fit, merged_out_path, self.delete, show_status=False)
+                self._post_process(
+                    audio_fit, merged_out_path, self.delete, show_status=False
+                )
 
         if not found_audio:
             print("[!] No audio files found to merge with movie files")
-
 
     def _post_process(
         self,
