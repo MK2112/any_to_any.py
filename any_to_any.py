@@ -4,11 +4,13 @@ import fitz
 import PyPDF2
 import argparse
 import subprocess
+import numpy as np
 from PIL import Image
 from enum import Enum
 from moviepy.editor import (
     AudioFileClip,
     VideoFileClip,
+    VideoClip,
     ImageSequenceClip,
     ImageClip,
     concatenate_videoclips,
@@ -362,6 +364,14 @@ class AnyToAny:
             )
         return file_paths
 
+    def _has_visuals(self, file_path_set: tuple) -> bool:
+        try:
+            VideoFileClip(self._join_back(file_path_set)).iter_frames()
+            return True
+        except Exception as _:
+            pass
+        return False
+
     def to_audio(self, file_paths: dict, format: str, codec: str) -> None:
         # Convert to audio
         # Audio to audio conversion
@@ -369,13 +379,13 @@ class AnyToAny:
             if audio_path_set[2] == format:
                 continue
             audio = AudioFileClip(self._join_back(audio_path_set))
-            output_path = os.path.abspath(
+            out_path = os.path.abspath(
                 os.path.join(self.output, f"{audio_path_set[1]}.{format}")
             )
             # Write audio to file
             try:
                 audio.write_audiofile(
-                    output_path,
+                    out_path,
                     codec=codec,
                     bitrate=self._audio_bitrate(format, self.quality),
                     fps=audio.fps,
@@ -385,81 +395,120 @@ class AnyToAny:
                     "\n\n[!] Error: Source Sample Rate Incompatible With {format}: Trying Compatible Rate Instead...\n"
                 )
                 audio.write_audiofile(
-                    output_path,
+                    out_path,
                     codec=codec,
                     bitrate=self._audio_bitrate(format, self.quality),
                     fps=48000,
                 )
             audio.close()
-            self._post_process(audio_path_set, output_path, self.delete)
+            self._post_process(audio_path_set, out_path, self.delete)
 
         # Movie to audio conversion
         for movie_path_set in file_paths[Category.MOVIE]:
-            video = VideoFileClip(
-                self._join_back(movie_path_set), audio=True, fps_source="tbr"
-            )
-            output_path = os.path.abspath(
+            out_path = os.path.abspath(
                 os.path.join(self.output, f"{movie_path_set[1]}.{format}")
             )
-            audio = video.audio
-            # Check if audio was found
-            if audio is None:
-                print(
-                    f'[!] No audio found in "{self._join_back(movie_path_set)}" - Skipping\n'
+
+            if self._has_visuals(movie_path_set):
+                video = VideoFileClip(
+                    self._join_back(movie_path_set), audio=True, fps_source="tbr"
                 )
+                audio = video.audio
+                # Check if audio was found
+                if audio is None:
+                    print(
+                        f'[!] No audio found in "{self._join_back(movie_path_set)}" - Skipping\n'
+                    )
+                    video.close()
+                    continue
+
+                audio.write_audiofile(
+                    out_path,
+                    codec=codec,
+                    bitrate=self._audio_bitrate(format, self.quality),
+                )
+
+                audio.close()
                 video.close()
-                continue
-            # Write audio to file
-            audio.write_audiofile(
-                output_path,
-                codec=codec,
-                bitrate=self._audio_bitrate(format, self.quality),
-            )
-            audio.close()
-            video.close()
+            else:
+                try:
+                    # AudioFileClip works for audio-only video files
+                    audio = AudioFileClip(self._join_back(movie_path_set))
+                    audio.write_audiofile(
+                        out_path,
+                        codec=codec,
+                        bitrate=self._audio_bitrate(format, self.quality),
+                    )
+                    audio.close()
+                except Exception as _:
+                    print(
+                        f'[!] Failed to extract audio from audio-only file "{self._join_back(movie_path_set)}" - Skipping\n'
+                    )
+                    continue
+
             # Post process (delete mp4, print success)
-            self._post_process(movie_path_set, output_path, self.delete)
+            self._post_process(movie_path_set, out_path, self.delete)
 
     def to_codec(self, file_paths: dict, codec: dict) -> None:
         # Convert movie to same movie with different codec
         for codec_path_set in file_paths[Category.MOVIE]:
-            video = VideoFileClip(
-                self._join_back(codec_path_set), audio=True, fps_source="tbr"
-            )
-            output_path = os.path.abspath(
+            out_path = os.path.abspath(
                 os.path.join(
                     self.output,
-                    f"{codec_path_set[1]}_{self.format}.{codec_path_set[2]}",
+                    f'{codec_path_set[1]}_{self.format}.{codec["fallback"]}',
                 )
             )
-            try:
-                video.write_videofile(
-                    output_path,
-                    codec=codec["lib"],
-                    fps=video.fps if self.framerate is None else self.framerate,
-                    audio=True,
+
+            if self._has_visuals(codec_path_set):
+                video = VideoFileClip(
+                    self._join_back(codec_path_set), audio=True, fps_source="tbr"
                 )
-            except Exception as _:
-                if os.path.exists(output_path):
-                    # There might be some residue left, remove it
-                    os.remove(output_path)
-                print(
-                    f'\n\n[!] Codec Incompatible with {codec_path_set[2]}: Trying Compatible Format {codec["fallback"]} Instead...\n'
-                )
-                output_path = os.path.abspath(
-                    os.path.join(
-                        self.output,
-                        f'{codec_path_set[1]}_{self.format}.{codec["fallback"]}',
+
+                try:
+                    video.write_videofile(
+                        out_path,
+                        codec=codec["lib"],
+                        fps=video.fps if self.framerate is None else self.framerate,
+                        audio=True,
                     )
+                except Exception as _:
+                    if os.path.exists(out_path):
+                        # There might be some residue left, remove it
+                        os.remove(out_path)
+                    print(
+                        f'\n\n[!] Codec Incompatible with {codec_path_set[2]}: Trying Compatible Format {codec["fallback"]} Instead...\n'
+                    )
+
+                    video.write_videofile(
+                        out_path,
+                        codec=codec["lib"],
+                        fps=video.fps if self.framerate is None else self.framerate,
+                        audio=True,
+                    )
+                video.close()
+            else:
+                # Audio-only video file
+                audio = AudioFileClip(self._join_back(codec_path_set))
+
+                # Create new VideoClip with audio only
+                clip = VideoClip(
+                    lambda t: np.zeros(
+                        (16, 16, 3), dtype=np.uint8
+                    ),  # 16 black pixels required by moviepy
+                    duration=audio.duration,
                 )
-                video.write_videofile(
-                    output_path,
+                clip = clip.set_audio(audio)
+                clip.write_videofile(
+                    out_path,
                     codec=codec["lib"],
-                    fps=video.fps if self.framerate is None else self.framerate,
+                    fps=24 if self.framerate is None else self.framerate,
                     audio=True,
                 )
-            video.close()
-            self._post_process(codec_path_set, output_path, self.delete)
+
+                clip.close()
+                audio.close()
+
+            self._post_process(codec_path_set, out_path, self.delete)
 
     def to_movie(self, file_paths: dict, format: str, codec: str) -> None:
         # Convert to movie with specified format
@@ -503,19 +552,44 @@ class AnyToAny:
         # Movie to different movie
         for movie_path_set in file_paths[Category.MOVIE]:
             if not movie_path_set[2] == format:
-                video = VideoFileClip(
-                    self._join_back(movie_path_set), audio=True, fps_source="tbr"
-                )
                 out_path = os.path.abspath(
                     os.path.join(self.output, f"{movie_path_set[1]}.{format}")
                 )
-                video.write_videofile(
-                    out_path,
-                    codec=codec,
-                    fps=video.fps if self.framerate is None else self.framerate,
-                    audio=True,
-                )
-                video.close()
+                if self._has_visuals(movie_path_set):
+                    video = VideoFileClip(
+                        self._join_back(movie_path_set), audio=True, fps_source="tbr"
+                    )
+                    video.write_videofile(
+                        out_path,
+                        codec=codec,
+                        fps=video.fps if self.framerate is None else self.framerate,
+                        audio=True,
+                    )
+                    video.close()
+                else:
+                    # Audio-only video file
+                    audio = AudioFileClip(self._join_back(movie_path_set))
+
+                    # Create new VideoClip with audio only
+                    clip = VideoClip(
+                        lambda t: np.zeros(
+                            (16, 16, 3), dtype=np.uint8
+                        ),  # 16 black pixels required by moviepy
+                        duration=audio.duration,
+                    )
+
+                    clip = clip.set_audio(audio)
+
+                    clip.write_videofile(
+                        out_path,
+                        codec=codec,
+                        fps=24 if self.framerate is None else self.framerate,
+                        audio=True,
+                    )
+
+                    clip.close()
+                    audio.close()
+
                 self._post_process(movie_path_set, out_path, self.delete)
 
     def to_frames(self, file_paths: dict, format: str) -> None:
@@ -589,28 +663,36 @@ class AnyToAny:
 
         # Audio cant be image-framed, movies certrainly can
         for movie_path_set in file_paths[Category.MOVIE]:
-            video = VideoFileClip(
-                self._join_back(movie_path_set), audio=False, fps_source="tbr"
-            )
-            if not os.path.exists(os.path.join(self.output, movie_path_set[1])):
-                try:
-                    os.makedirs(os.path.join(self.output, movie_path_set[1]))
-                except OSError as e:
-                    print(f"[!] Error: {e} - Setting output directory to {self.input}")
-                    self.output = self.input
-            img_path = os.path.abspath(
-                os.path.join(
-                    os.path.join(self.output, movie_path_set[1]),
-                    f"{movie_path_set[1]}-%{len(str(int(video.duration * video.fps)))}d.{format}",
+            if self._has_visuals(movie_path_set):
+                video = VideoFileClip(
+                    self._join_back(movie_path_set), audio=False, fps_source="tbr"
                 )
-            )
+                if not os.path.exists(os.path.join(self.output, movie_path_set[1])):
+                    try:
+                        os.makedirs(os.path.join(self.output, movie_path_set[1]))
+                    except OSError as e:
+                        print(
+                            f"[!] Error: {e} - Setting output directory to {self.input}"
+                        )
+                        self.output = self.input
+                img_path = os.path.abspath(
+                    os.path.join(
+                        os.path.join(self.output, movie_path_set[1]),
+                        f"{movie_path_set[1]}-%{len(str(int(video.duration * video.fps)))}d.{format}",
+                    )
+                )
 
-            video.write_images_sequence(img_path, fps=video.fps)
-            video.close()
+                video.write_images_sequence(img_path, fps=video.fps)
+                video.close()
+                self._post_process(movie_path_set, img_path, self.delete)
+            else:
+                print(
+                    f'[!] Skipping "{self._join_back(movie_path_set)}" - Audio-only video file'
+                )
 
             if format == "pdf":
                 # Merge all freshly created 1-page pdfs into one big pdf
-                pdf_output_path = os.path.join(
+                pdf_out_path = os.path.join(
                     self.output, movie_path_set[1], "merged.pdf"
                 )
                 pdfs = [
@@ -618,16 +700,16 @@ class AnyToAny:
                     for file in os.listdir(os.path.join(self.output, movie_path_set[1]))
                     if file.endswith("pdf")
                 ]
-                print(f"\t[+] Merging {len(pdfs)} PDFs into {pdf_output_path}")
+                print(f"\t[+] Merging {len(pdfs)} PDFs into {pdf_out_path}")
                 pdfs.sort()
                 pdf_merger = PyPDF2.PdfMerger()
                 for pdf in pdfs:
                     pdf_merger.append(pdf)
-                pdf_merger.write(pdf_output_path)
+                pdf_merger.write(pdf_out_path)
                 pdf_merger.close()
                 for pdf in pdfs:
                     os.remove(pdf)
-                self._post_process(movie_path_set, pdf_output_path, self.delete)
+                self._post_process(movie_path_set, pdf_out_path, self.delete)
             else:
                 self._post_process(movie_path_set, img_path, self.delete)
 
@@ -646,30 +728,42 @@ class AnyToAny:
                 append_images=images[1:],
             )
 
-        # Movies are converted to gifs as well, incorporating all frames
+        # Movies are converted to gifs as well, incorporating 1/3 of the frames
         for movie_path_set in file_paths[Category.MOVIE]:
-            video = VideoFileClip(
-                self._join_back(movie_path_set), audio=False, fps_source="tbr"
-            )
-            gif_path = os.path.join(self.output, f"{movie_path_set[1]}.{format}")
-            video.write_gif(gif_path, fps=video.fps // 3)
-            video.close()
-            self._post_process(movie_path_set, gif_path, self.delete)
+            if self._has_visuals(movie_path_set):
+                video = VideoFileClip(
+                    self._join_back(movie_path_set), audio=False, fps_source="tbr"
+                )
+                gif_path = os.path.join(self.output, f"{movie_path_set[1]}.{format}")
+                video.write_gif(gif_path, fps=video.fps // 3)
+                video.close()
+                self._post_process(movie_path_set, gif_path, self.delete)
+            else:
+                print(
+                    f'[!] Skipping "{self._join_back(movie_path_set)}" - Audio-only video file'
+                )
 
     def to_bmp(self, file_paths: dict, format: str) -> None:
         # Movies are converted to bmps, frame by frame
         for movie_path_set in file_paths[Category.MOVIE]:
-            video = VideoFileClip(
-                self._join_back(movie_path_set), audio=False, fps_source="tbr"
-            )
-            bmp_path = os.path.join(self.output, f"{movie_path_set[1]}.{format}")
-            # Split video into individual bmp frame images at original framerate
-            for _, frame in enumerate(video.iter_frames(fps=video.fps, dtype="uint8")):
-                frame.save(
-                    f"{bmp_path}-%{len(str(int(video.duration * video.fps)))}d.{format}",
-                    format=format,
+            if self._has_visuals(movie_path_set):
+                video = VideoFileClip(
+                    self._join_back(movie_path_set), audio=False, fps_source="tbr"
                 )
-            self._post_process(movie_path_set, bmp_path, self.delete)
+                bmp_path = os.path.join(self.output, f"{movie_path_set[1]}.{format}")
+                # Split video into individual bmp frame images at original framerate
+                for _, frame in enumerate(
+                    video.iter_frames(fps=video.fps, dtype="uint8")
+                ):
+                    frame.save(
+                        f"{bmp_path}-%{len(str(int(video.duration * video.fps)))}d.{format}",
+                        format=format,
+                    )
+                self._post_process(movie_path_set, bmp_path, self.delete)
+            else:
+                print(
+                    f'[!] Skipping "{self._join_back(movie_path_set)}" - Audio-only video file'
+                )
 
         # Pngs and gifs are converted to bmps as well
         for image_path_set in file_paths[Category.IMAGE]:
@@ -701,24 +795,31 @@ class AnyToAny:
         # Convert frames in webp format
         # Movies are converted to webps, frame by frame
         for movie_path_set in file_paths[Category.MOVIE]:
-            video = VideoFileClip(
-                self._join_back(movie_path_set), audio=False, fps_source="tbr"
-            )
-            if not os.path.exists(os.path.join(self.output, movie_path_set[1])):
-                try:
-                    os.makedirs(os.path.join(self.output, movie_path_set[1]))
-                except OSError as e:
-                    print(f"[!] Error: {e} - Setting output directory to {self.input}")
-                    self.output = self.input
-            img_path = os.path.abspath(
-                os.path.join(
-                    os.path.join(self.output, movie_path_set[1]),
-                    f"{movie_path_set[1]}-%{len(str(int(video.duration * video.fps)))}d.{format}",
+            if self._has_visuals(movie_path_set):
+                video = VideoFileClip(
+                    self._join_back(movie_path_set), audio=False, fps_source="tbr"
                 )
-            )
-            video.write_images_sequence(img_path, fps=video.fps)
-            video.close()
-            self._post_process(movie_path_set, img_path, self.delete)
+                if not os.path.exists(os.path.join(self.output, movie_path_set[1])):
+                    try:
+                        os.makedirs(os.path.join(self.output, movie_path_set[1]))
+                    except OSError as e:
+                        print(
+                            f"[!] Error: {e} - Setting output directory to {self.input}"
+                        )
+                        self.output = self.input
+                img_path = os.path.abspath(
+                    os.path.join(
+                        os.path.join(self.output, movie_path_set[1]),
+                        f"{movie_path_set[1]}-%{len(str(int(video.duration * video.fps)))}d.{format}",
+                    )
+                )
+                video.write_images_sequence(img_path, fps=video.fps)
+                video.close()
+                self._post_process(movie_path_set, img_path, self.delete)
+            else:
+                print(
+                    f'[!] Skipping "{self._join_back(movie_path_set)}" - Audio-only video file'
+                )
 
         # Pngs and gifs are converted to webps as well
         for image_path_set in file_paths[Category.IMAGE]:
@@ -793,14 +894,14 @@ class AnyToAny:
         if file_paths[Category.IMAGE] and (
             format is None or format in self._supported_formats[Category.IMAGE]
         ):
-            gif_output_path = os.path.join(self.output, "concatenated_image.gif")
+            gif_out_path = os.path.join(self.output, "concatenated_image.gif")
             concatenated_image = clips_array(
                 [
                     [ImageClip(self._join_back(image_path_set)).set_duration(1)]
                     for image_path_set in file_paths[Category.IMAGE]
                 ]
             )
-            concatenated_image.write_gif(gif_output_path, fps=self.framerate)
+            concatenated_image.write_gif(gif_out_path, fps=self.framerate)
 
         for category in file_paths.keys():
             for i, file_path in enumerate(file_paths[category]):
