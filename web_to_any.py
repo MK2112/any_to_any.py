@@ -32,10 +32,7 @@ with app.app_context():
 
 def create_send_zip(cv_dir: str) -> Response:
     # Check if cv_dir is empty
-    print("Hi2")
     if len(os.listdir(cv_dir)) == 0:
-        print(os.listdir(cv_dir))
-        print("HI")
         return Response("No files to convert", status=100)
     # Create a temporary dir for zip file
     temp_dir = tempfile.mkdtemp()
