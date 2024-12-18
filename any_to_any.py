@@ -79,6 +79,8 @@ class AnyToAny:
                 "eps": self.to_frames,
                 "jpeg2000": self.to_frames,
                 "im": self.to_frames,
+                "pcx": self.to_frames,
+                "ppm": self.to_frames,
             },
             Category.DOCUMENT: {
                 "pdf": self.to_frames,
@@ -110,41 +112,41 @@ class AnyToAny:
                 "yuv": "rawvideo",
             },
             Category.MOVIE_CODECS: {
-                "av1": {"lib": "libaom-av1", "fallback": "mkv"},
-                "avc": {"lib": "libx264", "fallback": "mp4"},
-                "vp9": {"lib": "libvpx-vp9", "fallback": "mp4"},
-                "h265": {"lib": "libx265", "fallback": "mkv"},
-                "h264": {"lib": "libx264", "fallback": "mkv"},
-                "h263p": {"lib": "h263p", "fallback": "mkv"},
-                "xvid": {"lib": "libxvid", "fallback": "mp4"},
-                "mpeg4": {"lib": "mpeg4", "fallback": "mp4"},
-                "theora": {"lib": "libtheora", "fallback": "ogv"},
-                "mpeg2": {"lib": "mpeg2video", "fallback": "mp4"},
-                "mpeg1": {"lib": "mpeg1video", "fallback": "mp4"},
-                "hevc": {"lib": "libx265", "fallback": "mkv"},
-                "prores": {"lib": "prores", "fallback": "mkv"},
-                "vp8": {"lib": "libvpx", "fallback": "webm"},
-                "huffyuv": {"lib": "huffyuv", "fallback": "mkv"},
-                "ffv1": {"lib": "ffv1", "fallback": "mkv"},
-                "ffvhuff": {"lib": "ffvhuff", "fallback": "mkv"},
-                "v210": {"lib": "v210", "fallback": "mkv"},
-                "v410": {"lib": "v410", "fallback": "mkv"},
-                "v308": {"lib": "v308", "fallback": "mkv"},
-                "v408": {"lib": "v408", "fallback": "mkv"},
-                "zlib": {"lib": "zlib", "fallback": "mkv"},
-                "qtrle": {"lib": "qtrle", "fallback": "mkv"},
-                "snow": {"lib": "snow", "fallback": "mkv"},
-                "svq1": {"lib": "svq1", "fallback": "mkv"},
-                "utvideo": {"lib": "utvideo", "fallback": "mkv"},
-                "cinepak": {"lib": "cinepak", "fallback": "mkv"},
-                "msmpeg4": {"lib": "msmpeg4", "fallback": "mkv"},
-                "h264_nvenc": {"lib": "h264_nvenc", "fallback": "mp4"},
-                "vpx": {"lib": "libvpx", "fallback": "webm"},
-                "h264_rgb": {"lib": "libx264rgb", "fallback": "mkv"},
-                "mpeg2video": {"lib": "mpeg2video", "fallback": "mpg"},
-                "prores_ks": {"lib": "prores_ks", "fallback": "mkv"},
-                "vc2": {"lib": "vc2", "fallback": "mkv"},
-                "flv1": {"lib": "flv", "fallback": "flv"},
+                "av1": ["libaom-av1", "mkv"], # [lib, fallback]
+                "avc": ["libx264", "mp4"],
+                "vp9": ["libvpx-vp9", "mp4"],
+                "h265": ["libx265", "mkv"],
+                "h264": ["libx264", "mkv"],
+                "h263p": ["h263p", "mkv"],
+                "xvid": ["libxvid", "mp4"],
+                "mpeg4": ["mpeg4", "mp4"],
+                "theora": ["libtheora", "ogv"],
+                "mpeg2": ["mpeg2video", "mp4"],
+                "mpeg1": ["mpeg1video", "mp4"],
+                "hevc": ["libx265", "mkv"],
+                "prores": ["prores", "mkv"],
+                "vp8": ["libvpx", "webm"],
+                "huffyuv": ["huffyuv", "mkv"],
+                "ffv1": ["ffv1", "mkv"],
+                "ffvhuff": ["ffvhuff", "mkv"],
+                "v210": ["v210", "mkv"],
+                "v410": ["v410", "mkv"],
+                "v308": ["v308", "mkv"],
+                "v408": ["v408", "mkv"],
+                "zlib": ["zlib", "mkv"],
+                "qtrle": ["qtrle", "mkv"],
+                "snow": ["snow", "mkv"],
+                "svq1": ["svq1", "mkv"],
+                "utvideo": ["utvideo", "mkv"],
+                "cinepak": ["cinepak", "mkv"],
+                "msmpeg4": ["msmpeg4", "mkv"],
+                "h264_nvenc": ["h264_nvenc", "mp4"],
+                "vpx": ["libvpx", "webm"],
+                "h264_rgb": ["libx264rgb", "mkv"],
+                "mpeg2video": ["mpeg2video", "mpg"],
+                "prores_ks": ["prores_ks", "mkv"],
+                "vc2": ["vc2", "mkv"],
+                "flv1": ["flv", "flv"],
             },
         }
 
@@ -267,6 +269,11 @@ class AnyToAny:
 
             file_paths = self._get_file_paths(self.input, file_paths)
 
+            # If output is just a file, turn it into directory
+            if os.path.isfile(self.output):
+                self.output = os.path.dirname(self.output)
+
+            # If no output given, output is set to the input path
             if not across:
                 if self.output is None or was_none:
                     self.output = input
@@ -274,6 +281,7 @@ class AnyToAny:
                 self.process_file_paths(file_paths)
                 file_paths = {}
 
+        # If multiple input paths are given, yet no output, output is set to the first input path
         if across:
             if self.output is None:
                 self.output = os.path.dirname(input_paths[0])
@@ -456,7 +464,7 @@ class AnyToAny:
             out_path = os.path.abspath(
                 os.path.join(
                     self.output,
-                    f'{codec_path_set[1]}_{self.format}.{codec["fallback"]}',
+                    f'{codec_path_set[1]}_{self.format}.{codec[1]}',
                 )
             )
 
@@ -468,7 +476,7 @@ class AnyToAny:
                 try:
                     video.write_videofile(
                         out_path,
-                        codec=codec["lib"],
+                        codec=codec[0],
                         fps=video.fps if self.framerate is None else self.framerate,
                         audio=True,
                     )
@@ -477,12 +485,12 @@ class AnyToAny:
                         # There might be some residue left, remove it
                         os.remove(out_path)
                     print(
-                        f'\n\n[!] Codec Incompatible with {codec_path_set[2]}: Trying Compatible Format {codec["fallback"]} Instead...\n'
+                        f'\n\n[!] Codec Incompatible with {codec_path_set[2]}: Trying Compatible Format {codec[1]} Instead...\n'
                     )
 
                     video.write_videofile(
                         out_path,
-                        codec=codec["lib"],
+                        codec=codec[0],
                         fps=video.fps if self.framerate is None else self.framerate,
                         audio=True,
                     )
@@ -501,7 +509,7 @@ class AnyToAny:
                 clip = clip.set_audio(audio)
                 clip.write_videofile(
                     out_path,
-                    codec=codec["lib"],
+                    codec=codec[0],
                     fps=24 if self.framerate is None else self.framerate,
                     audio=True,
                 )
