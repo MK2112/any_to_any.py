@@ -1,7 +1,10 @@
 # any_to_any.py - Media File Converter, Merger, Concatenator
 
-Convert between various media file formats.<br>
-Merge movie and audio files, concatenate files of the same type (image/audio/video), and more.
+- Convert between a wide range of media formats,
+- Merge video with audio files,
+- Extract audio from video,
+- Concatenate files of the same type (audio, video, images),
+- Handle batched file processing.
 
 ![screenshot](./img/Any-to-Any-Web.png)
 
