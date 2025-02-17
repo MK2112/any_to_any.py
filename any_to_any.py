@@ -7,17 +7,14 @@ import subprocess
 import numpy as np
 from PIL import Image
 from enum import Enum
-from moviepy.editor import (
-    AudioFileClip,
-    VideoFileClip,
-    VideoClip,
-    ImageSequenceClip,
-    ImageClip,
-    concatenate_videoclips,
-    concatenate_audioclips,
-    clips_array,
-)
-
+from moviepy.editor import (AudioFileClip,
+                            VideoFileClip,
+                            VideoClip,
+                            ImageSequenceClip,
+                            ImageClip,
+                            concatenate_videoclips,
+                            concatenate_audioclips,
+                            clips_array)
 
 class Category(Enum):
     AUDIO = "audio"
@@ -25,7 +22,6 @@ class Category(Enum):
     MOVIE = "movie"
     DOCUMENT = "document"
     MOVIE_CODECS = "movie_codecs"
-
 
 class AnyToAny:
     """
@@ -158,7 +154,7 @@ class AnyToAny:
         ]
 
     def _end_with_msg(self, exception: Exception, msg: str) -> None:
-        # Single point of exit for the script
+        # Single point of exit
         if exception is not None:
             print(msg, "\n")
             raise exception(msg)
@@ -246,11 +242,8 @@ class AnyToAny:
         self.framerate = framerate  # Possibly no framerate means same as input
         self.delete = delete  # Delete mp4 files after conversion
         # Check if quality is set, if not, set it to None
-        self.quality = (
-            (quality.lower() if quality.lower() in ["high", "medium", "low"] else None)
-            if quality is not None
-            else None
-        )
+        self.quality = ((quality.lower() if quality.lower() in ["high", "medium", "low"] else None)
+                        if quality is not None else None)
 
         # Merge movie files with equally named audio files
         self.merging = merge
@@ -1083,14 +1076,12 @@ if __name__ == "__main__":
             subprocess.run("python3 ./web_to_any.py", shell=True)
     else:
         # Run main function with parsed arguments
-        any_to_any.run(
-            input_path_args=args["input"],
-            format=args["format"],
-            output=args["output"],
-            framerate=args["framerate"],
-            quality=args["quality"],
-            merge=args["merge"],
-            concat=args["concat"],
-            delete=args["delete"],
-            across=args["across"],
-        )
+        any_to_any.run(input_path_args=args["input"],
+                       format=args["format"],
+                       output=args["output"],
+                       framerate=args["framerate"],
+                       quality=args["quality"],
+                       merge=args["merge"],
+                       concat=args["concat"],
+                       delete=args["delete"],
+                       across=args["across"])
