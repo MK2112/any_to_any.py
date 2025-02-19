@@ -80,6 +80,7 @@ class AnyToAny:
             },
             Category.DOCUMENT: {
                 "pdf": self.to_frames,
+                "srt": self.to_subtitles,
             },
             Category.MOVIE: {
                 "webm": "libvpx",
@@ -594,6 +595,46 @@ class AnyToAny:
 
                 self._post_process(movie_path_set, out_path, self.delete)
 
+    def to_subtitles(self, file_paths: dict, format: str) -> None:
+        for movie_path_set in file_paths[Category.MOVIE]:
+            input_path = self._join_back(movie_path_set)
+            out_path = os.path.abspath(os.path.join(self.output, f"{movie_path_set[1]}.srt"))
+            print(f"[+] Extracting subtitles from '{input_path}'")
+            try:
+                # Use FFmpeg to extract subtitles
+                _ = subprocess.run([
+                    'ffmpeg',
+                    '-i', input_path,
+                    '-map', '0:s:0',    # Selects first subtitle stream
+                    '-c:s', 'srt',
+                    out_path
+                ], capture_output=True, text=True)
+                
+                if os.path.exists(out_path) and os.path.getsize(out_path) > 0:
+                    print(f"\t[+] Subtitles successfully extracted to '{out_path}'")
+                    self._post_process(movie_path_set, out_path, self.delete, show_status=False)
+                else:
+                    # Try extracting closed captions when direct extract fails (found mostly in MP4 and MKV)
+                    print("\t[!] No dedicated subtitle track found. Trying to extract embedded text...")
+                    _ = subprocess.run([
+                        'ffmpeg',
+                        '-i', input_path,
+                        '-c:s', format,
+                        out_path
+                    ], capture_output=True, text=True)
+                    if os.path.exists(out_path) and os.path.getsize(out_path) > 0:
+                        print(f"\t[+] Embedded subtitles successfully extracted to '{out_path}'")
+                        self._post_process(movie_path_set, out_path, self.delete, show_status=False)
+                    else:
+                        print(f"\t[!] No subtitles found for '{input_path}'")
+            except Exception as e:
+                print(f"\t[!] Extraction of subtitles failed: {str(e)}")                
+                try:
+                    subprocess.run(['ffmpeg', '-version'], capture_output=True)
+                except FileNotFoundError:
+                    print("\t[!] FFmpeg not found. Install FFmpeg to extract subtitles.")
+                    break
+
     def to_frames(self, file_paths: dict, format: str) -> None:
         # Converting to image frame sets
         # This works for images and movies only
@@ -730,7 +771,7 @@ class AnyToAny:
                 append_images=images[1:],
             )
 
-        # Movies are converted to gifs as well, incorporating 1/3 of the frames
+        # Movies are converted to gifs as well, retaining 1/3 of the frames
         for movie_path_set in file_paths[Category.MOVIE]:
             if self._has_visuals(movie_path_set):
                 video = VideoFileClip(
@@ -746,7 +787,7 @@ class AnyToAny:
                 )
 
     def to_bmp(self, file_paths: dict, format: str) -> None:
-        # Movies are converted to bmps, frame by frame
+        # Movies are converted to bmps frame by frame
         for movie_path_set in file_paths[Category.MOVIE]:
             if self._has_visuals(movie_path_set):
                 video = VideoFileClip(
