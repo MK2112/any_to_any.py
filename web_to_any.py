@@ -11,26 +11,26 @@ import tempfile
 import webbrowser
 
 """
-Web server providing a web interface as extension to the CLI-based any-to-any.py
+Web server providing a web interface as extension to the CLI-based any_to_any.py
 """
 
 app = Flask(__name__, template_folder=os.path.abspath("templates"))
 host = "127.0.0.1"
 port = 5000
 any_to_any = AnyToAny()
+any_to_any.web_flag = True
+any_to_any.web_host = f'{"http" if host.lower() in ["127.0.0.1", "localhost"] else "https"}://{host}:{port}'
 
 files = UploadSet("files", ALL)
 app.config["UPLOADED_FILES_DEST"] = "./uploads"
 app.config["CONVERTED_FILES_DEST"] = "./converted"
 configure_uploads(app, files)
 
-
 with app.app_context():
     # This is intended to help allocate memory early
     _ = any_to_any.supported_formats
 
-
-def create_send_zip(cv_dir: str) -> Response:
+def push_zip(cv_dir: str) -> Response:
     # Check if cv_dir is empty
     if len(os.listdir(cv_dir)) == 0:
         return Response("No files to convert", status=100)
@@ -42,13 +42,11 @@ def create_send_zip(cv_dir: str) -> Response:
     shutil.rmtree(cv_dir)  # Clean up 'converted' dir
     return send_file(zip_filename, as_attachment=True)  # Return zip file
 
-
 def process_params() -> tuple:
     uploaded_files = request.files.getlist("files")
     format = request.form.get("conversionType")
-    conv_key: str = os.urandom(
-        4
-    ).hex()  # Achieve some convert-session specificity; 4 Bytes = 8 chars (collision within 26^8 is unlikely)
+    # Achieve some convert-session specificity; 4 Bytes = 8 chars (collision within 26^8 is unlikely)
+    conv_key: str = os.urandom(4).hex()
     # These are necessary because uploaded files are 'dumped' in there; Names may collide because of this, so we separate them from beginning
     up_dir: str = f'{app.config["UPLOADED_FILES_DEST"]}_{conv_key}'  # separate upload directories for each conversion session
     cv_dir: str = f'{app.config["CONVERTED_FILES_DEST"]}_{conv_key}'  # separate converted directories for each conversion session
@@ -64,7 +62,6 @@ def process_params() -> tuple:
             file.save(filename)
     # File format to convert to
     return format, up_dir, cv_dir
-
 
 @app.route("/")
 def index():
@@ -98,7 +95,6 @@ def send_to_backend(
     if len(input_path_args[0]) > 0:
         shutil.rmtree(input_path_args[0])
 
-
 @app.route("/convert", methods=["POST"])
 def convert():
     format, up_dir, cv_dir = process_params()
@@ -112,7 +108,7 @@ def convert():
         merge=None,
         concat=None,
     )
-    return create_send_zip(cv_dir)
+    return push_zip(cv_dir)
 
 
 @app.route("/merge", methods=["POST"])
@@ -128,7 +124,7 @@ def merge():
         merge=True,
         concat=None,
     )
-    return create_send_zip(cv_dir)
+    return push_zip(cv_dir)
 
 
 @app.route("/concat", methods=["POST"])
@@ -144,11 +140,9 @@ def concat():
         merge=None,
         concat=True,
     )
-    return create_send_zip(cv_dir)
+    return push_zip(cv_dir)
 
 
 if __name__ == "__main__":
-    webbrowser.open(
-        f'{"http" if host.lower() in ["127.0.0.1", "localhost"] else "https"}://{host}:{port}'
-    )
+    webbrowser.open(any_to_any.web_host)
     app.run(debug=True, host=host, port=port)
