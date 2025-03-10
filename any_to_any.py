@@ -7,14 +7,17 @@ import subprocess
 import numpy as np
 from PIL import Image
 from enum import Enum
-from moviepy.editor import (AudioFileClip,
-                            VideoFileClip,
-                            VideoClip,
-                            ImageSequenceClip,
-                            ImageClip,
-                            concatenate_videoclips,
-                            concatenate_audioclips,
-                            clips_array)
+from moviepy.editor import (
+    AudioFileClip,
+    VideoFileClip,
+    VideoClip,
+    ImageSequenceClip,
+    ImageClip,
+    concatenate_videoclips,
+    concatenate_audioclips,
+    clips_array,
+)
+
 
 class Category(Enum):
     AUDIO = "audio"
@@ -22,6 +25,7 @@ class Category(Enum):
     MOVIE = "movie"
     DOCUMENT = "document"
     MOVIE_CODECS = "movie_codecs"
+
 
 class AnyToAny:
     """
@@ -109,7 +113,7 @@ class AnyToAny:
                 "yuv": "rawvideo",
             },
             Category.MOVIE_CODECS: {
-                "av1": ["libaom-av1", "mkv"], # [lib, fallback]
+                "av1": ["libaom-av1", "mkv"],  # [lib, fallback]
                 "avc": ["libx264", "mp4"],
                 "vp9": ["libvpx-vp9", "mp4"],
                 "h265": ["libx265", "mkv"],
@@ -243,8 +247,11 @@ class AnyToAny:
         self.framerate = framerate  # Possibly no framerate means same as input
         self.delete = delete  # Delete mp4 files after conversion
         # Check if quality is set, if not, set it to None
-        self.quality = ((quality.lower() if quality.lower() in ["high", "medium", "low"] else None)
-                        if quality is not None else None)
+        self.quality = (
+            (quality.lower() if quality.lower() in ["high", "medium", "low"] else None)
+            if quality is not None
+            else None
+        )
 
         # Merge movie files with equally named audio files
         self.merging = merge
@@ -255,13 +262,11 @@ class AnyToAny:
         was_none = False
 
         for input in input_paths:
-            # No input means working directory
+            file_paths = self._get_file_paths(input, file_paths)
             if os.path.isfile(str(input)):
                 self.input = os.path.dirname(input)
             else:
                 self.input = input
-
-            file_paths = self._get_file_paths(self.input, file_paths)
 
             # If output is just a file, turn it into directory
             if os.path.isfile(self.output):
@@ -339,13 +344,6 @@ class AnyToAny:
                     print(f"\t[+] Scheduling: {file_info[1]}.{file_info[2]}")
                     break
 
-        for directory in [input]:
-            if not os.path.exists(directory):
-                self._end_with_msg(
-                    FileNotFoundError,
-                    f"[!] Error: Directory {directory} does not exist.",
-                )
-
         print(f"[>] Scheduling: {input}")
 
         # Check if file_paths is an empty dict
@@ -356,15 +354,16 @@ class AnyToAny:
             file_info = process_file(os.path.abspath(input))
             schedule_file(file_info)
         else:
+            for directory in [input]:
+                if not os.path.exists(directory):
+                    self._end_with_msg(FileNotFoundError, f"[!] Error: Directory {directory} does not exist.")
             for file_name in os.listdir(input):
                 file_path = os.path.abspath(os.path.join(input, file_name))
                 file_info = process_file(file_path)
                 schedule_file(file_info)
 
         if not any(file_paths.values()):
-            self._end_with_msg(
-                None, f"[!] Error: No convertible media files found in {input}"
-            )
+            self._end_with_msg(None, f"[!] Error: No convertible media files found in {input}")
         return file_paths
 
     def _has_visuals(self, file_path_set: tuple) -> bool:
@@ -458,7 +457,7 @@ class AnyToAny:
             out_path = os.path.abspath(
                 os.path.join(
                     self.output,
-                    f'{codec_path_set[1]}_{self.format}.{codec[1]}',
+                    f"{codec_path_set[1]}_{self.format}.{codec[1]}",
                 )
             )
 
@@ -479,7 +478,7 @@ class AnyToAny:
                         # There might be some residue left, remove it
                         os.remove(out_path)
                     print(
-                        f'\n\n[!] Codec Incompatible with {codec_path_set[2]}: Trying Compatible Format {codec[1]} Instead...\n'
+                        f"\n\n[!] Codec Incompatible with {codec_path_set[2]}: Trying Compatible Format {codec[1]} Instead...\n"
                     )
 
                     video.write_videofile(
@@ -598,41 +597,59 @@ class AnyToAny:
     def to_subtitles(self, file_paths: dict, format: str) -> None:
         for movie_path_set in file_paths[Category.MOVIE]:
             input_path = self._join_back(movie_path_set)
-            out_path = os.path.abspath(os.path.join(self.output, f"{movie_path_set[1]}.srt"))
+            out_path = os.path.abspath(
+                os.path.join(self.output, f"{movie_path_set[1]}.srt")
+            )
             print(f"[+] Extracting subtitles from '{input_path}'")
             try:
                 # Use FFmpeg to extract subtitles
-                _ = subprocess.run([
-                    'ffmpeg',
-                    '-i', input_path,
-                    '-map', '0:s:0',    # Selects first subtitle stream
-                    '-c:s', 'srt',
-                    out_path
-                ], capture_output=True, text=True)
-                
+                _ = subprocess.run(
+                    [
+                        "ffmpeg",
+                        "-i",
+                        input_path,
+                        "-map",
+                        "0:s:0",  # Selects first subtitle stream
+                        "-c:s",
+                        "srt",
+                        out_path,
+                    ],
+                    capture_output=True,
+                    text=True,
+                )
+
                 if os.path.exists(out_path) and os.path.getsize(out_path) > 0:
                     print(f"\t[+] Subtitles successfully extracted to '{out_path}'")
-                    self._post_process(movie_path_set, out_path, self.delete, show_status=False)
+                    self._post_process(
+                        movie_path_set, out_path, self.delete, show_status=False
+                    )
                 else:
                     # Try extracting closed captions when direct extract fails (found mostly in MP4 and MKV)
-                    print("\t[!] No dedicated subtitle track found. Trying to extract embedded text...")
-                    _ = subprocess.run([
-                        'ffmpeg',
-                        '-i', input_path,
-                        '-c:s', format,
-                        out_path
-                    ], capture_output=True, text=True)
+                    print(
+                        "\t[!] No dedicated subtitle track found. Trying to extract embedded text..."
+                    )
+                    _ = subprocess.run(
+                        ["ffmpeg", "-i", input_path, "-c:s", format, out_path],
+                        capture_output=True,
+                        text=True,
+                    )
                     if os.path.exists(out_path) and os.path.getsize(out_path) > 0:
-                        print(f"\t[+] Embedded subtitles successfully extracted to '{out_path}'")
-                        self._post_process(movie_path_set, out_path, self.delete, show_status=False)
+                        print(
+                            f"\t[+] Embedded subtitles successfully extracted to '{out_path}'"
+                        )
+                        self._post_process(
+                            movie_path_set, out_path, self.delete, show_status=False
+                        )
                     else:
                         print(f"\t[!] No subtitles found for '{input_path}'")
             except Exception as e:
-                print(f"\t[!] Extraction of subtitles failed: {str(e)}")                
+                print(f"\t[!] Extraction of subtitles failed: {str(e)}")
                 try:
-                    subprocess.run(['ffmpeg', '-version'], capture_output=True)
+                    subprocess.run(["ffmpeg", "-version"], capture_output=True)
                 except FileNotFoundError:
-                    print("\t[!] FFmpeg not found. Install FFmpeg to extract subtitles.")
+                    print(
+                        "\t[!] FFmpeg not found. Install FFmpeg to extract subtitles."
+                    )
                     break
 
     def to_frames(self, file_paths: dict, format: str) -> None:
@@ -1053,7 +1070,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-f",
         "--format",
-        help=f'Set the output format ({", ".join(any_to_any.supported_formats)})',
+        help=f"Set the output format ({', '.join(any_to_any.supported_formats)})",
         type=str,
         required=False,
     )
@@ -1117,12 +1134,14 @@ if __name__ == "__main__":
             subprocess.run("python3 ./web_to_any.py", shell=True)
     else:
         # Run main function with parsed arguments
-        any_to_any.run(input_path_args=args["input"],
-                       format=args["format"],
-                       output=args["output"],
-                       framerate=args["framerate"],
-                       quality=args["quality"],
-                       merge=args["merge"],
-                       concat=args["concat"],
-                       delete=args["delete"],
-                       across=args["across"])
+        any_to_any.run(
+            input_path_args=args["input"],
+            format=args["format"],
+            output=args["output"],
+            framerate=args["framerate"],
+            quality=args["quality"],
+            merge=args["merge"],
+            concat=args["concat"],
+            delete=args["delete"],
+            across=args["across"],
+        )
