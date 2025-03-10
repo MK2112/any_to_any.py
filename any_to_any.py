@@ -1,5 +1,4 @@
 import os
-import io
 import fitz
 import PyPDF2
 import argparse
@@ -157,6 +156,9 @@ class AnyToAny:
             for formats in self._supported_formats.values()
             for format in formats.keys()
         ]
+
+        self.web_flag = False # Indicates if the script is being run from the web interface
+        self.web_host = None  # Host address for the web interface
 
     def _end_with_msg(self, exception: Exception, msg: str) -> None:
         # Single point of exit
