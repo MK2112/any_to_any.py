@@ -1,22 +1,44 @@
 import os
 import fitz
+import time
 import PyPDF2
 import argparse
 import subprocess
 import numpy as np
 from PIL import Image
 from enum import Enum
-from moviepy.editor import (
-    AudioFileClip,
-    VideoFileClip,
-    VideoClip,
-    ImageSequenceClip,
-    ImageClip,
-    concatenate_videoclips,
-    concatenate_audioclips,
-    clips_array,
-)
+from tqdm import tqdm
+from proglog import ProgressBarLogger
+from moviepy import (AudioFileClip, VideoFileClip, VideoClip,
+                     ImageSequenceClip, ImageClip, concatenate_videoclips,
+                     concatenate_audioclips, clips_array)
 
+
+class ProgLogger(ProgressBarLogger):
+    """ Custom logger extracting progress info from moviepy """
+    def __init__(self):
+        super().__init__()
+        self.start_time, self.last_print_time = None, None
+        self.print_interval = 0.1  # Frequency of progress updates
+        self.tqdm_bar = None
+
+    def bars_callback(self, bar, attr, value, old_value=None):
+        if bar == 'chunk' and attr == 'index':
+            if self.start_time is None:
+                self.start_time = time.time()
+                self.last_print_time = self.start_time
+                total = self.bars[bar]['total']
+                self.tqdm_bar = tqdm(total=total, desc="Processing", unit="chunks")
+
+            # Update our replacing tqdm bar
+            # Kind of nonsensical at this point, but we now got the progress info
+            if value > (old_value or 0):
+                self.tqdm_bar.update(value - (old_value or 0))
+
+            # Handle bar completion
+            if value == self.bars[bar]['total']:
+                self.tqdm_bar.close()
+                #print(f"Processing complete! Time elapsed: {time.time() - self.start_time:.2f}s")
 
 class Category(Enum):
     AUDIO = "audio"
@@ -33,6 +55,7 @@ class AnyToAny:
     """
 
     def __init__(self):
+        self.logger = ProgLogger()
         # Setting up a dictionary of supported formats and respective information
         self._supported_formats = {
             Category.AUDIO: {
@@ -393,6 +416,7 @@ class AnyToAny:
                     codec=codec,
                     bitrate=self._audio_bitrate(format, self.quality),
                     fps=audio.fps,
+                    logger=self.logger,
                 )
             except Exception as _:
                 print(
@@ -403,6 +427,7 @@ class AnyToAny:
                     codec=codec,
                     bitrate=self._audio_bitrate(format, self.quality),
                     fps=48000,
+                    logger=self.logger,
                 )
             audio.close()
             self._post_process(audio_path_set, out_path, self.delete)
