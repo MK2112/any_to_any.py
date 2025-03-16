@@ -1,14 +1,10 @@
 import os
-from any_to_any import AnyToAny
-from flask import Flask, render_template, request, send_file, Response
-from flask_uploads import (
-    UploadSet,
-    configure_uploads,
-    ALL,
-)  # special `pip install flask-reuploaded` needed
 import shutil
 import tempfile
 import webbrowser
+from any_to_any import AnyToAny
+from flask import Flask, render_template, request, send_file, Response
+from flask_uploads import UploadSet, configure_uploads, ALL
 
 """
 Web server providing a web interface as extension to the CLI-based any_to_any.py
@@ -65,9 +61,7 @@ def process_params() -> tuple:
 
 @app.route("/")
 def index():
-    return render_template(
-        "index.html", title="Any_To_Any.py", options=any_to_any.supported_formats
-    )
+    return render_template("index.html", title="Any_To_Any.py", options=any_to_any.supported_formats)
 
 
 def send_to_backend(
