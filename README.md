@@ -115,6 +115,12 @@ Omitting the `-a`/`--across` parameter will execute merges or concatenations sep
 **Video:** MP4, WEBM, MOV, MKV, AVI, WMV, FLV, MJPEG, M2TS, 3GP, 3G2, ASF, VOB, TS, RAW, MPG, MXF, DRC, SWF, F4V, M4V, MTS, M2V, YUV<br><br>
 **Video Codec:** AV1, AVC, VP8, VP9, H263P, H264, H265, XVID, MPEG2, MPEG4, THEORA, MPEG1, HEVC, PRORES, HUFFYUV, FFV1, FFVHUFF, V210, V410, V308, V408, ZLIB, QTRLE, SNOW, SVQ1, UTVIDEO, CINEPAK, MSMPEG4, H264_NVENC, VPX; H264_RGB, MPEG2VIDEO, PRORES_KS, VC2, FLV1
 
+## Creating Executables
+
+Executables for Windows and Linux can be built like so:
+1. Install PyInstaller: `pip install pyinstaller`
+2. For Windows/Linux: `pyinstaller --clean any_to_any_web.spec`
+
 ## License
 This project is licensed under the MIT License.
 
