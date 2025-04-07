@@ -293,6 +293,10 @@ class AnyToAny:
             else:
                 self.input = input
 
+            # If no output path set or derived by the script by now, throw an error
+            if not self.output:
+                self._end_with_msg(ValueError, "[!] Error: No output path provided while using multiple input paths.")
+
             # If output is just a file, turn it into directory
             if os.path.isfile(self.output):
                 self.output = os.path.dirname(self.output)
