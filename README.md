@@ -16,9 +16,9 @@
 3. **Install Dependencies**:
    - Open a terminal from inside the repository and run: `pip install -r requirements.txt`
 4. **Running the Script**:
-   Use Any_to_Any.py in either of two ways:
-   - *Web Interface*
-   - *Command Line Interface*
+   Use Any_to_Any.py in either of two ways (click for details):
+   - [*Web Interface*](#web-interface)
+   - [*Command Line Interface*](#command-line-interface)
 
 ## Web Interface
 - Start the web interface: `python any_to_any.py -w`
