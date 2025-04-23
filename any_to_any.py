@@ -2,6 +2,7 @@ import os
 import fitz
 import time
 import PyPDF2
+import logging
 import argparse
 import subprocess
 import numpy as np
@@ -15,7 +16,7 @@ from moviepy import (AudioFileClip, VideoFileClip, VideoClip,
 
 
 class ProgLogger(ProgressBarLogger):
-    """ Custom logger extracting progress info from moviepy """
+    """ Custom logger extracting progress info from moviepy video processing operations"""
     def __init__(self):
         super().__init__()
         self.start_time, self.last_print_time = None, None
@@ -40,6 +41,7 @@ class ProgLogger(ProgressBarLogger):
                 self.tqdm_bar.close()
                 #print(f"Processing complete! Time elapsed: {time.time() - self.start_time:.2f}s")
 
+
 class Category(Enum):
     AUDIO = "audio"
     IMAGE = "image"
@@ -55,7 +57,11 @@ class AnyToAny:
     """
 
     def __init__(self):
-        self.logger = ProgLogger()
+        # Setting up progress logger
+        self.prog_logger = ProgLogger()
+        # Setting up event logger and format
+        logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+        self.event_logger = logging.getLogger(__name__)
         # Setting up a dictionary of supported formats and respective information
         self._supported_formats = {
             Category.AUDIO: {
@@ -186,10 +192,10 @@ class AnyToAny:
     def _end_with_msg(self, exception: Exception, msg: str) -> None:
         # Single point of exit
         if exception is not None:
-            print(msg, "\n")
+            self.event_logger.info(msg)
             raise exception(msg)
         else:
-            print(msg)
+            self.event_logger.info(msg)
             exit(1)
 
     def _audio_bitrate(self, format: str, quality: str) -> str:
@@ -315,7 +321,7 @@ class AnyToAny:
                 self.output = os.path.dirname(input_paths[0])
             self.process_file_paths(file_paths)
 
-        print("[+] Job Finished")
+        self.event_logger.info("[+] Job Finished")
 
     def process_file_paths(self, file_paths: dict) -> None:
         # Check if value associated to format is tuple/string or function to call specific conversion
@@ -370,10 +376,10 @@ class AnyToAny:
             for category in self._supported_formats.keys():
                 if file_info[2] in self._supported_formats[category]:
                     file_paths[category].append(file_info)
-                    print(f"\t[+] Scheduling: {file_info[1]}.{file_info[2]}")
+                    self.event_logger.info(f"[+] Scheduling: {file_info[1]}.{file_info[2]}")
                     break
 
-        print(f"[>] Scheduling: {input}")
+        self.event_logger.info(f"[>] Scheduling: {input}")
 
         # Check if file_paths is an empty dict
         if len(file_paths) == 0:
@@ -420,10 +426,10 @@ class AnyToAny:
                     codec=codec,
                     bitrate=self._audio_bitrate(format, self.quality),
                     fps=audio.fps,
-                    logger=self.logger,
+                    logger=self.prog_logger,
                 )
             except Exception as _:
-                print(
+                self.event_logger.info(
                     "\n\n[!] Error: Source Sample Rate Incompatible With {format}: Trying Compatible Rate Instead...\n"
                 )
                 audio.write_audiofile(
@@ -431,7 +437,7 @@ class AnyToAny:
                     codec=codec,
                     bitrate=self._audio_bitrate(format, self.quality),
                     fps=48000,
-                    logger=self.logger,
+                    logger=self.prog_logger,
                 )
             audio.close()
             self._post_process(audio_path_set, out_path, self.delete)
@@ -449,7 +455,7 @@ class AnyToAny:
                 audio = video.audio
                 # Check if audio was found
                 if audio is None:
-                    print(
+                    self.event_logger.info(
                         f'[!] No audio found in "{self._join_back(movie_path_set)}" - Skipping\n'
                     )
                     video.close()
@@ -459,6 +465,7 @@ class AnyToAny:
                     out_path,
                     codec=codec,
                     bitrate=self._audio_bitrate(format, self.quality),
+                    logger=self.prog_logger,
                 )
 
                 audio.close()
@@ -471,10 +478,11 @@ class AnyToAny:
                         out_path,
                         codec=codec,
                         bitrate=self._audio_bitrate(format, self.quality),
+                        logger=self.prog_logger,
                     )
                     audio.close()
                 except Exception as _:
-                    print(
+                    self.event_logger.info(
                         f'[!] Failed to extract audio from audio-only file "{self._join_back(movie_path_set)}" - Skipping\n'
                     )
                     continue
@@ -503,12 +511,13 @@ class AnyToAny:
                         codec=codec[0],
                         fps=video.fps if self.framerate is None else self.framerate,
                         audio=True,
+                        logger=self.prog_logger,
                     )
                 except Exception as _:
                     if os.path.exists(out_path):
                         # There might be some residue left, remove it
                         os.remove(out_path)
-                    print(
+                    self.event_logger.info(
                         f"\n\n[!] Codec Incompatible with {codec_path_set[2]}: Trying Compatible Format {codec[1]} Instead...\n"
                     )
 
@@ -517,6 +526,7 @@ class AnyToAny:
                         codec=codec[0],
                         fps=video.fps if self.framerate is None else self.framerate,
                         audio=True,
+                        logger=self.prog_logger,
                     )
                 video.close()
             else:
@@ -536,6 +546,7 @@ class AnyToAny:
                     codec=codec[0],
                     fps=24 if self.framerate is None else self.framerate,
                     audio=True,
+                    logger=self.prog_logger,
                 )
 
                 clip.close()
@@ -558,6 +569,7 @@ class AnyToAny:
                     codec=codec,
                     fps=clip.fps if self.framerate is None else self.framerate,
                     audio=True,
+                    logger=self.prog_logger,
                 )
                 clip.close()
                 self._post_process(image_path_set, out_path, self.delete)
@@ -579,6 +591,7 @@ class AnyToAny:
                     out_path,
                     fps=24 if self.framerate is None else self.framerate,
                     codec=codec,
+                    logger=self.prog_logger,
                 )
                 final_clip.close()
 
@@ -597,6 +610,7 @@ class AnyToAny:
                         codec=codec,
                         fps=video.fps if self.framerate is None else self.framerate,
                         audio=True,
+                        logger=self.prog_logger,
                     )
                     video.close()
                 else:
@@ -618,6 +632,7 @@ class AnyToAny:
                         codec=codec,
                         fps=24 if self.framerate is None else self.framerate,
                         audio=True,
+                        logger=self.prog_logger,
                     )
 
                     clip.close()
@@ -631,7 +646,7 @@ class AnyToAny:
             out_path = os.path.abspath(
                 os.path.join(self.output, f"{movie_path_set[1]}.srt")
             )
-            print(f"[+] Extracting subtitles from '{input_path}'")
+            self.event_logger.info(f"[+] Extracting subtitles from '{input_path}'")
             try:
                 # Use FFmpeg to extract subtitles
                 _ = subprocess.run(
@@ -650,14 +665,14 @@ class AnyToAny:
                 )
 
                 if os.path.exists(out_path) and os.path.getsize(out_path) > 0:
-                    print(f"\t[+] Subtitles successfully extracted to '{out_path}'")
+                    self.event_logger.info(f"[+] Subtitles successfully extracted to '{out_path}'")
                     self._post_process(
                         movie_path_set, out_path, self.delete, show_status=False
                     )
                 else:
                     # Try extracting closed captions when direct extract fails (found mostly in MP4 and MKV)
-                    print(
-                        "\t[!] No dedicated subtitle track found. Trying to extract embedded text..."
+                    self.event_logger.info(
+                        "[!] No dedicated subtitle track found. Trying to extract embedded text..."
                     )
                     _ = subprocess.run(
                         ["ffmpeg", "-i", input_path, "-c:s", format, out_path],
@@ -665,21 +680,21 @@ class AnyToAny:
                         text=True,
                     )
                     if os.path.exists(out_path) and os.path.getsize(out_path) > 0:
-                        print(
-                            f"\t[+] Embedded subtitles successfully extracted to '{out_path}'"
+                        self.event_logger.info(
+                            f"[+] Embedded subtitles successfully extracted to '{out_path}'"
                         )
                         self._post_process(
                             movie_path_set, out_path, self.delete, show_status=False
                         )
                     else:
-                        print(f"\t[!] No subtitles found for '{input_path}'")
+                        self.event_logger.info(f"[!] No subtitles found for '{input_path}'")
             except Exception as e:
-                print(f"\t[!] Extraction of subtitles failed: {str(e)}")
+                self.event_logger.info(f"[!] Extraction of subtitles failed: {str(e)}")
                 try:
                     subprocess.run(["ffmpeg", "-version"], capture_output=True)
                 except FileNotFoundError:
-                    print(
-                        "\t[!] FFmpeg not found. Install FFmpeg to extract subtitles."
+                    self.event_logger.info(
+                        "[!] FFmpeg not found. Install FFmpeg to extract subtitles."
                     )
                     break
 
@@ -720,7 +735,7 @@ class AnyToAny:
                 try:
                     os.makedirs(os.path.join(self.output, doc_path_set[1]))
                 except OSError as e:
-                    print(f"[!] Error: {e} - Setting output directory to {self.input}")
+                    self.event_logger.info(f"[!] Error: {e} - Setting output directory to {self.input}")
                     self.output = self.input
 
             if doc_path_set[2] == "pdf":
@@ -738,7 +753,7 @@ class AnyToAny:
                     os.makedirs(os.path.dirname(img_path), exist_ok=True)
                     self.output = os.path.dirname(img_path)
                 except OSError as e:
-                    print(f"[!] Error: {e} - Setting output directory to {self.input}")
+                    self.event_logger.info(f"[!] Error: {e} - Setting output directory to {self.input}")
                     self.output = self.input
 
                 pdf_document = fitz.open(pdf_path)
@@ -754,6 +769,9 @@ class AnyToAny:
 
         # Audio cant be image-framed, movies certrainly can
         for movie_path_set in file_paths[Category.MOVIE]:
+            if movie_path_set[2] not in self._supported_formats[Category.MOVIE]:
+                self.event_logger.info(f"[!] Unsupported movie format: {movie_path_set[2]} - Skipping")
+                continue
             if self._has_visuals(movie_path_set):
                 video = VideoFileClip(
                     self._join_back(movie_path_set), audio=False, fps_source="tbr"
@@ -762,7 +780,7 @@ class AnyToAny:
                     try:
                         os.makedirs(os.path.join(self.output, movie_path_set[1]))
                     except OSError as e:
-                        print(
+                        self.event_logger.info(
                             f"[!] Error: {e} - Setting output directory to {self.input}"
                         )
                         self.output = self.input
@@ -773,11 +791,11 @@ class AnyToAny:
                     )
                 )
 
-                video.write_images_sequence(img_path, fps=video.fps)
+                video.write_images_sequence(img_path, fps=video.fps, logger=self.prog_logger)
                 video.close()
                 self._post_process(movie_path_set, img_path, self.delete)
             else:
-                print(
+                self.event_logger.info(
                     f'[!] Skipping "{self._join_back(movie_path_set)}" - Audio-only video file'
                 )
 
@@ -791,7 +809,7 @@ class AnyToAny:
                     for file in os.listdir(os.path.join(self.output, movie_path_set[1]))
                     if file.endswith("pdf")
                 ]
-                print(f"\t[+] Merging {len(pdfs)} PDFs into {pdf_out_path}")
+                self.event_logger.info(f"[+] Merging {len(pdfs)} PDFs into {pdf_out_path}")
                 pdfs.sort()
                 pdf_merger = PyPDF2.PdfMerger()
                 for pdf in pdfs:
@@ -826,11 +844,11 @@ class AnyToAny:
                     self._join_back(movie_path_set), audio=False, fps_source="tbr"
                 )
                 gif_path = os.path.join(self.output, f"{movie_path_set[1]}.{format}")
-                video.write_gif(gif_path, fps=video.fps // 3)
+                video.write_gif(gif_path, fps=video.fps // 3, logger=self.prog_logger)
                 video.close()
                 self._post_process(movie_path_set, gif_path, self.delete)
             else:
-                print(
+                self.event_logger.info(
                     f'[!] Skipping "{self._join_back(movie_path_set)}" - Audio-only video file'
                 )
 
@@ -852,7 +870,7 @@ class AnyToAny:
                     )
                 self._post_process(movie_path_set, bmp_path, self.delete)
             else:
-                print(
+                self.event_logger.info(
                     f'[!] Skipping "{self._join_back(movie_path_set)}" - Audio-only video file'
                 )
 
@@ -878,7 +896,7 @@ class AnyToAny:
                     )
             else:
                 # Handle unsupported file types here
-                print(
+                self.event_logger.info(
                     f"[!] Skipping {self._join_back(image_path_set)} - Unsupported format"
                 )
 
@@ -894,7 +912,7 @@ class AnyToAny:
                     try:
                         os.makedirs(os.path.join(self.output, movie_path_set[1]))
                     except OSError as e:
-                        print(
+                        self.event_logger.info(
                             f"[!] Error: {e} - Setting output directory to {self.input}"
                         )
                         self.output = self.input
@@ -904,11 +922,11 @@ class AnyToAny:
                         f"{movie_path_set[1]}-%{len(str(int(video.duration * video.fps)))}d.{format}",
                     )
                 )
-                video.write_images_sequence(img_path, fps=video.fps)
+                video.write_images_sequence(img_path, fps=video.fps, logger=self.prog_logger)
                 video.close()
                 self._post_process(movie_path_set, img_path, self.delete)
             else:
-                print(
+                self.event_logger.info(
                     f'[!] Skipping "{self._join_back(movie_path_set)}" - Audio-only video file'
                 )
 
@@ -934,7 +952,7 @@ class AnyToAny:
                     )
             else:
                 # Handle unsupported file types here
-                print(
+                self.event_logger.info(
                     f"[!] Skipping {self._join_back(image_path_set)} - Unsupported format"
                 )
 
@@ -958,6 +976,7 @@ class AnyToAny:
                 bitrate=self._audio_bitrate(format, self.quality)
                 if self.quality is not None
                 else concat_audio.bitrate,
+                logger=self.prog_logger,
             )
             concat_audio.close()
         # Concatenate movie files
@@ -979,6 +998,7 @@ class AnyToAny:
                 video_out_path,
                 fps=concat_vid.fps if self.framerate is None else concat_vid.fps,
                 codec=self._supported_formats[Category.MOVIE][format],
+                logger=self.prog_logger,
             )
             concat_vid.close()
         # Concatenate image files (make a gif out of them)
@@ -992,14 +1012,14 @@ class AnyToAny:
                     for image_path_set in file_paths[Category.IMAGE]
                 ]
             )
-            concatenated_image.write_gif(gif_out_path, fps=self.framerate)
+            concatenated_image.write_gif(gif_out_path, fps=self.framerate, logger=self.prog_logger)
 
         for category in file_paths.keys():
             for i, file_path in enumerate(file_paths[category]):
                 self._post_process(
                     file_path, self.output, self.delete, show_status=(i == 0)
                 )
-        print("\t[+] Concatenation completed")
+        self.event_logger.info("[+] Concatenation completed")
 
     def merge(self, file_paths: dict) -> None:
         # For movie files and equally named audio file, merge them together under same name
@@ -1019,23 +1039,26 @@ class AnyToAny:
             if audio_fit is not None:
                 found_audio = True
                 # Merge movie and audio file
-                video, audio = (
-                    VideoFileClip(
-                        self._join_back(movie_path_set), audio=False, fps_source="tbr"
-                    ),
-                    AudioFileClip(self._join_back(audio_fit)),
-                )
-                video.audio = audio
-                merged_out_path = os.path.join(
-                    self.output, f"{movie_path_set[1]}_merged.{movie_path_set[2]}"
-                )
-                video.write_videofile(
-                    merged_out_path,
-                    fps=video.fps if self.framerate is None else self.framerate,
-                    codec=self._supported_formats[Category.MOVIE][movie_path_set[2]],
-                )
-                audio.close()
-                video.close()
+                try:
+                    video, audio = (
+                        VideoFileClip(
+                            self._join_back(movie_path_set), audio=False, fps_source="tbr"
+                        ),
+                        AudioFileClip(self._join_back(audio_fit)),
+                    )
+                    video.audio = audio
+                    merged_out_path = os.path.join(
+                        self.output, f"{movie_path_set[1]}_merged.{movie_path_set[2]}"
+                    )
+                    video.write_videofile(
+                        merged_out_path,
+                        fps=video.fps if self.framerate is None else self.framerate,
+                        codec=self._supported_formats[Category.MOVIE][movie_path_set[2]],
+                        logger=self.prog_logger,
+                    )
+                finally:
+                    audio.close()
+                    video.close()
                 # Post process (delete mp4+audio, print success)
                 self._post_process(movie_path_set, merged_out_path, self.delete)
                 self._post_process(
@@ -1043,7 +1066,7 @@ class AnyToAny:
                 )
 
         if not found_audio:
-            print("[!] No audio files found to merge with movie files")
+            self.event_logger.warning(f"[!] No audio files found to merge with movie files")
 
     def _post_process(
         self,
@@ -1054,12 +1077,14 @@ class AnyToAny:
     ) -> None:
         # Post process after conversion, print, delete source file if desired
         if show_status:
-            print(
-                f'\t[+] Converted "{self._join_back(file_path_set)}" to "{out_path}"\n'
+            self.event_logger.info(
+                f'[+] Converted "{self._join_back(file_path_set)}" to "{out_path}"\n'
             )
         if delete:
             os.remove(self._join_back(file_path_set))
-            print(f'\t[-] Removed "{self._join_back(file_path_set)}"')
+            self.event_logger.info(
+                f'[-] Removed "{self._join_back(file_path_set)}"'
+            )
 
     def _join_back(self, file_path_set: tuple) -> str:
         # Join back the file path set to a concurrent path
