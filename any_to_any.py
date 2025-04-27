@@ -1030,6 +1030,7 @@ class AnyToAny:
 
         for movie_path_set in file_paths[Category.MOVIE]:
             # Try to find a corresponding audio file in the input set
+            # (e.g. "-1 path1 -2 path2 -n pathn")
             audio_fit = next(
                 (
                     audio_set
