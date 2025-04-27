@@ -1024,10 +1024,12 @@ class AnyToAny:
     def merge(self, file_paths: dict) -> None:
         # For movie files and equally named audio file, merge them together under same name
         # (movie with audio with '_merged' addition to name)
-        # Iterate over all movie file path sets
+        # If only a video file is provided, look for a matching audio file in the same directory
         found_audio = False
+        audio_exts = list(self._supported_formats[Category.AUDIO].keys())
+
         for movie_path_set in file_paths[Category.MOVIE]:
-            # Check if there is a corresponding audio file
+            # Try to find a corresponding audio file in the input set
             audio_fit = next(
                 (
                     audio_set
@@ -1036,6 +1038,17 @@ class AnyToAny:
                 ),
                 None,
             )
+
+            # If not found, look for a matching audio file in the video's directory
+            if audio_fit is None:
+                video_dir = movie_path_set[0]
+                video_basename = movie_path_set[1]
+                for ext in audio_exts:
+                    candidate = os.path.join(video_dir, f"{video_basename}.{ext}")
+                    if os.path.isfile(candidate):
+                        audio_fit = (video_dir, video_basename, ext)
+                        break
+
             if audio_fit is not None:
                 found_audio = True
                 # Merge movie and audio file
@@ -1061,12 +1074,13 @@ class AnyToAny:
                     video.close()
                 # Post process (delete mp4+audio, print success)
                 self._post_process(movie_path_set, merged_out_path, self.delete)
-                self._post_process(
-                    audio_fit, merged_out_path, self.delete, show_status=False
-                )
-
+                # Only delete the audio file if it was in the input set, not if just found in dir
+                if audio_fit in file_paths[Category.AUDIO]:
+                    self._post_process(audio_fit, merged_out_path, self.delete, show_status=False)
+            
         if not found_audio:
             self.event_logger.warning(f"[!] No audio files found to merge with movie files")
+
 
     def _post_process(
         self,
