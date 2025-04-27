@@ -246,6 +246,8 @@ class AnyToAny:
             else [os.path.dirname(os.getcwd())]
         )
 
+        self.across = across
+
         for _, arg in enumerate(input_path_args):
             # Custom handling of multiple input paths
             # (e.g. "-1 path1 -2 path2 -n pathn")
@@ -351,7 +353,7 @@ class AnyToAny:
                 file_paths, self.format
             )
         elif self.merging:
-            self.merge(file_paths)
+            self.merge(file_paths, getattr(self, 'across', False))
         elif self.concatenating:
             self.concat(file_paths, self.format)
         else:
@@ -1021,7 +1023,7 @@ class AnyToAny:
                 )
         self.event_logger.info("[+] Concatenation completed")
 
-    def merge(self, file_paths: dict) -> None:
+    def merge(self, file_paths: dict, across: bool = False) -> None:
         # For movie files and equally named audio file, merge them together under same name
         # (movie with audio with '_merged' addition to name)
         # If only a video file is provided, look for a matching audio file in the same directory
@@ -1031,14 +1033,26 @@ class AnyToAny:
         for movie_path_set in file_paths[Category.MOVIE]:
             # Try to find a corresponding audio file in the input set
             # (e.g. "-1 path1 -2 path2 -n pathn")
-            audio_fit = next(
-                (
-                    audio_set
-                    for audio_set in file_paths[Category.AUDIO]
-                    if audio_set[1] == movie_path_set[1]
-                ),
-                None,
-            )
+            if across:
+                # Allow matching audio from any input directory
+                audio_fit = next(
+                    (
+                        audio_set
+                        for audio_set in file_paths[Category.AUDIO]
+                        if audio_set[1] == movie_path_set[1]
+                    ),
+                    None,
+                )
+            else:
+                # Only match audio from the same directory as the video
+                audio_fit = next(
+                    (
+                        audio_set
+                        for audio_set in file_paths[Category.AUDIO]
+                        if audio_set[1] == movie_path_set[1] and audio_set[0] == movie_path_set[0]
+                    ),
+                    None,
+                )
 
             # If not found, look for a matching audio file in the video's directory
             if audio_fit is None:
