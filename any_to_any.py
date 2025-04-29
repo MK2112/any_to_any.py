@@ -323,6 +323,8 @@ class AnyToAny:
                 self.output = os.path.dirname(input_paths[0])
             self.process_file_paths(file_paths)
 
+        if not any(file_paths.values()):
+            self.event_logger.info("No convertible media files")
         self.event_logger.info("[+] Job Finished")
 
     def process_file_paths(self, file_paths: dict) -> None:
@@ -1067,14 +1069,12 @@ class AnyToAny:
             if audio_fit is not None:
                 found_audio = True
                 # Merge movie and audio file
+                audio = None
+                video = None
                 try:
-                    video, audio = (
-                        VideoFileClip(
-                            self._join_back(movie_path_set), audio=False, fps_source="tbr"
-                        ),
-                        AudioFileClip(self._join_back(audio_fit)),
-                    )
-                    video.audio = audio
+                    video = VideoFileClip(self._join_back(movie_path_set))
+                    audio = AudioFileClip(self._join_back(audio_fit))
+                    video = video.set_audio(audio)
                     merged_out_path = os.path.join(
                         self.output, f"{movie_path_set[1]}_merged.{movie_path_set[2]}"
                     )
@@ -1085,9 +1085,10 @@ class AnyToAny:
                         logger=self.prog_logger,
                     )
                 finally:
-                    audio.close()
-                    video.close()
-                # Post process (delete mp4+audio, print success)
+                    if audio is not None:
+                        audio.close()
+                    if video is not None:
+                        video.close()
                 self._post_process(movie_path_set, merged_out_path, self.delete)
                 # Only delete the audio file if it was in the input set, not if just found in dir
                 if audio_fit in file_paths[Category.AUDIO]:
