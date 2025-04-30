@@ -139,4 +139,4 @@ def concat():
 
 if __name__ == "__main__":
     webbrowser.open(any_to_any.web_host)
-    app.run(debug=True, host=host, port=port)
+    app.run(debug=False, host=host, port=port)
