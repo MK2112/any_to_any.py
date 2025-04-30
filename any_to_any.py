@@ -979,7 +979,7 @@ class AnyToAny:
                 codec=self._supported_formats[Category.AUDIO][format],
                 bitrate=self._audio_bitrate(format, self.quality)
                 if self.quality is not None
-                else concat_audio.bitrate,
+                else getattr(concat_audio, 'bitrate', '192k'),
                 logger=self.prog_logger,
             )
             concat_audio.close()
