@@ -324,7 +324,7 @@ class AnyToAny:
             self.process_file_paths(file_paths)
 
         if not any(file_paths.values()):
-            self.event_logger.info("No convertible media files")
+            self.event_logger.warning("No convertible media files")
         self.event_logger.info("[+] Job Finished")
 
     def process_file_paths(self, file_paths: dict) -> None:
@@ -1095,7 +1095,7 @@ class AnyToAny:
                     self._post_process(audio_fit, merged_out_path, self.delete, show_status=False)
             
         if not found_audio:
-            self.event_logger.warning(f"[!] No audio files found to merge with movie files")
+            self.event_logger.warning("[!] No audio files found to merge with movie files")
 
 
     def _post_process(
