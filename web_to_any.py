@@ -74,6 +74,7 @@ def send_to_backend(
     concat: bool,
 ) -> None:
     # A bit hacky, centralized point to talk to any_to_any.py backend
+    # Layed out like this and not just run(args) because we want to meddle with the args here too
     any_to_any.run(
         input_path_args=input_path_args,
         format=format,
@@ -84,6 +85,7 @@ def send_to_backend(
         concat=concat,
         delete=True,
         across=False,
+        recursive=False,
     )
     # Remove upload dir and contents therein
     if len(input_path_args[0]) > 0:

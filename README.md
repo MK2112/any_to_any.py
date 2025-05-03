@@ -51,6 +51,7 @@ You can structure a command in three fundamental ways:
 | `-a` or </br>`--across`      | Merge/Concatenate across directories when multiple directories are provided. |
 | `-w` or </br>`--web`         | Ignores all other arguments, starts browser + a web server at `http://localhost:5000`. |
 | `-d` or </br>`--delete`      | Delete input files after conversion. |
+| `-r` or </br>`--recursive`   | Recursively process all input files in subdirectories from the input directory. Outputs by default will be placed in their respective subdirectory, unless different output path provided. |
 | `-fps` or</br>`--framerate`  | Set the framerate (fps) when converting to a movie format or codec; default maintains input fps. |
 
 ### Single File Processing
@@ -80,6 +81,11 @@ python any_to_any.py -i /path/to/webp-folder -f png
 Convert all MP4 files to MP3, save to a different directory, set conversion quality to `high`, delete MP4 source files afterwards:
 ```python
 python any_to_any.py -i /path/to/mp4-folder -o /path/to/save/folder -f mp3 -q high -d
+```
+
+Convert all MP3 files from any subdirectory to M4A, delete MP3 source files afterwards:
+```python
+python any_to_any.py -i /path/to/mp3-top-folder -f m4a -d -r
 ```
 
 Merge MP4 files with respective, equally named MP3 files in the same directory, save to a different directory, delete source files afterwards:

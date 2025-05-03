@@ -9,6 +9,7 @@ import numpy as np
 from PIL import Image
 from enum import Enum
 from tqdm import tqdm
+from pathlib import Path
 from proglog import ProgressBarLogger
 from moviepy import (AudioFileClip, VideoFileClip, VideoClip,
                      ImageSequenceClip, ImageClip, concatenate_videoclips,
@@ -192,7 +193,7 @@ class AnyToAny:
     def _end_with_msg(self, exception: Exception, msg: str) -> None:
         # Single point of exit
         if exception is not None:
-            self.event_logger.info(msg)
+            self.event_logger.warning(msg)
             raise exception(msg)
         else:
             self.event_logger.info(msg)
@@ -236,6 +237,7 @@ class AnyToAny:
         concat: bool,
         delete: bool,
         across: bool,
+        recursive: bool,
     ) -> None:
         # Main function, convert media files to defined formats
         # or merge or concatenate, according to the arguments
@@ -247,6 +249,7 @@ class AnyToAny:
         )
 
         self.across = across
+        self.recursive = recursive
 
         for _, arg in enumerate(input_path_args):
             # Custom handling of multiple input paths
@@ -293,28 +296,52 @@ class AnyToAny:
 
         file_paths = {}
         was_none = False
+        found_files = False
 
-        for input in input_paths:
-            file_paths = self._get_file_paths(input, file_paths)
-            if os.path.isfile(str(input)):
-                self.input = os.path.dirname(input)
+        # Check if input paths are given
+        for input_path in input_paths:
+            input_path = os.path.abspath(input_path)
+            file_paths = self._get_file_paths(input_path, file_paths)
+            # Make self.input hold a directory
+            if os.path.isfile(str(input_path)):
+                self.input = os.path.dirname(input_path)
             else:
-                self.input = input
+                self.input = input_path
 
             # If no output path set or derived by the script by now, throw an error
             if not self.output:
                 self._end_with_msg(ValueError, "[!] Error: No output path provided while using multiple input paths.")
 
-            # If output is just a file, turn it into directory
+            # If output is just a file for whatever reason, turn it into directory
             if os.path.isfile(self.output):
                 self.output = os.path.dirname(self.output)
+
+            # Unify path formatting, still works like any other string
+            self.input, self.output = Path(self.input), Path(self.output)
+
+            # What if that directory contains subdirectories?
+            if self.recursive:
+                # If the user set the recursive option, also scan every non-empty subdirectory
+                for root, _, files in os.walk(self.input):
+                    # root should be a directory with >=1 file to be considered
+                    if root == self.input or not files:
+                        continue
+                    file_paths = self._get_file_paths(root, file_paths)
+
+            if not any(file_paths.values()):
+                if len(input_paths) > 1:
+                    self.event_logger.info(f"[!] No convertible media files in '{input_path}' - Skipping\n")
+                else:
+                    self._end_with_msg(None, f"[!] No convertible media files found in '{input_path}'")
+                continue
 
             # If no output given, output is set to the input path
             if not across:
                 if self.output is None or was_none:
-                    self.output = input
+                    self.output = os.path.dirname(input_path)
                     was_none = True
                 self.process_file_paths(file_paths)
+                found_files = len(file_paths) > 0 if not found_files else found_files
                 file_paths = {}
 
         # If multiple input paths are given, yet no output, output is set to the first input path
@@ -323,7 +350,8 @@ class AnyToAny:
                 self.output = os.path.dirname(input_paths[0])
             self.process_file_paths(file_paths)
 
-        if not any(file_paths.values()):
+        # Check if file_paths is empty
+        if across and len(file_paths) == 0 or not found_files:
             self.event_logger.warning("No convertible media files")
         self.event_logger.info("[+] Job Finished")
 
@@ -383,7 +411,7 @@ class AnyToAny:
                     self.event_logger.info(f"[+] Scheduling: {file_info[1]}.{file_info[2]}")
                     break
 
-        self.event_logger.info(f"[>] Scheduling: {input}")
+        self.event_logger.info(f"[>] Scanning: {input}")
 
         # Check if file_paths is an empty dict
         if len(file_paths) == 0:
@@ -400,9 +428,6 @@ class AnyToAny:
                 file_path = os.path.abspath(os.path.join(input, file_name))
                 file_info = process_file(file_path)
                 schedule_file(file_info)
-
-        if not any(file_paths.values()):
-            self._end_with_msg(None, f"[!] Error: No convertible media files found in {input}")
         return file_paths
 
     def _has_visuals(self, file_path_set: tuple) -> bool:
@@ -420,9 +445,11 @@ class AnyToAny:
             if audio_path_set[2] == format:
                 continue
             audio = AudioFileClip(self._join_back(audio_path_set))
-            out_path = os.path.abspath(
-                os.path.join(self.output, f"{audio_path_set[1]}.{format}")
-            )
+            # If recursive, create file outright where its source was found
+            if not self.recursive or self.input != self.output:
+                out_path = os.path.abspath(os.path.join(self.output, f"{audio_path_set[1]}.{format}"))
+            else:
+                out_path = os.path.abspath(os.path.join(audio_path_set[0], f"{audio_path_set[1]}.{format}"))
             # Write audio to file
             try:
                 audio.write_audiofile(
@@ -497,18 +524,12 @@ class AnyToAny:
     def to_codec(self, file_paths: dict, codec: dict) -> None:
         # Convert movie to same movie with different codec
         for codec_path_set in file_paths[Category.MOVIE]:
-            out_path = os.path.abspath(
-                os.path.join(
-                    self.output,
-                    f"{codec_path_set[1]}_{self.format}.{codec[1]}",
-                )
-            )
-
+            if not self.recursive or self.input != self.output:
+                out_path = os.path.abspath(os.path.join(self.output, f"{codec_path_set[1]}_{self.format}.{codec[1]}"))
+            else:
+                out_path = os.path.abspath(os.path.join(codec_path_set[0], f"{codec_path_set[1]}.{format}"))
             if self._has_visuals(codec_path_set):
-                video = VideoFileClip(
-                    self._join_back(codec_path_set), audio=True, fps_source="tbr"
-                )
-
+                video = VideoFileClip(self._join_back(codec_path_set), audio=True, fps_source="tbr")
                 try:
                     video.write_videofile(
                         out_path,
@@ -565,9 +586,11 @@ class AnyToAny:
             # Depending on the format, different fragmentation is required
             if image_path_set[2] == "gif":
                 clip = ImageSequenceClip(self._join_back(image_path_set), fps=24)
-                out_path = os.path.abspath(
-                    os.path.join(self.output, f"{image_path_set[1]}.{format}")
-                )
+                # If recursive, create file outright where its source was found
+                if not self.recursive or self.input != self.output:
+                    out_path = os.path.abspath(os.path.join(self.output, f"{image_path_set[1]}.{format}"))
+                else:
+                    out_path = os.path.abspath(os.path.join(image_path_set[0], f"{image_path_set[1]}.{format}"))
                 clip.write_videofile(
                     out_path,
                     codec=codec,
@@ -1108,7 +1131,7 @@ class AnyToAny:
         # Post process after conversion, print, delete source file if desired
         if show_status:
             self.event_logger.info(
-                f'[+] Converted "{self._join_back(file_path_set)}" to "{out_path}"\n'
+                f'[+] Converted "{self._join_back(file_path_set)}" to "{out_path}"'
             )
         if delete:
             os.remove(self._join_back(file_path_set))
@@ -1209,6 +1232,13 @@ if __name__ == "__main__":
         action="store_true",
         required=False,
     )
+    parser.add_argument(
+        "-r",
+        "--recursive",
+        help="Recursively search for files in subdirectories for input",
+        action="store_true",
+        required=False,
+    )
 
     args = vars(parser.parse_args())
 
@@ -1230,4 +1260,5 @@ if __name__ == "__main__":
             concat=args["concat"],
             delete=args["delete"],
             across=args["across"],
+            recursive=args["recursive"],
         )

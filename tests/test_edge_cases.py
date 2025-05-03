@@ -6,7 +6,7 @@ def test_empty_directory(any_to_any_instance, tmp_path):
     empty_dir = tmp_path / "empty"
     empty_dir.mkdir()
     with pytest.raises(SystemExit):
-        any_to_any_instance.run([str(empty_dir)], format="mp3", output=str(tmp_path), framerate=None, quality=None, merge=False, concat=False, delete=False, across=False)
+        any_to_any_instance.run([str(empty_dir)], format="mp3", output=str(tmp_path), framerate=None, quality=None, merge=False, concat=False, delete=False, across=False, recursive=False)
 
 def test_permission_error_on_output(any_to_any_instance, tmp_path):
     file_path = tmp_path / "test.mp4"
