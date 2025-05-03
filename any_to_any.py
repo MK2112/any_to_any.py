@@ -11,6 +11,8 @@ from enum import Enum
 from tqdm import tqdm
 from pathlib import Path
 from proglog import ProgressBarLogger
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
 from moviepy import (AudioFileClip, VideoFileClip, VideoClip,
                      ImageSequenceClip, ImageClip, concatenate_videoclips,
                      concatenate_audioclips, clips_array)
@@ -238,6 +240,7 @@ class AnyToAny:
         delete: bool,
         across: bool,
         recursive: bool,
+        dropzone: bool,
     ) -> None:
         # Main function, convert media files to defined formats
         # or merge or concatenate, according to the arguments
@@ -318,6 +321,14 @@ class AnyToAny:
 
             # Unify path formatting, still works like any other string
             self.input, self.output = Path(self.input), Path(self.output)
+
+            # Cut setup for media conversion short, begin dropzone mode
+            if dropzone:
+                if self.input == self.output or self.input in self.output.parents:
+                    self._end_with_msg(None, "[!] Error: Dropzone mode requires input and output to be distinctly different")
+                self.event_logger.info(f"[+] Dropzone mode active. Press CTRL+C to halt. Watching: {self.input}")
+                self.watchdropzone(self.input)
+                return
 
             # What if that directory contains subdirectories?
             if self.recursive:
@@ -430,6 +441,59 @@ class AnyToAny:
                 file_info = process_file(file_path)
                 schedule_file(file_info)
         return file_paths
+
+    def watchdropzone(self, watch_path: str) -> None:
+        # Watch a folder for new media files, process each as it arrives.
+        watchdog_any = AnyToAny()
+
+        # Setup a watchdog-specific AnyToAny instance
+        # Link it to the current instance to share settings and loggers
+        watchdog_any.format = self.format
+        watchdog_any.output = self.output
+        watchdog_any.framerate = self.framerate
+        watchdog_any.quality = self.quality
+        watchdog_any.merging = self.merging
+        watchdog_any.concatenating = self.concatenating
+        watchdog_any.delete = True
+        watchdog_any.across = False
+        watchdog_any.recursive = True
+        watchdog_any.dropzone = False  # This one is not in dropzone mode
+        watchdog_any.event_logger = self.event_logger
+        watchdog_any.prog_logger = self.prog_logger
+
+        class NewFileHandler(FileSystemEventHandler):
+            def __init__(self, inner):
+                self.inner = inner
+
+            def on_created(self, event):
+                if event.is_directory:
+                    return
+                file_path = event.src_path
+                # log with the inner’s logger, and trigger its run()
+                self.inner.event_logger.info(f"[+] New file detected in dropzone: {file_path}")
+                self.inner.run([file_path],
+                            format=self.inner.format,
+                            output=self.inner.output,
+                            framerate=self.inner.framerate,
+                            quality=self.inner.quality,
+                            merge=self.inner.merging,
+                            concat=self.inner.concatenating,
+                            delete=self.inner.delete,
+                            across=self.inner.across,
+                            recursive=self.inner.recursive,
+                            dropzone=False)
+        
+        event_handler = NewFileHandler(watchdog_any)
+        observer = Observer()
+        observer.schedule(event_handler, watch_path, recursive=True)
+        observer.start()
+
+        try:
+            while True:
+                time.sleep(1) # Polling interval, adjust as needed
+        except KeyboardInterrupt:
+            observer.stop()
+        observer.join()
 
     def _has_visuals(self, file_path_set: tuple) -> bool:
         try:
@@ -1240,6 +1304,13 @@ if __name__ == "__main__":
         action="store_true",
         required=False,
     )
+    parser.add_argument(
+        "-z",
+        "--dropzone",
+        help="Dropzone for files to be converted, input dir will be used, distinct output dir has to be specified",
+        action="store_true",
+        required=False,
+    )
 
     args = vars(parser.parse_args())
 
@@ -1262,4 +1333,5 @@ if __name__ == "__main__":
             delete=args["delete"],
             across=args["across"],
             recursive=args["recursive"],
+            dropzone=args["dropzone"],
         )

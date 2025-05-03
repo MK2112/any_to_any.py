@@ -52,6 +52,7 @@ You can structure a command in three fundamental ways:
 | `-w` or </br>`--web`         | Ignores all other arguments, starts browser + a web server at `http://localhost:5000`. |
 | `-d` or </br>`--delete`      | Delete input files after conversion. |
 | `-r` or </br>`--recursive`   | Recursively process all input files in subdirectories from the input directory. Outputs by default will be placed in their respective subdirectory, unless different output path provided. |
+| `-z` or </br>`--dropzone`    | While running, a specified directory will be monitored for new files. When a file is added, it will be converted to the specified format, saved in the output directory and deleted from the input directory. |
 | `-fps` or</br>`--framerate`  | Set the framerate (fps) when converting to a movie format or codec; default maintains input fps. |
 
 ### Single File Processing
@@ -83,7 +84,7 @@ Convert all MP4 files to MP3, save to a different directory, set conversion qual
 python any_to_any.py -i /path/to/mp4-folder -o /path/to/save/folder -f mp3 -q high -d
 ```
 
-Convert all MP3 files from any subdirectory to M4A, delete MP3 source files afterwards:
+Convert all MP3 files from any subdirectory **recursively** to M4A, delete MP3 source files afterwards:
 ```python
 python any_to_any.py -i /path/to/mp3-top-folder -f m4a -d -r
 ```
@@ -96,6 +97,11 @@ python any_to_any.py -i /path/to/folder -o /path/to/save/folder -m -d
 Concatenate MP4 files, save to a different directory, delete source files afterwards:
 ```python
 python any_to_any.py -i /path/to/mp4-folder -o /path/to/save/folder -c -d
+```
+
+Setup a dropzone to monitor a directory for new files, convert them to MP3 and save them in the output directory (runs continuously, halt by pressing `CTRL+C`):
+```python
+python any_to_any.py -i /path/to/dropzone -o /path/to/save/folder -f mp3 -z
 ```
 
 ### Multi Directory/File Processing

@@ -86,6 +86,7 @@ def send_to_backend(
         delete=True,
         across=False,
         recursive=False,
+        dropzone=False,
     )
     # Remove upload dir and contents therein
     if len(input_path_args[0]) > 0:
