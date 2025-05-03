@@ -321,12 +321,13 @@ class AnyToAny:
 
             # What if that directory contains subdirectories?
             if self.recursive:
-                # If the user set the recursive option, also scan every non-empty subdirectory
-                for root, _, files in os.walk(self.input):
-                    # root should be a directory with >=1 file to be considered
-                    if root == self.input or not files:
-                        continue
-                    file_paths = self._get_file_paths(root, file_paths)
+                # Check if there is any subdirectory in the input path
+                if any(entry.is_dir() for entry in os.scandir(self.input)):
+                    file_paths = {} # Reset, we go through everything again to be sure
+                    # If the user set the recursive option, also scan every non-empty subdirectory
+                    for root, _, files in os.walk(self.input):
+                        # root should be a directory with >=1 file to be considered
+                        file_paths = self._get_file_paths(root, file_paths)
 
             if not any(file_paths.values()):
                 if len(input_paths) > 1:
