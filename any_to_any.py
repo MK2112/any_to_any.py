@@ -7,51 +7,14 @@ import argparse
 import subprocess
 import numpy as np
 from PIL import Image
-from enum import Enum
-from tqdm import tqdm
 from pathlib import Path
-from proglog import ProgressBarLogger
+from modules.category import Category
 from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
+from modules.prog_logger import ProgLogger
+from modules.watchdog_handler import WatchDogFileHandler
 from moviepy import (AudioFileClip, VideoFileClip, VideoClip,
                      ImageSequenceClip, ImageClip, concatenate_videoclips,
                      concatenate_audioclips, clips_array)
-
-
-class ProgLogger(ProgressBarLogger):
-    """ Custom logger extracting progress info from moviepy video processing operations"""
-    def __init__(self):
-        super().__init__()
-        self.start_time, self.last_print_time = None, None
-        self.print_interval = 0.1  # Frequency of progress updates
-        self.tqdm_bar = None
-
-    def bars_callback(self, bar, attr, value, old_value=None):
-        if bar == 'chunk' and attr == 'index':
-            if self.start_time is None:
-                self.start_time = time.time()
-                self.last_print_time = self.start_time
-                total = self.bars[bar]['total']
-                self.tqdm_bar = tqdm(total=total, desc="Processing", unit="chunks")
-
-            # Update our replacing tqdm bar
-            # Kind of nonsensical at this point, but we now got the progress info
-            if value > (old_value or 0):
-                self.tqdm_bar.update(value - (old_value or 0))
-
-            # Handle bar completion
-            if value == self.bars[bar]['total']:
-                self.tqdm_bar.close()
-                #print(f"Processing complete! Time elapsed: {time.time() - self.start_time:.2f}s")
-
-
-class Category(Enum):
-    AUDIO = "audio"
-    IMAGE = "image"
-    MOVIE = "movie"
-    DOCUMENT = "document"
-    MOVIE_CODECS = "movie_codecs"
-
 
 class AnyToAny:
     """
@@ -180,6 +143,10 @@ class AnyToAny:
                 "vc2": ["vc2", "mkv"],
                 "flv1": ["flv", "flv"],
             },
+            Category.PROTOCOLS: {
+                "hls": ["hls", "mkv"],
+                "dash": ["dash", "mkv"],
+            },
         }
 
         # Used in CLI information output
@@ -280,9 +247,8 @@ class AnyToAny:
         if self.output is not None and not os.path.exists(self.output):
             os.makedirs(self.output)
 
-        self.format = (
-            format.lower() if format is not None else None
-        )  # No format means no conversion (but maybe merge || concat)
+        # No format means no conversion (but maybe merge || concat)
+        self.target_format = (format.lower() if format is not None else None)
         self.framerate = framerate  # Possibly no framerate means same as input
         self.delete = delete  # Delete mp4 files after conversion
         # Check if quality is set, if not, set it to None
@@ -369,35 +335,40 @@ class AnyToAny:
 
     def process_file_paths(self, file_paths: dict) -> None:
         # Check if value associated to format is tuple/string or function to call specific conversion
-        if self.format in self._supported_formats[Category.MOVIE].keys():
+        if self.target_format in self._supported_formats[Category.MOVIE].keys():
             self.to_movie(
                 file_paths=file_paths,
-                format=self.format,
-                codec=self._supported_formats[Category.MOVIE][self.format],
+                format=self.target_format,
+                codec=self._supported_formats[Category.MOVIE][self.target_format],
             )
-        elif self.format in self._supported_formats[Category.AUDIO].keys():
+        elif self.target_format in self._supported_formats[Category.AUDIO].keys():
             self.to_audio(
                 file_paths=file_paths,
-                format=self.format,
-                codec=self._supported_formats[Category.AUDIO][self.format],
+                format=self.target_format,
+                codec=self._supported_formats[Category.AUDIO][self.target_format],
             )
-        elif self.format in self._supported_formats[Category.MOVIE_CODECS].keys():
+        elif self.target_format in self._supported_formats[Category.MOVIE_CODECS].keys():
             self.to_codec(
                 file_paths=file_paths,
-                codec=self._supported_formats[Category.MOVIE_CODECS][self.format],
+                codec=self._supported_formats[Category.MOVIE_CODECS][self.target_format],
             )
-        elif self.format in self._supported_formats[Category.IMAGE].keys():
-            self._supported_formats[Category.IMAGE][self.format](
-                file_paths, self.format
+        elif self.target_format in self._supported_formats[Category.IMAGE].keys():
+            self._supported_formats[Category.IMAGE][self.target_format](
+                file_paths, self.target_format
             )
-        elif self.format in self._supported_formats[Category.DOCUMENT].keys():
-            self._supported_formats[Category.DOCUMENT][self.format](
-                file_paths, self.format
+        elif self.target_format in self._supported_formats[Category.DOCUMENT].keys():
+            self._supported_formats[Category.DOCUMENT][self.target_format](
+                file_paths, self.target_format
+            )
+        elif self.target_format in self._supported_formats[Category.PROTOCOLS].keys():
+            self.to_protocol(
+                file_paths=file_paths,
+                protocol=self._supported_formats[Category.PROTOCOLS][self.target_format],
             )
         elif self.merging:
             self.merge(file_paths, getattr(self, 'across', False))
         elif self.concatenating:
-            self.concat(file_paths, self.format)
+            self.concat(file_paths, self.target_format)
         else:
             # Handle unsupported formats here
             self._end_with_msg(
@@ -448,7 +419,7 @@ class AnyToAny:
 
         # Setup a watchdog-specific AnyToAny instance
         # Link it to the current instance to share settings and loggers
-        watchdog_any.format = self.format
+        watchdog_any.target_format = self.target_format
         watchdog_any.output = self.output
         watchdog_any.framerate = self.framerate
         watchdog_any.quality = self.quality
@@ -460,30 +431,8 @@ class AnyToAny:
         watchdog_any.dropzone = False  # This one is not in dropzone mode
         watchdog_any.event_logger = self.event_logger
         watchdog_any.prog_logger = self.prog_logger
-
-        class NewFileHandler(FileSystemEventHandler):
-            def __init__(self, inner):
-                self.inner = inner
-
-            def on_created(self, event):
-                if event.is_directory:
-                    return
-                file_path = event.src_path
-                # log with the inner’s logger, and trigger its run()
-                self.inner.event_logger.info(f"[+] New file detected in dropzone: {file_path}")
-                self.inner.run([file_path],
-                            format=self.inner.format,
-                            output=self.inner.output,
-                            framerate=self.inner.framerate,
-                            quality=self.inner.quality,
-                            merge=self.inner.merging,
-                            concat=self.inner.concatenating,
-                            delete=self.inner.delete,
-                            across=self.inner.across,
-                            recursive=self.inner.recursive,
-                            dropzone=False)
         
-        event_handler = NewFileHandler(watchdog_any)
+        event_handler = WatchDogFileHandler(watchdog_any)
         observer = Observer()
         observer.schedule(event_handler, watch_path, recursive=True)
         observer.start()
@@ -590,7 +539,7 @@ class AnyToAny:
         # Convert movie to same movie with different codec
         for codec_path_set in file_paths[Category.MOVIE]:
             if not self.recursive or self.input != self.output:
-                out_path = os.path.abspath(os.path.join(self.output, f"{codec_path_set[1]}_{self.format}.{codec[1]}"))
+                out_path = os.path.abspath(os.path.join(self.output, f"{codec_path_set[1]}_{self.target_format}.{codec[1]}"))
             else:
                 out_path = os.path.abspath(os.path.join(codec_path_set[0], f"{codec_path_set[1]}.{format}"))
             if self._has_visuals(codec_path_set):
@@ -732,26 +681,110 @@ class AnyToAny:
 
                 self._post_process(movie_path_set, out_path, self.delete)
 
+    def to_protocol(self, file_paths: dict, protocol: list) -> None:
+        # Convert movie files into adaptive streaming formats HLS (.m3u8) or DASH (.mpd).
+        if protocol[0] not in list(self._supported_formats[Category.PROTOCOLS].keys()):
+            print("\n", protocol, "\n")
+            self._end_with_msg(None, f"Unsupported streaming protocol: {protocol[0]}")
+
+        for movie_path_set in file_paths[Category.MOVIE]:
+            input_file = os.path.abspath(self._join_back(movie_path_set))
+            base_name = os.path.splitext(movie_path_set[-1])[0]
+            current_out_dir = os.path.abspath(os.path.join(self.output, f"{base_name}_{protocol[0]}"))
+            os.makedirs(current_out_dir, exist_ok=True)
+
+            if protocol[0] == "hls":
+                renditions = [("426x240", "400k", "64k"),
+                              ("640x360", "800k", "96k"),
+                              ("842x480", "1400k", "128k"),
+                              ("1280x720", "2800k", "128k"),
+                              ("1920x1080", "5000k", "192k")]
+                variant_playlist = "#EXTM3U\n"
+                cmd = ["ffmpeg", "-y", "-i", input_file]
+
+                for i, (resolution, v_bitrate, a_bitrate) in enumerate(renditions):
+                    os.makedirs(os.path.join(current_out_dir, f"{renditions[i][0]}"), exist_ok=True)
+                    self.event_logger.info(f"[+] Creating HLS stream for {self._join_back(movie_path_set)}: {resolution} at {v_bitrate} video and {a_bitrate} audio")
+                    stream = [
+                        "-map", "0:v:0",
+                        "-map", "0:a:0",
+                        "-c:v", "h264",
+                        "-b:v", v_bitrate,
+                        "-s", resolution,
+                        "-c:a", "aac",
+                        "-b:a", a_bitrate,
+                        "-hls_time", "4",
+                        "-hls_playlist_type", "vod",
+                        "-hls_segment_filename", os.path.join(os.path.join(current_out_dir, f"{renditions[i][0]}"), f"{renditions[i][0]}_%03d.ts"),
+                        os.path.join(os.path.join(current_out_dir, f"{renditions[i][0]}"), f"{renditions[i][0]}.m3u8")
+                    ]
+                    cmd += stream
+                    variant_playlist += f'#EXT-X-STREAM-INF:BANDWIDTH={int(v_bitrate[:-1]) * 1000},RESOLUTION={resolution}\n{i}.m3u8\n'
+                self.event_logger.info(f"[+] Creating master playlist for HLS stream: {self._join_back(movie_path_set)}")
+                master_playlist_path = os.path.join(current_out_dir, "master.m3u8")
+
+                try:
+                    self._run_command(cmd)
+                    with open(master_playlist_path, "w") as f:
+                        f.write(variant_playlist)
+                    self._post_process(movie_path_set, master_playlist_path, self.delete)
+                except Exception as e:
+                    self._end_with_msg(None, f"Failed to create HLS: {e}")
+            elif protocol[0] == "dash":
+                self.event_logger.info(f"[+] Creating DASH stream for {self._join_back(movie_path_set)}")
+                out_path = os.path.join(current_out_dir, "manifest.mpd")
+                cmd = [
+                    "ffmpeg",
+                    "-y",
+                    "-i", input_file,
+                    "-map", "0",
+                    "-b:v", "1500k",
+                    "-c:v", "libx264",
+                    "-c:a", "aac",
+                    "-bf", "1",
+                    "-keyint_min", "120",
+                    "-g", "120",
+                    "-sc_threshold", "0",
+                    "-b_strategy", "0",
+                    "-ar", "48000",
+                    "-use_timeline", "1",
+                    "-use_template", "1",
+                    "-adaptation_sets", "id=0,streams=v id=1,streams=a",
+                    "-f", "dash",
+                    out_path
+                ]
+                try:
+                    self._run_command(cmd)
+                    self._post_process(movie_path_set, out_path, self.delete)
+                except Exception as e:
+                    self._end_with_msg(movie_path_set, f"Failed to create DASH: {e}")
+
+    def _run_command(self, command: list) -> None:
+        try:
+            _ = subprocess.run(command,
+                                    stdout=subprocess.PIPE,
+                                    stderr=subprocess.PIPE,
+                                    check=True,
+                                    text=True)
+        except subprocess.CalledProcessError as e:
+            error_msg = f"Failed: {' '.join(command)}\n\nSTDOUT:\n{e.stdout}\n\nSTDERR:\n{e.stderr}"
+            raise RuntimeError(error_msg)
+
     def to_subtitles(self, file_paths: dict, format: str) -> None:
         for movie_path_set in file_paths[Category.MOVIE]:
             input_path = self._join_back(movie_path_set)
-            out_path = os.path.abspath(
-                os.path.join(self.output, f"{movie_path_set[1]}.srt")
-            )
+            out_path = os.path.abspath(os.path.join(self.output, f"{movie_path_set[1]}.srt"))
             self.event_logger.info(f"[+] Extracting subtitles from '{input_path}'")
             try:
                 # Use FFmpeg to extract subtitles
-                _ = subprocess.run(
-                    [
-                        "ffmpeg",
-                        "-i",
-                        input_path,
-                        "-map",
-                        "0:s:0",  # Selects first subtitle stream
-                        "-c:s",
-                        "srt",
-                        out_path,
-                    ],
+                _ = subprocess.run(["ffmpeg",
+                                    "-i",
+                                    input_path,
+                                    "-map",
+                                    "0:s:0",  # Selects first subtitle stream
+                                    "-c:s",
+                                    "srt",
+                                    out_path],
                     capture_output=True,
                     text=True,
                 )
