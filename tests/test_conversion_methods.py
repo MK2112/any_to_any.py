@@ -1,9 +1,7 @@
 import pytest
-from tests.test_fixtures import any_to_any_instance
-from any_to_any import Category
-
-import pytest
 import warnings
+from any_to_any import Category
+from tests.test_fixtures import any_to_any_instance
 
 def test_to_audio_invalid_format(any_to_any_instance, tmp_path):
     invalid_file = tmp_path / "invalid_file.mp3"

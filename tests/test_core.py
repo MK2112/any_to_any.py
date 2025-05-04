@@ -1,7 +1,7 @@
 import pytest
 from any_to_any import AnyToAny
 from tests.test_fixtures import any_to_any_instance, test_input_folder
-from any_to_any import Category
+from modules.category import Category
 
 def test_supported_formats(any_to_any_instance):
     assert isinstance(any_to_any_instance.supported_formats, list)

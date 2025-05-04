@@ -1,6 +1,6 @@
 import pytest
 from tests.test_fixtures import any_to_any_instance, test_input_folder, test_output_folder
-from any_to_any import Category
+from modules.category import Category
 
 def test_merging_method(any_to_any_instance, test_input_folder, test_output_folder):
     movie_path = test_input_folder / "movie_name.mp4"
