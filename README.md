@@ -6,9 +6,9 @@
 - Concatenate multiple files of the same type (audio, video, images).
 - Process single files, entire directories (recursively if desired), or multiple specified inputs.
 - Merge or concatenate files within individual directories or across multiple directories.
-- Offer both a user-friendly Web Interface and a flexible Command Line Interface (CLI).
+- Offering both a user-friendly Web Interface or a flexible Command Line Interface.
 - Control output quality and video framerate during conversion.
-- Automatically monitor a "dropzone" directory for new files and process them continuously.
+- Automatically monitor a "dropzone" directory for new files and process them as they are dropped.
 - Optionally delete source files upon successful processing.
 
 ![screenshot](./img/Any-to-Any-Web.png)
