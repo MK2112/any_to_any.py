@@ -154,3 +154,7 @@ Contributions and feedback are welcome. Feel free to open issues or pull request
 ## Disclaimer
 This script is provided as-is, without any warranties or guarantees.<br>
 Users are responsible for ensuring compliance with applicable laws and regulations.
+
+## TODO
+1. Integrate Web-UI with real progress indicators
+2. Multi-language Support (English, German, French, Spanish, Italian, Portuguese, Russian, Chinese, Japanese, Korean for a first iteration)
