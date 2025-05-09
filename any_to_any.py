@@ -599,7 +599,7 @@ class AnyToAny:
         for image_path_set in file_paths[Category.IMAGE]:
             # Depending on the format, different fragmentation is required
             if image_path_set[2] == "gif":
-                clip = ImageSequenceClip(self._join_back(image_path_set), fps=24)
+                clip = VideoFileClip(self._join_back(image_path_set), audio=False)
                 # If recursive, create file outright where its source was found
                 if not self.recursive or self.input != self.output:
                     out_path = os.path.abspath(os.path.join(self.output, f"{image_path_set[1]}.{format}"))
@@ -609,7 +609,7 @@ class AnyToAny:
                     out_path,
                     codec=codec,
                     fps=clip.fps if self.framerate is None else self.framerate,
-                    audio=True,
+                    audio=False,
                     logger=self.prog_logger,
                 )
                 clip.close()
