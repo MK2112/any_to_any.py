@@ -16,5 +16,5 @@ def test_cli_invalid_format(tmp_path):
 
 def test_blank_start_no_files_in_cli_output(any_to_any_instance, caplog):
     with caplog.at_level("INFO"):
-        any_to_any_instance.run([], None, None, None, None, False, False, False, False, False, False)
+        any_to_any_instance.run([], None, None, None, None, False, False, False, False, False, False, "en_US")
     assert "No convertible media files" in caplog.text

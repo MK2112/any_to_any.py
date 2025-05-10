@@ -1,4 +1,5 @@
 import os
+import re
 import fitz
 import time
 import PyPDF2
@@ -6,6 +7,7 @@ import logging
 import argparse
 import subprocess
 import numpy as np
+import modules.language_support as lang
 from PIL import Image
 from pathlib import Path
 from modules.category import Category
@@ -25,6 +27,8 @@ class AnyToAny:
     def __init__(self):
         # Setting up progress logger
         self.prog_logger = ProgLogger()
+        # Get locale
+        self.locale = lang.get_system_language()
         # Setting up event logger and format
         logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
         self.event_logger = logging.getLogger(__name__)
@@ -63,6 +67,7 @@ class AnyToAny:
             Category.IMAGE: {
                 "gif": self.to_gif,
                 "png": self.to_frames,
+                "jpeg": self.to_frames,
                 "jpg": self.to_frames,
                 "bmp": self.to_bmp,
                 "webp": self.to_webp,
@@ -208,6 +213,7 @@ class AnyToAny:
         across: bool,
         recursive: bool,
         dropzone: bool,
+        language: str,
     ) -> None:
         # Main function, convert media files to defined formats
         # or merge or concatenate, according to the arguments
@@ -220,6 +226,18 @@ class AnyToAny:
 
         self.across = across
         self.recursive = recursive
+
+        # User-set Language
+        if language is not None:
+            # we expect a language code like "en_US" or "pl_PL"
+            if re.match(r"^[a-z]{2}_[A-Z]{2}$", language) and language in list(lang.LANGUAGE_CODES.keys()):
+                self.locale = lang.LANGUAGE_CODES[language]
+            else:
+                self.event_logger.warning(f"[!] {lang.get_translation('error', self.locale)}: {lang.get_translation('lang_not_supported', self.locale)}")
+
+        print()
+        print(self.locale)
+        print()
 
         for _, arg in enumerate(input_path_args):
             # Custom handling of multiple input paths
@@ -279,7 +297,7 @@ class AnyToAny:
 
             # If no output path set or derived by the script by now, throw an error
             if not self.output:
-                self._end_with_msg(ValueError, "[!] Error: No output path provided while using multiple input paths.")
+                self._end_with_msg(ValueError, f"[!] {lang.get_translation('error', self.locale)}: {lang.get_translation('no_out_multi_in', self.locale)}")
 
             # If output is just a file for whatever reason, turn it into directory
             if os.path.isfile(self.output):
@@ -291,8 +309,8 @@ class AnyToAny:
             # Cut setup for media conversion short, begin dropzone mode
             if dropzone:
                 if self.input == self.output or self.input in self.output.parents:
-                    self._end_with_msg(None, "[!] Error: Dropzone mode requires input and output to be distinctly different")
-                self.event_logger.info(f"[+] Dropzone mode active. Press CTRL+C to halt. Watching: {self.input}")
+                    self._end_with_msg(None, f"[!] {lang.get_translation('error', self.locale)}: {lang.get_translation('dropzone_diff', self.locale)}")
+                self.event_logger.info(f"[+] {lang.get_translation('dropzone_active', self.locale)} {self.input}")
                 self.watchdropzone(self.input)
                 return
 
@@ -308,9 +326,9 @@ class AnyToAny:
 
             if not any(file_paths.values()):
                 if len(input_paths) > 1:
-                    self.event_logger.info(f"[!] No convertible media files in '{input_path}' - Skipping\n")
+                    self.event_logger.info(f"[!] {lang.get_translation('no_media_found', self.locale).replace('[path]', f"'{str(input_path)}'")} - {lang.get_translation('skipping', self.locale)}")
                 else:
-                    self._end_with_msg(None, f"[!] No convertible media files found in '{input_path}'")
+                    self._end_with_msg(None, f"[!] {lang.get_translation('no_media_found', self.locale).replace('[path]', f"'{str(input_path)}'")}")
                 continue
 
             # If no output given, output is set to the input path
@@ -330,8 +348,8 @@ class AnyToAny:
 
         # Check if file_paths is empty
         if across and len(file_paths) == 0 or not found_files:
-            self.event_logger.warning("No convertible media files")
-        self.event_logger.info("[+] Job Finished")
+            self.event_logger.warning(f"{lang.get_translation('no_media_general', self.locale)}")
+        self.event_logger.info(f"[+] {lang.get_translation('job_finished', self.locale)}")
 
     def process_file_paths(self, file_paths: dict) -> None:
         # Check if value associated to format is tuple/string or function to call specific conversion
@@ -373,7 +391,7 @@ class AnyToAny:
             # Handle unsupported formats here
             self._end_with_msg(
                 ValueError,
-                f"[!] Error: Output format must be one of {list(self.supported_formats)}",
+                f"[!] {lang.get_translation('error', self.locale)}: {lang.get_translation('output_list', self.locale).replace('[list]', str(list(self.supported_formats)))}",
             )
 
     def _get_file_paths(self, input: str, file_paths: dict = {}) -> dict:
@@ -391,10 +409,10 @@ class AnyToAny:
             for category in self._supported_formats.keys():
                 if file_info[2] in self._supported_formats[category]:
                     file_paths[category].append(file_info)
-                    self.event_logger.info(f"[+] Scheduling: {file_info[1]}.{file_info[2]}")
+                    self.event_logger.info(f"[+] {lang.get_translation('scheduling', self.locale)}: {file_info[1]}.{file_info[2]}")
                     break
 
-        self.event_logger.info(f"[>] Scanning: {input}")
+        self.event_logger.info(f"[>] {lang.get_translation('scanning', self.locale)}: {input}")
 
         # Check if file_paths is an empty dict
         if len(file_paths) == 0:
@@ -406,7 +424,7 @@ class AnyToAny:
         else:
             for directory in [input]:
                 if not os.path.exists(directory):
-                    self._end_with_msg(FileNotFoundError, f"[!] Error: Directory {directory} does not exist.")
+                    self._end_with_msg(FileNotFoundError, f"[!] {lang.get_translation('error', self.locale)}: {lang.get_translation('no_dir_exist', self.locale).replace('[dir]', f'{directory}')}")
             for file_name in os.listdir(input):
                 file_path = os.path.abspath(os.path.join(input, file_name))
                 file_info = process_file(file_path)
@@ -475,7 +493,7 @@ class AnyToAny:
                 )
             except Exception as _:
                 self.event_logger.info(
-                    "\n\n[!] Error: Source Sample Rate Incompatible With {format}: Trying Compatible Rate Instead...\n"
+                    f"\n\n[!] {lang.get_translation('error', self.locale)}: {lang.get_translation('source_rate_incompatible', self.locale).replace('[format]', f'{format}')}\n"
                 )
                 audio.write_audiofile(
                     out_path,
@@ -501,7 +519,7 @@ class AnyToAny:
                 # Check if audio was found
                 if audio is None:
                     self.event_logger.info(
-                        f'[!] No audio found in "{self._join_back(movie_path_set)}" - Skipping\n'
+                        f'[!] {lang.get_translation('no_audio', self.locale).replace('[path]', f'"{self._join_back(movie_path_set)}"')} - {lang.get_translation('skipping', self.locale)}\n'
                     )
                     video.close()
                     continue
@@ -528,7 +546,7 @@ class AnyToAny:
                     audio.close()
                 except Exception as _:
                     self.event_logger.info(
-                        f'[!] Failed to extract audio from audio-only file "{self._join_back(movie_path_set)}" - Skipping\n'
+                        f'[!] {lang.get_translation('audio_extract_fail', self.locale).replace("[path]", f'"{self._join_back(movie_path_set)}"')} - {lang.get_translation('skipping', self.locale)}\n'
                     )
                     continue
 
@@ -557,7 +575,7 @@ class AnyToAny:
                         # There might be some residue left, remove it
                         os.remove(out_path)
                     self.event_logger.info(
-                        f"\n\n[!] Codec Incompatible with {codec_path_set[2]}: Trying Compatible Format {codec[1]} Instead...\n"
+                        f"\n\n[!] {lang.get_translation('codec_fallback', self.locale).replace("[path]", f'"{codec_path_set[2]}"').replace("[format]", f'{codec[1]}')}\n"
                     )
 
                     video.write_videofile(
@@ -616,7 +634,7 @@ class AnyToAny:
                 self._post_process(image_path_set, out_path, self.delete)
             elif image_path_set[2] == "png":
                 pngs.append(ImageClip(self._join_back(image_path_set)).set_duration(1))
-            elif image_path_set[2] == "jpg":
+            elif image_path_set[2] == "jpeg":
                 jpgs.append(ImageClip(self._join_back(image_path_set)).set_duration(1))
             elif image_path_set[2] == "bmp":
                 bmps.append(ImageClip(self._join_back(image_path_set)).set_duration(1))
@@ -685,7 +703,7 @@ class AnyToAny:
         # Convert movie files into adaptive streaming formats HLS (.m3u8) or DASH (.mpd).
         if protocol[0] not in list(self._supported_formats[Category.PROTOCOLS].keys()):
             print("\n", protocol, "\n")
-            self._end_with_msg(None, f"Unsupported streaming protocol: {protocol[0]}")
+            self._end_with_msg(None, f"{lang.get_translation('unsupported_stream', self.locale)} {protocol[0]}")
 
         for movie_path_set in file_paths[Category.MOVIE]:
             input_file = os.path.abspath(self._join_back(movie_path_set))
@@ -704,7 +722,7 @@ class AnyToAny:
 
                 for i, (resolution, v_bitrate, a_bitrate) in enumerate(renditions):
                     os.makedirs(os.path.join(current_out_dir, f"{renditions[i][0]}"), exist_ok=True)
-                    self.event_logger.info(f"[+] Creating HLS stream for {self._join_back(movie_path_set)}: {resolution} at {v_bitrate} video and {a_bitrate} audio")
+                    self.event_logger.info(f"[+] {lang.get_translation('get_hls', self.locale)} {self._join_back(movie_path_set)}: {resolution} at {v_bitrate} video, {a_bitrate} audio")
                     stream = [
                         "-map", "0:v:0",
                         "-map", "0:a:0",
@@ -720,7 +738,7 @@ class AnyToAny:
                     ]
                     cmd += stream
                     variant_playlist += f'#EXT-X-STREAM-INF:BANDWIDTH={int(v_bitrate[:-1]) * 1000},RESOLUTION={resolution}\n{i}.m3u8\n'
-                self.event_logger.info(f"[+] Creating master playlist for HLS stream: {self._join_back(movie_path_set)}")
+                self.event_logger.info(f"[+] {lang.get_translation('get_hls_master', self.locale)} {self._join_back(movie_path_set)}")
                 master_playlist_path = os.path.join(current_out_dir, "master.m3u8")
 
                 try:
@@ -729,9 +747,9 @@ class AnyToAny:
                         f.write(variant_playlist)
                     self._post_process(movie_path_set, master_playlist_path, self.delete)
                 except Exception as e:
-                    self._end_with_msg(None, f"Failed to create HLS: {e}")
+                    self._end_with_msg(None, f"{lang.get_translation('get_hls_fail', self.locale)} {e}")
             elif protocol[0] == "dash":
-                self.event_logger.info(f"[+] Creating DASH stream for {self._join_back(movie_path_set)}")
+                self.event_logger.info(f"[+] {lang.get_translation('create_dash', self.locale)} {self._join_back(movie_path_set)}")
                 out_path = os.path.join(current_out_dir, "manifest.mpd")
                 cmd = [
                     "ffmpeg",
@@ -757,7 +775,7 @@ class AnyToAny:
                     self._run_command(cmd)
                     self._post_process(movie_path_set, out_path, self.delete)
                 except Exception as e:
-                    self._end_with_msg(movie_path_set, f"Failed to create DASH: {e}")
+                    self._end_with_msg(movie_path_set, f"{lang.get_translation('dash_fail', self.locale)} {e}")
 
     def _run_command(self, command: list) -> None:
         try:
@@ -767,14 +785,14 @@ class AnyToAny:
                                     check=True,
                                     text=True)
         except subprocess.CalledProcessError as e:
-            error_msg = f"Failed: {' '.join(command)}\n\nSTDOUT:\n{e.stdout}\n\nSTDERR:\n{e.stderr}"
+            error_msg = f"Error: {' '.join(command)}\n\nSTDOUT:\n{e.stdout}\n\nSTDERR:\n{e.stderr}"
             raise RuntimeError(error_msg)
 
     def to_subtitles(self, file_paths: dict, format: str) -> None:
         for movie_path_set in file_paths[Category.MOVIE]:
             input_path = self._join_back(movie_path_set)
             out_path = os.path.abspath(os.path.join(self.output, f"{movie_path_set[1]}.srt"))
-            self.event_logger.info(f"[+] Extracting subtitles from '{input_path}'")
+            self.event_logger.info(f"[+] {lang.get_translation('extract_subtitles', self.locale)} '{input_path}'")
             try:
                 # Use FFmpeg to extract subtitles
                 _ = subprocess.run(["ffmpeg",
@@ -790,14 +808,14 @@ class AnyToAny:
                 )
 
                 if os.path.exists(out_path) and os.path.getsize(out_path) > 0:
-                    self.event_logger.info(f"[+] Subtitles successfully extracted to '{out_path}'")
+                    self.event_logger.info(f"[+] {lang.get_translation('subtitles_success', self.locale)} '{out_path}'")
                     self._post_process(
                         movie_path_set, out_path, self.delete, show_status=False
                     )
                 else:
                     # Try extracting closed captions when direct extract fails (found mostly in MP4 and MKV)
                     self.event_logger.info(
-                        "[!] No dedicated subtitle track found. Trying to extract embedded text..."
+                        f"[!] {lang.get_translation('extract_subtitles_alt', self.locale)}"
                     )
                     _ = subprocess.run(
                         ["ffmpeg", "-i", input_path, "-c:s", format, out_path],
@@ -806,41 +824,45 @@ class AnyToAny:
                     )
                     if os.path.exists(out_path) and os.path.getsize(out_path) > 0:
                         self.event_logger.info(
-                            f"[+] Embedded subtitles successfully extracted to '{out_path}'"
+                            f"[+] {lang.get_translation('embed_subtitles_success')} '{out_path}'"
                         )
                         self._post_process(
                             movie_path_set, out_path, self.delete, show_status=False
                         )
                     else:
-                        self.event_logger.info(f"[!] No subtitles found for '{input_path}'")
+                        self.event_logger.info(f"[!] {lang.get_translation('embed_subtitles_fail', self.locale)} '{input_path}'")
             except Exception as e:
-                self.event_logger.info(f"[!] Extraction of subtitles failed: {str(e)}")
+                self.event_logger.info(f"[!] {lang.get_translation('extract_subtitles_fail', self.locale)} {str(e)}")
                 try:
                     subprocess.run(["ffmpeg", "-version"], capture_output=True)
                 except FileNotFoundError:
                     self.event_logger.info(
-                        "[!] FFmpeg not found. Install FFmpeg to extract subtitles."
+                        f"[!] {lang.get_translation('ffmpeg_not_found', self.locale)}"
                     )
                     break
 
     def to_frames(self, file_paths: dict, format: str) -> None:
         # Converting to image frame sets
         # This works for images and movies only
+        format = "jpeg" if format == "jpg" else format
         for image_path_set in file_paths[Category.IMAGE]:
             if image_path_set[2] == format:
                 continue
             if image_path_set[2] == "gif":
-                clip = ImageSequenceClip(self._join_back(image_path_set), fps=24)
-                for _, frame in enumerate(
-                    clip.iter_frames(fps=clip.fps, dtype="uint8")
-                ):
-                    frame_path = os.path.abspath(
-                        os.path.join(
-                            self.output,
-                            f"{image_path_set[1]}-%{len(str(int(clip.duration * clip.fps)))}d.{format}",
-                        )
-                    )
-                    Image.fromarray(frame).save(frame_path, format=format)
+                clip = VideoFileClip(self._join_back(image_path_set), audio=False)
+
+                # Calculate zero-padding width based on total number of frames
+                total_frames = int(clip.duration * clip.fps)
+                num_digits = len(str(total_frames))
+
+                # Create a dedicated folder for the gif to have its frames in
+                os.makedirs(os.path.join(self.output, image_path_set[1]), exist_ok=True)
+
+                for i, frame in enumerate(clip.iter_frames(fps=clip.fps, dtype="uint8")):
+                    frame_filename = f"{image_path_set[1]}-{i:0{num_digits}d}.{format}"
+                    frame_path = os.path.abspath(os.path.join(self.output, image_path_set[1], frame_filename))
+                    Image.fromarray(frame).save(frame_path, format=format.upper())
+
                 clip.close()
                 self._post_process(image_path_set, self.output, self.delete)
             else:
@@ -860,7 +882,7 @@ class AnyToAny:
                 try:
                     os.makedirs(os.path.join(self.output, doc_path_set[1]))
                 except OSError as e:
-                    self.event_logger.info(f"[!] Error: {e} - Setting output directory to {self.input}")
+                    self.event_logger.info(f"[!] {lang.get_translation('error', self.locale)}: {e} - {lang.get_translation('set_out_dir', self.locale)} {self.input}")
                     self.output = self.input
 
             if doc_path_set[2] == "pdf":
@@ -878,7 +900,7 @@ class AnyToAny:
                     os.makedirs(os.path.dirname(img_path), exist_ok=True)
                     self.output = os.path.dirname(img_path)
                 except OSError as e:
-                    self.event_logger.info(f"[!] Error: {e} - Setting output directory to {self.input}")
+                    self.event_logger.info(f"[!] {lang.get_translation('error', self.locale)}: {e} - {lang.get_translation('set_out_dir', self.locale)} {self.input}")
                     self.output = self.input
 
                 pdf_document = fitz.open(pdf_path)
@@ -895,7 +917,7 @@ class AnyToAny:
         # Audio cant be image-framed, movies certrainly can
         for movie_path_set in file_paths[Category.MOVIE]:
             if movie_path_set[2] not in self._supported_formats[Category.MOVIE]:
-                self.event_logger.info(f"[!] Unsupported movie format: {movie_path_set[2]} - Skipping")
+                self.event_logger.info(f"[!] {lang.get_translation('movie_format_unsupported', self.locale)} {movie_path_set[2]} - {lang.get_translation('skipping', self.locale)}")
                 continue
             if self._has_visuals(movie_path_set):
                 video = VideoFileClip(
@@ -906,7 +928,7 @@ class AnyToAny:
                         os.makedirs(os.path.join(self.output, movie_path_set[1]))
                     except OSError as e:
                         self.event_logger.info(
-                            f"[!] Error: {e} - Setting output directory to {self.input}"
+                            f"[!] {lang.get_translation('error', self.locale)}: {e} - {lang.get_translation('set_out_dir', self.locale)} {self.input}"
                         )
                         self.output = self.input
                 img_path = os.path.abspath(
@@ -921,7 +943,7 @@ class AnyToAny:
                 self._post_process(movie_path_set, img_path, self.delete)
             else:
                 self.event_logger.info(
-                    f'[!] Skipping "{self._join_back(movie_path_set)}" - Audio-only video file'
+                    f'[!] {lang.get_translation('skipping', self.locale)} "{self._join_back(movie_path_set)}" - {lang.get_translation('audio_only_video', self.locale)}'
                 )
 
             if format == "pdf":
@@ -934,7 +956,7 @@ class AnyToAny:
                     for file in os.listdir(os.path.join(self.output, movie_path_set[1]))
                     if file.endswith("pdf")
                 ]
-                self.event_logger.info(f"[+] Merging {len(pdfs)} PDFs into {pdf_out_path}")
+                self.event_logger.info(f"[+] {lang.get_translation('merging_pdfs', self.locale).replace("[count]", str(len(pdfs))).replace("[path]", str(pdf_out_path))}")
                 pdfs.sort()
                 pdf_merger = PyPDF2.PdfMerger()
                 for pdf in pdfs:
@@ -974,7 +996,7 @@ class AnyToAny:
                 self._post_process(movie_path_set, gif_path, self.delete)
             else:
                 self.event_logger.info(
-                    f'[!] Skipping "{self._join_back(movie_path_set)}" - Audio-only video file'
+                    f'[!] {lang.get_translation('skipping', self.locale)} "{self._join_back(movie_path_set)}" - {lang.get_translation('audio_only_video', self.locale)}'
                 )
 
     def to_bmp(self, file_paths: dict, format: str) -> None:
@@ -996,14 +1018,14 @@ class AnyToAny:
                 self._post_process(movie_path_set, bmp_path, self.delete)
             else:
                 self.event_logger.info(
-                    f'[!] Skipping "{self._join_back(movie_path_set)}" - Audio-only video file'
+                    f'[!] {lang.get_translation('skipping', self.locale)} "{self._join_back(movie_path_set)}" - {lang.get_translation('audio_only_video', self.locale)}'
                 )
 
         # Pngs and gifs are converted to bmps as well
         for image_path_set in file_paths[Category.IMAGE]:
             if image_path_set[2] == format:
                 continue
-            if image_path_set[2] in ["png", "jpg", "tiff", "tga", "eps"]:
+            if image_path_set[2] in ["png", "jpeg", "tiff", "tga", "eps"]:
                 bmp_path = os.path.join(self.output, f"{image_path_set[1]}.{format}")
                 with Image.open(self._join_back(image_path_set)) as img:
                     img.convert("RGB").save(bmp_path, format=format)
@@ -1022,7 +1044,7 @@ class AnyToAny:
             else:
                 # Handle unsupported file types here
                 self.event_logger.info(
-                    f"[!] Skipping {self._join_back(image_path_set)} - Unsupported format"
+                    f'[!] {lang.get_translation('skipping', self.locale)} "{self._join_back(image_path_set)}" - {lang.get_translation('unsupported_format', self.locale)}'
                 )
 
     def to_webp(self, file_paths: dict, format: str) -> None:
@@ -1038,7 +1060,7 @@ class AnyToAny:
                         os.makedirs(os.path.join(self.output, movie_path_set[1]))
                     except OSError as e:
                         self.event_logger.info(
-                            f"[!] Error: {e} - Setting output directory to {self.input}"
+                            f"[!] {lang.get_translation('error', self.locale)}: {e} - {lang.get_translation('set_out_dir', self.locale)} {self.input}"
                         )
                         self.output = self.input
                 img_path = os.path.abspath(
@@ -1052,14 +1074,14 @@ class AnyToAny:
                 self._post_process(movie_path_set, img_path, self.delete)
             else:
                 self.event_logger.info(
-                    f'[!] Skipping "{self._join_back(movie_path_set)}" - Audio-only video file'
+                    f'[!] {lang.get_translation('skipping', self.locale)} "{self._join_back(movie_path_set)}" - {lang.get_translation('audio_only_video', self.locale)}'
                 )
 
         # Pngs and gifs are converted to webps as well
         for image_path_set in file_paths[Category.IMAGE]:
             if image_path_set[2] == format:
                 continue
-            if image_path_set[2] in ["png", "jpg", "tiff", "tga", "eps"]:
+            if image_path_set[2] in ["png", "jpeg", "tiff", "tga", "eps"]:
                 webp_path = os.path.join(self.output, f"{image_path_set[1]}.{format}")
                 with Image.open(self._join_back(image_path_set)) as img:
                     img.convert("RGB").save(webp_path, format=format)
@@ -1078,7 +1100,7 @@ class AnyToAny:
             else:
                 # Handle unsupported file types here
                 self.event_logger.info(
-                    f"[!] Skipping {self._join_back(image_path_set)} - Unsupported format"
+                    f'[!] {lang.get_translation('skipping', self.locale)} "{self._join_back(image_path_set)}" - {lang.get_translation('unsupported_format', self.locale)}'
                 )
 
     def concat(self, file_paths: dict, format: str) -> None:
@@ -1144,7 +1166,7 @@ class AnyToAny:
                 self._post_process(
                     file_path, self.output, self.delete, show_status=(i == 0)
                 )
-        self.event_logger.info("[+] Concatenation completed")
+        self.event_logger.info(f"[+] {lang.get_translation('concat_success', self.locale)}")
 
     def merge(self, file_paths: dict, across: bool = False) -> None:
         # For movie files and equally named audio file, merge them together under same name
@@ -1216,7 +1238,7 @@ class AnyToAny:
                     self._post_process(audio_fit, merged_out_path, self.delete, show_status=False)
             
         if not found_audio:
-            self.event_logger.warning("[!] No audio files found to merge with movie files")
+            self.event_logger.warning(f"[!] {lang.get_translation('no_audio_movie_match', self.locale)}")
 
 
     def _post_process(
@@ -1229,12 +1251,12 @@ class AnyToAny:
         # Post process after conversion, print, delete source file if desired
         if show_status:
             self.event_logger.info(
-                f'[+] Converted "{self._join_back(file_path_set)}" to "{out_path}"'
+                f'[+] {lang.get_translation('converted', self.locale)} "{self._join_back(file_path_set)}" 🡢 "{out_path}"'
             )
         if delete:
             os.remove(self._join_back(file_path_set))
             self.event_logger.info(
-                f'[-] Removed "{self._join_back(file_path_set)}"'
+                f'[-] {lang.get_translation('removed', self.locale)} "{self._join_back(file_path_set)}"'
             )
 
     def _join_back(self, file_path_set: tuple) -> str:
@@ -1257,91 +1279,98 @@ if __name__ == "__main__":
     any_to_any = AnyToAny()
 
     parser = argparse.ArgumentParser(
-        description="Convert media files to different media formats"
+        description=f"{lang.get_translation('description', any_to_any.locale)}",
     )
     parser.add_argument(
         "-i",
         "--input",
         nargs="+",
-        help="Directory containing media files to be converted, Working Directory if none provided",
+        help=f"{lang.get_translation('input_help', any_to_any.locale)}",
         type=str,
         required=False,
     )
     parser.add_argument(
         "-o",
         "--output",
-        help="Directory to save files, writing to mp4 path if not provided",
+        help=f"{lang.get_translation('output_help', any_to_any.locale)}",
         type=str,
         required=False,
     )
     parser.add_argument(
         "-f",
         "--format",
-        help=f"Set the output format ({', '.join(any_to_any.supported_formats)})",
+        help=f"{lang.get_translation('format_help', any_to_any.locale)} ({', '.join(any_to_any.supported_formats)})",
         type=str,
         required=False,
     )
     parser.add_argument(
         "-m",
         "--merge",
-        help="Per movie file, merge to movie with equally named audio file",
+        help=f"{lang.get_translation('merge_help', any_to_any.locale)}",
         action="store_true",
         required=False,
     )
     parser.add_argument(
         "-c",
         "--concat",
-        help="Concatenate files of same type (img/movie/audio) back to back",
+        help=f"{lang.get_translation('concat_help', any_to_any.locale)}",
         action="store_true",
         required=False,
     )
     parser.add_argument(
         "-fps",
         "--framerate",
-        help="Set the output framerate (default: same as input)",
+        help=f"{lang.get_translation('framerate_help', any_to_any.locale)}",
         type=int,
         required=False,
     )
     parser.add_argument(
         "-q",
         "--quality",
-        help="Set the output quality (high, medium, low)",
+        help=f"{lang.get_translation('quality_help', any_to_any.locale)}",
         type=str,
         required=False,
     )
     parser.add_argument(
         "-d",
         "--delete",
-        help="Delete mp4 files after conversion",
+        help=f"{lang.get_translation('delete_help', any_to_any.locale)}",
         action="store_true",
         required=False,
     )
     parser.add_argument(
         "-w",
         "--web",
-        help="Ignores all other arguments, starts web server + frontend",
+        help=f"{lang.get_translation('web_help', any_to_any.locale)}",
         action="store_true",
         required=False,
     )
     parser.add_argument(
         "-a",
         "--across",
-        help="Execute merging or concatenation across all input directories, not per each individually",
+        help=f"{lang.get_translation('across_help', any_to_any.locale)}",
         action="store_true",
         required=False,
     )
     parser.add_argument(
         "-r",
         "--recursive",
-        help="Recursively search for files in subdirectories for input",
+        help=f"{lang.get_translation('recursive_help', any_to_any.locale)}",
         action="store_true",
         required=False,
     )
     parser.add_argument(
         "-z",
         "--dropzone",
-        help="Dropzone for files to be converted, input dir will be used, distinct output dir has to be specified",
+        help=f"{lang.get_translation('dropzone_help', any_to_any.locale)}",
         action="store_true",
+        required=False,
+    )
+    parser.add_argument(
+        "-l",
+        "--language",
+        help=f"{lang.get_translation('locale_help', any_to_any.locale)}",
+        type=str,
         required=False,
     )
 
@@ -1367,4 +1396,5 @@ if __name__ == "__main__":
             across=args["across"],
             recursive=args["recursive"],
             dropzone=args["dropzone"],
+            language=args["locale"],
         )
