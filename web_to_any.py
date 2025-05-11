@@ -2,9 +2,11 @@ import os
 import shutil
 import tempfile
 import webbrowser
+import threading
 from any_to_any import AnyToAny
-from flask import Flask, render_template, request, send_file, Response
+from flask import Flask, render_template, request, send_file, Response, jsonify, abort
 from flask_uploads import UploadSet, configure_uploads, ALL
+import time
 
 """
 Web server providing a web interface as extension to the CLI-based any_to_any.py
@@ -16,6 +18,10 @@ port = 5000
 any_to_any = AnyToAny()
 any_to_any.web_flag = True
 any_to_any.web_host = f'{"http" if host.lower() in ["127.0.0.1", "localhost"] else "https"}://{host}:{port}'
+
+# Shared progress dictionary for job tracking
+shared_progress_dict = {}
+progress_lock = threading.Lock()
 
 files = UploadSet("files", ALL)
 app.config["UPLOADED_FILES_DEST"] = "./uploads"
@@ -57,7 +63,7 @@ def process_params() -> tuple:
             filename = os.path.join(up_dir, file.filename)
             file.save(filename)
     # File format to convert to
-    return format, up_dir, cv_dir
+    return format, up_dir, cv_dir, conv_key
 
 @app.route("/")
 def index():
@@ -72,74 +78,114 @@ def send_to_backend(
     quality: str,
     merge: bool,
     concat: bool,
+    job_id: str = None,
+    shared_progress_dict: dict = None,
 ) -> None:
-    # A bit hacky, centralized point to talk to any_to_any.py backend
-    # Layed out like this and not just run(args) because we want to meddle with the args here too
-    any_to_any.run(
-        input_path_args=input_path_args,
-        format=format,
-        output=output,
-        framerate=framerate,
-        quality=quality,
-        merge=merge,
-        concat=concat,
-        delete=True,
-        across=False,
-        recursive=False,
-        dropzone=False,
-        language=None,
-    )
-    # Remove upload dir and contents therein
-    if len(input_path_args[0]) > 0:
-        shutil.rmtree(input_path_args[0])
+    try:
+        # Patch AnyToAny's prog_logger for this job
+        if job_id and shared_progress_dict is not None:
+            from modules.prog_logger import ProgLogger
+            any_to_any.prog_logger = ProgLogger(job_id=job_id, shared_progress_dict=shared_progress_dict)
+        any_to_any.run(
+            input_path_args=input_path_args,
+            format=format,
+            output=output,
+            framerate=framerate,
+            quality=quality,
+            merge=merge,
+            concat=concat,
+            delete=True,
+            across=False,
+            recursive=False,
+            dropzone=False,
+            language=None,
+        )
+    except Exception as e:
+        # Write error to progress dict for this job
+        if job_id and shared_progress_dict is not None:
+            with progress_lock:
+                shared_progress_dict[job_id] = {
+                    'progress': 0,
+                    'total': 1,
+                    'status': 'error',
+                    'error': str(e)
+                }
+        raise
+    finally:
+        # Remove upload dir and contents therein
+        if len(input_path_args[0]) > 0:
+            shutil.rmtree(input_path_args[0])
 
 @app.route("/convert", methods=["POST"])
 def convert():
-    format, up_dir, cv_dir = process_params()
-    # Convert all files uploaded to the 'uploads' directory and save it in the 'converted' directory
-    send_to_backend(
-        input_path_args=[up_dir],
-        format=format,
-        output=cv_dir,
-        framerate=None,
-        quality=None,
-        merge=None,
-        concat=None,
-    )
-    return push_zip(cv_dir)
+    format, up_dir, cv_dir, job_id = process_params()
+    # Start conversion in a thread for async progress
+    thread = threading.Thread(target=send_to_backend, kwargs={
+        'input_path_args': [up_dir],
+        'format': format,
+        'output': cv_dir,
+        'framerate': None,
+        'quality': None,
+        'merge': None,
+        'concat': None,
+        'job_id': job_id,
+        'shared_progress_dict': shared_progress_dict
+    })
+    thread.start()
+    # Return job_id so frontend can poll progress
+    return jsonify({'job_id': job_id}), 202
 
 
 @app.route("/merge", methods=["POST"])
 def merge():
-    _, up_dir, cv_dir = process_params()
-    # Merge all files in the 'uploads' directory and save it in the 'converted' directory
-    send_to_backend(
-        input_path_args=[up_dir],
-        format=None,
-        output=cv_dir,
-        framerate=None,
-        quality=None,
-        merge=True,
-        concat=None,
-    )
-    return push_zip(cv_dir)
+    _, up_dir, cv_dir, job_id = process_params()
+    thread = threading.Thread(target=send_to_backend, kwargs={
+        'input_path_args': [up_dir],
+        'format': None,
+        'output': cv_dir,
+        'framerate': None,
+        'quality': None,
+        'merge': True,
+        'concat': None,
+        'job_id': job_id,
+        'shared_progress_dict': shared_progress_dict
+    })
+    thread.start()
+    return jsonify({'job_id': job_id}), 202
 
 
 @app.route("/concat", methods=["POST"])
 def concat():
-    _, up_dir, cv_dir = process_params()
-    # Concatenation is always done with the same format, we just don't explicitly care here which format that is
-    send_to_backend(
-        input_path_args=[up_dir],
-        format=None,
-        output=cv_dir,
-        framerate=None,
-        quality=None,
-        merge=None,
-        concat=True,
-    )
-    return push_zip(cv_dir)
+    _, up_dir, cv_dir, job_id = process_params()
+    thread = threading.Thread(target=send_to_backend, kwargs={
+        'input_path_args': [up_dir],
+        'format': None,
+        'output': cv_dir,
+        'framerate': None,
+        'quality': None,
+        'merge': None,
+        'concat': True,
+        'job_id': job_id,
+        'shared_progress_dict': shared_progress_dict
+    })
+    thread.start()
+    return jsonify({'job_id': job_id}), 202
 
+
+@app.route('/progress/<job_id>', methods=['GET'])
+def get_progress(job_id):
+    with progress_lock:
+        progress = shared_progress_dict.get(job_id)
+        if not progress:
+            abort(404)
+        return jsonify(progress)
+
+@app.route('/download/<job_id>', methods=['GET'])
+def download_zip(job_id):
+    cv_dir = f'{app.config["CONVERTED_FILES_DEST"]}_{job_id}'
+    if not os.path.exists(cv_dir) or len(os.listdir(cv_dir)) == 0:
+        abort(404)
+    return push_zip(cv_dir)
 
 if __name__ == "__main__":
     webbrowser.open(any_to_any.web_host)

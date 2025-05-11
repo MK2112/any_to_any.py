@@ -42,7 +42,13 @@
                     <button title="Merge Movie Data With The Audio Track Of An Equally Named Audio File" type="button" onclick="submitForm('/merge')">Merge</button>
                     <button title="Glue Files Of Same Type Together, Back To Back, In Above Displayed Order" type="button" onclick="submitForm('/concat')">Concatenate</button>
                 </div>
-            </form>                    
+            </form>
+            <div id="progress-container" style="display: none; margin-top: 1em;">
+                <div id="progress-bar" style="height: 24px; width: 0; background: #5cb050; transition: width 0.3s;"></div>
+                <span id="progress-status"></span>
+            </div>
+            <div id="error-message" style="display: none; color: #f44336; margin-top: 1em;"></div>
+            <input type="hidden" id="job-id" name="job-id" value="">
         </main>
     </div>
     <div class="loader" id="loader"></div>
