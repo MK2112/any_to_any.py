@@ -3,53 +3,131 @@ let uploadedFiles = [];
 
 function submitForm(endpoint) {
     const conversionType = document.getElementById('conversion-type').value;
-    
+    const progressContainer = document.getElementById('progress-container');
+    const progressBar = document.getElementById('progress-bar');
+    const progressStatus = document.getElementById('progress-status');
+    const errorMessage = document.getElementById('error-message');
+    const jobIdInput = document.getElementById('job-id');
+
     if (uploadedFiles.length === 0) {
         alert('No files selected!');
         return;
     }
 
+    // Reset UI for new conversion
+    progressContainer.style.display = 'none';
+    progressBar.style.width = '0';
+    progressStatus.textContent = '';
+    errorMessage.style.display = 'none';
+    errorMessage.textContent = '';
+    jobIdInput.value = '';
+
     // Build FormData from our global array
-    // Basis for formulating POST request
     const form_data = new FormData();
-    // Append each file to the FormData object
     uploadedFiles.forEach(file => form_data.append('files', file));
-    // Append the conversion type to the FormData object
     form_data.append('conversionType', conversionType);
 
-    const xhr = new XMLHttpRequest();
-    // Hand off the FormData to the server
-    xhr.open('POST', endpoint, true);
-    // loader animation for the user during processing
+    // Will leave that, shows activity before actual conversion
     showLoader();
 
-    xhr.onload = function () {
+    // Fetch from API for JSON parsing
+    fetch(endpoint, {
+        method: 'POST',
+        body: form_data
+    })
+    .then(response => {
         hideLoader();
-        // If successful, the server should return a zip file
-        // We hand that off to the browser to download
-        if (xhr.status === 200) {
-            const blob = new Blob([xhr.response], { type: 'application/octet-stream' });
-            const link = document.createElement('a');
-            link.href = window.URL.createObjectURL(blob);
-            const timestamp = new Date().toISOString().replace(/[-T:Z]/g, '');
-            link.download = `any_to_any-${timestamp}.zip`;
-            link.click();
+        if (response.status === 202) {
+            return response.json();
         } else {
-            alert('Error Uploading Files.');
+            throw new Error('Failed to start conversion.');
         }
-    };
-
-    xhr.onerror = function () {
-        hideLoader();
-        alert('Conversion Failed. Provided File May Be Corrupted/Incomplete or Upload Failed.');
-    };
-
-    xhr.responseType = 'arraybuffer';
-    xhr.send(form_data);
+    })
+    .then(data => {
+        if (!data.job_id) throw new Error('No job_id returned.');
+        jobIdInput.value = data.job_id;
+        pollProgress(data.job_id, endpoint);
+    })
+    .catch(err => {
+        errorMessage.style.display = 'block';
+        errorMessage.textContent = err.message;
+    });
 
     // Reset state
     uploadedFiles = [];
     document.getElementById('file-list').innerHTML = '';
+}
+
+function pollProgress(jobId, endpoint) {
+    const progressContainer = document.getElementById('progress-container');
+    const progressBar = document.getElementById('progress-bar');
+    const progressStatus = document.getElementById('progress-status');
+    const errorMessage = document.getElementById('error-message');
+
+    progressContainer.style.display = 'block';
+    progressBar.style.width = '0';
+    progressStatus.textContent = 'Starting...';
+    errorMessage.style.display = 'none';
+    errorMessage.textContent = '';
+
+    let lastProgress = 0;
+    let pollInterval = setInterval(() => {
+        fetch(`/progress/${jobId}`)
+            .then(resp => {
+                if (!resp.ok) throw new Error('Progress not found.');
+                return resp.json();
+            })
+            .then(data => {
+                if (data.status === 'error') {
+                    clearInterval(pollInterval);
+                    progressContainer.style.display = 'none';
+                    errorMessage.style.display = 'block';
+                    errorMessage.textContent = data.error || 'An error occurred.';
+                    return;
+                }
+                // Update progress bar
+                let percent = 0;
+                if (data.total && data.total > 0) {
+                    percent = Math.round((data.progress / data.total) * 100);
+                }
+                progressBar.style.width = percent + '%';
+                progressStatus.textContent = data.status === 'done' ? 'Finishing up...' : `Processing: ${percent}%`;
+                lastProgress = percent;
+
+                if (data.status === 'done') {
+                    clearInterval(pollInterval);
+                    progressStatus.textContent = 'Preparing download...';
+                    setTimeout(() => {
+                        fetch(`/download/${jobId}`)
+                            .then(resp => {
+                                if (!resp.ok) throw new Error('Download failed.');
+                                return resp.blob();
+                            })
+                            .then(blob => {
+                                const link = document.createElement('a');
+                                link.href = window.URL.createObjectURL(blob);
+                                const timestamp = new Date().toISOString().replace(/[-T:Z]/g, '');
+                                link.download = `any_to_any-${timestamp}.zip`;
+                                link.click();
+                                progressContainer.style.display = 'none';
+                                progressBar.style.width = '0';
+                                progressStatus.textContent = '';
+                            })
+                            .catch(err => {
+                                errorMessage.style.display = 'block';
+                                errorMessage.textContent = err.message;
+                                progressContainer.style.display = 'none';
+                            });
+                    }, 500);
+                }
+            })
+            .catch(err => {
+                clearInterval(pollInterval);
+                errorMessage.style.display = 'block';
+                errorMessage.textContent = err.message;
+                progressContainer.style.display = 'none';
+            });
+    }, 500);
 }
 
 function triggerUploadDialogue(event) {
