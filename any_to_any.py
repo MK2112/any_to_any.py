@@ -235,10 +235,6 @@ class AnyToAny:
             else:
                 self.event_logger.warning(f"[!] {lang.get_translation('error', self.locale)}: {lang.get_translation('lang_not_supported', self.locale)}")
 
-        print()
-        print(self.locale)
-        print()
-
         for _, arg in enumerate(input_path_args):
             # Custom handling of multiple input paths
             # (e.g. "-1 path1 -2 path2 -n pathn")
@@ -1396,5 +1392,5 @@ if __name__ == "__main__":
             across=args["across"],
             recursive=args["recursive"],
             dropzone=args["dropzone"],
-            language=args["locale"],
+            language=args["language"],
         )
