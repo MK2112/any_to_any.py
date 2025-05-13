@@ -2,6 +2,10 @@ import pytest
 import argparse
 from unittest import mock
 from any_to_any import AnyToAny
+from modules.category import Category
+import types
+import os
+import sys
 
 @pytest.fixture
 def instance():
