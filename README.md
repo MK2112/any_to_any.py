@@ -15,7 +15,7 @@
 
 ## Setup
 1. **Clone/Download**:
-   - Use `git clone` or download this repository
+   - Download this repository or run `git clone https://github.com/MK2112/any_to_any.py.git`
 2. **Python Version**:
    - Ensure you have Python `3.10.x` or higher installed
 3. **Install Dependencies**:
