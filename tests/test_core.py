@@ -1,6 +1,3 @@
-import pytest
-from any_to_any import AnyToAny
-from tests.test_fixtures import any_to_any_instance, test_input_folder
 from modules.category import Category
 
 def test_supported_formats(any_to_any_instance):
@@ -8,6 +5,7 @@ def test_supported_formats(any_to_any_instance):
     assert len(any_to_any_instance.supported_formats) > 0
 
 def test_audio_bitrate(any_to_any_instance):
+    # Kind of nonsensical, I know, but it is a low-level structural test anyway
     assert any_to_any_instance._audio_bitrate('mp3', 'high') == '320k'
     assert any_to_any_instance._audio_bitrate('flac', 'medium') == '320k'
     assert any_to_any_instance._audio_bitrate('ogg', 'low') == '128k'

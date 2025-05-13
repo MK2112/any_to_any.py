@@ -1,5 +1,3 @@
-import pytest
-from tests.test_fixtures import any_to_any_instance
 
 def test_logging_and_progress(any_to_any_instance, caplog):
     with caplog.at_level("INFO"):

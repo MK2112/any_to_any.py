@@ -1,7 +1,6 @@
 import pytest
 import warnings
 from any_to_any import Category
-from tests.test_fixtures import any_to_any_instance
 
 def test_to_audio_invalid_format(any_to_any_instance, tmp_path):
     invalid_file = tmp_path / "invalid_file.mp3"
@@ -17,6 +16,7 @@ def test_to_audio_invalid_format(any_to_any_instance, tmp_path):
 
 def test_to_gif_handles_invalid_file(any_to_any_instance, tmp_path):
     fake_file = tmp_path / "fake.mp3"
+    # This is funny, I like this pattern, need to suppress any rambling from ffmpeg though
     fake_file.write_bytes(b"\x00" * 128)
     with pytest.raises(Exception):
         any_to_any_instance.to_gif({'audio': [(str(tmp_path) + "/", 'fake', 'mp3')]}, 'gif')

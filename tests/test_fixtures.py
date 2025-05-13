@@ -1,15 +1,15 @@
-import sys
 import os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+import sys
 import pytest
-import tempfile
-import shutil
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from any_to_any import AnyToAny
 
 @pytest.fixture
 def temp_media_dir(tmp_path):
     media_dir = tmp_path / "media"
     media_dir.mkdir()
+    # Fake File Creation
     (media_dir / "test.mp4").write_bytes(b"\x00" * 128)
     (media_dir / "test.mp3").write_bytes(b"\x00" * 128)
     (media_dir / "test.jpg").write_bytes(b"\x00" * 128)
