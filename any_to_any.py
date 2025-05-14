@@ -630,7 +630,7 @@ class AnyToAny:
                 self._post_process(image_path_set, out_path, self.delete)
             elif image_path_set[2] == "png":
                 pngs.append(ImageClip(self._join_back(image_path_set)).set_duration(1))
-            elif image_path_set[2] == "jpeg":
+            elif image_path_set[2] == "jpeg" or image_path_set[2] == "jpg":
                 jpgs.append(ImageClip(self._join_back(image_path_set)).set_duration(1))
             elif image_path_set[2] == "bmp":
                 bmps.append(ImageClip(self._join_back(image_path_set)).set_duration(1))
@@ -1021,7 +1021,7 @@ class AnyToAny:
         for image_path_set in file_paths[Category.IMAGE]:
             if image_path_set[2] == format:
                 continue
-            if image_path_set[2] in ["png", "jpeg", "tiff", "tga", "eps"]:
+            if image_path_set[2] in ["png", "jpeg", "jpg", "tiff", "tga", "eps"]:
                 bmp_path = os.path.join(self.output, f"{image_path_set[1]}.{format}")
                 with Image.open(self._join_back(image_path_set)) as img:
                     img.convert("RGB").save(bmp_path, format=format)
@@ -1077,7 +1077,7 @@ class AnyToAny:
         for image_path_set in file_paths[Category.IMAGE]:
             if image_path_set[2] == format:
                 continue
-            if image_path_set[2] in ["png", "jpeg", "tiff", "tga", "eps"]:
+            if image_path_set[2] in ["png", "jpeg", "jpg", "tiff", "tga", "eps"]:
                 webp_path = os.path.join(self.output, f"{image_path_set[1]}.{format}")
                 with Image.open(self._join_back(image_path_set)) as img:
                     img.convert("RGB").save(webp_path, format=format)
