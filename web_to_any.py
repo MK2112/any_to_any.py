@@ -1,12 +1,11 @@
 import os
 import shutil
 import tempfile
-import webbrowser
 import threading
+import webbrowser
 from any_to_any import AnyToAny
 from flask import Flask, render_template, request, send_file, Response, jsonify, abort
 from flask_uploads import UploadSet, configure_uploads, ALL
-import time
 
 """
 Web server providing a web interface as extension to the CLI-based any_to_any.py

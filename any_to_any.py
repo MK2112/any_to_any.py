@@ -15,7 +15,7 @@ from watchdog.observers import Observer
 from modules.prog_logger import ProgLogger
 from modules.watchdog_handler import WatchDogFileHandler
 from moviepy import (AudioFileClip, VideoFileClip, VideoClip,
-                     ImageSequenceClip, ImageClip, concatenate_videoclips,
+                     ImageClip, concatenate_videoclips,
                      concatenate_audioclips, clips_array)
 
 class AnyToAny:
