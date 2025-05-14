@@ -20,7 +20,7 @@ from moviepy import (AudioFileClip, VideoFileClip, VideoClip,
 
 class AnyToAny:
     """
-    Taking an input directory of mp4 files, convert them to a multitude of formats using moviepy.
+    Taking an input directory of files, convert them to a multitude of formats.
     Interact with the script using the command line arguments defined at the bottom of this file.
     """
 
