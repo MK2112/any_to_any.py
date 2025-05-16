@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ lang_code }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -13,34 +13,38 @@
         <h1>
             <a class="static-anchor" target="_blank" href="https://github.com/mk2112/any_to_any.py">{{ title }}</a>
             <p>Web</p>
-            <a class="github-button" href="https://github.com/mk2112/any_to_any.py/fork" data-icon="octicon-repo-forked" aria-label="Fork mk2112/any_to_any.py on GitHub">Fork</a>
-            <a class="github-button" href="https://github.com/mk2112/any_to_any.py" data-icon="octicon-star" aria-label="Star mk2112/any_to_any.py on GitHub">Star</a>
+            <a class="github-button" href="https://github.com/mk2112/any_to_any.py/fork" data-icon="octicon-repo-forked" aria-label="Fork mk2112/any_to_any.py">Fork</a>
+            <a class="github-button" href="https://github.com/mk2112/any_to_any.py" data-icon="octicon-star" aria-label="Star mk2112/any_to_any.py">Star</a>
         </h1>
     </header>
     <div class="fade-in">
         <main>
             <noscript>
                 <div class="no-script">
-                    <p><code>{{ title }} Web</code> requires <code>JavaScript</code> to work as intended.</p>
-                    <p>Please enable <code>JavaScript</code> in your browser settings.</p>
+                {% if lang_code == "ar" %}
+                    <p>{{ translations['js_warn_intro'].replace("[object]", title ~ " Web") }}</p>
+                {% else %}
+                    <p><code>{{ title }} Web</code> {{ translations['js_warn_intro'] }}</p>
+                {% endif %}
+                    <p>{{ translations['js_warn_outro'] }}</p>
                 </div>
             </noscript>
             <form id="conversion-form" method="post" enctype="multipart/form-data">
                 <div id="drop-area" ondrop="drop(event)" ondragover="allowDrop(event)" onclick="triggerUploadDialogue(event)">
-                    <p>Drag and drop or click to select files</p>
+                    <p>{{ translations['drag_drop_hint'] }}</p>
                     <input type="file" name="files" id="files" multiple onchange="handleFiles(this.files, true)">
                     <ul id="file-list"></ul>
                 </div>
                 <div id="conversion-options">
-                    <label for="conversion-type">Convert to:</label>
+                    <label for="conversion-type">{{ translations['convert_to'] }}:</label>
                     <select id="conversion-type">
                         {% for option in options %}
                         <option value="{{ option }}">{{ option }}</option>
                         {% endfor %}
                     </select>
-                    <button title="Convert All Given Files To Selected Format" type="button" onclick="submitForm('/convert')">Convert</button>
-                    <button title="Merge Movie Data With The Audio Track Of An Equally Named Audio File" type="button" onclick="submitForm('/merge')">Merge</button>
-                    <button title="Glue Files Of Same Type Together, Back To Back, In Above Displayed Order" type="button" onclick="submitForm('/concat')">Concatenate</button>
+                    <button title="{{ translations['convert_web_help'] }}" type="button" onclick="submitForm('/convert')">{{ translations['convert'] }}</button>
+                    <button title="{{ translations['merge_web_help'] }}" type="button" onclick="submitForm('/merge')">{{ translations['merge'] }}</button>
+                    <button title="{{ translations['concatenate_web_help'] }}" type="button" onclick="submitForm('/concat')">{{ translations['concatenate'] }}</button>
                 </div>
             </form>
             <div id="progress-container" style="display: none; margin-top: 1em;">

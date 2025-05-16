@@ -1,3 +1,22 @@
+// Language detection and forwarding
+document.addEventListener('DOMContentLoaded', function() {
+    // Only send if not already set in session (could check via a cookie or a hidden field)
+    if (!window.sessionStorage.getItem('languageSet')) {
+        var lang = navigator.language || navigator.userLanguage;
+        fetch('/language', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({language: lang.replace('-', '_')})
+        }).then(function(response) {
+            if (response.ok) {
+                window.sessionStorage.setItem('languageSet', '1');
+                // Reload the page to apply new language if needed
+                window.location.reload();
+            }
+        });
+    }
+});
+
 // Accumulate all selected/dropped files in this array
 let uploadedFiles = [];
 

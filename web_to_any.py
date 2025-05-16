@@ -3,8 +3,9 @@ import shutil
 import tempfile
 import threading
 import webbrowser
+import modules.language_support as lang
 from any_to_any import AnyToAny
-from flask import Flask, render_template, request, send_file, Response, jsonify, abort
+from flask import Flask, render_template, request, send_file, Response, jsonify, abort, session
 from flask_uploads import UploadSet, configure_uploads, ALL
 
 """
@@ -12,6 +13,8 @@ Web server providing a web interface as extension to the CLI-based any_to_any.py
 """
 
 app = Flask(__name__, template_folder=os.path.abspath("templates"))
+app.secret_key = os.urandom(32) # Distinguish session
+
 host = "127.0.0.1"
 port = 5000
 any_to_any = AnyToAny()
@@ -66,7 +69,17 @@ def process_params() -> tuple:
 
 @app.route("/")
 def index():
-    return render_template("index.html", title="Any_To_Any.py", options=any_to_any.supported_formats)
+    lang_code = session.get('language', 'en_US')
+    language = lang.LANGUAGE_CODES[lang_code]
+    translations = lang.get_all_translations(language)
+    return render_template(
+        "index.html",
+        title="Any_To_Any.py",
+        options=any_to_any.supported_formats,
+        translations=translations,
+        lang_code=lang_code[:2],
+        supported_languages=lang.LANGUAGE_CODES
+    )
 
 
 def send_to_backend(
@@ -185,6 +198,23 @@ def download_zip(job_id):
     if not os.path.exists(cv_dir) or len(os.listdir(cv_dir)) == 0:
         abort(404)
     return push_zip(cv_dir)
+
+@app.route('/language', methods=['POST'])
+def set_language():
+    # Web interface language is set via the browser, *not* via sys language
+    # This POST helps retrieve client's language info
+    data = request.get_json()
+    lang_code = data.get('language')
+    if "_" not in lang_code:
+        for code, _ in lang.LANGUAGE_CODES.items():
+            if lang_code in code:
+                lang_code = code
+                break
+    if lang_code and lang_code in lang.LANGUAGE_CODES:
+        session['language'] = lang_code
+        language = lang.LANGUAGE_CODES[lang_code]
+        return {'success': True, 'lang_code': lang_code, 'language': language}
+    return {'success': False}, 400
 
 if __name__ == "__main__":
     webbrowser.open(any_to_any.web_host)
