@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="{{ lang_code }}">
+<html lang="{{ lang_code[:2] }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -21,7 +21,7 @@
         <main>
             <noscript>
                 <div class="no-script">
-                {% if lang_code == "ar" %}
+                {% if lang_code == "ar_SA" %}
                     <p>{{ translations['js_warn_intro'].replace("[object]", title ~ " Web") }}</p>
                 {% else %}
                     <p><code>{{ title }} Web</code> {{ translations['js_warn_intro'] }}</p>

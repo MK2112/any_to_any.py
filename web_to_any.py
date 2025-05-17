@@ -54,12 +54,10 @@ def process_params() -> tuple:
     # These are necessary because uploaded files are 'dumped' in there; Names may collide because of this, so we separate them from beginning
     up_dir: str = f'{app.config["UPLOADED_FILES_DEST"]}_{conv_key}'  # separate upload directories for each conversion session
     cv_dir: str = f'{app.config["CONVERTED_FILES_DEST"]}_{conv_key}'  # separate converted directories for each conversion session
-
-    if not os.path.exists(up_dir):
-        os.makedirs(up_dir)
-    if not os.path.exists(cv_dir):
-        os.makedirs(cv_dir)
-
+    # Create directories for uploaded and converted files
+    os.makedirs(up_dir, exist_ok=True)
+    os.makedirs(cv_dir, exist_ok=True)
+    # Save uploaded files to the upload directory
     for file in uploaded_files:
         if file:
             filename = os.path.join(up_dir, file.filename)
@@ -69,15 +67,15 @@ def process_params() -> tuple:
 
 @app.route("/")
 def index():
+    # Retrieve language from session (from browser), default to 'en_US'
     lang_code = session.get('language', 'en_US')
-    language = lang.LANGUAGE_CODES[lang_code]
-    translations = lang.get_all_translations(language)
+    translations = lang.get_all_translations(lang.LANGUAGE_CODES[lang_code])
     return render_template(
         "index.html",
         title="Any_To_Any.py",
         options=any_to_any.supported_formats,
         translations=translations,
-        lang_code=lang_code[:2],
+        lang_code=lang_code,
         supported_languages=lang.LANGUAGE_CODES
     )
 
