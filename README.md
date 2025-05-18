@@ -1,17 +1,22 @@
-# any_to_any.py - Media File Converter, Merger, Concatenator
+# any_to_any.py – Universal Media Converter
 
-- Convert between a wide range of media formats (audio, video, image, document).
-- Merge video files with separate audio files.
-- Extract audio tracks from video files.
-- Concatenate multiple files of the same type (audio, video, images).
-- Process single files, entire directories (recursively if desired), or multiple specified inputs.
-- Merge or concatenate files within individual directories or across multiple directories.
-- Offering both a user-friendly Web Interface or a flexible Command Line Interface.
-- Control output quality and video framerate during conversion.
-- Automatically monitor a "dropzone" directory for new files and process them as they are dropped.
-- Optionally delete source files upon successful processing.
+![Python](https://img.shields.io/badge/python-3.10%2B-blue)
+![License](https://img.shields.io/badge/license-MIT-red)
+![Issues](https://img.shields.io/github/issues/MK2112/any_to_any.py)
+![Last Commit](https://img.shields.io/github/last-commit/MK2112/any_to_any.py)
+![Build](https://github.com/MK2112/any_to_any.py/actions/workflows/test.yml/badge.svg)
 
 ![screenshot](./img/Any-to-Any-Web.png)
+
+- **Convert** between a wide range of media formats (audio, video, image, document)
+- **Merge** video files with separate audio files
+- **Extract** audio tracks from video files
+- **Concatenate** multiple files of the same type (audio, video, images)
+- Process single files, entire directories (recursively if desired), or multiple specified inputs
+- Merge or concatenate files within individual directories or across multiple directories
+- Offering both a **Web Interface** and a flexible **Command Line Interface**
+- Control output quality and video framerate during conversion
+- Automatically monitor a **"dropzone" directory** for new files and process them as they are dropped
 
 ## Setup
 1. **Clone/Download**:
@@ -141,7 +146,7 @@ Omitting the `-a`/`--across` parameter will execute merges or concatenations sep
 **Protocols:** HLS, DASH
 
 ## License
-This project is licensed under the MIT License.
+MIT.
 
 ## Contributions
 Contributions and feedback are welcome. Feel free to open issues or pull requests.
