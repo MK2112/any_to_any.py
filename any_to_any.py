@@ -2,6 +2,7 @@ import os
 import re
 import fitz
 import time
+import shutil
 import PyPDF2
 import logging
 import argparse
@@ -9,6 +10,7 @@ import subprocess
 import numpy as np
 import modules.language_support as lang
 from PIL import Image
+from tqdm import tqdm
 from pathlib import Path
 from modules.category import Category
 from watchdog.observers import Observer
@@ -91,7 +93,7 @@ class AnyToAny:
                 "ppm": self.to_frames,
             },
             Category.DOCUMENT: {
-                "pdf": self.to_frames,
+                "pdf": self.to_pdf,
                 "srt": self.to_subtitles,
             },
             Category.MOVIE: {
@@ -273,8 +275,8 @@ class AnyToAny:
                 )
 
         # Check if the output dir exists - Create it otherwise
-        if self.output is not None:
-            os.makedirs(self.output, exist_ok=True)
+        if self.output is not None and not os.path.exists(self.output):
+            os.makedirs(self.output)
 
         # No format means no conversion (but maybe merge || concat)
         self.target_format = format.lower() if format is not None else None
@@ -686,11 +688,23 @@ class AnyToAny:
                 clip.close()
                 self._post_process(image_path_set, out_path, self.delete)
             elif image_path_set[2] == "png":
-                pngs.append(ImageClip(self._join_back(image_path_set)).set_duration(1))
+                pngs.append(
+                    ImageClip(self._join_back(image_path_set)).with_duration(
+                        1 / 24 if self.framerate is None else 1 / self.framerate
+                    )
+                )
             elif image_path_set[2] == "jpeg" or image_path_set[2] == "jpg":
-                jpgs.append(ImageClip(self._join_back(image_path_set)).set_duration(1))
+                jpgs.append(
+                    ImageClip(self._join_back(image_path_set)).with_duration(
+                        1 / 24 if self.framerate is None else 1 / self.framerate
+                    )
+                )
             elif image_path_set[2] == "bmp":
-                bmps.append(ImageClip(self._join_back(image_path_set)).set_duration(1))
+                bmps.append(
+                    ImageClip(self._join_back(image_path_set)).with_duration(
+                        1 / 24 if self.framerate is None else 1 / self.framerate
+                    )
+                )
 
         # Pics to movie
         for pics in [pngs, jpgs, bmps]:
@@ -748,6 +762,66 @@ class AnyToAny:
 
                 self._post_process(movie_path_set, out_path, self.delete)
 
+        # Document to movie (because why the hell not)
+        for doc_path_set in file_paths[Category.DOCUMENT]:
+            if doc_path_set[2] == "pdf":
+                pdf_path = self._join_back(doc_path_set)
+                movie_path = os.path.abspath(
+                    os.path.join(self.output, f"{doc_path_set[1]}.{format}")
+                )
+                doc = fitz.open(pdf_path)
+                image_files = []
+                if not os.path.exists(os.path.join(self.output, doc_path_set[1])):
+                    try:
+                        os.makedirs(
+                            os.path.join(self.output, doc_path_set[1]), exist_ok=True
+                        )
+                    except OSError as e:
+                        self.event_logger.info(
+                            f"[!] {lang.get_translation('error', self.locale)}: {e} - {lang.get_translation('set_out_dir', self.locale)} {self.input}"
+                        )
+                        self.output = self.input
+                for i, page_num in tqdm(enumerate(range(len(doc)))):
+                    pix = doc.load_page(page_num).get_pixmap()
+                    img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                    img = img.convert("RGB")
+                    # Save each page as a separate JPEG file
+                    img.save(
+                        os.path.join(
+                            self.output,
+                            doc_path_set[1],
+                            f"{doc_path_set[1]}-{i:0{len(str(len(doc)))}}.jpeg",
+                        ),
+                        format="JPEG",
+                    )
+                    image_files.append(
+                        f"{doc_path_set[1]}-{i:0{len(str(len(doc)))}}.jpeg"
+                    )
+                doc.close()
+
+                # Convert the JPEG files to a video
+                image_files = sorted(image_files)
+                image_clips = [
+                    ImageClip(
+                        os.path.join(self.output, doc_path_set[1], img)
+                    ).with_duration(
+                        (1 / self.framerate) if self.framerate is not None else 1 / 24
+                    )
+                    for img in image_files
+                ]
+                final_clip = concatenate_videoclips(image_clips, method="compose")
+                final_clip.write_videofile(
+                    movie_path,
+                    fps=24 if self.framerate is None else self.framerate,
+                    codec=codec,
+                    logger=self.prog_logger,
+                )
+                final_clip.close()
+
+                # Remove the temporary image files
+                shutil.rmtree(os.path.join(self.output, doc_path_set[1]))
+                self._post_process(doc_path_set, movie_path, self.delete)
+
     def to_protocol(self, file_paths: dict, protocol: list) -> None:
         # Convert movie files into adaptive streaming formats HLS (.m3u8) or DASH (.mpd).
         if protocol[0] not in list(self._supported_formats[Category.PROTOCOLS].keys()):
@@ -762,7 +836,9 @@ class AnyToAny:
             current_out_dir = os.path.abspath(
                 os.path.join(self.output, f"{base_name}_{protocol[0]}")
             )
-            os.makedirs(current_out_dir, exist_ok=True)
+
+            if current_out_dir is not None and not os.path.exists(current_out_dir):
+                os.makedirs(current_out_dir)
 
             if protocol[0] == "hls":
                 renditions = [
@@ -776,10 +852,13 @@ class AnyToAny:
                 cmd = ["ffmpeg", "-y", "-i", input_file]
 
                 for i, (resolution, v_bitrate, a_bitrate) in enumerate(renditions):
-                    os.makedirs(
-                        os.path.join(current_out_dir, f"{renditions[i][0]}"),
-                        exist_ok=True,
-                    )
+                    if not os.path.exists(
+                        os.path.join(current_out_dir, f"{renditions[i][0]}")
+                    ):
+                        os.makedirs(
+                            os.path.join(current_out_dir, f"{renditions[i][0]}"),
+                            exist_ok=True,
+                        )
                     self.event_logger.info(
                         f"[+] {lang.get_translation('get_hls', self.locale)} {self._join_back(movie_path_set)}: {resolution} at {v_bitrate} video, {a_bitrate} audio"
                     )
@@ -958,6 +1037,118 @@ class AnyToAny:
                     )
                     break
 
+    def to_pdf(self, file_paths: dict, format: str) -> None:
+        # Convert GIFs to Frames using to_frames
+        # Produces a folder with gif frame for each gif
+        gifs = [
+            image_path
+            for image_path in file_paths[Category.IMAGE]
+            if image_path[2] == "gif"
+        ]
+        if len(gifs) > 0:
+            for image_path_set in gifs:
+                clip = VideoFileClip(self._join_back(image_path_set), audio=False)
+                # Calculate zero-padding width based on total number of frames
+                total_frames = int(clip.duration * clip.fps)
+                num_digits = len(str(total_frames))
+                # Create a dedicated folder for the gif to store its frames
+                if not os.path.exists(os.path.join(self.output, image_path_set[1])):
+                    os.makedirs(
+                        os.path.join(self.output, image_path_set[1]), exist_ok=True
+                    )
+                for i, frame in enumerate(
+                    clip.iter_frames(fps=clip.fps, dtype="uint8")
+                ):
+                    frame_filename = f"{image_path_set[1]}-{i:0{num_digits}d}.png"
+                    frame_path = os.path.abspath(
+                        os.path.join(self.output, image_path_set[1], frame_filename)
+                    )
+                    Image.fromarray(frame).save(frame_path, format="PNG")
+                clip.close()
+        # Convert Images to PDF
+        for image_path_set in file_paths[Category.IMAGE]:
+            # Convert image to pdf
+            pdf_path = ""
+            if image_path_set[2] != "gif":
+                doc = fitz.open()
+                img = fitz.Pixmap(self._join_back(image_path_set))
+                rect = fitz.Rect(0, 0, img.width, img.height)
+                page = doc.new_page(width=rect.width, height=rect.height)
+                page.insert_image(rect, pixmap=img)
+                pdf_path = os.path.abspath(
+                    os.path.join(self.output, f"{image_path_set[1]}.{format}")
+                )
+                doc.save(pdf_path)
+                doc.close()
+            elif image_path_set[2] == "gif":
+                # We suppose the gif was converted to frames and we have a folder of pngs
+                # All pngs shall be merged into one pdf
+                gif_frame_path = os.path.join(self.output, image_path_set[1])
+                pdf_path = os.path.abspath(
+                    os.path.join(self.output, f"{image_path_set[1]}.{format}")
+                )
+                doc = fitz.open()
+                for frame in sorted(os.listdir(gif_frame_path)):
+                    if frame.endswith(".png"):
+                        img = fitz.Pixmap(os.path.join(gif_frame_path, frame))
+                        rect = fitz.Rect(0, 0, img.width, img.height)
+                        page = doc.new_page(width=rect.width, height=rect.height)
+                        page.insert_image(rect, pixmap=img)
+                doc.save(pdf_path)
+                doc.close()
+                # Remove the gif frame folder
+                shutil.rmtree(gif_frame_path)
+            self._post_process(image_path_set, pdf_path, self.delete)
+        # Convert Movies to PDF
+        for movie_path_set in file_paths[Category.MOVIE]:
+            if self._has_visuals(movie_path_set):
+                clip = VideoFileClip(
+                    self._join_back(movie_path_set), audio=False, fps_source="tbr"
+                )
+                pdf_path = os.path.abspath(
+                    os.path.join(self.output, f"{movie_path_set[1]}.{format}")
+                )
+                num_digits = len(str(int(clip.duration * clip.fps)))
+                doc = fitz.open()
+                for i, frame in tqdm(
+                    enumerate(clip.iter_frames(fps=clip.fps, dtype="uint8")),
+                ):
+                    frame_path = os.path.abspath(
+                        os.path.join(
+                            self.output,
+                            f"{movie_path_set[1]}-temp-{i:0{num_digits}d}.png",
+                        )
+                    )
+                    Image.fromarray(frame).save(frame_path, format="PNG")
+                    img = fitz.Pixmap(frame_path)
+                    rect = fitz.Rect(0, 0, img.width, img.height)
+                    page = doc.new_page(width=rect.width, height=rect.height)
+                    page.insert_image(rect, pixmap=img)
+                    os.remove(frame_path)
+                doc.save(pdf_path)
+                doc.close()
+                clip.close()
+            self._post_process(movie_path_set, pdf_path, self.delete)
+        # Convert Documents to PDF
+        for doc_path_set in file_paths[Category.DOCUMENT]:
+            if doc_path_set[2] == "pdf":
+                # If the document is already a pdf, skip it
+                continue
+            if doc_path_set[2] == "srt":
+                # Convert srt to pdf
+                pdf_path = os.path.abspath(
+                    os.path.join(self.output, f"{doc_path_set[1]}.{format}")
+                )
+                with open(self._join_back(doc_path_set), "r") as srt_file:
+                    srt_content = srt_file.read()
+                # Insert the SRT content into the PDF
+                doc = fitz.open()
+                page = doc.new_page()
+                page.insert_text((50, 50), srt_content, fontsize=12)
+                doc.save(pdf_path)
+                doc.close()
+            self._post_process(doc_path_set, pdf_path, self.delete)
+
     def to_frames(self, file_paths: dict, format: str) -> None:
         # Converting to image frame sets
         # This works for images and movies only
@@ -967,14 +1158,14 @@ class AnyToAny:
                 continue
             if image_path_set[2] == "gif":
                 clip = VideoFileClip(self._join_back(image_path_set), audio=False)
-
                 # Calculate zero-padding width based on total number of frames
                 total_frames = int(clip.duration * clip.fps)
                 num_digits = len(str(total_frames))
-
-                # Create a dedicated folder for the gif to have its frames in
-                os.makedirs(os.path.join(self.output, image_path_set[1]), exist_ok=True)
-
+                # Create a dedicated folder for the gif to store its frames
+                if not os.path.exists(os.path.join(self.output, image_path_set[1])):
+                    os.makedirs(
+                        os.path.join(self.output, image_path_set[1]), exist_ok=True
+                    )
                 for i, frame in enumerate(
                     clip.iter_frames(fps=clip.fps, dtype="uint8")
                 ):
@@ -983,7 +1174,6 @@ class AnyToAny:
                         os.path.join(self.output, image_path_set[1], frame_filename)
                     )
                     Image.fromarray(frame).save(frame_path, format=format.upper())
-
                 clip.close()
                 self._post_process(image_path_set, self.output, self.delete)
             else:
@@ -995,17 +1185,20 @@ class AnyToAny:
                 with Image.open(self._join_back(image_path_set)) as img:
                     img.convert("RGB").save(img_path, format=format)
                 self._post_process(image_path_set, img_path, self.delete)
-
+        # Convert documents to image frames
         for doc_path_set in file_paths[Category.DOCUMENT]:
             if doc_path_set[2] == format:
                 continue
-            try:
-                os.makedirs(os.path.join(self.output, doc_path_set[1]), exist_ok=True)
-            except OSError as e:
-                self.event_logger.info(
-                    f"[!] {lang.get_translation('error', self.locale)}: {e} - {lang.get_translation('set_out_dir', self.locale)} {self.input}"
-                )
-                self.output = self.input
+            if not os.path.exists(os.path.join(self.output, doc_path_set[1])):
+                try:
+                    os.makedirs(
+                        os.path.join(self.output, doc_path_set[1]), exist_ok=True
+                    )
+                except OSError as e:
+                    self.event_logger.info(
+                        f"[!] {lang.get_translation('error', self.locale)}: {e} - {lang.get_translation('set_out_dir', self.locale)} {self.input}"
+                    )
+                    self.output = self.input
 
             if doc_path_set[2] == "pdf":
                 # Per page, convert pdf to image
@@ -1019,7 +1212,8 @@ class AnyToAny:
                 )
 
                 try:
-                    os.makedirs(os.path.dirname(img_path), exist_ok=True)
+                    if not os.path.exists(os.path.dirname(img_path)):
+                        os.makedirs(os.path.dirname(img_path), exist_ok=True)
                     self.output = os.path.dirname(img_path)
                 except OSError as e:
                     self.event_logger.info(
@@ -1050,9 +1244,10 @@ class AnyToAny:
                     self._join_back(movie_path_set), audio=False, fps_source="tbr"
                 )
                 try:
-                    os.makedirs(
-                        os.path.join(self.output, movie_path_set[1]), exist_ok=True
-                    )
+                    if not os.path.exists(os.path.join(self.output, movie_path_set[1])):
+                        os.makedirs(
+                            os.path.join(self.output, movie_path_set[1]), exist_ok=True
+                        )
                 except OSError as e:
                     self.event_logger.info(
                         f"[!] {lang.get_translation('error', self.locale)}: {e} - {lang.get_translation('set_out_dir', self.locale)} {self.input}"
@@ -1074,31 +1269,7 @@ class AnyToAny:
                 self.event_logger.info(
                     f'[!] {lang.get_translation("skipping", self.locale)} "{self._join_back(movie_path_set)}" - {lang.get_translation("audio_only_video", self.locale)}'
                 )
-
-            if format == "pdf":
-                # Merge all freshly created 1-page pdfs into one big pdf
-                pdf_out_path = os.path.join(
-                    self.output, movie_path_set[1], "merged.pdf"
-                )
-                pdfs = [
-                    os.path.join(self.output, movie_path_set[1], file)
-                    for file in os.listdir(os.path.join(self.output, movie_path_set[1]))
-                    if file.endswith("pdf")
-                ]
-                self.event_logger.info(
-                    f"[+] {lang.get_translation('merging_pdfs', self.locale).replace('[count]', str(len(pdfs))).replace('[path]', str(pdf_out_path))}"
-                )
-                pdfs.sort()
-                pdf_merger = PyPDF2.PdfMerger()
-                for pdf in pdfs:
-                    pdf_merger.append(pdf)
-                pdf_merger.write(pdf_out_path)
-                pdf_merger.close()
-                for pdf in pdfs:
-                    os.remove(pdf)
-                self._post_process(movie_path_set, pdf_out_path, self.delete)
-            else:
-                self._post_process(movie_path_set, img_path, self.delete)
+            self._post_process(movie_path_set, img_path, self.delete)
 
     def to_gif(self, file_paths: dict, format: str) -> None:
         # All images in the input directory are merged into one gif
@@ -1129,6 +1300,31 @@ class AnyToAny:
                 self.event_logger.info(
                     f'[!] {lang.get_translation("skipping", self.locale)} "{self._join_back(movie_path_set)}" - {lang.get_translation("audio_only_video", self.locale)}'
                 )
+
+        # Documents may be convertable to gifs, e.g. pdfs
+        for doc_path_set in file_paths[Category.DOCUMENT]:
+            if doc_path_set[2] == "pdf":
+                pdf_path = self._join_back(doc_path_set)
+                gif_path = os.path.abspath(
+                    os.path.join(self.output, f"{doc_path_set[1]}.{format}")
+                )
+                doc = fitz.open(pdf_path)
+                images = []
+                for page_num in range(len(doc)):
+                    pix = doc.load_page(page_num).get_pixmap()
+                    img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                    images.append(img.convert("RGB"))
+                if images:
+                    images[0].save(
+                        gif_path,
+                        save_all=True,
+                        append_images=images[1:],
+                        duration=(len(images) * 1000 // len(doc))
+                        // (12 if self.framerate is None else self.framerate),
+                        loop=0,
+                    )
+                doc.close()
+            self._post_process(doc_path_set, gif_path, self.delete)
 
     def to_bmp(self, file_paths: dict, format: str) -> None:
         # Movies are converted to bmps frame by frame
@@ -1178,6 +1374,40 @@ class AnyToAny:
                     f'[!] {lang.get_translation("skipping", self.locale)} "{self._join_back(image_path_set)}" - {lang.get_translation("unsupported_format", self.locale)}'
                 )
 
+        # Documents may be convertable to bmps, e.g. pdfs
+        for doc_path_set in file_paths[Category.DOCUMENT]:
+            if doc_path_set[2] == "pdf":
+                pdf_path = self._join_back(doc_path_set)
+                bmp_path = os.path.abspath(
+                    os.path.join(self.output, f"{doc_path_set[1]}.{format}")
+                )
+                doc = fitz.open(pdf_path)
+                if not os.path.exists(os.path.join(self.output, doc_path_set[1])):
+                    try:
+                        os.makedirs(
+                            os.path.join(self.output, doc_path_set[1]), exist_ok=True
+                        )
+                    except OSError as e:
+                        self.event_logger.info(
+                            f"[!] {lang.get_translation('error', self.locale)}: {e} - {lang.get_translation('set_out_dir', self.locale)} {self.input}"
+                        )
+                        self.output = self.input
+                for i, page_num in enumerate(range(len(doc))):
+                    pix = doc.load_page(page_num).get_pixmap()
+                    img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                    img = img.convert("RGB")
+                    # Save each page as a separate BMP file
+                    img.save(
+                        os.path.join(
+                            self.output,
+                            doc_path_set[1],
+                            f"{doc_path_set[1]}-{i:0{len(str(len(doc)))}}.{format}",
+                        ),
+                        format=format,
+                    )
+                doc.close()
+            self._post_process(doc_path_set, bmp_path, self.delete)
+
     def to_webp(self, file_paths: dict, format: str) -> None:
         # Convert frames in webp format
         # Movies are converted to webps, frame by frame
@@ -1186,15 +1416,14 @@ class AnyToAny:
                 video = VideoFileClip(
                     self._join_back(movie_path_set), audio=False, fps_source="tbr"
                 )
-                try:
-                    os.makedirs(
-                        os.path.join(self.output, movie_path_set[1]), exist_ok=True
-                    )
-                except OSError as e:
-                    self.event_logger.info(
-                        f"[!] {lang.get_translation('error', self.locale)}: {e} - {lang.get_translation('set_out_dir', self.locale)} {self.input}"
-                    )
-                    self.output = self.input
+                if not os.path.exists(os.path.join(self.output, movie_path_set[1])):
+                    try:
+                        os.makedirs(os.path.join(self.output, movie_path_set[1]))
+                    except OSError as e:
+                        self.event_logger.info(
+                            f"[!] {lang.get_translation('error', self.locale)}: {e} - {lang.get_translation('set_out_dir', self.locale)} {self.input}"
+                        )
+                        self.output = self.input
                 img_path = os.path.abspath(
                     os.path.join(
                         os.path.join(self.output, movie_path_set[1]),
@@ -1236,6 +1465,40 @@ class AnyToAny:
                 self.event_logger.info(
                     f'[!] {lang.get_translation("skipping", self.locale)} "{self._join_back(image_path_set)}" - {lang.get_translation("unsupported_format", self.locale)}'
                 )
+
+        # Documents may be convertable to bmps, e.g. pdfs
+        for doc_path_set in file_paths[Category.DOCUMENT]:
+            if doc_path_set[2] == "pdf":
+                pdf_path = self._join_back(doc_path_set)
+                bmp_path = os.path.abspath(
+                    os.path.join(self.output, f"{doc_path_set[1]}.{format}")
+                )
+                doc = fitz.open(pdf_path)
+                if not os.path.exists(os.path.join(self.output, doc_path_set[1])):
+                    try:
+                        os.makedirs(
+                            os.path.join(self.output, doc_path_set[1]), exist_ok=True
+                        )
+                    except OSError as e:
+                        self.event_logger.info(
+                            f"[!] {lang.get_translation('error', self.locale)}: {e} - {lang.get_translation('set_out_dir', self.locale)} {self.input}"
+                        )
+                        self.output = self.input
+                for i, page_num in enumerate(range(len(doc))):
+                    pix = doc.load_page(page_num).get_pixmap()
+                    img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                    img = img.convert("RGB")
+                    # Save each page as a separate BMP file
+                    img.save(
+                        os.path.join(
+                            self.output,
+                            doc_path_set[1],
+                            f"{doc_path_set[1]}-{i:0{len(str(len(doc)))}}.{format}",
+                        ),
+                        format=format,
+                    )
+                doc.close()
+            self._post_process(doc_path_set, bmp_path, self.delete)
 
     def concat(self, file_paths: dict, format: str) -> None:
         # Concatenate files of same type (img/movie/audio) back to back
@@ -1289,15 +1552,59 @@ class AnyToAny:
             gif_out_path = os.path.join(self.output, "concatenated_image.gif")
             concatenated_image = clips_array(
                 [
-                    [ImageClip(self._join_back(image_path_set)).set_duration(1)]
+                    [
+                        ImageClip(self._join_back(image_path_set)).with_duration(
+                            1 / 12 if self.framerate is None else 1 / self.framerate
+                        )
+                    ]
                     for image_path_set in file_paths[Category.IMAGE]
                 ]
             )
             concatenated_image.write_gif(
                 gif_out_path, fps=self.framerate, logger=self.prog_logger
             )
-
+        # Concatenate document files (keep respective document format)
+        if file_paths[Category.DOCUMENT] and (
+            format is None or format in self._supported_formats[Category.DOCUMENT]
+        ):
+            pdf_out_path = os.path.join(self.output, "concatenated_pdfs.pdf")
+            pdfs = sorted(
+                [
+                    doc_path_set if doc_path_set[2] == "pdf" else None
+                    for doc_path_set in file_paths[Category.DOCUMENT]
+                ],
+                key=lambda x: x[1],
+            )
+            srt_out_path = os.path.join(self.output, "concatenated_subtitles.srt")
+            srts = sorted(
+                [
+                    doc_path_set if doc_path_set[2] == "srt" else None
+                    for doc_path_set in file_paths[Category.DOCUMENT]
+                ],
+                key=lambda x: x[1],
+            )
+            if len(pdfs) > 0:
+                # Produce a single pdf file
+                doc = fitz.open()
+                for doc_path_set in pdfs:
+                    pdf_path = self._join_back(doc_path_set)
+                    pdf_document = fitz.open(pdf_path)
+                    doc.insert_pdf(pdf_document)
+                    pdf_document.close()
+                doc.save(pdf_out_path)
+                doc.close()
+            if len(srts) > 0:
+                for doc_path_set in srts:
+                    # Produce a single srt file
+                    srt_path = self._join_back(doc_path_set)
+                    with open(srt_path, "r") as srt_file:
+                        srt_content = srt_file.read()
+                    # Insert the SRT content into the PDF
+                    with open(srt_out_path, "a") as srt_file:
+                        srt_file.write(srt_content)
+                        srt_file.write("\n")
         for category in file_paths.keys():
+            # Iterate over each input category and post-process respective files
             for i, file_path in enumerate(file_paths[category]):
                 self._post_process(
                     file_path, self.output, self.delete, show_status=(i == 0)
