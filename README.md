@@ -88,6 +88,16 @@ python any_to_any.py -i /path/to/file.mp4 -f hls
 ```
 The option for `hls` creates a directory with distinct folders for stream fragments of resolutions `426x240`, `640x360`, `842x480`, `1280x720`, and `1920x1080`.
 
+If you feel like it, you can even convert an MP4 file to a PDF, that PDF to a GIF and the GIF back to MP4:
+```python
+# Create the PDF containing the movie's frames [Movie -> Document]
+python any_to_any.py -i /path/to/file.mp4 -f pdf
+# Create the GIF from your PDF [Document -> Image]
+python any_to_any.py -i /path/to/file.pdf -f gif
+# Create the MP4 from your GIF again [Image -> Movie]
+python any_to_any.py -i /path/to/file.gif -f mp4
+```
+
 ### Directory Processing
 Directory Processing is useful when you want to work with multiple files in a directory
 
@@ -116,10 +126,24 @@ Concatenate MP4 files, save to a different directory, delete source files afterw
 python any_to_any.py -i /path/to/mp4-folder -o /path/to/save/folder -c -d
 ```
 
-Setup a dropzone to monitor a directory for new files, convert them to MP3 and save them in the output directory (runs continuously, halt by pressing `CTRL+C`):
+### Dropzone Mode
+You can turn a folder on your system into a "dropzone" for files to be converted.<br>
+Once a file is dropped into the folder, it will be converted to a specified format and saved in an output directory.<br>
+The dropped, original file will be deleted after conversion.
+
+To set up a dropzone, specify:
+- The input directory with `-i`/`--input`, 
+- The output directory with `-o`/`--output`,
+- The desired format to convert to with `-f`/`--format`,
+- The `-z`/`--dropzone` parameter.
+
+For example, this sets up a dropzone to convert files to MP3, saving them in the output directory:
 ```python
-python any_to_any.py -i /path/to/dropzone -o /path/to/save/folder -f mp3 -z
+python any_to_any.py -i /path/to/dropzone -o /path/to/save_folder -f mp3 -z
 ```
+
+The script will run continuously, monitoring the input directory for new files.
+This runs continuously, halt it by pressing `CTRL+C`.
 
 ### Multi Directory/File Processing
 You can also process multiple individual files or multiple directories at once.<br>
