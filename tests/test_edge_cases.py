@@ -34,3 +34,11 @@ def test_fuzz_random_file_names(any_to_any_instance, tmp_path):
         any_to_any_instance._get_file_paths(str(tmp_path))
     except Exception as e:
         pytest.fail(f"_get_file_paths failed: {e}")
+
+def test_get_file_paths_invalid_directory_dne(any_to_any_instance):
+    with pytest.raises(FileNotFoundError):
+        any_to_any_instance._get_file_paths(input="nonexistent_directory_dne")
+
+def test_get_file_paths_invalid_input(any_to_any_instance):
+    with pytest.raises(FileNotFoundError):
+        any_to_any_instance._get_file_paths(input="invalid_input")
