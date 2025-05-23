@@ -10,3 +10,6 @@ werkzeug==3.0.1
 pypdf2==3.0.1
 pymupdf==1.24.9
 python-docx==1.1.2
+python-pptx==1.0.2
+mammoth==1.9.0
+weasyprint==65.1
