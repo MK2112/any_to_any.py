@@ -16,6 +16,7 @@ from PIL import Image
 from tqdm import tqdm
 from pathlib import Path
 from weasyprint import HTML
+from markdownify import markdownify
 from modules.category import Category
 from watchdog.observers import Observer
 from modules.prog_logger import ProgLogger
@@ -97,6 +98,7 @@ class AnyToAny:
                 "ppm": self.to_frames,
             },
             Category.DOCUMENT: {
+                "md": self.to_markdown,
                 "pdf": self.to_pdf,
                 "docx": self.to_office,
                 "pptx": self.to_office,
@@ -1088,6 +1090,46 @@ class AnyToAny:
                     )
                     Image.fromarray(frame).save(frame_path, format="PNG")
                 clip.close()
+
+    def to_markdown(self, file_paths: dict, format: str) -> None:
+        for doc_path_set in file_paths[Category.DOCUMENT]:
+            if doc_path_set[2] == "docx":
+                docx_path = self._join_back(doc_path_set)
+                # Output paths
+                output_basename = doc_path_set[1]
+                md_path = os.path.abspath(os.path.join(self.output, f"{output_basename}.{format}"))
+                image_dir = os.path.join(self.output, f"{output_basename}_images")
+                os.makedirs(image_dir, exist_ok=True)
+                # Extract images manually
+                doc = docx.Document(docx_path)
+                image_markdown = []
+                image_index = 0
+                for rel in doc.part.rels.values():
+                    if "image" in rel.reltype:
+                        image_data = rel.target_part.blob
+                        image_ext = rel.target_part.content_type.split("/")[-1]
+                        image_filename = f"{output_basename}_{image_index}.{image_ext}"
+                        image_path = os.path.join(image_dir, image_filename)
+                        with open(image_path, "wb") as img_file:
+                            img_file.write(image_data)
+                        # Use relative path for Markdown image tag
+                        rel_image_path = os.path.relpath(image_path, start=os.path.dirname(md_path))
+                        image_markdown.append(f"![Image {image_index}]({rel_image_path})\n")
+                        image_index += 1
+                # Convert DOCX to HTML
+                with open(docx_path, "rb") as docx_file:
+                    document = mammoth.convert_to_html(docx_file)
+                html_content = document.value
+                # Convert HTML to Markdown
+                markdown_text = markdownify(html_content)
+                # Append image tags at the end (or modify if you want inline)
+                # This isn't optimal, but it is present for now
+                if image_markdown:
+                    markdown_text += "\n\n---\n\n" + "\n".join(image_markdown)
+                # Write Markdown file
+                with open(md_path, 'w', encoding='utf-8') as md_file:
+                    md_file.write(markdown_text)
+                self._post_process(doc_path_set, md_path, self.delete)
 
     def to_pdf(self, file_paths: dict, format: str) -> None:
         # Convert GIFs to Frames using to_frames
