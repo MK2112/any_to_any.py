@@ -1095,12 +1095,11 @@ class AnyToAny:
         for doc_path_set in file_paths[Category.DOCUMENT]:
             if doc_path_set[2] == "docx":
                 docx_path = self._join_back(doc_path_set)
-                # Output paths
                 output_basename = doc_path_set[1]
                 md_path = os.path.abspath(os.path.join(self.output, f"{output_basename}.{format}"))
-                image_dir = os.path.join(self.output, f"{output_basename}_images")
-                os.makedirs(image_dir, exist_ok=True)
-                # Extract images manually
+                image_md_dir = os.path.join(self.output, f"{output_basename}_images")
+                os.makedirs(image_md_dir, exist_ok=True)
+                # Extract images
                 doc = docx.Document(docx_path)
                 image_markdown = []
                 image_index = 0
@@ -1109,7 +1108,7 @@ class AnyToAny:
                         image_data = rel.target_part.blob
                         image_ext = rel.target_part.content_type.split("/")[-1]
                         image_filename = f"{output_basename}_{image_index}.{image_ext}"
-                        image_path = os.path.join(image_dir, image_filename)
+                        image_path = os.path.join(image_md_dir, image_filename)
                         with open(image_path, "wb") as img_file:
                             img_file.write(image_data)
                         # Use relative path for Markdown image tag
