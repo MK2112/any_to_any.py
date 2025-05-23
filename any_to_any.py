@@ -1099,32 +1099,28 @@ class AnyToAny:
                 md_path = os.path.abspath(os.path.join(self.output, f"{output_basename}.{format}"))
                 image_md_dir = os.path.join(self.output, f"{output_basename}_images")
                 os.makedirs(image_md_dir, exist_ok=True)
-                # Extract images
-                doc = docx.Document(docx_path)
-                image_markdown = []
                 image_index = 0
-                for rel in doc.part.rels.values():
-                    if "image" in rel.reltype:
-                        image_data = rel.target_part.blob
-                        image_ext = rel.target_part.content_type.split("/")[-1]
-                        image_filename = f"{output_basename}_{image_index}.{image_ext}"
-                        image_path = os.path.join(image_md_dir, image_filename)
-                        with open(image_path, "wb") as img_file:
-                            img_file.write(image_data)
-                        # Use relative path for Markdown image tag
-                        rel_image_path = os.path.relpath(image_path, start=os.path.dirname(md_path))
-                        image_markdown.append(f"![Image {image_index}]({rel_image_path})\n")
-                        image_index += 1
-                # Convert DOCX to HTML
+                # Custom image converter for mammoth
+                def convert_image(image):
+                    nonlocal image_index
+                    extension = image.content_type.split("/")[-1]
+                    image_filename = f"{output_basename}_{image_index}.{extension}"
+                    image_path = os.path.join(image_md_dir, image_filename)
+                    with image.open() as image_bytes:
+                        buf = image_bytes.read()
+                    with open(image_path, "wb") as img_file:
+                        # Write the image to the file byte by byte
+                        # image is of type Image
+                        img_file.write(buf)
+                    image_index += 1
+                    # Return src attribute that points to the relative image path
+                    rel_image_path = os.path.abspath(image_path)
+                    return {"src": rel_image_path}
                 with open(docx_path, "rb") as docx_file:
-                    document = mammoth.convert_to_html(docx_file)
-                html_content = document.value
+                    document = mammoth.convert_to_html(docx_file, convert_image=mammoth.images.img_element(convert_image))
+                html_content = document.value  # Already a str, no need to encode
                 # Convert HTML to Markdown
                 markdown_text = markdownify(html_content)
-                # Append image tags at the end (or modify if you want inline)
-                # This isn't optimal, but it is present for now
-                if image_markdown:
-                    markdown_text += "\n\n---\n\n" + "\n".join(image_markdown)
                 # Write Markdown file
                 with open(md_path, 'w', encoding='utf-8') as md_file:
                     md_file.write(markdown_text)
