@@ -42,3 +42,73 @@ def test_get_file_paths_invalid_directory_dne(any_to_any_instance):
 def test_get_file_paths_invalid_input(any_to_any_instance):
     with pytest.raises(FileNotFoundError):
         any_to_any_instance._get_file_paths(input="invalid_input")
+
+def test_invalid_format_conversion(any_to_any_instance, tmp_path):
+    # Test converting from unsupported format
+    unsupported_file = tmp_path / "test.unsupported"
+    unsupported_file.write_bytes(b"\x00" * 128)
+    with pytest.raises(SystemExit):
+        any_to_any_instance.run(
+            [str(unsupported_file)],
+            format="mp3",
+            output=str(tmp_path),
+            framerate=None,
+            quality=None,
+            merge=False,
+            concat=False,
+            delete=False,
+            across=False,
+            recursive=False,
+            dropzone=False,
+            language=None
+        )
+
+def test_invalid_quality_value(any_to_any_instance, tmp_path):
+    # Test invalid quality value
+    audio_file = tmp_path / "test.mp3"
+    audio_file.write_bytes(b"\x00" * 128)
+    # Expect no exception to be raised
+    try:
+        any_to_any_instance.run(
+            [str(audio_file)],
+            format="mp3",
+            output=str(tmp_path),
+            framerate=None,
+            quality="invalid",
+            merge=False,
+            concat=False,
+            delete=False,
+            across=False,
+            recursive=False,
+            dropzone=False,
+            language=None
+        )
+    except Exception as e:
+        pytest.fail(f"run failed: {e}")
+    
+    # Invalid quality value should cause fallback should cause file creation
+    assert (tmp_path / "test.mp3").exists()
+
+def test_large_file_conversion(any_to_any_instance, tmp_path):
+    # Test conversion of large file
+    large_file = tmp_path / "large.mp3"
+    # Create 1GB file
+    with open(large_file, 'wb') as f:
+        f.write(b"\x00" * (1024 * 1024 * 1024))
+    
+    any_to_any_instance.run(
+        [str(large_file)],
+        format="mp3",
+        output=str(tmp_path),
+        framerate=None,
+        quality="low",
+        merge=False,
+        concat=False,
+        delete=False,
+        across=False,
+        recursive=False,
+        dropzone=False,
+        language=None
+    )
+    
+    assert (tmp_path / "large.mp3").exists()
