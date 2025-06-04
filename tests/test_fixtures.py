@@ -1,11 +1,9 @@
 import os
 import sys
 import pytest
-import tempfile
 import shutil
-
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from any_to_any import AnyToAny
+import tempfile
+from core.converter import Converter
 
 @pytest.fixture
 def temp_media_dir(tmp_path):
@@ -31,5 +29,5 @@ def test_output_folder(tmp_path):
     return test_folder
 
 @pytest.fixture
-def any_to_any_instance():
-    return AnyToAny()
+def converter_instance():
+    return Converter()
