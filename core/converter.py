@@ -19,6 +19,7 @@ from markdownify import markdownify
 from utils.category import Category
 from watchdog.observers import Observer
 from utils.prog_logger import ProgLogger
+from core.utils.file_handler import FileHandler
 from utils.watchdog_handler import WatchDogFileHandler
 from moviepy import (
     AudioFileClip,
@@ -184,6 +185,8 @@ class Converter:
         )
         self.web_host = None  # Host address for the web interface
 
+        self.file_handler = FileHandler(self.event_logger)
+
     def _end_with_msg(self, exception: Exception, msg: str) -> None:
         # Single point of exit
         if exception is not None:
@@ -307,7 +310,13 @@ class Converter:
         # Check if input paths are given
         for input_path in input_paths:
             input_path = os.path.abspath(input_path)
-            file_paths = self._get_file_paths(input_path, file_paths)
+            try:
+                file_paths = self.file_handler.get_file_paths(input_path, file_paths, self.locale, self._supported_formats)
+            except FileNotFoundError:
+                self._end_with_msg(
+                        FileNotFoundError,
+                        f"[!] {lang.get_translation('error', self.locale)}: {lang.get_translation('no_dir_exist', self.locale).replace('[dir]', f'{input_path}')}",
+                    )
             # Make self.input hold a directory
             if os.path.isfile(str(input_path)):
                 self.input = os.path.dirname(input_path)
@@ -349,7 +358,13 @@ class Converter:
                     # If the user set the recursive option, also scan every non-empty subdirectory
                     for root, _, files in os.walk(self.input):
                         # root should be a directory with >=1 file to be considered
-                        file_paths = self._get_file_paths(root, file_paths)
+                        try:
+                            file_paths = self.file_handler.get_file_paths(root, file_paths, self.locale, self._supported_formats)
+                        except FileNotFoundError:
+                            self._end_with_msg(
+                                FileNotFoundError,
+                                f"[!] {lang.get_translation('error', self.locale)}: {lang.get_translation('no_dir_exist', self.locale).replace('[dir]', f'{root}')}",
+                            )
 
             if not any(file_paths.values()):
                 if len(input_paths) > 1:
@@ -436,50 +451,6 @@ class Converter:
                 f"[!] {lang.get_translation('error', self.locale)}: {lang.get_translation('output_list', self.locale).replace('[list]', str(list(self.supported_formats)))}",
             )
 
-    def _get_file_paths(self, input: str, file_paths: dict = {}) -> dict:
-        # Get media files from input directory
-        def process_file(file_path: str) -> tuple:
-            # Dissect "path/to/file.txt" into [path/to, file, txt]
-            file_type = file_path.split(".")[-1].lower()
-            file_name = os.path.basename(file_path)
-            file_name = file_name[: file_name.rfind(".")]
-            path_to_file = os.path.dirname(file_path) + os.sep
-            return path_to_file, file_name, file_type
-
-        def schedule_file(file_info: tuple) -> None:
-            # If supported, add file to respective category schedule
-            for category in self._supported_formats.keys():
-                if file_info[2] in self._supported_formats[category]:
-                    file_paths[category].append(file_info)
-                    self.event_logger.info(
-                        f"[+] {lang.get_translation('scheduling', self.locale)}: {file_info[1]}.{file_info[2]}"
-                    )
-                    break
-
-        self.event_logger.info(
-            f"[>] {lang.get_translation('scanning', self.locale)}: {input}"
-        )
-
-        # Check if file_paths is an empty dict
-        if len(file_paths) == 0:
-            file_paths = {category: [] for category in self._supported_formats}
-
-        if input is not None and os.path.isfile(input):
-            file_info = process_file(os.path.abspath(input))
-            schedule_file(file_info)
-        else:
-            for directory in [input]:
-                if not os.path.exists(directory):
-                    self._end_with_msg(
-                        FileNotFoundError,
-                        f"[!] {lang.get_translation('error', self.locale)}: {lang.get_translation('no_dir_exist', self.locale).replace('[dir]', f'{directory}')}",
-                    )
-            for file_name in os.listdir(input):
-                file_path = os.path.abspath(os.path.join(input, file_name))
-                file_info = process_file(file_path)
-                schedule_file(file_info)
-        return file_paths
-
     def watchdropzone(self, watch_path: str) -> None:
         # Watch a folder for new media files, process each as it arrives.
         watchdog_any = Converter()
@@ -511,21 +482,13 @@ class Converter:
             observer.stop()
         observer.join()
 
-    def _has_visuals(self, file_path_set: tuple) -> bool:
-        try:
-            VideoFileClip(self._join_back(file_path_set)).iter_frames()
-            return True
-        except Exception as _:
-            pass
-        return False
-
     def to_audio(self, file_paths: dict, format: str, codec: str) -> None:
         # Convert to audio
         # Audio to audio conversion
         for audio_path_set in file_paths[Category.AUDIO]:
             if audio_path_set[2] == format:
                 continue
-            audio = AudioFileClip(self._join_back(audio_path_set))
+            audio = AudioFileClip(self.file_handler.join_back(audio_path_set))
             # If recursive, create file outright where its source was found
             if not self.recursive or self.input != self.output:
                 out_path = os.path.abspath(
@@ -564,15 +527,15 @@ class Converter:
                 os.path.join(self.output, f"{movie_path_set[1]}.{format}")
             )
 
-            if self._has_visuals(movie_path_set):
+            if self.file_handler.has_visuals(movie_path_set):
                 video = VideoFileClip(
-                    self._join_back(movie_path_set), audio=True, fps_source="tbr"
+                    self.file_handler.join_back(movie_path_set), audio=True, fps_source="tbr"
                 )
                 audio = video.audio
                 # Check if audio was found
                 if audio is None:
                     self.event_logger.info(
-                        f"[!] {lang.get_translation('no_audio', self.locale).replace('[path]', f'"{self._join_back(movie_path_set)}"')} - {lang.get_translation('skipping', self.locale)}\n"
+                        f"[!] {lang.get_translation('no_audio', self.locale).replace('[path]', f'"{self.file_handler.join_back(movie_path_set)}"')} - {lang.get_translation('skipping', self.locale)}\n"
                     )
                     video.close()
                     continue
@@ -589,7 +552,7 @@ class Converter:
             else:
                 try:
                     # AudioFileClip works for audio-only video files
-                    audio = AudioFileClip(self._join_back(movie_path_set))
+                    audio = AudioFileClip(self.file_handler.join_back(movie_path_set))
                     audio.write_audiofile(
                         out_path,
                         codec=codec,
@@ -599,7 +562,7 @@ class Converter:
                     audio.close()
                 except Exception as _:
                     self.event_logger.info(
-                        f"[!] {lang.get_translation('audio_extract_fail', self.locale).replace('[path]', f'"{self._join_back(movie_path_set)}"')} - {lang.get_translation('skipping', self.locale)}\n"
+                        f"[!] {lang.get_translation('audio_extract_fail', self.locale).replace('[path]', f'"{self.file_handler.join_back(movie_path_set)}"')} - {lang.get_translation('skipping', self.locale)}\n"
                     )
                     continue
             self._post_process(movie_path_set, out_path, self.delete)
@@ -618,9 +581,9 @@ class Converter:
                 out_path = os.path.abspath(
                     os.path.join(codec_path_set[0], f"{codec_path_set[1]}.{format}")
                 )
-            if self._has_visuals(codec_path_set):
+            if self.file_handler.has_visuals(codec_path_set):
                 video = VideoFileClip(
-                    self._join_back(codec_path_set), audio=True, fps_source="tbr"
+                    self.file_handler.join_back(codec_path_set), audio=True, fps_source="tbr"
                 )
                 try:
                     video.write_videofile(
@@ -647,7 +610,7 @@ class Converter:
                 video.close()
             else:
                 # Audio-only video file
-                audio = AudioFileClip(self._join_back(codec_path_set))
+                audio = AudioFileClip(self.file_handler.join_back(codec_path_set))
                 # Create new VideoClip with audio only
                 clip = VideoClip(
                     lambda t: np.zeros(
@@ -673,7 +636,7 @@ class Converter:
         for image_path_set in file_paths[Category.IMAGE]:
             # Depending on the format, different fragmentation is required
             if image_path_set[2] == "gif":
-                clip = VideoFileClip(self._join_back(image_path_set), audio=False)
+                clip = VideoFileClip(self.file_handler.join_back(image_path_set), audio=False)
                 # If recursive, create file outright where its source was found
                 if not self.recursive or self.input != self.output:
                     out_path = os.path.abspath(
@@ -694,19 +657,19 @@ class Converter:
                 self._post_process(image_path_set, out_path, self.delete)
             elif image_path_set[2] == "png":
                 pngs.append(
-                    ImageClip(self._join_back(image_path_set)).with_duration(
+                    ImageClip(self.file_handler.join_back(image_path_set)).with_duration(
                         1 / 24 if self.framerate is None else 1 / self.framerate
                     )
                 )
             elif image_path_set[2] == "jpeg" or image_path_set[2] == "jpg":
                 jpgs.append(
-                    ImageClip(self._join_back(image_path_set)).with_duration(
+                    ImageClip(self.file_handler.join_back(image_path_set)).with_duration(
                         1 / 24 if self.framerate is None else 1 / self.framerate
                     )
                 )
             elif image_path_set[2] == "bmp":
                 bmps.append(
-                    ImageClip(self._join_back(image_path_set)).with_duration(
+                    ImageClip(self.file_handler.join_back(image_path_set)).with_duration(
                         1 / 24 if self.framerate is None else 1 / self.framerate
                     )
                 )
@@ -732,9 +695,9 @@ class Converter:
                 out_path = os.path.abspath(
                     os.path.join(self.output, f"{movie_path_set[1]}.{format}")
                 )
-                if self._has_visuals(movie_path_set):
+                if self.file_handler.has_visuals(movie_path_set):
                     video = VideoFileClip(
-                        self._join_back(movie_path_set), audio=True, fps_source="tbr"
+                        self.file_handler.join_back(movie_path_set), audio=True, fps_source="tbr"
                     )
                     video.write_videofile(
                         out_path,
@@ -746,7 +709,7 @@ class Converter:
                     video.close()
                 else:
                     # Audio-only video file
-                    audio = AudioFileClip(self._join_back(movie_path_set))
+                    audio = AudioFileClip(self.file_handler.join_back(movie_path_set))
                     # Create new VideoClip with audio only
                     clip = VideoClip(
                         lambda t: np.zeros(
@@ -790,7 +753,7 @@ class Converter:
                     final_clip.close()
                     self._post_process(image_path_set, out_path, self.delete)
             if doc_path_set[2] == "pdf":
-                pdf_path = self._join_back(doc_path_set)
+                pdf_path = self.file_handler.join_back(doc_path_set)
                 movie_path = os.path.abspath(
                     os.path.join(self.output, f"{doc_path_set[1]}.{format}")
                 )
@@ -856,7 +819,7 @@ class Converter:
             )
 
         for movie_path_set in file_paths[Category.MOVIE]:
-            input_file = os.path.abspath(self._join_back(movie_path_set))
+            input_file = os.path.abspath(self.file_handler.join_back(movie_path_set))
             base_name = os.path.splitext(movie_path_set[-1])[0]
             current_out_dir = os.path.abspath(
                 os.path.join(self.output, f"{base_name}_{protocol[0]}")
@@ -885,7 +848,7 @@ class Converter:
                             exist_ok=True,
                         )
                     self.event_logger.info(
-                        f"[+] {lang.get_translation('get_hls', self.locale)} {self._join_back(movie_path_set)}: {resolution} at {v_bitrate} video, {a_bitrate} audio"
+                        f"[+] {lang.get_translation('get_hls', self.locale)} {self.file_handler.join_back(movie_path_set)}: {resolution} at {v_bitrate} video, {a_bitrate} audio"
                     )
                     stream = [
                         "-map",
@@ -919,7 +882,7 @@ class Converter:
                     cmd += stream
                     variant_playlist += f"#EXT-X-STREAM-INF:BANDWIDTH={int(v_bitrate[:-1]) * 1000},RESOLUTION={resolution}\n{i}.m3u8\n"
                 self.event_logger.info(
-                    f"[+] {lang.get_translation('get_hls_master', self.locale)} {self._join_back(movie_path_set)}"
+                    f"[+] {lang.get_translation('get_hls_master', self.locale)} {self.file_handler.join_back(movie_path_set)}"
                 )
                 master_playlist_path = os.path.join(current_out_dir, "master.m3u8")
 
@@ -936,7 +899,7 @@ class Converter:
                     )
             elif protocol[0] == "dash":
                 self.event_logger.info(
-                    f"[+] {lang.get_translation('create_dash', self.locale)} {self._join_back(movie_path_set)}"
+                    f"[+] {lang.get_translation('create_dash', self.locale)} {self.file_handler.join_back(movie_path_set)}"
                 )
                 out_path = os.path.join(current_out_dir, "manifest.mpd")
                 cmd = [
@@ -998,7 +961,7 @@ class Converter:
 
     def to_subtitles(self, file_paths: dict, format: str) -> None:
         for movie_path_set in file_paths[Category.MOVIE]:
-            input_path = self._join_back(movie_path_set)
+            input_path = self.file_handler.join_back(movie_path_set)
             out_path = os.path.abspath(
                 os.path.join(self.output, f"{movie_path_set[1]}.srt")
             )
@@ -1071,7 +1034,7 @@ class Converter:
         ]
         if len(gifs) > 0:
             for image_path_set in gifs:
-                clip = VideoFileClip(self._join_back(image_path_set), audio=False)
+                clip = VideoFileClip(self.file_handler.join_back(image_path_set), audio=False)
                 # Calculate zero-padding width based on total number of frames
                 total_frames = int(clip.duration * clip.fps)
                 num_digits = len(str(total_frames))
@@ -1093,7 +1056,7 @@ class Converter:
     def to_markdown(self, file_paths: dict, format: str) -> None:
         for doc_path_set in file_paths[Category.DOCUMENT]:
             if doc_path_set[2] == "docx":
-                docx_path = self._join_back(doc_path_set)
+                docx_path = self.file_handler.join_back(doc_path_set)
                 output_basename = doc_path_set[1]
                 md_path = os.path.abspath(os.path.join(self.output, f"{output_basename}.{format}"))
                 image_md_dir = os.path.join(self.output, f"{output_basename}_images")
@@ -1135,7 +1098,7 @@ class Converter:
             pdf_path = ""
             if image_path_set[2] != "gif":
                 doc = fitz.open()
-                img = fitz.Pixmap(self._join_back(image_path_set))
+                img = fitz.Pixmap(self.file_handler.join_back(image_path_set))
                 rect = fitz.Rect(0, 0, img.width, img.height)
                 page = doc.new_page(width=rect.width, height=rect.height)
                 page.insert_image(rect, pixmap=img)
@@ -1166,9 +1129,9 @@ class Converter:
                 self._post_process(image_path_set, pdf_path, self.delete)
         # Convert Movies to PDF
         for movie_path_set in file_paths[Category.MOVIE]:
-            if self._has_visuals(movie_path_set):
+            if self.file_handler.has_visuals(movie_path_set):
                 clip = VideoFileClip(
-                    self._join_back(movie_path_set), audio=False, fps_source="tbr"
+                    self.file_handler.join_back(movie_path_set), audio=False, fps_source="tbr"
                 )
                 pdf_path = os.path.abspath(
                     os.path.join(self.output, f"{movie_path_set[1]}.{format}")
@@ -1204,7 +1167,7 @@ class Converter:
                 pdf_path = os.path.abspath(
                     os.path.join(self.output, f"{doc_path_set[1]}.{format}")
                 )
-                with open(self._join_back(doc_path_set), "r") as srt_file:
+                with open(self.file_handler.join_back(doc_path_set), "r") as srt_file:
                     srt_content = srt_file.read()
                 # Insert the SRT content into the PDF
                 doc = fitz.open()
@@ -1215,7 +1178,7 @@ class Converter:
                 self._post_process(doc_path_set, pdf_path, self.delete)
             elif doc_path_set[2] == "docx":
                 pdf_path = os.path.abspath(os.path.join(self.output, f"{doc_path_set[1]}.{format}"))
-                docx_doc = open(self._join_back(doc_path_set), 'rb')
+                docx_doc = open(self.file_handler.join_back(doc_path_set), 'rb')
                 # Convert docx to HTML as intermediary
                 document = mammoth.convert_to_html(docx_doc)
                 docx_doc.close()
@@ -1267,19 +1230,19 @@ class Converter:
                 shutil.rmtree(frame_dir)
             else:
                 page = _add_page(container)
-                _place_img(page, self._join_back(image_path_set), full_page=True)
+                _place_img(page, self.file_handler.join_back(image_path_set), full_page=True)
                 if format == "docx":
                     page.add_paragraph(f"Image: {image_path_set[1]}")
             container.save(out_path)
             self._post_process(image_path_set, out_path, self.delete)
 
         for movie_path_set in file_paths[Category.MOVIE]:
-            if not self._has_visuals(movie_path_set):
+            if not self.file_handler.has_visuals(movie_path_set):
                 continue
 
             out_path = os.path.abspath(os.path.join(self.output, f"{movie_path_set[1]}.{format}"))
             container = _new_container()
-            clip = VideoFileClip(self._join_back(movie_path_set), audio=False, fps_source="tbr")
+            clip = VideoFileClip(self.file_handler.join_back(movie_path_set), audio=False, fps_source="tbr")
             digits = len(str(int(clip.duration * clip.fps)))
 
             for idx, frame in tqdm(enumerate(clip.iter_frames(fps=clip.fps, dtype="uint8"))):
@@ -1305,7 +1268,7 @@ class Converter:
                 doc = docx.Document()
 
                 if document_path_set[2] == "pptx":
-                    pptx_path = self._join_back(document_path_set)
+                    pptx_path = self.file_handler.join_back(document_path_set)
                     presentation = pptx.Presentation(pptx_path)
                     for slide in tqdm(presentation.slides, desc=f"{document_path_set[1]}"):
                         if slide.shapes.title.text != "":
@@ -1325,7 +1288,7 @@ class Converter:
                                     doc.add_paragraph(f"Slide {slide.slide_id} Text: {shape.text}")
                         doc.add_page_break()
                 elif document_path_set[2] == "pdf":                     
-                    pdf = fitz.open(self._join_back(document_path_set))
+                    pdf = fitz.open(self.file_handler.join_back(document_path_set))
                     for pnum in tqdm(range(len(pdf))):
                         page = pdf.load_page(pnum)
                         txt = page.get_text().strip()
@@ -1349,7 +1312,6 @@ class Converter:
                 doc.save(out_path)
                 self._post_process(document_path_set, out_path, self.delete)
 
-
     def to_frames(self, file_paths: dict, format: str) -> None:
         # Converting to image frame sets
         # This works for images and movies only
@@ -1367,7 +1329,7 @@ class Converter:
                 img_path = os.path.abspath(
                     os.path.join(self.output, f"{image_path_set[1]}.{format}")
                 )
-                with Image.open(self._join_back(image_path_set)) as img:
+                with Image.open(self.file_handler.join_back(image_path_set)) as img:
                     img.convert("RGB").save(img_path, format=format)
                 self._post_process(image_path_set, img_path, self.delete)
         # Convert documents to image frames
@@ -1389,7 +1351,7 @@ class Converter:
                 self._office_to_frames(doc_path_set, format)              
             if doc_path_set[2] == "pdf":
                 # Per page, convert pdf to image
-                pdf_path = self._join_back(doc_path_set)
+                pdf_path = self.file_handler.join_back(doc_path_set)
                 pdf = PyPDF2.PdfReader(pdf_path)
                 img_path = os.path.abspath(
                     os.path.join(
@@ -1426,9 +1388,9 @@ class Converter:
                     f"[!] {lang.get_translation('movie_format_unsupported', self.locale)} {movie_path_set[2]} - {lang.get_translation('skipping', self.locale)}"
                 )
                 continue
-            if self._has_visuals(movie_path_set):
+            if self.file_handler.has_visuals(movie_path_set):
                 video = VideoFileClip(
-                    self._join_back(movie_path_set), audio=False, fps_source="tbr"
+                    self.file_handler.join_back(movie_path_set), audio=False, fps_source="tbr"
                 )
                 try:
                     if not os.path.exists(os.path.join(self.output, movie_path_set[1])):
@@ -1454,7 +1416,7 @@ class Converter:
                 self._post_process(movie_path_set, img_path, self.delete)
             else:
                 self.event_logger.info(
-                    f'[!] {lang.get_translation("skipping", self.locale)} "{self._join_back(movie_path_set)}" - {lang.get_translation("audio_only_video", self.locale)}'
+                    f'[!] {lang.get_translation("skipping", self.locale)} "{self.file_handler.join_back(movie_path_set)}" - {lang.get_translation("audio_only_video", self.locale)}'
                 )
                 self._post_process(movie_path_set, img_path, self.delete)
 
@@ -1465,7 +1427,7 @@ class Converter:
             for image_path_set in file_paths[Category.IMAGE]:
                 if image_path_set[2] == format:
                     continue
-                with Image.open(self._join_back(image_path_set)) as image:
+                with Image.open(self.file_handler.join_back(image_path_set)) as image:
                     images.append(image.convert("RGB"))
             images[0].save(
                 os.path.join(self.output, f"merged.{format}"),
@@ -1475,9 +1437,9 @@ class Converter:
 
         # Movies are converted to gifs as well, retaining 1/3 of the frames
         for movie_path_set in file_paths[Category.MOVIE]:
-            if self._has_visuals(movie_path_set):
+            if self.file_handler.has_visuals(movie_path_set):
                 video = VideoFileClip(
-                    self._join_back(movie_path_set), audio=False, fps_source="tbr"
+                    self.file_handler.join_back(movie_path_set), audio=False, fps_source="tbr"
                 )
                 gif_path = os.path.join(self.output, f"{movie_path_set[1]}.{format}")
                 video.write_gif(gif_path, fps=video.fps // 3, logger=self.prog_logger)
@@ -1485,13 +1447,12 @@ class Converter:
                 self._post_process(movie_path_set, gif_path, self.delete)
             else:
                 self.event_logger.info(
-                    f'[!] {lang.get_translation("skipping", self.locale)} "{self._join_back(movie_path_set)}" - {lang.get_translation("audio_only_video", self.locale)}'
+                    f'[!] {lang.get_translation("skipping", self.locale)} "{self.file_handler.join_back(movie_path_set)}" - {lang.get_translation("audio_only_video", self.locale)}'
                 )
-
         # Documents may be convertable to gifs, e.g. pdfs
         for doc_path_set in file_paths[Category.DOCUMENT]:
             if doc_path_set[2] == "pdf":
-                pdf_path = self._join_back(doc_path_set)
+                pdf_path = self.file_handler.join_back(doc_path_set)
                 gif_path = os.path.abspath(
                     os.path.join(self.output, f"{doc_path_set[1]}.{format}")
                 )
@@ -1513,7 +1474,7 @@ class Converter:
                 doc.close()
                 self._post_process(doc_path_set, gif_path, self.delete)
             elif doc_path_set[2] in ["docx", "pptx"]:
-                input_path = self._join_back(doc_path_set)
+                input_path = self.file_handler.join_back(doc_path_set)
                 gif_path = os.path.abspath(os.path.join(self.output, f"{doc_path_set[1]}.{format}"))
                 images = []
                 if doc_path_set[2] == "docx":
@@ -1545,7 +1506,7 @@ class Converter:
                 self._post_process(doc_path_set, gif_path, self.delete)
 
     def _office_to_frames(self, doc_path_set: tuple, format: str) -> None:
-        full_path = self._join_back(doc_path_set)
+        full_path = self.file_handler.join_back(doc_path_set)
         output_dir = os.path.join(self.output, doc_path_set[1])
         os.makedirs(output_dir, exist_ok=True)
         try:
@@ -1577,9 +1538,9 @@ class Converter:
     def to_bmp(self, file_paths: dict, format: str) -> None:
         for movie_path_set in file_paths[Category.MOVIE]:
             # Movies are converted to bmps frame by frame
-            if self._has_visuals(movie_path_set):
+            if self.file_handler.has_visuals(movie_path_set):
                 video = VideoFileClip(
-                    self._join_back(movie_path_set), audio=False, fps_source="tbr"
+                    self.file_handler.join_back(movie_path_set), audio=False, fps_source="tbr"
                 )
                 bmp_path = os.path.join(self.output, f"{movie_path_set[1]}.{format}")
                 # Split video into individual bmp frame images at original framerate
@@ -1590,7 +1551,7 @@ class Converter:
                 self._post_process(movie_path_set, bmp_path, self.delete)
             else:
                 self.event_logger.info(
-                    f'[!] {lang.get_translation("skipping", self.locale)} "{self._join_back(movie_path_set)}" - {lang.get_translation("audio_only_video", self.locale)}'
+                    f'[!] {lang.get_translation("skipping", self.locale)} "{self.file_handler.join_back(movie_path_set)}" - {lang.get_translation("audio_only_video", self.locale)}'
                 )
         for image_path_set in file_paths[Category.IMAGE]:
             # Pngs and gifs are converted to bmps as well
@@ -1598,10 +1559,11 @@ class Converter:
                 continue
             if image_path_set[2] in ["png", "jpeg", "jpg", "tiff", "tga", "eps"]:
                 bmp_path = os.path.join(self.output, f"{image_path_set[1]}.{format}")
-                with Image.open(self._join_back(image_path_set)) as img:
+                with Image.open(self.file_handler.join_back(image_path_set)) as img:
                     img.convert("RGB").save(bmp_path, format=format)
+                self._post_process(image_path_set, bmp_path, self.delete)
             elif image_path_set[2] == "gif":
-                clip = VideoFileClip(self._join_back(image_path_set))
+                clip = VideoFileClip(self.file_handler.join_back(image_path_set))
                 for _, frame in enumerate(
                     clip.iter_frames(fps=clip.fps, dtype="uint8")
                 ):
@@ -1612,17 +1574,18 @@ class Converter:
                     Image.fromarray(frame).convert("RGB").save(
                         frame_path, format=format
                     )
+                self._post_process(image_path_set, frame_path, self.delete)
             else:
                 # Handle unsupported file types here
                 self.event_logger.info(
-                    f'[!] {lang.get_translation("skipping", self.locale)} "{self._join_back(image_path_set)}" - {lang.get_translation("unsupported_format", self.locale)}'
+                    f'[!] {lang.get_translation("skipping", self.locale)} "{self.file_handler.join_back(image_path_set)}" - {lang.get_translation("unsupported_format", self.locale)}'
                 )
         # Documents can sometimes be converted to bmp, e.g. contents of docx, pdf
         for doc_path_set in file_paths[Category.DOCUMENT]:
             if doc_path_set[2] == "docx":
                 self._office_to_frames(doc_path_set, format)
             if doc_path_set[2] == "pdf":
-                pdf_path = self._join_back(doc_path_set)
+                pdf_path = self.file_handler.join_back(doc_path_set)
                 bmp_path = os.path.abspath(
                     os.path.join(self.output, f"{doc_path_set[1]}.{format}")
                 )
@@ -1657,9 +1620,9 @@ class Converter:
         # Convert frames in webp format
         # Movies are converted to webps, frame by frame
         for movie_path_set in file_paths[Category.MOVIE]:
-            if self._has_visuals(movie_path_set):
+            if self.file_handler.has_visuals(movie_path_set):
                 video = VideoFileClip(
-                    self._join_back(movie_path_set), audio=False, fps_source="tbr"
+                    self.file_handler.join_back(movie_path_set), audio=False, fps_source="tbr"
                 )
                 if not os.path.exists(os.path.join(self.output, movie_path_set[1])):
                     try:
@@ -1682,7 +1645,7 @@ class Converter:
                 self._post_process(movie_path_set, img_path, self.delete)
             else:
                 self.event_logger.info(
-                    f'[!] {lang.get_translation("skipping", self.locale)} "{self._join_back(movie_path_set)}" - {lang.get_translation("audio_only_video", self.locale)}'
+                    f'[!] {lang.get_translation("skipping", self.locale)} "{self.file_handler.join_back(movie_path_set)}" - {lang.get_translation("audio_only_video", self.locale)}'
                 )
 
         # Pngs and gifs are converted to webps as well
@@ -1691,11 +1654,11 @@ class Converter:
                 continue
             if image_path_set[2] in ["png", "jpeg", "jpg", "tiff", "tga", "eps"]:
                 webp_path = os.path.join(self.output, f"{image_path_set[1]}.{format}")
-                with Image.open(self._join_back(image_path_set)) as img:
+                with Image.open(self.file_handler.join_back(image_path_set)) as img:
                     img.convert("RGB").save(webp_path, format=format)
                 self._post_process(image_path_set, webp_path, self.delete)
             elif image_path_set[2] == "gif":
-                clip = VideoFileClip(self._join_back(image_path_set))
+                clip = VideoFileClip(self.file_handler.join_back(image_path_set))
                 for _, frame in enumerate(
                     clip.iter_frames(fps=clip.fps, dtype="uint8")
                 ):
@@ -1710,7 +1673,7 @@ class Converter:
             else:
                 # Handle unsupported file types here
                 self.event_logger.info(
-                    f'[!] {lang.get_translation("skipping", self.locale)} "{self._join_back(image_path_set)}" - {lang.get_translation("unsupported_format", self.locale)}'
+                    f'[!] {lang.get_translation("skipping", self.locale)} "{self.file_handler.join_back(image_path_set)}" - {lang.get_translation("unsupported_format", self.locale)}'
                 )
 
         # Documents may be convertable to bmps, e.g. pdfs
@@ -1718,7 +1681,7 @@ class Converter:
             if doc_path_set[2] == "docx":
                 self._office_to_frames(doc_path_set, format)
             if doc_path_set[2] == "pdf":
-                pdf_path = self._join_back(doc_path_set)
+                pdf_path = self.file_handler.join_back(doc_path_set)
                 bmp_path = os.path.abspath(
                     os.path.join(self.output, f"{doc_path_set[1]}.{format}")
                 )
@@ -1757,7 +1720,7 @@ class Converter:
         ):
             concat_audio = concatenate_audioclips(
                 [
-                    AudioFileClip(self._join_back(audio_path_set))
+                    AudioFileClip(self.file_handler.join_back(audio_path_set))
                     for audio_path_set in file_paths[Category.AUDIO]
                 ]
             )
@@ -1779,7 +1742,7 @@ class Converter:
             concat_vid = concatenate_videoclips(
                 [
                     VideoFileClip(
-                        self._join_back(movie_path_set), audio=True, fps_source="tbr"
+                        self.file_handler.join_back(movie_path_set), audio=True, fps_source="tbr"
                     )
                     for movie_path_set in file_paths[Category.MOVIE]
                 ],
@@ -1802,7 +1765,7 @@ class Converter:
             concatenated_image = clips_array(
                 [
                     [
-                        ImageClip(self._join_back(image_path_set)).with_duration(
+                        ImageClip(self.file_handler.join_back(image_path_set)).with_duration(
                             1 / 12 if self.framerate is None else 1 / self.framerate
                         )
                     ]
@@ -1836,7 +1799,7 @@ class Converter:
                 # Produce a single pdf file
                 doc = fitz.open()
                 for doc_path_set in pdfs:
-                    pdf_path = self._join_back(doc_path_set)
+                    pdf_path = self.file_handler.join_back(doc_path_set)
                     pdf_document = fitz.open(pdf_path)
                     doc.insert_pdf(pdf_document)
                     pdf_document.close()
@@ -1845,7 +1808,7 @@ class Converter:
             if len(srts) > 0:
                 for doc_path_set in srts:
                     # Produce a single srt file
-                    srt_path = self._join_back(doc_path_set)
+                    srt_path = self.file_handler.join_back(doc_path_set)
                     with open(srt_path, "r") as srt_file:
                         srt_content = srt_file.read()
                     # Insert the SRT content into the PDF
@@ -1910,8 +1873,8 @@ class Converter:
                 audio = None
                 video = None
                 try:
-                    video = VideoFileClip(self._join_back(movie_path_set))
-                    audio = AudioFileClip(self._join_back(audio_fit))
+                    video = VideoFileClip(self.file_handler.join_back(movie_path_set))
+                    audio = AudioFileClip(self.file_handler.join_back(audio_fit))
                     video = video.set_audio(audio)
                     merged_out_path = os.path.join(
                         self.output, f"{movie_path_set[1]}_merged.{movie_path_set[2]}"
@@ -1951,16 +1914,10 @@ class Converter:
         # Post process after conversion, print, delete source file if desired
         if show_status:
             self.event_logger.info(
-                f'[+] {lang.get_translation("converted", self.locale)} "{self._join_back(file_path_set)}" 🡢 "{out_path}"'
+                f'[+] {lang.get_translation("converted", self.locale)} "{self.file_handler.join_back(file_path_set)}" 🡢 "{out_path}"'
             )
         if delete:
-            os.remove(self._join_back(file_path_set))
+            os.remove(self.file_handler.join_back(file_path_set))
             self.event_logger.info(
-                f'[-] {lang.get_translation("removed", self.locale)} "{self._join_back(file_path_set)}"'
+                f'[-] {lang.get_translation("removed", self.locale)} "{self.file_handler.join_back(file_path_set)}"'
             )
-
-    def _join_back(self, file_path_set: tuple) -> str:
-        # Join back the file path set to a concurrent path
-        return os.path.abspath(
-            f"{file_path_set[0]}{file_path_set[1]}.{file_path_set[2]}"
-        )
