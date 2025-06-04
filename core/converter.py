@@ -1,7 +1,6 @@
 import os
 import re
 import fitz
-import time
 import docx
 import pptx
 import shutil
@@ -17,10 +16,9 @@ from pathlib import Path
 from weasyprint import HTML
 from markdownify import markdownify
 from utils.category import Category
-from watchdog.observers import Observer
 from utils.prog_logger import ProgLogger
 from core.utils.file_handler import FileHandler
-from utils.watchdog_handler import WatchDogFileHandler
+from core.utils.directory_watcher import DirectoryWatcher
 from moviepy import (
     AudioFileClip,
     VideoFileClip,
@@ -456,35 +454,70 @@ class Converter:
             )
 
     def watchdropzone(self, watch_path: str) -> None:
-        # Watch a folder for new media files, process each as it arrives.
-        watchdog_any = Converter()
-
-        # Setup a watchdog-specific AnyToAny instance
-        # Link it to the current instance to share settings and loggers
-        watchdog_any.target_format = self.target_format
-        watchdog_any.output = self.output
-        watchdog_any.framerate = self.framerate
-        watchdog_any.quality = self.quality
-        watchdog_any.merging = self.merging
-        watchdog_any.concatenating = self.concatenating
-        watchdog_any.delete = True
-        watchdog_any.across = False
-        watchdog_any.recursive = True
-        watchdog_any.dropzone = False  # This one is just in regular mode
-        watchdog_any.event_logger = self.event_logger
-        watchdog_any.prog_logger = self.prog_logger
-
-        event_handler = WatchDogFileHandler(watchdog_any)
-        observer = Observer()
-        observer.schedule(event_handler, watch_path, recursive=True)
-        observer.start()
-
+        """
+        Watch a directory for new files and process them automatically.
+        
+        Args:
+            watch_path: Path to the directory to watch for new files
+            
+        This method sets up a directory watcher that will automatically process
+        any new files added to the specified directory. It runs until interrupted.
+        """
+        def handle_file_event(event_type: str, file_path: str) -> None:
+            """
+            Handle file system events for the watched directory.
+            
+            Args:
+                event_type: Type of file system event ('created' or 'modified')
+                file_path: Path to the file that triggered the event
+            """
+            if event_type == 'created':
+                try:
+                    self.event_logger.info(f"[>] New file detected: {file_path}")
+                    if os.path.isfile(file_path):
+                        # Create a temporary instance with distinct settings
+                        temp_instance = self.__class__()
+                        # Configure the instance with current settings
+                        temp_instance.output = self.output
+                        temp_instance.delete = True  # Delete original files after processing
+                        temp_instance.locale = self.locale
+                        temp_instance.framerate = self.framerate
+                        temp_instance.quality = self.quality
+                        temp_instance.merging = self.merging
+                        temp_instance.concatenating = self.concatenating
+                        temp_instance.recursive = True
+                        temp_instance.event_logger = self.event_logger
+                        temp_instance.file_handler = FileHandler(self.event_logger)
+                        
+                        # Process the file
+                        file_paths = temp_instance.file_handler.get_file_paths([file_path])
+                        if file_paths:
+                            try:
+                                temp_instance.process_files(file_paths)
+                            except Exception as e:
+                                self.event_logger.error(f"Error processing {file_path}: {str(e)}")
+                except Exception as e:
+                    self.event_logger.error(f"Unexpected error handling file {file_path}: {str(e)}")
+        
         try:
-            while True:
-                time.sleep(1)  # Polling interval, adjust as needed
+            # Validate watch path
+            watch_path = os.path.abspath(watch_path)
+            if not os.path.isdir(watch_path):
+                self.event_logger.error(f"Watch path does not exist or is not a directory: {watch_path}")
+                return
+                
+            self.event_logger.info(f"[>] Starting directory watcher for: {watch_path}")
+            self.event_logger.info("[>] Press Ctrl+C to stop watching")
+            
+            # Start the directory watcher with error handling
+            with DirectoryWatcher(watch_path, handle_file_event) as watcher:
+                watcher.watch()
+                
         except KeyboardInterrupt:
-            observer.stop()
-        observer.join()
+            self.event_logger.info("\n[!] Stopping directory watcher...")
+        except Exception as e:
+            self.event_logger.error(f"Directory watcher error: {str(e)}")
+            raise
 
     def to_audio(self, file_paths: dict, format: str, codec: str) -> None:
         # Convert to audio
