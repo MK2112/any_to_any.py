@@ -3,10 +3,11 @@ import shutil
 import tempfile
 import threading
 import webbrowser
-import modules.language_support as lang
-from any_to_any import AnyToAny
-from flask import Flask, render_template, request, send_file, Response, jsonify, abort, session
+import utils.language_support as lang
+from core.converter import Converter
+from utils.prog_logger import ProgLogger
 from flask_uploads import UploadSet, configure_uploads, ALL
+from flask import Flask, render_template, request, send_file, Response, jsonify, abort, session
 
 """
 Web server providing a web interface as extension to the CLI-based any_to_any.py
@@ -17,9 +18,9 @@ app.secret_key = os.urandom(32) # Distinguish session
 
 host = "127.0.0.1"
 port = 5000
-any_to_any = AnyToAny()
-any_to_any.web_flag = True
-any_to_any.web_host = f'{"http" if host.lower() in ["127.0.0.1", "localhost"] else "https"}://{host}:{port}'
+converter = Converter()
+converter.web_flag = True
+converter.web_host = f'{"http" if host.lower() in ["127.0.0.1", "localhost"] else "https"}://{host}:{port}'
 
 # Shared progress dictionary for job tracking
 shared_progress_dict = {}
@@ -31,8 +32,8 @@ app.config["CONVERTED_FILES_DEST"] = "./converted"
 configure_uploads(app, files)
 
 with app.app_context():
-    # This is intended to help allocate memory early
-    _ = any_to_any.supported_formats
+    # Intended to help allocate memory early
+    _ = converter.supported_formats
 
 def push_zip(cv_dir: str) -> Response:
     # Check if cv_dir is empty
@@ -73,7 +74,7 @@ def index():
     return render_template(
         "index.html",
         title="Any_To_Any.py",
-        options=any_to_any.supported_formats,
+        options=converter.supported_formats,
         translations=translations,
         lang_code=lang_code,
         supported_languages=lang.LANGUAGE_CODES
@@ -94,9 +95,8 @@ def send_to_backend(
     try:
         # Patch AnyToAny's prog_logger for this job
         if job_id and shared_progress_dict is not None:
-            from modules.prog_logger import ProgLogger
-            any_to_any.prog_logger = ProgLogger(job_id=job_id, shared_progress_dict=shared_progress_dict)
-        any_to_any.run(
+            converter.prog_logger = ProgLogger(job_id=job_id, shared_progress_dict=shared_progress_dict)
+        converter.run(
             input_path_args=input_path_args,
             format=format,
             output=output,
@@ -215,5 +215,5 @@ def set_language():
     return {'success': False}, 400
 
 if __name__ == "__main__":
-    webbrowser.open(any_to_any.web_host)
+    webbrowser.open(converter.web_host)
     app.run(debug=False, host=host, port=port)
