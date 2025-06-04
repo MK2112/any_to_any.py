@@ -3,8 +3,8 @@ import logging
 from moviepy import VideoFileClip
 import utils.language_support as lang
 
-class FileHandler:
 
+class FileHandler:
     def __init__(self, event_logger: logging.Logger):
         self.event_logger = event_logger
 
@@ -22,7 +22,13 @@ class FileHandler:
             pass
         return False
 
-    def get_file_paths(self, input: str, file_paths: dict = {}, locale: str = "English", supported_formats: dict = {}) -> dict:
+    def get_file_paths(
+        self,
+        input: str,
+        file_paths: dict = {},
+        locale: str = "English",
+        supported_formats: dict = {},
+    ) -> dict:
         # Get media files from input directory
         def process_file(file_path: str) -> tuple:
             # Dissect "path/to/file.txt" into [path/to, file, txt]

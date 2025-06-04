@@ -311,12 +311,14 @@ class Converter:
         for input_path in input_paths:
             input_path = os.path.abspath(input_path)
             try:
-                file_paths = self.file_handler.get_file_paths(input_path, file_paths, self.locale, self._supported_formats)
+                file_paths = self.file_handler.get_file_paths(
+                    input_path, file_paths, self.locale, self._supported_formats
+                )
             except FileNotFoundError:
                 self._end_with_msg(
-                        FileNotFoundError,
-                        f"[!] {lang.get_translation('error', self.locale)}: {lang.get_translation('no_dir_exist', self.locale).replace('[dir]', f'{input_path}')}",
-                    )
+                    FileNotFoundError,
+                    f"[!] {lang.get_translation('error', self.locale)}: {lang.get_translation('no_dir_exist', self.locale).replace('[dir]', f'{input_path}')}",
+                )
             # Make self.input hold a directory
             if os.path.isfile(str(input_path)):
                 self.input = os.path.dirname(input_path)
@@ -359,7 +361,9 @@ class Converter:
                     for root, _, files in os.walk(self.input):
                         # root should be a directory with >=1 file to be considered
                         try:
-                            file_paths = self.file_handler.get_file_paths(root, file_paths, self.locale, self._supported_formats)
+                            file_paths = self.file_handler.get_file_paths(
+                                root, file_paths, self.locale, self._supported_formats
+                            )
                         except FileNotFoundError:
                             self._end_with_msg(
                                 FileNotFoundError,
@@ -529,7 +533,9 @@ class Converter:
 
             if self.file_handler.has_visuals(movie_path_set):
                 video = VideoFileClip(
-                    self.file_handler.join_back(movie_path_set), audio=True, fps_source="tbr"
+                    self.file_handler.join_back(movie_path_set),
+                    audio=True,
+                    fps_source="tbr",
                 )
                 audio = video.audio
                 # Check if audio was found
@@ -583,7 +589,9 @@ class Converter:
                 )
             if self.file_handler.has_visuals(codec_path_set):
                 video = VideoFileClip(
-                    self.file_handler.join_back(codec_path_set), audio=True, fps_source="tbr"
+                    self.file_handler.join_back(codec_path_set),
+                    audio=True,
+                    fps_source="tbr",
                 )
                 try:
                     video.write_videofile(
@@ -636,7 +644,9 @@ class Converter:
         for image_path_set in file_paths[Category.IMAGE]:
             # Depending on the format, different fragmentation is required
             if image_path_set[2] == "gif":
-                clip = VideoFileClip(self.file_handler.join_back(image_path_set), audio=False)
+                clip = VideoFileClip(
+                    self.file_handler.join_back(image_path_set), audio=False
+                )
                 # If recursive, create file outright where its source was found
                 if not self.recursive or self.input != self.output:
                     out_path = os.path.abspath(
@@ -657,22 +667,29 @@ class Converter:
                 self._post_process(image_path_set, out_path, self.delete)
             elif image_path_set[2] == "png":
                 pngs.append(
-                    ImageClip(self.file_handler.join_back(image_path_set)).with_duration(
+                    ImageClip(
+                        self.file_handler.join_back(image_path_set)
+                    ).with_duration(
                         1 / 24 if self.framerate is None else 1 / self.framerate
                     )
                 )
             elif image_path_set[2] == "jpeg" or image_path_set[2] == "jpg":
                 jpgs.append(
-                    ImageClip(self.file_handler.join_back(image_path_set)).with_duration(
+                    ImageClip(
+                        self.file_handler.join_back(image_path_set)
+                    ).with_duration(
                         1 / 24 if self.framerate is None else 1 / self.framerate
                     )
                 )
             elif image_path_set[2] == "bmp":
                 bmps.append(
-                    ImageClip(self.file_handler.join_back(image_path_set)).with_duration(
+                    ImageClip(
+                        self.file_handler.join_back(image_path_set)
+                    ).with_duration(
                         1 / 24 if self.framerate is None else 1 / self.framerate
                     )
                 )
+            # No _post_process here, we just accumulated for processing if not .gif
 
         # Pics to movie
         for pics in [pngs, jpgs, bmps]:
@@ -689,6 +706,7 @@ class Converter:
                 )
                 final_clip.close()
                 self._post_process(image_path_set, out_path, self.delete)
+
         # Movie to different movie
         for movie_path_set in file_paths[Category.MOVIE]:
             if not movie_path_set[2] == format:
@@ -697,7 +715,9 @@ class Converter:
                 )
                 if self.file_handler.has_visuals(movie_path_set):
                     video = VideoFileClip(
-                        self.file_handler.join_back(movie_path_set), audio=True, fps_source="tbr"
+                        self.file_handler.join_back(movie_path_set),
+                        audio=True,
+                        fps_source="tbr",
                     )
                     video.write_videofile(
                         out_path,
@@ -738,12 +758,14 @@ class Converter:
                 # This creates a folder named docx_path_set[1] in the output directory
                 # with all the images in it
                 # Now we can convert that to a movie
-                pics = [ image for image in os.listdir(doc_path_set[1]) if image.endswith(".jpeg") ]
+                pics = [
+                    image
+                    for image in os.listdir(doc_path_set[1])
+                    if image.endswith(".jpeg")
+                ]
                 if len(pics) > 0:
                     final_clip = concatenate_videoclips(pics, method="compose")
-                    out_path = os.path.abspath(
-                        os.path.join(self.output, f".{format}")
-                    )
+                    out_path = os.path.abspath(os.path.join(self.output, f".{format}"))
                     final_clip.write_videofile(
                         out_path,
                         fps=24 if self.framerate is None else self.framerate,
@@ -751,8 +773,8 @@ class Converter:
                         logger=self.prog_logger,
                     )
                     final_clip.close()
-                    self._post_process(image_path_set, out_path, self.delete)
-            if doc_path_set[2] == "pdf":
+                    self._post_process(doc_path_set, out_path, self.delete)
+            elif doc_path_set[2] == "pdf":
                 pdf_path = self.file_handler.join_back(doc_path_set)
                 movie_path = os.path.abspath(
                     os.path.join(self.output, f"{doc_path_set[1]}.{format}")
@@ -1034,7 +1056,9 @@ class Converter:
         ]
         if len(gifs) > 0:
             for image_path_set in gifs:
-                clip = VideoFileClip(self.file_handler.join_back(image_path_set), audio=False)
+                clip = VideoFileClip(
+                    self.file_handler.join_back(image_path_set), audio=False
+                )
                 # Calculate zero-padding width based on total number of frames
                 total_frames = int(clip.duration * clip.fps)
                 num_digits = len(str(total_frames))
@@ -1058,10 +1082,13 @@ class Converter:
             if doc_path_set[2] == "docx":
                 docx_path = self.file_handler.join_back(doc_path_set)
                 output_basename = doc_path_set[1]
-                md_path = os.path.abspath(os.path.join(self.output, f"{output_basename}.{format}"))
+                md_path = os.path.abspath(
+                    os.path.join(self.output, f"{output_basename}.{format}")
+                )
                 image_md_dir = os.path.join(self.output, f"{output_basename}_images")
                 os.makedirs(image_md_dir, exist_ok=True)
                 image_index = 0
+
                 # Custom image converter for mammoth
                 def convert_image(image):
                     nonlocal image_index
@@ -1078,13 +1105,17 @@ class Converter:
                     # Return src attribute that points to the relative image path
                     rel_image_path = os.path.abspath(image_path)
                     return {"src": rel_image_path}
+
                 with open(docx_path, "rb") as docx_file:
-                    document = mammoth.convert_to_html(docx_file, convert_image=mammoth.images.img_element(convert_image))
+                    document = mammoth.convert_to_html(
+                        docx_file,
+                        convert_image=mammoth.images.img_element(convert_image),
+                    )
                 html_content = document.value  # Already a str, no need to encode
                 # Convert HTML to Markdown
                 markdown_text = markdownify(html_content)
                 # Write Markdown file
-                with open(md_path, 'w', encoding='utf-8') as md_file:
+                with open(md_path, "w", encoding="utf-8") as md_file:
                     md_file.write(markdown_text)
                 self._post_process(doc_path_set, md_path, self.delete)
 
@@ -1131,7 +1162,9 @@ class Converter:
         for movie_path_set in file_paths[Category.MOVIE]:
             if self.file_handler.has_visuals(movie_path_set):
                 clip = VideoFileClip(
-                    self.file_handler.join_back(movie_path_set), audio=False, fps_source="tbr"
+                    self.file_handler.join_back(movie_path_set),
+                    audio=False,
+                    fps_source="tbr",
                 )
                 pdf_path = os.path.abspath(
                     os.path.join(self.output, f"{movie_path_set[1]}.{format}")
@@ -1177,8 +1210,10 @@ class Converter:
                 doc.close()
                 self._post_process(doc_path_set, pdf_path, self.delete)
             elif doc_path_set[2] == "docx":
-                pdf_path = os.path.abspath(os.path.join(self.output, f"{doc_path_set[1]}.{format}"))
-                docx_doc = open(self.file_handler.join_back(doc_path_set), 'rb')
+                pdf_path = os.path.abspath(
+                    os.path.join(self.output, f"{doc_path_set[1]}.{format}")
+                )
+                docx_doc = open(self.file_handler.join_back(doc_path_set), "rb")
                 # Convert docx to HTML as intermediary
                 document = mammoth.convert_to_html(docx_doc)
                 docx_doc.close()
@@ -1187,13 +1222,16 @@ class Converter:
                 self._post_process(doc_path_set, pdf_path, self.delete)
 
     def to_office(self, file_paths: dict, format: str) -> None:
-
         def _new_container():
             return pptx.Presentation() if format == "pptx" else docx.Document()
 
         def _add_page(container):
-            return container.slides.add_slide(container.slide_layouts[5]) if format == "pptx" else container
-        
+            return (
+                container.slides.add_slide(container.slide_layouts[5])
+                if format == "pptx"
+                else container
+            )
+
         def _place_img(page, img_path, full_page=False):
             with Image.open(img_path) as im:
                 w, h = im.size
@@ -1215,7 +1253,9 @@ class Converter:
         self._gifs_to_frames(file_paths)
 
         for image_path_set in file_paths[Category.IMAGE]:
-            out_path = os.path.abspath(os.path.join(self.output, f"{image_path_set[1]}.{format}"))
+            out_path = os.path.abspath(
+                os.path.join(self.output, f"{image_path_set[1]}.{format}")
+            )
             container = _new_container()
             if image_path_set[2] == "gif":
                 frame_dir = os.path.join(self.output, image_path_set[1])
@@ -1230,7 +1270,9 @@ class Converter:
                 shutil.rmtree(frame_dir)
             else:
                 page = _add_page(container)
-                _place_img(page, self.file_handler.join_back(image_path_set), full_page=True)
+                _place_img(
+                    page, self.file_handler.join_back(image_path_set), full_page=True
+                )
                 if format == "docx":
                     page.add_paragraph(f"Image: {image_path_set[1]}")
             container.save(out_path)
@@ -1240,13 +1282,23 @@ class Converter:
             if not self.file_handler.has_visuals(movie_path_set):
                 continue
 
-            out_path = os.path.abspath(os.path.join(self.output, f"{movie_path_set[1]}.{format}"))
+            out_path = os.path.abspath(
+                os.path.join(self.output, f"{movie_path_set[1]}.{format}")
+            )
             container = _new_container()
-            clip = VideoFileClip(self.file_handler.join_back(movie_path_set), audio=False, fps_source="tbr")
+            clip = VideoFileClip(
+                self.file_handler.join_back(movie_path_set),
+                audio=False,
+                fps_source="tbr",
+            )
             digits = len(str(int(clip.duration * clip.fps)))
 
-            for idx, frame in tqdm(enumerate(clip.iter_frames(fps=clip.fps, dtype="uint8"))):
-                frame_png = os.path.join(self.output, f"{movie_path_set[1]}-temp-{idx:0{digits}d}.png")
+            for idx, frame in tqdm(
+                enumerate(clip.iter_frames(fps=clip.fps, dtype="uint8"))
+            ):
+                frame_png = os.path.join(
+                    self.output, f"{movie_path_set[1]}-temp-{idx:0{digits}d}.png"
+                )
                 Image.fromarray(frame).save(frame_png, format="PNG")
                 page = _add_page(container)
                 _place_img(page, frame_png, full_page=format == "pptx")
@@ -1264,20 +1316,29 @@ class Converter:
                 if document_path_set[2] == format:
                     continue
 
-                out_path = os.path.abspath(os.path.join(self.output, f"{document_path_set[1]}.docx"))
+                out_path = os.path.abspath(
+                    os.path.join(self.output, f"{document_path_set[1]}.docx")
+                )
                 doc = docx.Document()
 
                 if document_path_set[2] == "pptx":
                     pptx_path = self.file_handler.join_back(document_path_set)
                     presentation = pptx.Presentation(pptx_path)
-                    for slide in tqdm(presentation.slides, desc=f"{document_path_set[1]}"):
+                    for slide in tqdm(
+                        presentation.slides, desc=f"{document_path_set[1]}"
+                    ):
                         if slide.shapes.title.text != "":
                             # Add title to the document
-                            doc.add_paragraph(f"Slide {slide.slide_id} Title: {slide.shapes.title.text}")
+                            doc.add_paragraph(
+                                f"Slide {slide.slide_id} Title: {slide.shapes.title.text}"
+                            )
                         for shape in slide.shapes:
                             if hasattr(shape, "image"):
                                 img = shape.image
-                                slide_img = os.path.join(self.output, f"{document_path_set[1]}-slide{slide.slide_id}.{img.ext}")
+                                slide_img = os.path.join(
+                                    self.output,
+                                    f"{document_path_set[1]}-slide{slide.slide_id}.{img.ext}",
+                                )
                                 with open(slide_img, "wb") as f:
                                     f.write(img.blob)
                                 doc.add_paragraph(f"Slide {slide.slide_id} Image:")
@@ -1285,25 +1346,30 @@ class Converter:
                                 os.remove(slide_img)
                             if hasattr(shape, "text"):
                                 if shape.text != "":
-                                    doc.add_paragraph(f"Slide {slide.slide_id} Text: {shape.text}")
+                                    doc.add_paragraph(
+                                        f"Slide {slide.slide_id} Text: {shape.text}"
+                                    )
                         doc.add_page_break()
-                elif document_path_set[2] == "pdf":                     
+                elif document_path_set[2] == "pdf":
                     pdf = fitz.open(self.file_handler.join_back(document_path_set))
                     for pnum in tqdm(range(len(pdf))):
                         page = pdf.load_page(pnum)
                         txt = page.get_text().strip()
                         if txt:
-                            doc.add_paragraph(f"Page {pnum+1} Text:")
+                            doc.add_paragraph(f"Page {pnum + 1} Text:")
                             for line in txt.splitlines():
                                 doc.add_paragraph(line)
                         imgs = page.get_images(full=True)
                         if imgs:
-                            doc.add_paragraph(f"Page {pnum+1} Images:")
+                            doc.add_paragraph(f"Page {pnum + 1} Images:")
                         for i, img in enumerate(imgs):
                             xref = img[0]
                             pix = pdf.extract_image(xref)
                             img_bytes, img_ext = pix["image"], pix["ext"]
-                            tmp_img = os.path.join(self.output, f"{document_path_set[1]}-page{pnum+1}-{i}.{img_ext}")
+                            tmp_img = os.path.join(
+                                self.output,
+                                f"{document_path_set[1]}-page{pnum + 1}-{i}.{img_ext}",
+                            )
                             with open(tmp_img, "wb") as f:
                                 f.write(img_bytes)
                             doc.add_picture(tmp_img, width=docx.shared.Inches(5))
@@ -1348,7 +1414,7 @@ class Converter:
                     self.output = self.input
             if doc_path_set[2] in ["docx", "pptx"]:
                 # Read all images from docx, write to os.path.join(self.output, doc_path_set[1])
-                self._office_to_frames(doc_path_set, format)              
+                self._office_to_frames(doc_path_set, format)
             if doc_path_set[2] == "pdf":
                 # Per page, convert pdf to image
                 pdf_path = self.file_handler.join_back(doc_path_set)
@@ -1390,7 +1456,9 @@ class Converter:
                 continue
             if self.file_handler.has_visuals(movie_path_set):
                 video = VideoFileClip(
-                    self.file_handler.join_back(movie_path_set), audio=False, fps_source="tbr"
+                    self.file_handler.join_back(movie_path_set),
+                    audio=False,
+                    fps_source="tbr",
                 )
                 try:
                     if not os.path.exists(os.path.join(self.output, movie_path_set[1])):
@@ -1439,7 +1507,9 @@ class Converter:
         for movie_path_set in file_paths[Category.MOVIE]:
             if self.file_handler.has_visuals(movie_path_set):
                 video = VideoFileClip(
-                    self.file_handler.join_back(movie_path_set), audio=False, fps_source="tbr"
+                    self.file_handler.join_back(movie_path_set),
+                    audio=False,
+                    fps_source="tbr",
                 )
                 gif_path = os.path.join(self.output, f"{movie_path_set[1]}.{format}")
                 video.write_gif(gif_path, fps=video.fps // 3, logger=self.prog_logger)
@@ -1475,7 +1545,9 @@ class Converter:
                 self._post_process(doc_path_set, gif_path, self.delete)
             elif doc_path_set[2] in ["docx", "pptx"]:
                 input_path = self.file_handler.join_back(doc_path_set)
-                gif_path = os.path.abspath(os.path.join(self.output, f"{doc_path_set[1]}.{format}"))
+                gif_path = os.path.abspath(
+                    os.path.join(self.output, f"{doc_path_set[1]}.{format}")
+                )
                 images = []
                 if doc_path_set[2] == "docx":
                     doc = docx.Document(input_path)
@@ -1500,7 +1572,7 @@ class Converter:
                         save_all=True,
                         append_images=images[1:],
                         duration=(len(images) * 1000 // frame_count)
-                                // (12 if self.framerate is None else self.framerate),
+                        // (12 if self.framerate is None else self.framerate),
                         loop=0,
                     )
                 self._post_process(doc_path_set, gif_path, self.delete)
@@ -1512,10 +1584,14 @@ class Converter:
         try:
             if doc_path_set[2] == "docx":
                 doc = docx.Document(full_path)
-                for i, rel in tqdm(enumerate(doc.part.rels.values()), desc=f"{doc_path_set[1]}"):
+                for i, rel in tqdm(
+                    enumerate(doc.part.rels.values()), desc=f"{doc_path_set[1]}"
+                ):
                     if "image" in rel.reltype:
                         img_bytes = rel.target_part.blob
-                        out_path = os.path.join(output_dir, f"{doc_path_set[1]}-{i}.{format}")
+                        out_path = os.path.join(
+                            output_dir, f"{doc_path_set[1]}-{i}.{format}"
+                        )
                         with open(out_path, "wb") as f:
                             f.write(img_bytes)
                 self._post_process(doc_path_set, out_path, self.delete)
@@ -1527,7 +1603,9 @@ class Converter:
                         if shape.shape_type == 13:  # Picture type
                             image = shape.image
                             img_bytes = image.blob
-                            out_path = os.path.join(output_dir, f"{doc_path_set[1]}-{img_count}.{format}")
+                            out_path = os.path.join(
+                                output_dir, f"{doc_path_set[1]}-{img_count}.{format}"
+                            )
                             with open(out_path, "wb") as f:
                                 f.write(img_bytes)
                             img_count += 1
@@ -1540,14 +1618,19 @@ class Converter:
             # Movies are converted to bmps frame by frame
             if self.file_handler.has_visuals(movie_path_set):
                 video = VideoFileClip(
-                    self.file_handler.join_back(movie_path_set), audio=False, fps_source="tbr"
+                    self.file_handler.join_back(movie_path_set),
+                    audio=False,
+                    fps_source="tbr",
                 )
                 bmp_path = os.path.join(self.output, f"{movie_path_set[1]}.{format}")
                 # Split video into individual bmp frame images at original framerate
                 for _, frame in enumerate(
                     video.iter_frames(fps=video.fps, dtype="uint8")
                 ):
-                    frame.save(f"{bmp_path}-%{len(str(int(video.duration * video.fps)))}d.{format}", format=format)
+                    frame.save(
+                        f"{bmp_path}-%{len(str(int(video.duration * video.fps)))}d.{format}",
+                        format=format,
+                    )
                 self._post_process(movie_path_set, bmp_path, self.delete)
             else:
                 self.event_logger.info(
@@ -1622,7 +1705,9 @@ class Converter:
         for movie_path_set in file_paths[Category.MOVIE]:
             if self.file_handler.has_visuals(movie_path_set):
                 video = VideoFileClip(
-                    self.file_handler.join_back(movie_path_set), audio=False, fps_source="tbr"
+                    self.file_handler.join_back(movie_path_set),
+                    audio=False,
+                    fps_source="tbr",
                 )
                 if not os.path.exists(os.path.join(self.output, movie_path_set[1])):
                     try:
@@ -1648,7 +1733,7 @@ class Converter:
                     f'[!] {lang.get_translation("skipping", self.locale)} "{self.file_handler.join_back(movie_path_set)}" - {lang.get_translation("audio_only_video", self.locale)}'
                 )
 
-        # Pngs and gifs are converted to webps as well
+        # pngs and gifs are converted to webps as well
         for image_path_set in file_paths[Category.IMAGE]:
             if image_path_set[2] == format:
                 continue
@@ -1742,7 +1827,9 @@ class Converter:
             concat_vid = concatenate_videoclips(
                 [
                     VideoFileClip(
-                        self.file_handler.join_back(movie_path_set), audio=True, fps_source="tbr"
+                        self.file_handler.join_back(movie_path_set),
+                        audio=True,
+                        fps_source="tbr",
                     )
                     for movie_path_set in file_paths[Category.MOVIE]
                 ],
@@ -1765,7 +1852,9 @@ class Converter:
             concatenated_image = clips_array(
                 [
                     [
-                        ImageClip(self.file_handler.join_back(image_path_set)).with_duration(
+                        ImageClip(
+                            self.file_handler.join_back(image_path_set)
+                        ).with_duration(
                             1 / 12 if self.framerate is None else 1 / self.framerate
                         )
                     ]
