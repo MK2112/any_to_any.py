@@ -1694,6 +1694,7 @@ class AnyToAny:
                 webp_path = os.path.join(self.output, f"{image_path_set[1]}.{format}")
                 with Image.open(self._join_back(image_path_set)) as img:
                     img.convert("RGB").save(webp_path, format=format)
+                self._post_process(image_path_set, webp_path, self.delete)
             elif image_path_set[2] == "gif":
                 clip = VideoFileClip(self._join_back(image_path_set))
                 for _, frame in enumerate(
@@ -1706,6 +1707,7 @@ class AnyToAny:
                     Image.fromarray(frame).convert("RGB").save(
                         frame_path, format=format
                     )
+                self._post_process(image_path_set, frame_path, self.delete)
             else:
                 # Handle unsupported file types here
                 self.event_logger.info(
