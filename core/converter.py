@@ -454,26 +454,11 @@ class Converter:
             )
 
     def watchdropzone(self, watch_path: str) -> None:
-        """
-        Watch a directory for new files and process them automatically.
-        
-        Args:
-            watch_path: Path to the directory to watch for new files
-            
-        This method sets up a directory watcher that will automatically process
-        any new files added to the specified directory. It runs until interrupted.
-        """
+        # Watch a directory for new files and process them automatically
         def handle_file_event(event_type: str, file_path: str) -> None:
-            """
-            Handle file system events for the watched directory.
-            
-            Args:
-                event_type: Type of file system event ('created' or 'modified')
-                file_path: Path to the file that triggered the event
-            """
             if event_type == 'created':
                 try:
-                    self.event_logger.info(f"[>] New file detected: {file_path}")
+                    self.event_logger.info(f"[>] {lang.get_translation('dropzone_new_file', self.locale)} {file_path}")
                     if os.path.isfile(file_path):
                         # Create a temporary instance with distinct settings
                         temp_instance = self.__class__()
@@ -495,28 +480,28 @@ class Converter:
                             try:
                                 temp_instance.process_files(file_paths)
                             except Exception as e:
-                                self.event_logger.error(f"Error processing {file_path}: {str(e)}")
+                                self.event_logger.error(f"{lang.get_translation('error', self.locale)}: {file_path} - {str(e)}")
                 except Exception as e:
-                    self.event_logger.error(f"Unexpected error handling file {file_path}: {str(e)}")
+                    self.event_logger.error(f"{lang.get_translation('error', self.locale)}: {file_path} - {str(e)}")
         
         try:
             # Validate watch path
             watch_path = os.path.abspath(watch_path)
             if not os.path.isdir(watch_path):
-                self.event_logger.error(f"Watch path does not exist or is not a directory: {watch_path}")
+                self.event_logger.error(f"{lang.get_translation('watch_not_dir', self.locale)}: {watch_path}")
                 return
                 
-            self.event_logger.info(f"[>] Starting directory watcher for: {watch_path}")
-            self.event_logger.info("[>] Press Ctrl+C to stop watching")
+            self.event_logger.info(f"[>] {lang.get_translation('watch_start', self.locale)}: {watch_path}")
+            self.event_logger.info(f"[>] {lang.get_translation('watch_stop', self.locale)}")
             
             # Start the directory watcher with error handling
             with DirectoryWatcher(watch_path, handle_file_event) as watcher:
                 watcher.watch()
                 
         except KeyboardInterrupt:
-            self.event_logger.info("\n[!] Stopping directory watcher...")
+            self.event_logger.info(f"\n[!] {lang.get_translation('watch_halt', self.locale)}")
         except Exception as e:
-            self.event_logger.error(f"Directory watcher error: {str(e)}")
+            self.event_logger.error(f"{lang.get_translation('error', self.locale)}: {str(e)}")
             raise
 
     def to_audio(self, file_paths: dict, format: str, codec: str) -> None:

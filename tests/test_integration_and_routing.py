@@ -1,8 +1,6 @@
 import logging
 import pytest
 import argparse
-import time
-import threading
 from unittest import mock
 
 # Import fixture with underscore to avoid redefinition warning
@@ -84,7 +82,6 @@ def test_post_process_permission_error(_converter_instance, tmp_path):
 
 
 def setup_converter(converter_instance, output_dir):
-    """Helper to set up a converter instance with required attributes."""
     converter_instance.output = str(output_dir)
     converter_instance.recursive = False
     converter_instance.framerate = 30
@@ -102,7 +99,6 @@ def setup_converter(converter_instance, output_dir):
 
 
 def test_watchdropzone_nonexistent_dir(_converter_instance, caplog):
-    """Test watchdropzone with a non-existent directory."""
     # Configure converter instance
     converter = setup_converter(_converter_instance, "/tmp/output")
     
@@ -117,7 +113,6 @@ def test_watchdropzone_nonexistent_dir(_converter_instance, caplog):
 
 
 def test_watchdropzone_file_instead_of_dir(_converter_instance, tmp_path, caplog):
-    """Test watchdropzone with a file path instead of directory."""
     # Configure converter instance
     converter = setup_converter(_converter_instance, "/tmp/output")
     

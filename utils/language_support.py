@@ -1,5 +1,12 @@
 import locale
 
+# dropzone_new_file: "New file detected:"
+# watch_not_dir: "Watch path is not a directory"
+# watch_start: "Starting directory watcher"
+# watch_stop: "Press Ctrl+C to stop watching"
+# watch_halt: "Stopping directory watcher..."
+#
+
 LANGUAGE_CODES = {
     "zh_CN": "Mandarin (Simplified)",
     "ja_JP": "Japanese",
