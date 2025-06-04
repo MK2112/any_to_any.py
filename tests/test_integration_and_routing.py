@@ -38,7 +38,7 @@ def test_recursive_file_discovery(converter_instance, tmp_path):
     d2.mkdir(parents=True)
     f = d2 / "test.mp4"
     f.write_bytes(b"\x00"*128)
-    file_paths = converter_instance._get_file_paths(str(tmp_path))
+    file_paths = converter_instance.file_handler.get_file_paths(str(tmp_path))
     # Should NOT find nested files
     found = any(
         str(f.parent) in path[0] and path[1] == 'test' and path[2] == 'mp4'
@@ -52,7 +52,7 @@ def test_weird_filenames(converter_instance, tmp_path):
     fname = "weird_名字_#@!.mp3"
     f = tmp_path / fname
     f.write_bytes(b"\x00"*128)
-    file_paths = converter_instance._get_file_paths(str(tmp_path))
+    file_paths = converter_instance.file_handler.get_file_paths(input=str(tmp_path), supported_formats=converter_instance._supported_formats)
     found = any(fname[:-4] in path[1] for paths in file_paths.values() for path in paths)
     assert found
 

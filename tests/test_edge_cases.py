@@ -20,7 +20,7 @@ def test_permission_error_on_output(converter_instance, tmp_path):
 
 def test_get_file_paths_invalid_directory(converter_instance):
     with pytest.raises(FileNotFoundError):
-        converter_instance._get_file_paths(input="nonexistent_directory")
+        converter_instance.file_handler.get_file_paths(input="nonexistent_directory")
 
 def test_fuzz_random_file_names(converter_instance, tmp_path):
     for _ in range(10):
@@ -31,17 +31,17 @@ def test_fuzz_random_file_names(converter_instance, tmp_path):
         file = tmp_path / f"{name}.{ext}"
         file.write_bytes(b"\x00" * 128)
     try:
-        converter_instance._get_file_paths(str(tmp_path))
+        converter_instance.file_handler.get_file_paths(str(tmp_path))
     except Exception as e:
-        pytest.fail(f"_get_file_paths failed: {e}")
+        pytest.fail(f"get_file_paths failed: {e}")
 
 def test_get_file_paths_invalid_directory_dne(converter_instance):
     with pytest.raises(FileNotFoundError):
-        converter_instance._get_file_paths(input="nonexistent_directory_dne")
+        converter_instance.file_handler.get_file_paths(input="nonexistent_directory_dne")
 
 def test_get_file_paths_invalid_input(converter_instance):
     with pytest.raises(FileNotFoundError):
-        converter_instance._get_file_paths(input="invalid_input")
+        converter_instance.file_handler.get_file_paths(input="invalid_input")
 
 def test_invalid_format_conversion(converter_instance, tmp_path):
     # Test converting from unsupported format
