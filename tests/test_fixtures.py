@@ -30,4 +30,6 @@ def test_output_folder(tmp_path):
 
 @pytest.fixture
 def converter_instance():
-    return Converter()
+    converter = Converter()
+    converter.locale = "English"
+    return converter
