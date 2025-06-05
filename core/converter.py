@@ -18,6 +18,7 @@ from markdownify import markdownify
 from utils.category import Category
 from utils.prog_logger import ProgLogger
 from core.audio_converter import AudioConverter
+from core.movie_converter import MovieConverter
 from core.utils.file_handler import FileHandler
 from core.utils.directory_watcher import DirectoryWatcher
 from moviepy import (
@@ -186,7 +187,10 @@ class Converter:
         self.web_host = None
         self.file_handler = FileHandler(self.event_logger, self.locale)
         # Setup distinct converters
-        self.audio_converter = AudioConverter(self.file_handler, self.prog_logger, self.event_logger, self.locale)
+        self.audio_converter = AudioConverter(self.file_handler, self.prog_logger, 
+                                              self.event_logger, self.locale)
+        self.movie_converter = MovieConverter(self.file_handler, self.prog_logger,
+                                              self.event_logger, self.locale)
 
     def _end_with_msg(self, exception: Exception, msg: str) -> None:
         # Single point of exit
@@ -410,10 +414,15 @@ class Converter:
     def process_file_paths(self, file_paths: dict) -> None:
         # Check if value associated to format is tuple/string or function to call specific conversion
         if self.target_format in self._supported_formats[Category.MOVIE].keys():
-            self.to_movie(
+            self.movie_converter.to_movie(
+                input=self.input,
+                output=self.output,
+                recursive=self.recursive,
                 file_paths=file_paths,
                 format=self.target_format,
+                framerate=self.framerate,
                 codec=self._supported_formats[Category.MOVIE][self.target_format],
+                delete=self.delete,
             )
         elif self.target_format in self._supported_formats[Category.AUDIO].keys():
             self.audio_converter.to_audio(
@@ -579,200 +588,6 @@ class Converter:
                 clip.close()
                 audio.close()
             self.file_handler.post_process(codec_path_set, out_path, self.delete)
-
-    def to_movie(self, file_paths: dict, format: str, codec: str) -> None:
-        # Convert to movie with specified format
-        pngs = bmps = jpgs = []
-        for image_path_set in file_paths[Category.IMAGE]:
-            # Depending on the format, different fragmentation is required
-            if image_path_set[2] == "gif":
-                clip = VideoFileClip(
-                    self.file_handler.join_back(image_path_set), audio=False
-                )
-                # If recursive, create file outright where its source was found
-                if not self.recursive or self.input != self.output:
-                    out_path = os.path.abspath(
-                        os.path.join(self.output, f"{image_path_set[1]}.{format}")
-                    )
-                else:
-                    out_path = os.path.abspath(
-                        os.path.join(image_path_set[0], f"{image_path_set[1]}.{format}")
-                    )
-                clip.write_videofile(
-                    out_path,
-                    codec=codec,
-                    fps=clip.fps if self.framerate is None else self.framerate,
-                    audio=False,
-                    logger=self.prog_logger,
-                )
-                clip.close()
-                self.file_handler.post_process(image_path_set, out_path, self.delete)
-            elif image_path_set[2] == "png":
-                pngs.append(
-                    ImageClip(
-                        self.file_handler.join_back(image_path_set)
-                    ).with_duration(
-                        1 / 24 if self.framerate is None else 1 / self.framerate
-                    )
-                )
-            elif image_path_set[2] == "jpeg" or image_path_set[2] == "jpg":
-                jpgs.append(
-                    ImageClip(
-                        self.file_handler.join_back(image_path_set)
-                    ).with_duration(
-                        1 / 24 if self.framerate is None else 1 / self.framerate
-                    )
-                )
-            elif image_path_set[2] == "bmp":
-                bmps.append(
-                    ImageClip(
-                        self.file_handler.join_back(image_path_set)
-                    ).with_duration(
-                        1 / 24 if self.framerate is None else 1 / self.framerate
-                    )
-                )
-            # No post_process here, we just accumulated for processing if not .gif
-
-        # Pics to movie
-        for pics in [pngs, jpgs, bmps]:
-            if len(pics) > 0:
-                final_clip = concatenate_videoclips(pics, method="compose")
-                out_path = os.path.abspath(
-                    os.path.join(self.output, f"merged.{format}")
-                )
-                final_clip.write_videofile(
-                    out_path,
-                    fps=24 if self.framerate is None else self.framerate,
-                    codec=codec,
-                    logger=self.prog_logger,
-                )
-                final_clip.close()
-                self.file_handler.post_process(image_path_set, out_path, self.delete)
-
-        # Movie to different movie
-        for movie_path_set in file_paths[Category.MOVIE]:
-            if not movie_path_set[2] == format:
-                out_path = os.path.abspath(
-                    os.path.join(self.output, f"{movie_path_set[1]}.{format}")
-                )
-                if self.file_handler.has_visuals(movie_path_set):
-                    video = VideoFileClip(
-                        self.file_handler.join_back(movie_path_set),
-                        audio=True,
-                        fps_source="tbr",
-                    )
-                    video.write_videofile(
-                        out_path,
-                        codec=codec,
-                        fps=video.fps if self.framerate is None else self.framerate,
-                        audio=True,
-                        logger=self.prog_logger,
-                    )
-                    video.close()
-                else:
-                    # Audio-only video file
-                    audio = AudioFileClip(self.file_handler.join_back(movie_path_set))
-                    # Create new VideoClip with audio only
-                    clip = VideoClip(
-                        lambda t: np.zeros(
-                            (16, 16, 3), dtype=np.uint8
-                        ),  # 16 black pixels required by moviepy
-                        duration=audio.duration,
-                    )
-                    clip = clip.set_audio(audio)
-                    clip.write_videofile(
-                        out_path,
-                        codec=codec,
-                        fps=24 if self.framerate is None else self.framerate,
-                        audio=True,
-                        logger=self.prog_logger,
-                    )
-                    clip.close()
-                    audio.close()
-                self.file_handler.post_process(movie_path_set, out_path, self.delete)
-
-        # Document to movie (because why the hell not)
-        for doc_path_set in file_paths[Category.DOCUMENT]:
-            if doc_path_set[2] == "docx":
-                # Convert docx to list of images first
-                # Stitch that together, convert to movie
-                self._office_to_frames(doc_path_set, "jpeg")
-                # This creates a folder named docx_path_set[1] in the output directory
-                # with all the images in it
-                # Now we can convert that to a movie
-                pics = [
-                    image
-                    for image in os.listdir(doc_path_set[1])
-                    if image.endswith(".jpeg")
-                ]
-                if len(pics) > 0:
-                    final_clip = concatenate_videoclips(pics, method="compose")
-                    out_path = os.path.abspath(os.path.join(self.output, f".{format}"))
-                    final_clip.write_videofile(
-                        out_path,
-                        fps=24 if self.framerate is None else self.framerate,
-                        codec=codec,
-                        logger=self.prog_logger,
-                    )
-                    final_clip.close()
-                    self.file_handler.post_process(doc_path_set, out_path, self.delete)
-            elif doc_path_set[2] == "pdf":
-                pdf_path = self.file_handler.join_back(doc_path_set)
-                movie_path = os.path.abspath(
-                    os.path.join(self.output, f"{doc_path_set[1]}.{format}")
-                )
-                doc = fitz.open(pdf_path)
-                image_files = []
-                if not os.path.exists(os.path.join(self.output, doc_path_set[1])):
-                    try:
-                        os.makedirs(
-                            os.path.join(self.output, doc_path_set[1]), exist_ok=True
-                        )
-                    except OSError as e:
-                        self.event_logger.info(
-                            f"[!] {lang.get_translation('error', self.locale)}: {e} - {lang.get_translation('set_out_dir', self.locale)} {self.input}"
-                        )
-                        self.output = self.input
-                for i, page_num in tqdm(enumerate(range(len(doc)))):
-                    pix = doc.load_page(page_num).get_pixmap()
-                    img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-                    img = img.convert("RGB")
-                    # Save each page as a separate JPEG file
-                    img.save(
-                        os.path.join(
-                            self.output,
-                            doc_path_set[1],
-                            f"{doc_path_set[1]}-{i:0{len(str(len(doc)))}}.jpeg",
-                        ),
-                        format="JPEG",
-                    )
-                    image_files.append(
-                        f"{doc_path_set[1]}-{i:0{len(str(len(doc)))}}.jpeg"
-                    )
-                doc.close()
-
-                # Convert the JPEG files to a video
-                image_files = sorted(image_files)
-                image_clips = [
-                    ImageClip(
-                        os.path.join(self.output, doc_path_set[1], img)
-                    ).with_duration(
-                        (1 / self.framerate) if self.framerate is not None else 1 / 24
-                    )
-                    for img in image_files
-                ]
-                final_clip = concatenate_videoclips(image_clips, method="compose")
-                final_clip.write_videofile(
-                    movie_path,
-                    fps=24 if self.framerate is None else self.framerate,
-                    codec=codec,
-                    logger=self.prog_logger,
-                )
-                final_clip.close()
-
-                # Remove the temporary image files
-                shutil.rmtree(os.path.join(self.output, doc_path_set[1]))
-                self.file_handler.post_process(doc_path_set, movie_path, self.delete)
 
     def to_protocol(self, file_paths: dict, protocol: list) -> None:
         # Convert movie files into adaptive streaming formats HLS (.m3u8) or DASH (.mpd).
@@ -1518,42 +1333,6 @@ class Converter:
                         loop=0,
                     )
                 self.file_handler.post_process(doc_path_set, gif_path, self.delete)
-
-    def _office_to_frames(self, doc_path_set: tuple, format: str) -> None:
-        full_path = self.file_handler.join_back(doc_path_set)
-        output_dir = os.path.join(self.output, doc_path_set[1])
-        os.makedirs(output_dir, exist_ok=True)
-        try:
-            if doc_path_set[2] == "docx":
-                doc = docx.Document(full_path)
-                for i, rel in tqdm(
-                    enumerate(doc.part.rels.values()), desc=f"{doc_path_set[1]}"
-                ):
-                    if "image" in rel.reltype:
-                        img_bytes = rel.target_part.blob
-                        out_path = os.path.join(
-                            output_dir, f"{doc_path_set[1]}-{i}.{format}"
-                        )
-                        with open(out_path, "wb") as f:
-                            f.write(img_bytes)
-                self.file_handler.post_process(doc_path_set, out_path, self.delete)
-            elif doc_path_set[2] == "pptx":
-                prs = pptx.Presentation(full_path)
-                img_count = 0
-                for i, slide in tqdm(enumerate(prs.slides), desc=f"{doc_path_set[1]}"):
-                    for shape in slide.shapes:
-                        if shape.shape_type == 13:  # Picture type
-                            image = shape.image
-                            img_bytes = image.blob
-                            out_path = os.path.join(
-                                output_dir, f"{doc_path_set[1]}-{img_count}.{format}"
-                            )
-                            with open(out_path, "wb") as f:
-                                f.write(img_bytes)
-                            img_count += 1
-                self.file_handler.post_process(doc_path_set, out_path, self.delete)
-        except Exception as e:
-            self.event_logger.error(e)
 
     def to_bmp(self, file_paths: dict, format: str) -> None:
         for movie_path_set in file_paths[Category.MOVIE]:
