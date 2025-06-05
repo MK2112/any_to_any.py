@@ -2,6 +2,7 @@ import logging
 import pytest
 import argparse
 from unittest import mock
+import utils.language_support as lang
 
 # Import fixture with underscore to avoid redefinition warning
 from tests.test_fixtures import converter_instance as _converter_instance
@@ -109,7 +110,7 @@ def test_watchdropzone_nonexistent_dir(_converter_instance, caplog):
     converter.watchdropzone("/nonexistent/directory")
     
     # Verify error was logged
-    assert "does not exist or is not a directory" in caplog.text.lower()
+    assert lang.get_translation('not_exist_not_dir', converter.locale).lower() in caplog.text.lower()
 
 
 def test_watchdropzone_file_instead_of_dir(_converter_instance, tmp_path, caplog):
@@ -124,9 +125,8 @@ def test_watchdropzone_file_instead_of_dir(_converter_instance, tmp_path, caplog
     caplog.clear()
     
     # Test with file path instead of directory
-    with mock.patch('os.path.isdir', return_value=False):
-        converter.watchdropzone(str(test_file))
+    converter.watchdropzone(str(test_file))
     
     # Verify error was logged
-    assert "does not exist or is not a directory" in caplog.text.lower()
+    assert lang.get_translation('watch_not_dir', converter.locale).lower() in caplog.text.lower()
 
