@@ -458,7 +458,7 @@ class Converter:
         def handle_file_event(event_type: str, file_path: str) -> None:
             if event_type == 'created':
                 try:
-                    self.event_logger.info(f"[>] {lang.get_translation('dropzone_new_file', self.locale)} {file_path}")
+                    self.event_logger.info(f"[>] {lang.get_translation('dropzone_new_file', self.locale)}: {file_path}")
                     if os.path.isfile(file_path):
                         # Create a temporary instance with distinct settings
                         temp_instance = self.__class__()
@@ -487,6 +487,9 @@ class Converter:
         try:
             # Validate watch path
             watch_path = os.path.abspath(watch_path)
+            if not os.path.exists(watch_path):
+                self.event_logger.error(f"{lang.get_translation('not_exist_not_dir', self.locale)}: {watch_path}")
+                return
             if not os.path.isdir(watch_path):
                 self.event_logger.error(f"{lang.get_translation('watch_not_dir', self.locale)}: {watch_path}")
                 return
