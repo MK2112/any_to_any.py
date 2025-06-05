@@ -14,6 +14,24 @@ class FileHandler:
         return os.path.abspath(
             f"{file_path_set[0]}{file_path_set[1]}.{file_path_set[2]}"
         )
+    
+    def post_process(
+        self,
+        file_path_set: tuple,
+        out_path: str,
+        delete: bool,
+        show_status: bool = True,
+    ) -> None:
+        # Post process after conversion, print, delete source file if desired
+        if show_status:
+            self.event_logger.info(
+                f'[+] {lang.get_translation("converted", self.locale)} "{self.join_back(file_path_set)}" 🡢 "{out_path}"'
+            )
+        if delete:
+            os.remove(self.join_back(file_path_set))
+            self.event_logger.info(
+                f'[-] {lang.get_translation("removed", self.locale)} "{self.join_back(file_path_set)}"'
+            )
 
     def has_visuals(self, file_path_set: tuple) -> bool:
         try:

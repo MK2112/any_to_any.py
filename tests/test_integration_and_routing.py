@@ -70,12 +70,12 @@ def test_weird_filenames(_converter_instance, tmp_path):
 
 
 def test_post_process_permission_error(_converter_instance, tmp_path):
-    # Test _post_process logs and raises on permission error during delete.
+    # Test post_process logs and raises on permission error during delete.
     test_file = tmp_path / "test.mp4"
     test_file.write_bytes(b"\x00"*128)
     with mock.patch("os.remove", side_effect=PermissionError):
         with pytest.raises(PermissionError):
-            _converter_instance._post_process(
+            _converter_instance.file_handler.post_process(
                 (str(tmp_path) + "/", 'test', 'mp4'), 
                 str(tmp_path / "out.mp3"), 
                 delete=True

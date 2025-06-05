@@ -16,7 +16,7 @@ def test_permission_error_on_output(converter_instance, tmp_path):
     file_path.write_bytes(b"\x00" * 128)
     with patch("os.remove", side_effect=PermissionError):
         with pytest.raises(PermissionError):
-            converter_instance._post_process((str(tmp_path) + "/", 'test', 'mp4'), str(tmp_path / "out.mp3"), delete=True)
+            converter_instance.file_handler.post_process((str(tmp_path) + "/", 'test', 'mp4'), str(tmp_path / "out.mp3"), delete=True)
 
 def test_get_file_paths_invalid_directory(converter_instance):
     with pytest.raises(FileNotFoundError):

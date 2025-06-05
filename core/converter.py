@@ -33,7 +33,8 @@ from moviepy import (
 class Converter:
     """
     Taking an input directory of files, convert them to a multitude of formats.
-    Interact with the script using the command line arguments defined at the bottom of this file.
+    Interact with the script using the command line arguments or the web interface.
+    Run via any_to_any.py script.
     """
 
     def __init__(self):
@@ -178,11 +179,10 @@ class Converter:
             for format in formats.keys()
         ]
 
-        self.web_flag = (
-            False  # Indicates if the script is being run from the web interface
-        )
-        self.web_host = None  # Host address for the web interface
-
+        # Indicates if the script is being run from the web interface
+        self.web_flag = False
+        # Host address for the web interface
+        self.web_host = None
         self.file_handler = FileHandler(self.event_logger, self.locale)
 
     def _end_with_msg(self, exception: Exception, msg: str) -> None:
@@ -544,7 +544,7 @@ class Converter:
                     logger=self.prog_logger,
                 )
             audio.close()
-            self._post_process(audio_path_set, out_path, self.delete)
+            self.file_handler.post_process(audio_path_set, out_path, self.delete)
 
         # Movie to audio conversion
         for movie_path_set in file_paths[Category.MOVIE]:
@@ -592,7 +592,7 @@ class Converter:
                         f"[!] {lang.get_translation('audio_extract_fail', self.locale).replace('[path]', f'"{self.file_handler.join_back(movie_path_set)}"')} - {lang.get_translation('skipping', self.locale)}\n"
                     )
                     continue
-            self._post_process(movie_path_set, out_path, self.delete)
+            self.file_handler.post_process(movie_path_set, out_path, self.delete)
 
     def to_codec(self, file_paths: dict, codec: dict) -> None:
         # Convert movie to same movie with different codec
@@ -657,7 +657,7 @@ class Converter:
                 )
                 clip.close()
                 audio.close()
-            self._post_process(codec_path_set, out_path, self.delete)
+            self.file_handler.post_process(codec_path_set, out_path, self.delete)
 
     def to_movie(self, file_paths: dict, format: str, codec: str) -> None:
         # Convert to movie with specified format
@@ -685,7 +685,7 @@ class Converter:
                     logger=self.prog_logger,
                 )
                 clip.close()
-                self._post_process(image_path_set, out_path, self.delete)
+                self.file_handler.post_process(image_path_set, out_path, self.delete)
             elif image_path_set[2] == "png":
                 pngs.append(
                     ImageClip(
@@ -710,7 +710,7 @@ class Converter:
                         1 / 24 if self.framerate is None else 1 / self.framerate
                     )
                 )
-            # No _post_process here, we just accumulated for processing if not .gif
+            # No post_process here, we just accumulated for processing if not .gif
 
         # Pics to movie
         for pics in [pngs, jpgs, bmps]:
@@ -726,7 +726,7 @@ class Converter:
                     logger=self.prog_logger,
                 )
                 final_clip.close()
-                self._post_process(image_path_set, out_path, self.delete)
+                self.file_handler.post_process(image_path_set, out_path, self.delete)
 
         # Movie to different movie
         for movie_path_set in file_paths[Category.MOVIE]:
@@ -768,7 +768,7 @@ class Converter:
                     )
                     clip.close()
                     audio.close()
-                self._post_process(movie_path_set, out_path, self.delete)
+                self.file_handler.post_process(movie_path_set, out_path, self.delete)
 
         # Document to movie (because why the hell not)
         for doc_path_set in file_paths[Category.DOCUMENT]:
@@ -794,7 +794,7 @@ class Converter:
                         logger=self.prog_logger,
                     )
                     final_clip.close()
-                    self._post_process(doc_path_set, out_path, self.delete)
+                    self.file_handler.post_process(doc_path_set, out_path, self.delete)
             elif doc_path_set[2] == "pdf":
                 pdf_path = self.file_handler.join_back(doc_path_set)
                 movie_path = os.path.abspath(
@@ -851,7 +851,7 @@ class Converter:
 
                 # Remove the temporary image files
                 shutil.rmtree(os.path.join(self.output, doc_path_set[1]))
-                self._post_process(doc_path_set, movie_path, self.delete)
+                self.file_handler.post_process(doc_path_set, movie_path, self.delete)
 
     def to_protocol(self, file_paths: dict, protocol: list) -> None:
         # Convert movie files into adaptive streaming formats HLS (.m3u8) or DASH (.mpd).
@@ -933,7 +933,7 @@ class Converter:
                     self._run_command(cmd)
                     with open(master_playlist_path, "w") as f:
                         f.write(variant_playlist)
-                    self._post_process(
+                    self.file_handler.post_process(
                         movie_path_set, master_playlist_path, self.delete
                     )
                 except Exception as e:
@@ -982,7 +982,7 @@ class Converter:
                 ]
                 try:
                     self._run_command(cmd)
-                    self._post_process(movie_path_set, out_path, self.delete)
+                    self.file_handler.post_process(movie_path_set, out_path, self.delete)
                 except Exception as e:
                     self._end_with_msg(
                         movie_path_set,
@@ -1032,7 +1032,7 @@ class Converter:
                     self.event_logger.info(
                         f"[+] {lang.get_translation('subtitles_success', self.locale)} '{out_path}'"
                     )
-                    self._post_process(
+                    self.file_handler.post_process(
                         movie_path_set, out_path, self.delete, show_status=False
                     )
                 else:
@@ -1049,7 +1049,7 @@ class Converter:
                         self.event_logger.info(
                             f"[+] {lang.get_translation('embed_subtitles_success')} '{out_path}'"
                         )
-                        self._post_process(
+                        self.file_handler.post_process(
                             movie_path_set, out_path, self.delete, show_status=False
                         )
                     else:
@@ -1138,7 +1138,7 @@ class Converter:
                 # Write Markdown file
                 with open(md_path, "w", encoding="utf-8") as md_file:
                     md_file.write(markdown_text)
-                self._post_process(doc_path_set, md_path, self.delete)
+                self.file_handler.post_process(doc_path_set, md_path, self.delete)
 
     def to_pdf(self, file_paths: dict, format: str) -> None:
         # Convert GIFs to Frames using to_frames
@@ -1159,7 +1159,7 @@ class Converter:
                 )
                 doc.save(pdf_path)
                 doc.close()
-                self._post_process(image_path_set, pdf_path, self.delete)
+                self.file_handler.post_process(image_path_set, pdf_path, self.delete)
             elif image_path_set[2] == "gif":
                 # We suppose the gif was converted to frames and we have a folder of pngs
                 # All pngs shall be merged into one pdf
@@ -1178,7 +1178,7 @@ class Converter:
                 doc.close()
                 # Remove the gif frame folder
                 shutil.rmtree(gif_frame_path)
-                self._post_process(image_path_set, pdf_path, self.delete)
+                self.file_handler.post_process(image_path_set, pdf_path, self.delete)
         # Convert Movies to PDF
         for movie_path_set in file_paths[Category.MOVIE]:
             if self.file_handler.has_visuals(movie_path_set):
@@ -1210,7 +1210,7 @@ class Converter:
                 doc.save(pdf_path)
                 doc.close()
                 clip.close()
-                self._post_process(movie_path_set, pdf_path, self.delete)
+                self.file_handler.post_process(movie_path_set, pdf_path, self.delete)
         # Convert Documents to PDF
         for doc_path_set in file_paths[Category.DOCUMENT]:
             if doc_path_set[2] == "pdf":
@@ -1229,7 +1229,7 @@ class Converter:
                 page.insert_text((50, 50), srt_content, fontsize=12)
                 doc.save(pdf_path)
                 doc.close()
-                self._post_process(doc_path_set, pdf_path, self.delete)
+                self.file_handler.post_process(doc_path_set, pdf_path, self.delete)
             elif doc_path_set[2] == "docx":
                 pdf_path = os.path.abspath(
                     os.path.join(self.output, f"{doc_path_set[1]}.{format}")
@@ -1240,7 +1240,7 @@ class Converter:
                 docx_doc.close()
                 # Convert html to PDF, save that
                 HTML(string=document.value.encode("utf-8")).write_pdf(pdf_path)
-                self._post_process(doc_path_set, pdf_path, self.delete)
+                self.file_handler.post_process(doc_path_set, pdf_path, self.delete)
 
     def to_office(self, file_paths: dict, format: str) -> None:
         def _new_container():
@@ -1297,7 +1297,7 @@ class Converter:
                 if format == "docx":
                     page.add_paragraph(f"Image: {image_path_set[1]}")
             container.save(out_path)
-            self._post_process(image_path_set, out_path, self.delete)
+            self.file_handler.post_process(image_path_set, out_path, self.delete)
 
         for movie_path_set in file_paths[Category.MOVIE]:
             if not self.file_handler.has_visuals(movie_path_set):
@@ -1330,7 +1330,7 @@ class Converter:
 
             clip.close()
             container.save(out_path)
-            self._post_process(movie_path_set, out_path, self.delete)
+            self.file_handler.post_process(movie_path_set, out_path, self.delete)
 
         if format == "docx":
             for document_path_set in file_paths[Category.DOCUMENT]:
@@ -1397,7 +1397,7 @@ class Converter:
                             os.remove(tmp_img)
                         doc.add_page_break()
                 doc.save(out_path)
-                self._post_process(document_path_set, out_path, self.delete)
+                self.file_handler.post_process(document_path_set, out_path, self.delete)
 
     def to_frames(self, file_paths: dict, format: str) -> None:
         # Converting to image frame sets
@@ -1409,7 +1409,7 @@ class Converter:
                 continue
             if image_path_set[2] == "gif":
                 # _gifs_to_frames did that out of loop already, just logging here
-                self._post_process(image_path_set, self.output, self.delete)
+                self.file_handler.post_process(image_path_set, self.output, self.delete)
             else:
                 if not os.path.exists(os.path.join(self.output, image_path_set[1])):
                     self.output = self.input
@@ -1418,7 +1418,7 @@ class Converter:
                 )
                 with Image.open(self.file_handler.join_back(image_path_set)) as img:
                     img.convert("RGB").save(img_path, format=format)
-                self._post_process(image_path_set, img_path, self.delete)
+                self.file_handler.post_process(image_path_set, img_path, self.delete)
         # Convert documents to image frames
         for doc_path_set in file_paths[Category.DOCUMENT]:
             if doc_path_set[2] == format:
@@ -1466,7 +1466,7 @@ class Converter:
                     img.save(img_file, format.upper())
 
                 pdf_document.close()
-                self._post_process(doc_path_set, img_path, self.delete)
+                self.file_handler.post_process(doc_path_set, img_path, self.delete)
 
         # Audio cant be image-framed, movies certrainly can
         for movie_path_set in file_paths[Category.MOVIE]:
@@ -1502,12 +1502,12 @@ class Converter:
                     img_path, fps=video.fps, logger=self.prog_logger
                 )
                 video.close()
-                self._post_process(movie_path_set, img_path, self.delete)
+                self.file_handler.post_process(movie_path_set, img_path, self.delete)
             else:
                 self.event_logger.info(
                     f'[!] {lang.get_translation("skipping", self.locale)} "{self.file_handler.join_back(movie_path_set)}" - {lang.get_translation("audio_only_video", self.locale)}'
                 )
-                self._post_process(movie_path_set, img_path, self.delete)
+                self.file_handler.post_process(movie_path_set, img_path, self.delete)
 
     def to_gif(self, file_paths: dict, format: str) -> None:
         # All images in the input directory are merged into one gif
@@ -1535,7 +1535,7 @@ class Converter:
                 gif_path = os.path.join(self.output, f"{movie_path_set[1]}.{format}")
                 video.write_gif(gif_path, fps=video.fps // 3, logger=self.prog_logger)
                 video.close()
-                self._post_process(movie_path_set, gif_path, self.delete)
+                self.file_handler.post_process(movie_path_set, gif_path, self.delete)
             else:
                 self.event_logger.info(
                     f'[!] {lang.get_translation("skipping", self.locale)} "{self.file_handler.join_back(movie_path_set)}" - {lang.get_translation("audio_only_video", self.locale)}'
@@ -1563,7 +1563,7 @@ class Converter:
                         loop=0,
                     )
                 doc.close()
-                self._post_process(doc_path_set, gif_path, self.delete)
+                self.file_handler.post_process(doc_path_set, gif_path, self.delete)
             elif doc_path_set[2] in ["docx", "pptx"]:
                 input_path = self.file_handler.join_back(doc_path_set)
                 gif_path = os.path.abspath(
@@ -1596,7 +1596,7 @@ class Converter:
                         // (12 if self.framerate is None else self.framerate),
                         loop=0,
                     )
-                self._post_process(doc_path_set, gif_path, self.delete)
+                self.file_handler.post_process(doc_path_set, gif_path, self.delete)
 
     def _office_to_frames(self, doc_path_set: tuple, format: str) -> None:
         full_path = self.file_handler.join_back(doc_path_set)
@@ -1615,7 +1615,7 @@ class Converter:
                         )
                         with open(out_path, "wb") as f:
                             f.write(img_bytes)
-                self._post_process(doc_path_set, out_path, self.delete)
+                self.file_handler.post_process(doc_path_set, out_path, self.delete)
             elif doc_path_set[2] == "pptx":
                 prs = pptx.Presentation(full_path)
                 img_count = 0
@@ -1630,7 +1630,7 @@ class Converter:
                             with open(out_path, "wb") as f:
                                 f.write(img_bytes)
                             img_count += 1
-                self._post_process(doc_path_set, out_path, self.delete)
+                self.file_handler.post_process(doc_path_set, out_path, self.delete)
         except Exception as e:
             self.event_logger.error(e)
 
@@ -1652,7 +1652,7 @@ class Converter:
                         f"{bmp_path}-%{len(str(int(video.duration * video.fps)))}d.{format}",
                         format=format,
                     )
-                self._post_process(movie_path_set, bmp_path, self.delete)
+                self.file_handler.post_process(movie_path_set, bmp_path, self.delete)
             else:
                 self.event_logger.info(
                     f'[!] {lang.get_translation("skipping", self.locale)} "{self.file_handler.join_back(movie_path_set)}" - {lang.get_translation("audio_only_video", self.locale)}'
@@ -1665,7 +1665,7 @@ class Converter:
                 bmp_path = os.path.join(self.output, f"{image_path_set[1]}.{format}")
                 with Image.open(self.file_handler.join_back(image_path_set)) as img:
                     img.convert("RGB").save(bmp_path, format=format)
-                self._post_process(image_path_set, bmp_path, self.delete)
+                self.file_handler.post_process(image_path_set, bmp_path, self.delete)
             elif image_path_set[2] == "gif":
                 clip = VideoFileClip(self.file_handler.join_back(image_path_set))
                 for _, frame in enumerate(
@@ -1678,7 +1678,7 @@ class Converter:
                     Image.fromarray(frame).convert("RGB").save(
                         frame_path, format=format
                     )
-                self._post_process(image_path_set, frame_path, self.delete)
+                self.file_handler.post_process(image_path_set, frame_path, self.delete)
             else:
                 # Handle unsupported file types here
                 self.event_logger.info(
@@ -1718,7 +1718,7 @@ class Converter:
                         format=format,
                     )
                 doc.close()
-                self._post_process(doc_path_set, bmp_path, self.delete)
+                self.file_handler.post_process(doc_path_set, bmp_path, self.delete)
 
     def to_webp(self, file_paths: dict, format: str) -> None:
         # Convert frames in webp format
@@ -1748,7 +1748,7 @@ class Converter:
                     img_path, fps=video.fps, logger=self.prog_logger
                 )
                 video.close()
-                self._post_process(movie_path_set, img_path, self.delete)
+                self.file_handler.post_process(movie_path_set, img_path, self.delete)
             else:
                 self.event_logger.info(
                     f'[!] {lang.get_translation("skipping", self.locale)} "{self.file_handler.join_back(movie_path_set)}" - {lang.get_translation("audio_only_video", self.locale)}'
@@ -1762,7 +1762,7 @@ class Converter:
                 webp_path = os.path.join(self.output, f"{image_path_set[1]}.{format}")
                 with Image.open(self.file_handler.join_back(image_path_set)) as img:
                     img.convert("RGB").save(webp_path, format=format)
-                self._post_process(image_path_set, webp_path, self.delete)
+                self.file_handler.post_process(image_path_set, webp_path, self.delete)
             elif image_path_set[2] == "gif":
                 clip = VideoFileClip(self.file_handler.join_back(image_path_set))
                 for _, frame in enumerate(
@@ -1775,7 +1775,7 @@ class Converter:
                     Image.fromarray(frame).convert("RGB").save(
                         frame_path, format=format
                     )
-                self._post_process(image_path_set, frame_path, self.delete)
+                self.file_handler.post_process(image_path_set, frame_path, self.delete)
             else:
                 # Handle unsupported file types here
                 self.event_logger.info(
@@ -1816,7 +1816,7 @@ class Converter:
                         format=format,
                     )
                 doc.close()
-                self._post_process(doc_path_set, bmp_path, self.delete)
+                self.file_handler.post_process(doc_path_set, bmp_path, self.delete)
 
     def concat(self, file_paths: dict, format: str) -> None:
         # Concatenate files of same type (img/movie/audio) back to back
@@ -1928,7 +1928,7 @@ class Converter:
         for category in file_paths.keys():
             # Iterate over each input category and post-process respective files
             for i, file_path in enumerate(file_paths[category]):
-                self._post_process(
+                self.file_handler.post_process(
                     file_path, self.output, self.delete, show_status=(i == 0)
                 )
         self.event_logger.info(
@@ -2002,32 +2002,14 @@ class Converter:
                         audio.close()
                     if video is not None:
                         video.close()
-                self._post_process(movie_path_set, merged_out_path, self.delete)
+                self.file_handler.post_process(movie_path_set, merged_out_path, self.delete)
                 # Only delete the audio file if it was in the input set, not if just found in dir
                 if audio_fit in file_paths[Category.AUDIO]:
-                    self._post_process(
+                    self.file_handler.post_process(
                         audio_fit, merged_out_path, self.delete, show_status=False
                     )
 
         if not found_audio:
             self.event_logger.warning(
                 f"[!] {lang.get_translation('no_audio_movie_match', self.locale)}"
-            )
-
-    def _post_process(
-        self,
-        file_path_set: tuple,
-        out_path: str,
-        delete: bool,
-        show_status: bool = True,
-    ) -> None:
-        # Post process after conversion, print, delete source file if desired
-        if show_status:
-            self.event_logger.info(
-                f'[+] {lang.get_translation("converted", self.locale)} "{self.file_handler.join_back(file_path_set)}" 🡢 "{out_path}"'
-            )
-        if delete:
-            os.remove(self.file_handler.join_back(file_path_set))
-            self.event_logger.info(
-                f'[-] {lang.get_translation("removed", self.locale)} "{self.file_handler.join_back(file_path_set)}"'
             )
