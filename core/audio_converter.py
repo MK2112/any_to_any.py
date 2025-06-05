@@ -6,6 +6,8 @@ from moviepy import AudioFileClip, VideoFileClip
 class AudioConverter:
 
     def __init__(self, file_handler, prog_logger, event_logger, locale: str = "English"):
+        # These aren't supposed to be copies, but, like here, references 
+        # to the original objects that got passed
         self.file_handler = file_handler
         self.prog_logger = prog_logger
         self.event_logger = event_logger
