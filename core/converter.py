@@ -17,6 +17,7 @@ from weasyprint import HTML
 from markdownify import markdownify
 from utils.category import Category
 from utils.prog_logger import ProgLogger
+from core.audio_converter import AudioConverter
 from core.utils.file_handler import FileHandler
 from core.utils.directory_watcher import DirectoryWatcher
 from moviepy import (
@@ -184,6 +185,8 @@ class Converter:
         # Host address for the web interface
         self.web_host = None
         self.file_handler = FileHandler(self.event_logger, self.locale)
+        # Setup distinct converters
+        self.audio_converter = AudioConverter(self.file_handler, self.prog_logger, self.event_logger, self.locale)
 
     def _end_with_msg(self, exception: Exception, msg: str) -> None:
         # Single point of exit
@@ -413,10 +416,15 @@ class Converter:
                 codec=self._supported_formats[Category.MOVIE][self.target_format],
             )
         elif self.target_format in self._supported_formats[Category.AUDIO].keys():
-            self.to_audio(
+            self.audio_converter.to_audio(
                 file_paths=file_paths,
                 format=self.target_format,
                 codec=self._supported_formats[Category.AUDIO][self.target_format],
+                recursive=self.recursive,
+                bitrate=self._audio_bitrate(self.target_format, self.quality),
+                input=self.input,
+                output=self.output,
+                delete=self.delete,
             )
         elif (
             self.target_format in self._supported_formats[Category.MOVIE_CODECS].keys()
@@ -506,93 +514,6 @@ class Converter:
         except Exception as e:
             self.event_logger.error(f"{lang.get_translation('error', self.locale)}: {str(e)}")
             raise
-
-    def to_audio(self, file_paths: dict, format: str, codec: str) -> None:
-        # Convert to audio
-        # Audio to audio conversion
-        for audio_path_set in file_paths[Category.AUDIO]:
-            if audio_path_set[2] == format:
-                continue
-            audio = AudioFileClip(self.file_handler.join_back(audio_path_set))
-            # If recursive, create file outright where its source was found
-            if not self.recursive or self.input != self.output:
-                out_path = os.path.abspath(
-                    os.path.join(self.output, f"{audio_path_set[1]}.{format}")
-                )
-            else:
-                out_path = os.path.abspath(
-                    os.path.join(audio_path_set[0], f"{audio_path_set[1]}.{format}")
-                )
-            # Write audio to file
-            try:
-                audio.write_audiofile(
-                    out_path,
-                    codec=codec,
-                    bitrate=self._audio_bitrate(format, self.quality),
-                    fps=audio.fps,
-                    logger=self.prog_logger,
-                )
-            except Exception as _:
-                self.event_logger.info(
-                    f"\n\n[!] {lang.get_translation('error', self.locale)}: {lang.get_translation('source_rate_incompatible', self.locale).replace('[format]', f'{format}')}\n"
-                )
-                audio.write_audiofile(
-                    out_path,
-                    codec=codec,
-                    bitrate=self._audio_bitrate(format, self.quality),
-                    fps=48000,
-                    logger=self.prog_logger,
-                )
-            audio.close()
-            self.file_handler.post_process(audio_path_set, out_path, self.delete)
-
-        # Movie to audio conversion
-        for movie_path_set in file_paths[Category.MOVIE]:
-            out_path = os.path.abspath(
-                os.path.join(self.output, f"{movie_path_set[1]}.{format}")
-            )
-
-            if self.file_handler.has_visuals(movie_path_set):
-                video = VideoFileClip(
-                    self.file_handler.join_back(movie_path_set),
-                    audio=True,
-                    fps_source="tbr",
-                )
-                audio = video.audio
-                # Check if audio was found
-                if audio is None:
-                    self.event_logger.info(
-                        f"[!] {lang.get_translation('no_audio', self.locale).replace('[path]', f'"{self.file_handler.join_back(movie_path_set)}"')} - {lang.get_translation('skipping', self.locale)}\n"
-                    )
-                    video.close()
-                    continue
-
-                audio.write_audiofile(
-                    out_path,
-                    codec=codec,
-                    bitrate=self._audio_bitrate(format, self.quality),
-                    logger=self.prog_logger,
-                )
-
-                audio.close()
-                video.close()
-            else:
-                try:
-                    # AudioFileClip works for audio-only video files
-                    audio = AudioFileClip(self.file_handler.join_back(movie_path_set))
-                    audio.write_audiofile(
-                        out_path,
-                        codec=codec,
-                        bitrate=self._audio_bitrate(format, self.quality),
-                        logger=self.prog_logger,
-                    )
-                    audio.close()
-                except Exception as _:
-                    self.event_logger.info(
-                        f"[!] {lang.get_translation('audio_extract_fail', self.locale).replace('[path]', f'"{self.file_handler.join_back(movie_path_set)}"')} - {lang.get_translation('skipping', self.locale)}\n"
-                    )
-                    continue
-            self.file_handler.post_process(movie_path_set, out_path, self.delete)
 
     def to_codec(self, file_paths: dict, codec: dict) -> None:
         # Convert movie to same movie with different codec
