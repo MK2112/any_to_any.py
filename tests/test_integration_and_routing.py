@@ -37,7 +37,7 @@ def test_end_with_msg_logs_and_exits(_converter_instance, caplog):
 
 
 def test_recursive_file_discovery(_converter_instance, tmp_path):
-    # _get_file_paths does not recurse; only top-level files are found.
+    # get_file_paths does not recurse; only top-level files are found.
     d1 = tmp_path / "a"
     d2 = d1 / "b"
     d2.mkdir(parents=True)

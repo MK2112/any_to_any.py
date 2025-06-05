@@ -19,7 +19,6 @@ def test_get_file_paths_valid_input_files(converter_instance, tmp_path):
     image_path = tmp_path / "test_image.jpg"
     movie_path.touch()
     image_path.touch()
-    # get_file_paths(self, input: str, file_paths: dict = {}, locale: str = "English", supported_formats: dict = {})
     file_paths = converter_instance.file_handler.get_file_paths(input=str(tmp_path), supported_formats=converter_instance._supported_formats)
 
     assert isinstance(file_paths, dict)
