@@ -21,6 +21,7 @@ from core.audio_converter import AudioConverter
 from core.movie_converter import MovieConverter
 from core.utils.file_handler import FileHandler
 from core.utils.directory_watcher import DirectoryWatcher
+from core.doc_converter import DocConverter, office_to_frames
 from moviepy import (
     AudioFileClip,
     VideoFileClip,
@@ -1171,7 +1172,12 @@ class Converter:
                     self.output = self.input
             if doc_path_set[2] in ["docx", "pptx"]:
                 # Read all images from docx, write to os.path.join(self.output, doc_path_set[1])
-                self._office_to_frames(doc_path_set, format)
+                office_to_frames(doc_path_set=doc_path_set,
+                                 format=format,
+                                 output=self.output,
+                                 delete=self.delete,
+                                 file_handler=self.file_handler,
+                                 event_logger=self.event_logger)
             if doc_path_set[2] == "pdf":
                 # Per page, convert pdf to image
                 pdf_path = self.file_handler.join_back(doc_path_set)
@@ -1387,7 +1393,12 @@ class Converter:
         # Documents can sometimes be converted to bmp, e.g. contents of docx, pdf
         for doc_path_set in file_paths[Category.DOCUMENT]:
             if doc_path_set[2] == "docx":
-                self._office_to_frames(doc_path_set, format)
+                office_to_frames(doc_path_set=doc_path_set,
+                                 format=format,
+                                 output=self.output,
+                                 delete=self.delete,
+                                 file_handler=self.file_handler,
+                                 event_logger=self.event_logger)
             if doc_path_set[2] == "pdf":
                 pdf_path = self.file_handler.join_back(doc_path_set)
                 bmp_path = os.path.abspath(
@@ -1485,7 +1496,12 @@ class Converter:
         # Documents may be convertable to bmps, e.g. pdfs
         for doc_path_set in file_paths[Category.DOCUMENT]:
             if doc_path_set[2] == "docx":
-                self._office_to_frames(doc_path_set, format)
+                office_to_frames(doc_path_set=doc_path_set,
+                                 format=format,
+                                 output=self.output,
+                                 delete=self.delete,
+                                 file_handler=self.file_handler,
+                                 event_logger=self.event_logger)
             if doc_path_set[2] == "pdf":
                 pdf_path = self.file_handler.join_back(doc_path_set)
                 bmp_path = os.path.abspath(
