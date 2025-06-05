@@ -5,8 +5,9 @@ import utils.language_support as lang
 
 
 class FileHandler:
-    def __init__(self, event_logger: logging.Logger):
+    def __init__(self, event_logger: logging.Logger, locale: str = "English"):
         self.event_logger = event_logger
+        self.locale = locale
 
     def join_back(self, file_path_set: tuple) -> str:
         # Join back the file path set to a concurrent path
@@ -26,7 +27,6 @@ class FileHandler:
         self,
         input: str,
         file_paths: dict = {},
-        locale: str = "English",
         supported_formats: dict = {},
     ) -> dict:
         # Get media files from input directory
@@ -44,12 +44,12 @@ class FileHandler:
                 if file_info[2] in supported_formats[category]:
                     file_paths[category].append(file_info)
                     self.event_logger.info(
-                        f"[+] {lang.get_translation('scheduling', locale)}: {file_info[1]}.{file_info[2]}"
+                        f"[+] {lang.get_translation('scheduling', self.locale)}: {file_info[1]}.{file_info[2]}"
                     )
                     break
 
         self.event_logger.info(
-            f"[>] {lang.get_translation('scanning', locale)}: {input}"
+            f"[>] {lang.get_translation('scanning', self.locale)}: {input}"
         )
 
         # Check if file_paths is an empty dict

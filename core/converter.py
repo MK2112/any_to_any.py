@@ -183,7 +183,7 @@ class Converter:
         )
         self.web_host = None  # Host address for the web interface
 
-        self.file_handler = FileHandler(self.event_logger)
+        self.file_handler = FileHandler(self.event_logger, self.locale)
 
     def _end_with_msg(self, exception: Exception, msg: str) -> None:
         # Single point of exit
@@ -310,7 +310,7 @@ class Converter:
             input_path = os.path.abspath(input_path)
             try:
                 file_paths = self.file_handler.get_file_paths(
-                    input_path, file_paths, self.locale, self._supported_formats
+                    input_path, file_paths, self._supported_formats
                 )
             except FileNotFoundError:
                 self._end_with_msg(
@@ -360,7 +360,7 @@ class Converter:
                         # root should be a directory with >=1 file to be considered
                         try:
                             file_paths = self.file_handler.get_file_paths(
-                                root, file_paths, self.locale, self._supported_formats
+                                root, file_paths, self._supported_formats
                             )
                         except FileNotFoundError:
                             self._end_with_msg(
@@ -472,7 +472,7 @@ class Converter:
                         temp_instance.concatenating = self.concatenating
                         temp_instance.recursive = True
                         temp_instance.event_logger = self.event_logger
-                        temp_instance.file_handler = FileHandler(self.event_logger)
+                        temp_instance.file_handler = self.file_handler
                         
                         # Process the file
                         file_paths = temp_instance.file_handler.get_file_paths([file_path])
