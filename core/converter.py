@@ -21,7 +21,7 @@ from core.audio_converter import AudioConverter
 from core.movie_converter import MovieConverter
 from core.utils.file_handler import FileHandler
 from core.utils.directory_watcher import DirectoryWatcher
-from core.doc_converter import DocConverter, office_to_frames
+from core.doc_converter import office_to_frames
 from moviepy import (
     AudioFileClip,
     VideoFileClip,
