@@ -21,8 +21,9 @@ from core.image_converter import gif_to_frames
 from core.audio_converter import AudioConverter
 from core.movie_converter import MovieConverter
 from core.utils.file_handler import FileHandler
+from core.doc_converter import DocumentConverter
 from core.utils.directory_watcher import DirectoryWatcher
-from core.doc_converter import office_to_frames, DocumentConverter
+from core.image_converter import ImageConverter, office_to_frames
 from moviepy import (
     AudioFileClip,
     VideoFileClip,
@@ -33,7 +34,7 @@ from moviepy import (
     clips_array,
 )
 
-# TODO: Move to_frames, to_bmp, to_webp, to_gif to image_converter
+# TODO: Move ~~to_frames~~, to_bmp, to_webp, to_gif to image_converter
 # TODO: Finalize image_converter
 # TODO: Add converter-wise tests
 
@@ -64,6 +65,9 @@ class Controller:
             self.file_handler, self.prog_logger, self.event_logger, self.locale
         )
         self.doc_converter = DocumentConverter(
+            self.file_handler, self.prog_logger, self.event_logger, self.locale
+        )
+        self.image_converter = ImageConverter(
             self.file_handler, self.prog_logger, self.event_logger, self.locale
         )
         # Setting up a dictionary of supported formats and respective information
@@ -100,20 +104,20 @@ class Controller:
             },
             Category.IMAGE: {
                 "gif": self.to_gif,
-                "png": self.to_frames,
-                "jpeg": self.to_frames,
-                "jpg": self.to_frames,
+                "png": self.image_converter.to_frames,
+                "jpeg": self.image_converter.to_frames,
+                "jpg": self.image_converter.to_frames,
                 "bmp": self.to_bmp,
                 "webp": self.to_webp,
-                "tiff": self.to_frames,
-                "tga": self.to_frames,
-                "ps": self.to_frames,
-                "ico": self.to_frames,
-                "eps": self.to_frames,
-                "jpeg2000": self.to_frames,
-                "im": self.to_frames,
-                "pcx": self.to_frames,
-                "ppm": self.to_frames,
+                "tiff": self.image_converter.to_frames,
+                "tga": self.image_converter.to_frames,
+                "ps": self.image_converter.to_frames,
+                "ico": self.image_converter.to_frames,
+                "eps": self.image_converter.to_frames,
+                "jpeg2000": self.image_converter.to_frames,
+                "im": self.image_converter.to_frames,
+                "pcx": self.image_converter.to_frames,
+                "ppm": self.image_converter.to_frames,
             },
             Category.DOCUMENT: {
                 "md": self.doc_converter.to_markdown,
@@ -459,7 +463,7 @@ class Controller:
             )
         elif self.target_format in self._supported_formats[Category.IMAGE].keys():
             self._supported_formats[Category.IMAGE][self.target_format](
-                file_paths, self.target_format
+                self.input, self.output, file_paths, self._supported_formats, self.target_format, self.delete
             )
         elif self.target_format in self._supported_formats[Category.DOCUMENT].keys():
             self._supported_formats[Category.DOCUMENT][self.target_format](
@@ -562,123 +566,6 @@ class Controller:
                 f"{lang.get_translation('error', self.locale)}: {str(e)}"
             )
             raise
-
-    def to_frames(self, file_paths: dict, format: str) -> None:
-        # Converting to image frame sets
-        # This works for images and movies only
-        format = "jpeg" if format == "jpg" else format
-        gif_to_frames(self.output, file_paths, self.file_handler)
-        for image_path_set in file_paths[Category.IMAGE]:
-            if image_path_set[2] == format:
-                continue
-            if image_path_set[2] == "gif":
-                # gif_to_frames did that out of loop already, just logging here
-                self.file_handler.post_process(image_path_set, self.output, self.delete)
-            else:
-                if not os.path.exists(os.path.join(self.output, image_path_set[1])):
-                    self.output = self.input
-                img_path = os.path.abspath(
-                    os.path.join(self.output, f"{image_path_set[1]}.{format}")
-                )
-                with Image.open(self.file_handler.join_back(image_path_set)) as img:
-                    img.convert("RGB").save(img_path, format=format)
-                self.file_handler.post_process(image_path_set, img_path, self.delete)
-        # Convert documents to image frames
-        for doc_path_set in file_paths[Category.DOCUMENT]:
-            if doc_path_set[2] == format:
-                continue
-            if not os.path.exists(os.path.join(self.output, doc_path_set[1])):
-                try:
-                    os.makedirs(
-                        os.path.join(self.output, doc_path_set[1]), exist_ok=True
-                    )
-                except OSError as e:
-                    self.event_logger.info(
-                        f"[!] {lang.get_translation('error', self.locale)}: {e} - {lang.get_translation('set_out_dir', self.locale)} {self.input}"
-                    )
-                    self.output = self.input
-            if doc_path_set[2] in ["docx", "pptx"]:
-                # Read all images from docx, write to os.path.join(self.output, doc_path_set[1])
-                office_to_frames(
-                    doc_path_set=doc_path_set,
-                    format=format,
-                    output=self.output,
-                    delete=self.delete,
-                    file_handler=self.file_handler,
-                    event_logger=self.event_logger,
-                )
-            if doc_path_set[2] == "pdf":
-                # Per page, convert pdf to image
-                pdf_path = self.file_handler.join_back(doc_path_set)
-                pdf = PyPDF2.PdfReader(pdf_path)
-                img_path = os.path.abspath(
-                    os.path.join(
-                        os.path.join(self.output, doc_path_set[1]),
-                        f"{doc_path_set[1]}-%{len(str(len(pdf.pages)))}d.{format}",
-                    )
-                )
-
-                try:
-                    if not os.path.exists(os.path.dirname(img_path)):
-                        os.makedirs(os.path.dirname(img_path), exist_ok=True)
-                    self.output = os.path.dirname(img_path)
-                except OSError as e:
-                    self.event_logger.info(
-                        f"[!] {lang.get_translation('error', self.locale)}: {e} - {lang.get_translation('set_out_dir', self.locale)} {self.input}"
-                    )
-                    self.output = self.input
-
-                pdf_document = fitz.open(pdf_path)
-
-                for page_num in range(len(pdf_document)):
-                    pix = pdf_document[page_num].get_pixmap()
-                    img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-                    img_file = img_path % (page_num + 1)
-                    img.save(img_file, format.upper())
-
-                pdf_document.close()
-                self.file_handler.post_process(doc_path_set, img_path, self.delete)
-
-        # Audio cant be image-framed, movies certrainly can
-        for movie_path_set in file_paths[Category.MOVIE]:
-            if movie_path_set[2] not in self._supported_formats[Category.MOVIE]:
-                self.event_logger.info(
-                    f"[!] {lang.get_translation('movie_format_unsupported', self.locale)} {movie_path_set[2]} - {lang.get_translation('skipping', self.locale)}"
-                )
-                continue
-            if self.file_handler.has_visuals(movie_path_set):
-                video = VideoFileClip(
-                    self.file_handler.join_back(movie_path_set),
-                    audio=False,
-                    fps_source="tbr",
-                )
-                try:
-                    if not os.path.exists(os.path.join(self.output, movie_path_set[1])):
-                        os.makedirs(
-                            os.path.join(self.output, movie_path_set[1]), exist_ok=True
-                        )
-                except OSError as e:
-                    self.event_logger.info(
-                        f"[!] {lang.get_translation('error', self.locale)}: {e} - {lang.get_translation('set_out_dir', self.locale)} {self.input}"
-                    )
-                    self.output = self.input
-                img_path = os.path.abspath(
-                    os.path.join(
-                        os.path.join(self.output, movie_path_set[1]),
-                        f"{movie_path_set[1]}-%{len(str(int(video.duration * video.fps)))}d.{format}",
-                    )
-                )
-
-                video.write_images_sequence(
-                    img_path, fps=video.fps, logger=self.prog_logger
-                )
-                video.close()
-                self.file_handler.post_process(movie_path_set, img_path, self.delete)
-            else:
-                self.event_logger.info(
-                    f'[!] {lang.get_translation("skipping", self.locale)} "{self.file_handler.join_back(movie_path_set)}" - {lang.get_translation("audio_only_video", self.locale)}'
-                )
-                self.file_handler.post_process(movie_path_set, img_path, self.delete)
 
     def to_gif(self, file_paths: dict, format: str) -> None:
         # All images in the input directory are merged into one gif

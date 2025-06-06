@@ -7,7 +7,7 @@ import utils.language_support as lang
 from PIL import Image
 from tqdm import tqdm
 from utils.category import Category
-from core.doc_converter import office_to_frames
+from core.image_converter import office_to_frames
 from core.utils.exit import end_with_msg
 from moviepy import (
     VideoFileClip,
