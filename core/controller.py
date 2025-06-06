@@ -34,7 +34,6 @@ from moviepy import (
     clips_array,
 )
 
-# TODO: Move ~~to_frames~~, to_bmp, to_webp, to_gif to image_converter
 # TODO: Finalize image_converter
 # TODO: Add converter-wise tests
 
@@ -103,12 +102,12 @@ class Controller:
                 "thd": "truehd",
             },
             Category.IMAGE: {
-                "gif": self.to_gif,
+                "gif": self.image_converter.to_gif,
                 "png": self.image_converter.to_frames,
                 "jpeg": self.image_converter.to_frames,
                 "jpg": self.image_converter.to_frames,
-                "bmp": self.to_bmp,
-                "webp": self.to_webp,
+                "bmp": self.image_converter.to_bmp,
+                "webp": self.image_converter.to_webp,
                 "tiff": self.image_converter.to_frames,
                 "tga": self.image_converter.to_frames,
                 "ps": self.image_converter.to_frames,
@@ -463,7 +462,7 @@ class Controller:
             )
         elif self.target_format in self._supported_formats[Category.IMAGE].keys():
             self._supported_formats[Category.IMAGE][self.target_format](
-                self.input, self.output, file_paths, self._supported_formats, self.target_format, self.delete
+                self.input, self.output, file_paths, self._supported_formats, self.framerate, self.target_format, self.delete
             )
         elif self.target_format in self._supported_formats[Category.DOCUMENT].keys():
             self._supported_formats[Category.DOCUMENT][self.target_format](
@@ -566,293 +565,6 @@ class Controller:
                 f"{lang.get_translation('error', self.locale)}: {str(e)}"
             )
             raise
-
-    def to_gif(self, file_paths: dict, format: str) -> None:
-        # All images in the input directory are merged into one gif
-        if len(file_paths[Category.IMAGE]) > 0:
-            images = []
-            for image_path_set in file_paths[Category.IMAGE]:
-                if image_path_set[2] == format:
-                    continue
-                with Image.open(self.file_handler.join_back(image_path_set)) as image:
-                    images.append(image.convert("RGB"))
-            images[0].save(
-                os.path.join(self.output, f"merged.{format}"),
-                save_all=True,
-                append_images=images[1:],
-            )
-
-        # Movies are converted to gifs as well, retaining 1/3 of the frames
-        for movie_path_set in file_paths[Category.MOVIE]:
-            if self.file_handler.has_visuals(movie_path_set):
-                video = VideoFileClip(
-                    self.file_handler.join_back(movie_path_set),
-                    audio=False,
-                    fps_source="tbr",
-                )
-                gif_path = os.path.join(self.output, f"{movie_path_set[1]}.{format}")
-                video.write_gif(gif_path, fps=video.fps // 3, logger=self.prog_logger)
-                video.close()
-                self.file_handler.post_process(movie_path_set, gif_path, self.delete)
-            else:
-                self.event_logger.info(
-                    f'[!] {lang.get_translation("skipping", self.locale)} "{self.file_handler.join_back(movie_path_set)}" - {lang.get_translation("audio_only_video", self.locale)}'
-                )
-        # Documents may be convertable to gifs, e.g. pdfs
-        for doc_path_set in file_paths[Category.DOCUMENT]:
-            if doc_path_set[2] == "pdf":
-                pdf_path = self.file_handler.join_back(doc_path_set)
-                gif_path = os.path.abspath(
-                    os.path.join(self.output, f"{doc_path_set[1]}.{format}")
-                )
-                doc = fitz.open(pdf_path)
-                images = []
-                for page_num in range(len(doc)):
-                    pix = doc.load_page(page_num).get_pixmap()
-                    img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-                    images.append(img.convert("RGB"))
-                if images:
-                    images[0].save(
-                        gif_path,
-                        save_all=True,
-                        append_images=images[1:],
-                        duration=(len(images) * 1000 // len(doc))
-                        // (12 if self.framerate is None else self.framerate),
-                        loop=0,
-                    )
-                doc.close()
-                self.file_handler.post_process(doc_path_set, gif_path, self.delete)
-            elif doc_path_set[2] in ["docx", "pptx"]:
-                input_path = self.file_handler.join_back(doc_path_set)
-                gif_path = os.path.abspath(
-                    os.path.join(self.output, f"{doc_path_set[1]}.{format}")
-                )
-                images = []
-                if doc_path_set[2] == "docx":
-                    doc = docx.Document(input_path)
-                    for rel in doc.part.rels.values():
-                        if "image" in rel.reltype:
-                            img = Image.open(rel.target_part.blob)
-                            images.append(img.convert("RGB"))
-                    frame_count = len(doc.paragraphs) or 1
-                else:
-                    prs = pptx.Presentation(input_path)
-                    for slide in prs.slides:
-                        for shape in slide.shapes:
-                            if shape.shape_type == 13:  # Picture
-                                image = shape.image
-                                img_bytes = image.blob
-                                img = Image.open(img_bytes)
-                                images.append(img.convert("RGB"))
-                    frame_count = len(prs.slides) or 1
-                if images:
-                    images[0].save(
-                        gif_path,
-                        save_all=True,
-                        append_images=images[1:],
-                        duration=(len(images) * 1000 // frame_count)
-                        // (12 if self.framerate is None else self.framerate),
-                        loop=0,
-                    )
-                self.file_handler.post_process(doc_path_set, gif_path, self.delete)
-
-    def to_bmp(self, file_paths: dict, format: str) -> None:
-        for movie_path_set in file_paths[Category.MOVIE]:
-            # Movies are converted to bmps frame by frame
-            if self.file_handler.has_visuals(movie_path_set):
-                video = VideoFileClip(
-                    self.file_handler.join_back(movie_path_set),
-                    audio=False,
-                    fps_source="tbr",
-                )
-                bmp_path = os.path.join(self.output, f"{movie_path_set[1]}.{format}")
-                # Split video into individual bmp frame images at original framerate
-                for _, frame in enumerate(
-                    video.iter_frames(fps=video.fps, dtype="uint8")
-                ):
-                    frame.save(
-                        f"{bmp_path}-%{len(str(int(video.duration * video.fps)))}d.{format}",
-                        format=format,
-                    )
-                self.file_handler.post_process(movie_path_set, bmp_path, self.delete)
-            else:
-                self.event_logger.info(
-                    f'[!] {lang.get_translation("skipping", self.locale)} "{self.file_handler.join_back(movie_path_set)}" - {lang.get_translation("audio_only_video", self.locale)}'
-                )
-        for image_path_set in file_paths[Category.IMAGE]:
-            # Pngs and gifs are converted to bmps as well
-            if image_path_set[2] == format:
-                continue
-            if image_path_set[2] in ["png", "jpeg", "jpg", "tiff", "tga", "eps"]:
-                bmp_path = os.path.join(self.output, f"{image_path_set[1]}.{format}")
-                with Image.open(self.file_handler.join_back(image_path_set)) as img:
-                    img.convert("RGB").save(bmp_path, format=format)
-                self.file_handler.post_process(image_path_set, bmp_path, self.delete)
-            elif image_path_set[2] == "gif":
-                clip = VideoFileClip(self.file_handler.join_back(image_path_set))
-                for _, frame in enumerate(
-                    clip.iter_frames(fps=clip.fps, dtype="uint8")
-                ):
-                    frame_path = os.path.join(
-                        self.output,
-                        f"{image_path_set[1]}-%{len(str(int(clip.duration * clip.fps)))}d.{format}",
-                    )
-                    Image.fromarray(frame).convert("RGB").save(
-                        frame_path, format=format
-                    )
-                self.file_handler.post_process(image_path_set, frame_path, self.delete)
-            else:
-                # Handle unsupported file types here
-                self.event_logger.info(
-                    f'[!] {lang.get_translation("skipping", self.locale)} "{self.file_handler.join_back(image_path_set)}" - {lang.get_translation("unsupported_format", self.locale)}'
-                )
-        # Documents can sometimes be converted to bmp, e.g. contents of docx, pdf
-        for doc_path_set in file_paths[Category.DOCUMENT]:
-            if doc_path_set[2] == "docx":
-                office_to_frames(
-                    doc_path_set=doc_path_set,
-                    format=format,
-                    output=self.output,
-                    delete=self.delete,
-                    file_handler=self.file_handler,
-                    event_logger=self.event_logger,
-                )
-            if doc_path_set[2] == "pdf":
-                pdf_path = self.file_handler.join_back(doc_path_set)
-                bmp_path = os.path.abspath(
-                    os.path.join(self.output, f"{doc_path_set[1]}.{format}")
-                )
-                doc = fitz.open(pdf_path)
-                if not os.path.exists(os.path.join(self.output, doc_path_set[1])):
-                    try:
-                        os.makedirs(
-                            os.path.join(self.output, doc_path_set[1]), exist_ok=True
-                        )
-                    except OSError as e:
-                        self.event_logger.info(
-                            f"[!] {lang.get_translation('error', self.locale)}: {e} - {lang.get_translation('set_out_dir', self.locale)} {self.input}"
-                        )
-                        self.output = self.input
-                for i, page_num in enumerate(range(len(doc))):
-                    pix = doc.load_page(page_num).get_pixmap()
-                    img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-                    img = img.convert("RGB")
-                    # Save each page as a separate BMP file
-                    img.save(
-                        os.path.join(
-                            self.output,
-                            doc_path_set[1],
-                            f"{doc_path_set[1]}-{i:0{len(str(len(doc)))}}.{format}",
-                        ),
-                        format=format,
-                    )
-                doc.close()
-                self.file_handler.post_process(doc_path_set, bmp_path, self.delete)
-
-    def to_webp(self, file_paths: dict, format: str) -> None:
-        # Convert frames in webp format
-        # Movies are converted to webps, frame by frame
-        for movie_path_set in file_paths[Category.MOVIE]:
-            if self.file_handler.has_visuals(movie_path_set):
-                video = VideoFileClip(
-                    self.file_handler.join_back(movie_path_set),
-                    audio=False,
-                    fps_source="tbr",
-                )
-                if not os.path.exists(os.path.join(self.output, movie_path_set[1])):
-                    try:
-                        os.makedirs(os.path.join(self.output, movie_path_set[1]))
-                    except OSError as e:
-                        self.event_logger.info(
-                            f"[!] {lang.get_translation('error', self.locale)}: {e} - {lang.get_translation('set_out_dir', self.locale)} {self.input}"
-                        )
-                        self.output = self.input
-                img_path = os.path.abspath(
-                    os.path.join(
-                        os.path.join(self.output, movie_path_set[1]),
-                        f"{movie_path_set[1]}-%{len(str(int(video.duration * video.fps)))}d.{format}",
-                    )
-                )
-                video.write_images_sequence(
-                    img_path, fps=video.fps, logger=self.prog_logger
-                )
-                video.close()
-                self.file_handler.post_process(movie_path_set, img_path, self.delete)
-            else:
-                self.event_logger.info(
-                    f'[!] {lang.get_translation("skipping", self.locale)} "{self.file_handler.join_back(movie_path_set)}" - {lang.get_translation("audio_only_video", self.locale)}'
-                )
-
-        # pngs and gifs are converted to webps as well
-        for image_path_set in file_paths[Category.IMAGE]:
-            if image_path_set[2] == format:
-                continue
-            if image_path_set[2] in ["png", "jpeg", "jpg", "tiff", "tga", "eps"]:
-                webp_path = os.path.join(self.output, f"{image_path_set[1]}.{format}")
-                with Image.open(self.file_handler.join_back(image_path_set)) as img:
-                    img.convert("RGB").save(webp_path, format=format)
-                self.file_handler.post_process(image_path_set, webp_path, self.delete)
-            elif image_path_set[2] == "gif":
-                clip = VideoFileClip(self.file_handler.join_back(image_path_set))
-                for _, frame in enumerate(
-                    clip.iter_frames(fps=clip.fps, dtype="uint8")
-                ):
-                    frame_path = os.path.join(
-                        self.output,
-                        f"{image_path_set[1]}-%{len(str(int(clip.duration * clip.fps)))}d.{format}",
-                    )
-                    Image.fromarray(frame).convert("RGB").save(
-                        frame_path, format=format
-                    )
-                self.file_handler.post_process(image_path_set, frame_path, self.delete)
-            else:
-                # Handle unsupported file types here
-                self.event_logger.info(
-                    f'[!] {lang.get_translation("skipping", self.locale)} "{self.file_handler.join_back(image_path_set)}" - {lang.get_translation("unsupported_format", self.locale)}'
-                )
-
-        # Documents may be convertable to bmps, e.g. pdfs
-        for doc_path_set in file_paths[Category.DOCUMENT]:
-            if doc_path_set[2] == "docx":
-                office_to_frames(
-                    doc_path_set=doc_path_set,
-                    format=format,
-                    output=self.output,
-                    delete=self.delete,
-                    file_handler=self.file_handler,
-                    event_logger=self.event_logger,
-                )
-            if doc_path_set[2] == "pdf":
-                pdf_path = self.file_handler.join_back(doc_path_set)
-                bmp_path = os.path.abspath(
-                    os.path.join(self.output, f"{doc_path_set[1]}.{format}")
-                )
-                doc = fitz.open(pdf_path)
-                if not os.path.exists(os.path.join(self.output, doc_path_set[1])):
-                    try:
-                        os.makedirs(
-                            os.path.join(self.output, doc_path_set[1]), exist_ok=True
-                        )
-                    except OSError as e:
-                        self.event_logger.info(
-                            f"[!] {lang.get_translation('error', self.locale)}: {e} - {lang.get_translation('set_out_dir', self.locale)} {self.input}"
-                        )
-                        self.output = self.input
-                for i, page_num in enumerate(range(len(doc))):
-                    pix = doc.load_page(page_num).get_pixmap()
-                    img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-                    img = img.convert("RGB")
-                    # Save each page as a separate BMP file
-                    img.save(
-                        os.path.join(
-                            self.output,
-                            doc_path_set[1],
-                            f"{doc_path_set[1]}-{i:0{len(str(len(doc)))}}.{format}",
-                        ),
-                        format=format,
-                    )
-                doc.close()
-                self.file_handler.post_process(doc_path_set, bmp_path, self.delete)
 
     def concat(self, file_paths: dict, format: str) -> None:
         # Concatenate files of same type (img/movie/audio) back to back
