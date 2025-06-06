@@ -220,4 +220,75 @@ class MovieConverter:
                 shutil.rmtree(os.path.join(output, doc_path_set[1]))
                 self.file_handler.post_process(doc_path_set, movie_path, delete)    
         
-    
+    def to_codec(self,
+                 input: str,
+                 output: str,
+                 format: str,
+                 recursive: bool,
+                 file_paths: dict,
+                 framerate: int, 
+                 codec: dict,
+                 delete: bool) -> None:
+        # Convert movie to same movie with different codec
+        for codec_path_set in file_paths[Category.MOVIE]:
+            if not recursive or input != output:
+                out_path = os.path.abspath(
+                    os.path.join(
+                        output,
+                        f"{codec_path_set[1]}_{format}.{codec[1]}",
+                    )
+                )
+            else:
+                out_path = os.path.abspath(
+                    os.path.join(codec_path_set[0], f"{codec_path_set[1]}.{format}")
+                )
+            if self.file_handler.has_visuals(codec_path_set):
+                video = VideoFileClip(
+                    self.file_handler.join_back(codec_path_set),
+                    audio=True,
+                    fps_source="tbr",
+                )
+                try:
+                    video.write_videofile(
+                        out_path,
+                        codec=codec[0],
+                        fps=video.fps if framerate is None else framerate,
+                        audio=True,
+                        logger=self.prog_logger,
+                    )
+                except Exception as _:
+                    if os.path.exists(out_path):
+                        # There might be some residue left, remove it
+                        os.remove(out_path)
+                    self.event_logger.info(
+                        f"\n\n[!] {lang.get_translation('codec_fallback', self.locale).replace('[path]', f'"{codec_path_set[2]}"').replace('[format]', f'{codec[1]}')}\n"
+                    )
+                    video.write_videofile(
+                        out_path,
+                        codec=codec[0],
+                        fps=video.fps if self.framerate is None else self.framerate,
+                        audio=True,
+                        logger=self.prog_logger,
+                    )
+                video.close()
+            else:
+                # Audio-only video file
+                audio = AudioFileClip(self.file_handler.join_back(codec_path_set))
+                # Create new VideoClip with audio only
+                clip = VideoClip(
+                    lambda t: np.zeros(
+                        (16, 16, 3), dtype=np.uint8
+                    ),  # 16 black pixels at least, required by moviepy
+                    duration=audio.duration,
+                )
+                clip = clip.set_audio(audio)
+                clip.write_videofile(
+                    out_path,
+                    codec=codec[0],
+                    fps=24 if framerate is None else framerate,
+                    audio=True,
+                    logger=self.prog_logger,
+                )
+                clip.close()
+                audio.close()
+            self.file_handler.post_process(codec_path_set, out_path, delete)
