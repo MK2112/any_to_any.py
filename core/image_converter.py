@@ -9,6 +9,7 @@ from tqdm import tqdm
 from moviepy import VideoFileClip
 from utils.category import Category
 
+
 def office_to_frames(
     doc_path_set: tuple,
     format: str,
@@ -54,6 +55,7 @@ def office_to_frames(
     except Exception as e:
         event_logger.error(e)
 
+
 def gif_to_frames(output: str, file_paths: dict, file_handler) -> None:
     # Convert GIFs to frames, place those in a folder
     gifs = [
@@ -78,8 +80,8 @@ def gif_to_frames(output: str, file_paths: dict, file_handler) -> None:
                 Image.fromarray(frame).save(frame_path, format="PNG")
             clip.close()
 
-class ImageConverter:
 
+class ImageConverter:
     def __init__(
         self, file_handler, prog_logger, event_logger, locale: str = "English"
     ):
@@ -88,14 +90,16 @@ class ImageConverter:
         self.event_logger = event_logger
         self.locale = locale
 
-    def to_frames(self,
-                  input: str,
-                  output: str,
-                  file_paths: dict, 
-                  supported_formats: dict, # self._supported_formats
-                  framerate: int,
-                  format: str,
-                  delete: bool) -> None:
+    def to_frames(
+        self,
+        input: str,
+        output: str,
+        file_paths: dict,
+        supported_formats: dict,  # self._supported_formats
+        framerate: int,
+        format: str,
+        delete: bool,
+    ) -> None:
         # Converting to image frame sets
         # This works for images and movies only
         format = "jpeg" if format == "jpg" else format
@@ -121,9 +125,7 @@ class ImageConverter:
                 continue
             if not os.path.exists(os.path.join(output, doc_path_set[1])):
                 try:
-                    os.makedirs(
-                        os.path.join(output, doc_path_set[1]), exist_ok=True
-                    )
+                    os.makedirs(os.path.join(output, doc_path_set[1]), exist_ok=True)
                 except OSError as e:
                     self.event_logger.info(
                         f"[!] {lang.get_translation('error', self.locale)}: {e} - {lang.get_translation('set_out_dir', self.locale)} {input}"
@@ -212,14 +214,16 @@ class ImageConverter:
                 )
                 self.file_handler.post_process(movie_path_set, img_path, delete)
 
-    def to_bmp(self,
-               input: str,
-               output: str,
-               file_paths: dict, 
-               supported_formats: dict, # unused, aligns signature with to_frames, so keep it
-               framerate: int,
-               format: str,
-               delete: bool) -> None:
+    def to_bmp(
+        self,
+        input: str,
+        output: str,
+        file_paths: dict,
+        supported_formats: dict,  # unused, aligns signature with to_frames, so keep it
+        framerate: int,
+        format: str,
+        delete: bool,
+    ) -> None:
         for movie_path_set in file_paths[Category.MOVIE]:
             # Movies are converted to bmps frame by frame
             if self.file_handler.has_visuals(movie_path_set):
@@ -312,14 +316,16 @@ class ImageConverter:
                 doc.close()
                 self.file_handler.post_process(doc_path_set, bmp_path, delete)
 
-    def to_webp(self,
-                input: str,
-                output: str,
-                file_paths: dict, 
-                supported_formats: dict, # unused, aligns signature with to_frames, so keep it
-                framerate: int,
-                format: str,
-                delete: bool) -> None:
+    def to_webp(
+        self,
+        input: str,
+        output: str,
+        file_paths: dict,
+        supported_formats: dict,  # unused, aligns signature with to_frames, so keep it
+        framerate: int,
+        format: str,
+        delete: bool,
+    ) -> None:
         # Convert frames in webp format
         # Movies are converted to webps, frame by frame
         for movie_path_set in file_paths[Category.MOVIE]:
@@ -424,14 +430,16 @@ class ImageConverter:
                 doc.close()
                 self.file_handler.post_process(doc_path_set, bmp_path, delete)
 
-    def to_gif(self,
-               input: str,
-               output: str,
-               file_paths: dict, 
-               supported_formats: dict, # unused, aligns signature with to_frames, so keep it
-               framerate: int,
-               format: str,
-               delete: bool) -> None:
+    def to_gif(
+        self,
+        input: str,
+        output: str,
+        file_paths: dict,
+        supported_formats: dict,  # unused, aligns signature with to_frames, so keep it
+        framerate: int,
+        format: str,
+        delete: bool,
+    ) -> None:
         # All images in the input directory are merged into one gif
         if len(file_paths[Category.IMAGE]) > 0:
             images = []
@@ -502,7 +510,7 @@ class ImageConverter:
                     prs = pptx.Presentation(input_path)
                     for slide in prs.slides:
                         for shape in slide.shapes:
-                            if shape.shape_type == 13:  # Picture
+                            if shape.shape_type == 13: # Picture
                                 image = shape.image
                                 img_bytes = image.blob
                                 img = Image.open(img_bytes)

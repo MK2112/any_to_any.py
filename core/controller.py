@@ -34,9 +34,7 @@ from moviepy import (
     clips_array,
 )
 
-# TODO: Finalize image_converter
 # TODO: Add converter-wise tests
-
 
 class Controller:
     """
@@ -462,7 +460,13 @@ class Controller:
             )
         elif self.target_format in self._supported_formats[Category.IMAGE].keys():
             self._supported_formats[Category.IMAGE][self.target_format](
-                self.input, self.output, file_paths, self._supported_formats, self.framerate, self.target_format, self.delete
+                self.input,
+                self.output,
+                file_paths,
+                self._supported_formats,
+                self.framerate,
+                self.target_format,
+                self.delete,
             )
         elif self.target_format in self._supported_formats[Category.DOCUMENT].keys():
             self._supported_formats[Category.DOCUMENT][self.target_format](

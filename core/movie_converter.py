@@ -303,13 +303,14 @@ class MovieConverter:
                 audio.close()
             self.file_handler.post_process(codec_path_set, out_path, delete)
 
-
-    def to_protocol(self,
-                    output: str,
-                    file_paths: dict,
-                    supported_formats: dict, # self._supported_formats
-                    protocol: list,
-                    delete: bool) -> None:
+    def to_protocol(
+        self,
+        output: str,
+        file_paths: dict,
+        supported_formats: dict,  # self._supported_formats
+        protocol: list,
+        delete: bool,
+    ) -> None:
         # Convert movie files into adaptive streaming formats HLS (.m3u8) or DASH (.mpd).
         if protocol[0] not in list(supported_formats[Category.PROTOCOLS].keys()):
             end_with_msg(
@@ -396,8 +397,8 @@ class MovieConverter:
                 except Exception as e:
                     end_with_msg(
                         self.event_logger,
-                        None, 
-                        f"{lang.get_translation('get_hls_fail', self.locale)} {e}"
+                        None,
+                        f"{lang.get_translation('get_hls_fail', self.locale)} {e}",
                     )
             elif protocol[0] == "dash":
                 self.event_logger.info(
@@ -441,9 +442,7 @@ class MovieConverter:
                 ]
                 try:
                     self._run_command(cmd)
-                    self.file_handler.post_process(
-                        movie_path_set, out_path, delete
-                    )
+                    self.file_handler.post_process(movie_path_set, out_path, delete)
                 except Exception as e:
                     end_with_msg(
                         self.event_logger,
