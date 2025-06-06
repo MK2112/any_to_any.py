@@ -68,7 +68,6 @@ class DocumentConverter:
         self.locale = locale
 
     def to_markdown(self,
-                    input: str,
                     output: str,
                     file_paths: dict, 
                     format: str,
@@ -115,7 +114,6 @@ class DocumentConverter:
                 self.file_handler.post_process(doc_path_set, md_path, delete)
 
     def to_pdf(self, 
-               input: str,
                output: str,
                file_paths: dict,
                format: str,
@@ -222,7 +220,6 @@ class DocumentConverter:
                 self.file_handler.post_process(doc_path_set, pdf_path, delete)
 
     def to_subtitles(self, 
-                     input: str,
                      output: str,
                      file_paths: dict,
                      format: str,
@@ -291,3 +288,164 @@ class DocumentConverter:
                         f"[!] {lang.get_translation('ffmpeg_not_found', self.locale)}"
                     )
                     break
+
+    def to_office(self, 
+                  output: str,
+                  file_paths: dict,
+                  format: str,
+                  delete: bool) -> None:
+        def _new_container():
+            return pptx.Presentation() if format == "pptx" else docx.Document()
+
+        def _add_page(container):
+            return (
+                container.slides.add_slide(container.slide_layouts[5])
+                if format == "pptx"
+                else container
+            )
+
+        def _place_img(page, img_path, full_page=False):
+            with Image.open(img_path) as im:
+                w, h = im.size
+            if format == "pptx":
+                max_h, max_w = container.slide_height, container.slide_width
+                if full_page or h > max_h or w > max_w:
+                    if h / max_h >= w / max_w:
+                        page.shapes.add_picture(img_path, 0, 0, height=max_h)
+                    else:
+                        page.shapes.add_picture(img_path, 0, 0, width=max_w)
+                else:
+                    page.shapes.add_picture(img_path, 0, 0)
+            elif format == "docx":
+                try:
+                    page.add_picture(img_path, height=docx.shared.Inches(7))
+                except docx.image.exceptions.UnexpectedEndOfFileError as e:
+                    self.event_logger.info(e)
+
+        gifs_to_frames(output, file_paths, self.file_handler)
+
+        for image_path_set in file_paths[Category.IMAGE]:
+            out_path = os.path.abspath(
+                os.path.join(output, f"{image_path_set[1]}.{format}")
+            )
+            container = _new_container()
+            if image_path_set[2] == "gif":
+                frame_dir = os.path.join(output, image_path_set[1])
+                for frame in tqdm(sorted(os.listdir(frame_dir))):
+                    if not frame.endswith(".png"):
+                        continue
+                    page = _add_page(container)
+                    _place_img(page, os.path.join(frame_dir, frame), full_page=True)
+                    if format == "docx":
+                        page.add_paragraph(f"Image: {frame}")
+                        page.add_page_break()
+                shutil.rmtree(frame_dir)
+            else:
+                page = _add_page(container)
+                _place_img(
+                    page, self.file_handler.join_back(image_path_set), full_page=True
+                )
+                if format == "docx":
+                    page.add_paragraph(f"Image: {image_path_set[1]}")
+            container.save(out_path)
+            self.file_handler.post_process(image_path_set, out_path, delete)
+
+        for movie_path_set in file_paths[Category.MOVIE]:
+            if not self.file_handler.has_visuals(movie_path_set):
+                continue
+
+            out_path = os.path.abspath(
+                os.path.join(output, f"{movie_path_set[1]}.{format}")
+            )
+            container = _new_container()
+            clip = VideoFileClip(
+                self.file_handler.join_back(movie_path_set),
+                audio=False,
+                fps_source="tbr",
+            )
+            digits = len(str(int(clip.duration * clip.fps)))
+
+            for idx, frame in tqdm(
+                enumerate(clip.iter_frames(fps=clip.fps, dtype="uint8"))
+            ):
+                frame_png = os.path.join(
+                    output, f"{movie_path_set[1]}-temp-{idx:0{digits}d}.png"
+                )
+                Image.fromarray(frame).save(frame_png, format="PNG")
+                page = _add_page(container)
+                _place_img(page, frame_png, full_page=format == "pptx")
+                if format == "docx":
+                    page.add_paragraph(f"Frame: {idx}")
+                    page.add_page_break()
+                os.remove(frame_png)
+
+            clip.close()
+            container.save(out_path)
+            self.file_handler.post_process(movie_path_set, out_path, delete)
+
+        if format == "docx":
+            for document_path_set in file_paths[Category.DOCUMENT]:
+                if document_path_set[2] == format:
+                    continue
+
+                out_path = os.path.abspath(
+                    os.path.join(output, f"{document_path_set[1]}.docx")
+                )
+                doc = docx.Document()
+
+                if document_path_set[2] == "pptx":
+                    pptx_path = self.file_handler.join_back(document_path_set)
+                    presentation = pptx.Presentation(pptx_path)
+                    for slide in tqdm(
+                        presentation.slides, desc=f"{document_path_set[1]}"
+                    ):
+                        if slide.shapes.title.text != "":
+                            # Add title to the document
+                            doc.add_paragraph(
+                                f"Slide {slide.slide_id} Title: {slide.shapes.title.text}"
+                            )
+                        for shape in slide.shapes:
+                            if hasattr(shape, "image"):
+                                img = shape.image
+                                slide_img = os.path.join(
+                                    output,
+                                    f"{document_path_set[1]}-slide{slide.slide_id}.{img.ext}",
+                                )
+                                with open(slide_img, "wb") as f:
+                                    f.write(img.blob)
+                                doc.add_paragraph(f"Slide {slide.slide_id} Image:")
+                                doc.add_picture(slide_img, width=docx.shared.Inches(5))
+                                os.remove(slide_img)
+                            if hasattr(shape, "text"):
+                                if shape.text != "":
+                                    doc.add_paragraph(
+                                        f"Slide {slide.slide_id} Text: {shape.text}"
+                                    )
+                        doc.add_page_break()
+                elif document_path_set[2] == "pdf":
+                    pdf = fitz.open(self.file_handler.join_back(document_path_set))
+                    for pnum in tqdm(range(len(pdf))):
+                        page = pdf.load_page(pnum)
+                        txt = page.get_text().strip()
+                        if txt:
+                            doc.add_paragraph(f"Page {pnum + 1} Text:")
+                            for line in txt.splitlines():
+                                doc.add_paragraph(line)
+                        imgs = page.get_images(full=True)
+                        if imgs:
+                            doc.add_paragraph(f"Page {pnum + 1} Images:")
+                        for i, img in enumerate(imgs):
+                            xref = img[0]
+                            pix = pdf.extract_image(xref)
+                            img_bytes, img_ext = pix["image"], pix["ext"]
+                            tmp_img = os.path.join(
+                                output,
+                                f"{document_path_set[1]}-page{pnum + 1}-{i}.{img_ext}",
+                            )
+                            with open(tmp_img, "wb") as f:
+                                f.write(img_bytes)
+                            doc.add_picture(tmp_img, width=docx.shared.Inches(5))
+                            os.remove(tmp_img)
+                        doc.add_page_break()
+                doc.save(out_path)
+                self.file_handler.post_process(document_path_set, out_path, delete)
