@@ -32,7 +32,6 @@ from moviepy import (
     clips_array,
 )
 
-# TODO: Finalize doc_converter
 # TODO: Move to_frames, to_bmp, to_webp, to_gif to image_converter
 # TODO: Finalize image_converter
 # TODO: Add converter-wise tests

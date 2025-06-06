@@ -72,6 +72,7 @@ class DocumentConverter:
                     file_paths: dict, 
                     format: str,
                     delete: bool) -> None:
+        # Convert Documents to Markdown
         for doc_path_set in file_paths[Category.DOCUMENT]:
             if doc_path_set[2] == "docx":
                 docx_path = self.file_handler.join_back(doc_path_set)
@@ -156,7 +157,7 @@ class DocumentConverter:
                 # Remove the gif frame folder
                 shutil.rmtree(gif_frame_path)
                 self.file_handler.post_process(image_path_set, pdf_path, delete)
-        # Convert Movies to PDF
+        # Convert Movies to PDF, because we can
         for movie_path_set in file_paths[Category.MOVIE]:
             if self.file_handler.has_visuals(movie_path_set):
                 clip = VideoFileClip(
@@ -224,6 +225,7 @@ class DocumentConverter:
                      file_paths: dict,
                      format: str,
                      delete: bool) -> None:
+        # Extract Subtitles from Movies
         for movie_path_set in file_paths[Category.MOVIE]:
             input_path = self.file_handler.join_back(movie_path_set)
             out_path = os.path.abspath(
@@ -294,10 +296,13 @@ class DocumentConverter:
                   file_paths: dict,
                   format: str,
                   delete: bool) -> None:
+        # Convert Images and Movies to Office Documents
         def _new_container():
+            # Type-specific container creation
             return pptx.Presentation() if format == "pptx" else docx.Document()
 
         def _add_page(container):
+            # Add a new page to the container, regardless of format
             return (
                 container.slides.add_slide(container.slide_layouts[5])
                 if format == "pptx"
@@ -305,6 +310,7 @@ class DocumentConverter:
             )
 
         def _place_img(page, img_path, full_page=False):
+            # Place an image on the page, adjusting size for full page if needed
             with Image.open(img_path) as im:
                 w, h = im.size
             if format == "pptx":
