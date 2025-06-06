@@ -1,12 +1,14 @@
 import os
 import fitz
 import shutil
+import subprocess
 import numpy as np
 import utils.language_support as lang
 from PIL import Image
 from tqdm import tqdm
 from utils.category import Category
 from core.doc_converter import office_to_frames
+from core.utils.exit import end_with_msg
 from moviepy import (
     VideoFileClip,
     ImageClip,
@@ -300,3 +302,164 @@ class MovieConverter:
                 clip.close()
                 audio.close()
             self.file_handler.post_process(codec_path_set, out_path, delete)
+
+
+    def to_protocol(self,
+                    output: str,
+                    file_paths: dict,
+                    supported_formats: dict, # self._supported_formats
+                    protocol: list,
+                    delete: bool) -> None:
+        # Convert movie files into adaptive streaming formats HLS (.m3u8) or DASH (.mpd).
+        if protocol[0] not in list(supported_formats[Category.PROTOCOLS].keys()):
+            end_with_msg(
+                self.event_logger,
+                None,
+                f"{lang.get_translation('unsupported_stream', self.locale)} {protocol[0]}",
+            )
+
+        for movie_path_set in file_paths[Category.MOVIE]:
+            input_file = os.path.abspath(self.file_handler.join_back(movie_path_set))
+            base_name = os.path.splitext(movie_path_set[-1])[0]
+            current_out_dir = os.path.abspath(
+                os.path.join(output, f"{base_name}_{protocol[0]}")
+            )
+
+            if current_out_dir is not None and not os.path.exists(current_out_dir):
+                os.makedirs(current_out_dir)
+
+            if protocol[0] == "hls":
+                renditions = [
+                    ("426x240", "400k", "64k"),
+                    ("640x360", "800k", "96k"),
+                    ("842x480", "1400k", "128k"),
+                    ("1280x720", "2800k", "128k"),
+                    ("1920x1080", "5000k", "192k"),
+                ]
+                variant_playlist = "#EXTM3U\n"
+                cmd = ["ffmpeg", "-y", "-i", input_file]
+
+                for i, (resolution, v_bitrate, a_bitrate) in enumerate(renditions):
+                    if not os.path.exists(
+                        os.path.join(current_out_dir, f"{renditions[i][0]}")
+                    ):
+                        os.makedirs(
+                            os.path.join(current_out_dir, f"{renditions[i][0]}"),
+                            exist_ok=True,
+                        )
+                    self.event_logger.info(
+                        f"[+] {lang.get_translation('get_hls', self.locale)} {self.file_handler.join_back(movie_path_set)}: {resolution} at {v_bitrate} video, {a_bitrate} audio"
+                    )
+                    stream = [
+                        "-map",
+                        "0:v:0",
+                        "-map",
+                        "0:a:0",
+                        "-c:v",
+                        "h264",
+                        "-b:v",
+                        v_bitrate,
+                        "-s",
+                        resolution,
+                        "-c:a",
+                        "aac",
+                        "-b:a",
+                        a_bitrate,
+                        "-hls_time",
+                        "4",
+                        "-hls_playlist_type",
+                        "vod",
+                        "-hls_segment_filename",
+                        os.path.join(
+                            os.path.join(current_out_dir, f"{renditions[i][0]}"),
+                            f"{renditions[i][0]}_%03d.ts",
+                        ),
+                        os.path.join(
+                            os.path.join(current_out_dir, f"{renditions[i][0]}"),
+                            f"{renditions[i][0]}.m3u8",
+                        ),
+                    ]
+                    cmd += stream
+                    variant_playlist += f"#EXT-X-STREAM-INF:BANDWIDTH={int(v_bitrate[:-1]) * 1000},RESOLUTION={resolution}\n{i}.m3u8\n"
+                self.event_logger.info(
+                    f"[+] {lang.get_translation('get_hls_master', self.locale)} {self.file_handler.join_back(movie_path_set)}"
+                )
+                master_playlist_path = os.path.join(current_out_dir, "master.m3u8")
+
+                try:
+                    self._run_command(cmd)
+                    with open(master_playlist_path, "w") as f:
+                        f.write(variant_playlist)
+                    self.file_handler.post_process(
+                        movie_path_set, master_playlist_path, delete
+                    )
+                except Exception as e:
+                    end_with_msg(
+                        self.event_logger,
+                        None, 
+                        f"{lang.get_translation('get_hls_fail', self.locale)} {e}"
+                    )
+            elif protocol[0] == "dash":
+                self.event_logger.info(
+                    f"[+] {lang.get_translation('create_dash', self.locale)} {self.file_handler.join_back(movie_path_set)}"
+                )
+                out_path = os.path.join(current_out_dir, "manifest.mpd")
+                cmd = [
+                    "ffmpeg",
+                    "-y",
+                    "-i",
+                    input_file,
+                    "-map",
+                    "0",
+                    "-b:v",
+                    "1500k",
+                    "-c:v",
+                    "libx264",
+                    "-c:a",
+                    "aac",
+                    "-bf",
+                    "1",
+                    "-keyint_min",
+                    "120",
+                    "-g",
+                    "120",
+                    "-sc_threshold",
+                    "0",
+                    "-b_strategy",
+                    "0",
+                    "-ar",
+                    "48000",
+                    "-use_timeline",
+                    "1",
+                    "-use_template",
+                    "1",
+                    "-adaptation_sets",
+                    "id=0,streams=v id=1,streams=a",
+                    "-f",
+                    "dash",
+                    out_path,
+                ]
+                try:
+                    self._run_command(cmd)
+                    self.file_handler.post_process(
+                        movie_path_set, out_path, delete
+                    )
+                except Exception as e:
+                    end_with_msg(
+                        self.event_logger,
+                        None,
+                        f"{lang.get_translation('dash_fail', self.locale)} {e}",
+                    )
+
+    def _run_command(self, command: list) -> None:
+        try:
+            _ = subprocess.run(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=True,
+                text=True,
+            )
+        except subprocess.CalledProcessError as e:
+            error_msg = f"Error: {' '.join(command)}\n\nSTDOUT:\n{e.stdout}\n\nSTDERR:\n{e.stderr}"
+            raise RuntimeError(error_msg)

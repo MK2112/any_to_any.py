@@ -1,10 +1,9 @@
-import logging
 import pytest
+import logging
 import argparse
-from unittest import mock
 import utils.language_support as lang
-
-# Import fixture with underscore to avoid redefinition warning
+from unittest import mock
+from core.utils.exit import end_with_msg
 from tests.test_fixtures import controller_instance
 
 
@@ -36,7 +35,7 @@ def test_end_with_msg_logs_and_exits(controller_instance, caplog):
     # Test _end_with_msg logs error and raises SystemExit.
     with caplog.at_level("WARNING"):
         with pytest.raises(SystemExit):
-            controller_instance._end_with_msg(SystemExit, "fail message")
+            end_with_msg(controller_instance.event_logger, SystemExit, "fail message")
     assert "fail message" in caplog.text
 
 

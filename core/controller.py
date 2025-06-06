@@ -17,6 +17,7 @@ from weasyprint import HTML
 from markdownify import markdownify
 from utils.category import Category
 from utils.prog_logger import ProgLogger
+from core.utils.exit import end_with_msg
 from core.audio_converter import AudioConverter
 from core.movie_converter import MovieConverter
 from core.utils.file_handler import FileHandler
@@ -32,8 +33,6 @@ from moviepy import (
     clips_array,
 )
 
-# TODO: Rename converter.py to controller.py
-# TODO: Move to_protocol to movie_converter
 # TODO: Finalize movie_converter
 # TODO: Move to_markdown, to_pdf, to_subtitles, to_office to doc_converter
 # TODO: Move to_frames, to_bmp, to_webp, to_gif to image_converter
@@ -202,15 +201,6 @@ class Controller:
             self.file_handler, self.prog_logger, self.event_logger, self.locale
         )
 
-    def _end_with_msg(self, exception: Exception, msg: str) -> None:
-        # Single point of exit
-        if exception is not None:
-            self.event_logger.warning(msg)
-            raise exception(msg)
-        else:
-            self.event_logger.info(msg)
-            exit(1)
-
     def _audio_bitrate(self, format: str, quality: str) -> str:
         # Return bitrate for audio conversion
         # If formats allow for a higher bitrate, we shift our scale accordingly
@@ -330,7 +320,8 @@ class Controller:
                     input_path, file_paths, self._supported_formats
                 )
             except FileNotFoundError:
-                self._end_with_msg(
+                end_with_msg(
+                    self.event_logger,
                     FileNotFoundError,
                     f"[!] {lang.get_translation('error', self.locale)}: {lang.get_translation('no_dir_exist', self.locale).replace('[dir]', f'{input_path}')}",
                 )
@@ -342,7 +333,8 @@ class Controller:
 
             # If no output path set or derived by the script by now, throw an error
             if not self.output:
-                self._end_with_msg(
+                end_with_msg(
+                    self.event_logger,
                     ValueError,
                     f"[!] {lang.get_translation('error', self.locale)}: {lang.get_translation('no_out_multi_in', self.locale)}",
                 )
@@ -357,7 +349,8 @@ class Controller:
             # Cut setup for media conversion short, begin dropzone mode
             if dropzone:
                 if self.input == self.output or self.input in self.output.parents:
-                    self._end_with_msg(
+                    end_with_msg(
+                        self.event_logger,
                         None,
                         f"[!] {lang.get_translation('error', self.locale)}: {lang.get_translation('dropzone_diff', self.locale)}",
                     )
@@ -380,7 +373,8 @@ class Controller:
                                 root, file_paths, self._supported_formats
                             )
                         except FileNotFoundError:
-                            self._end_with_msg(
+                            end_with_msg(
+                                self.event_logger,
                                 FileNotFoundError,
                                 f"[!] {lang.get_translation('error', self.locale)}: {lang.get_translation('no_dir_exist', self.locale).replace('[dir]', f'{root}')}",
                             )
@@ -391,7 +385,8 @@ class Controller:
                         f"[!] {lang.get_translation('no_media_found', self.locale).replace('[path]', f"'{str(input_path)}'")} - {lang.get_translation('skipping', self.locale)}"
                     )
                 else:
-                    self._end_with_msg(
+                    end_with_msg(
+                        self.event_logger,
                         None,
                         f"[!] {lang.get_translation('no_media_found', self.locale).replace('[path]', f"'{str(input_path)}'")}",
                     )
@@ -469,11 +464,14 @@ class Controller:
                 file_paths, self.target_format
             )
         elif self.target_format in self._supported_formats[Category.PROTOCOLS].keys():
-            self.to_protocol(
+            self.movie_converter.to_protocol(
+                output=self.output,
                 file_paths=file_paths,
+                supported_formats=self._supported_formats,
                 protocol=self._supported_formats[Category.PROTOCOLS][
                     self.target_format
                 ],
+                delete=self.delete,
             )
         elif self.merging:
             self.merge(file_paths, getattr(self, "across", False))
@@ -481,7 +479,8 @@ class Controller:
             self.concat(file_paths, self.target_format)
         else:
             # Handle unsupported formats here
-            self._end_with_msg(
+            end_with_msg(
+                self.event_logger,
                 ValueError,
                 f"[!] {lang.get_translation('error', self.locale)}: {lang.get_translation('output_list', self.locale).replace('[list]', str(list(self.supported_formats)))}",
             )
@@ -561,157 +560,6 @@ class Controller:
                 f"{lang.get_translation('error', self.locale)}: {str(e)}"
             )
             raise
-
-    def to_protocol(self, file_paths: dict, protocol: list) -> None:
-        # Convert movie files into adaptive streaming formats HLS (.m3u8) or DASH (.mpd).
-        if protocol[0] not in list(self._supported_formats[Category.PROTOCOLS].keys()):
-            self._end_with_msg(
-                None,
-                f"{lang.get_translation('unsupported_stream', self.locale)} {protocol[0]}",
-            )
-
-        for movie_path_set in file_paths[Category.MOVIE]:
-            input_file = os.path.abspath(self.file_handler.join_back(movie_path_set))
-            base_name = os.path.splitext(movie_path_set[-1])[0]
-            current_out_dir = os.path.abspath(
-                os.path.join(self.output, f"{base_name}_{protocol[0]}")
-            )
-
-            if current_out_dir is not None and not os.path.exists(current_out_dir):
-                os.makedirs(current_out_dir)
-
-            if protocol[0] == "hls":
-                renditions = [
-                    ("426x240", "400k", "64k"),
-                    ("640x360", "800k", "96k"),
-                    ("842x480", "1400k", "128k"),
-                    ("1280x720", "2800k", "128k"),
-                    ("1920x1080", "5000k", "192k"),
-                ]
-                variant_playlist = "#EXTM3U\n"
-                cmd = ["ffmpeg", "-y", "-i", input_file]
-
-                for i, (resolution, v_bitrate, a_bitrate) in enumerate(renditions):
-                    if not os.path.exists(
-                        os.path.join(current_out_dir, f"{renditions[i][0]}")
-                    ):
-                        os.makedirs(
-                            os.path.join(current_out_dir, f"{renditions[i][0]}"),
-                            exist_ok=True,
-                        )
-                    self.event_logger.info(
-                        f"[+] {lang.get_translation('get_hls', self.locale)} {self.file_handler.join_back(movie_path_set)}: {resolution} at {v_bitrate} video, {a_bitrate} audio"
-                    )
-                    stream = [
-                        "-map",
-                        "0:v:0",
-                        "-map",
-                        "0:a:0",
-                        "-c:v",
-                        "h264",
-                        "-b:v",
-                        v_bitrate,
-                        "-s",
-                        resolution,
-                        "-c:a",
-                        "aac",
-                        "-b:a",
-                        a_bitrate,
-                        "-hls_time",
-                        "4",
-                        "-hls_playlist_type",
-                        "vod",
-                        "-hls_segment_filename",
-                        os.path.join(
-                            os.path.join(current_out_dir, f"{renditions[i][0]}"),
-                            f"{renditions[i][0]}_%03d.ts",
-                        ),
-                        os.path.join(
-                            os.path.join(current_out_dir, f"{renditions[i][0]}"),
-                            f"{renditions[i][0]}.m3u8",
-                        ),
-                    ]
-                    cmd += stream
-                    variant_playlist += f"#EXT-X-STREAM-INF:BANDWIDTH={int(v_bitrate[:-1]) * 1000},RESOLUTION={resolution}\n{i}.m3u8\n"
-                self.event_logger.info(
-                    f"[+] {lang.get_translation('get_hls_master', self.locale)} {self.file_handler.join_back(movie_path_set)}"
-                )
-                master_playlist_path = os.path.join(current_out_dir, "master.m3u8")
-
-                try:
-                    self._run_command(cmd)
-                    with open(master_playlist_path, "w") as f:
-                        f.write(variant_playlist)
-                    self.file_handler.post_process(
-                        movie_path_set, master_playlist_path, self.delete
-                    )
-                except Exception as e:
-                    self._end_with_msg(
-                        None, f"{lang.get_translation('get_hls_fail', self.locale)} {e}"
-                    )
-            elif protocol[0] == "dash":
-                self.event_logger.info(
-                    f"[+] {lang.get_translation('create_dash', self.locale)} {self.file_handler.join_back(movie_path_set)}"
-                )
-                out_path = os.path.join(current_out_dir, "manifest.mpd")
-                cmd = [
-                    "ffmpeg",
-                    "-y",
-                    "-i",
-                    input_file,
-                    "-map",
-                    "0",
-                    "-b:v",
-                    "1500k",
-                    "-c:v",
-                    "libx264",
-                    "-c:a",
-                    "aac",
-                    "-bf",
-                    "1",
-                    "-keyint_min",
-                    "120",
-                    "-g",
-                    "120",
-                    "-sc_threshold",
-                    "0",
-                    "-b_strategy",
-                    "0",
-                    "-ar",
-                    "48000",
-                    "-use_timeline",
-                    "1",
-                    "-use_template",
-                    "1",
-                    "-adaptation_sets",
-                    "id=0,streams=v id=1,streams=a",
-                    "-f",
-                    "dash",
-                    out_path,
-                ]
-                try:
-                    self._run_command(cmd)
-                    self.file_handler.post_process(
-                        movie_path_set, out_path, self.delete
-                    )
-                except Exception as e:
-                    self._end_with_msg(
-                        movie_path_set,
-                        f"{lang.get_translation('dash_fail', self.locale)} {e}",
-                    )
-
-    def _run_command(self, command: list) -> None:
-        try:
-            _ = subprocess.run(
-                command,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                check=True,
-                text=True,
-            )
-        except subprocess.CalledProcessError as e:
-            error_msg = f"Error: {' '.join(command)}\n\nSTDOUT:\n{e.stdout}\n\nSTDERR:\n{e.stderr}"
-            raise RuntimeError(error_msg)
 
     def to_subtitles(self, file_paths: dict, format: str) -> None:
         for movie_path_set in file_paths[Category.MOVIE]:
