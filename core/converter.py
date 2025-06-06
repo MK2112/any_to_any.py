@@ -32,6 +32,13 @@ from moviepy import (
     clips_array,
 )
 
+# TODO: Finalize to_codec outsource
+# TODO: Rename converter.py to controller.py
+# TODO: Move to_protocol to movie_converter
+# TODO: Finalize movie_converter
+# TODO: Move to_markdown, to_pdf, to_subtitles, to_office to doc_converter
+# TODO: Move to_frames, to_bmp, to_webp, to_gif to image_converter
+# TODO: Add converter-wise tests
 
 class Converter:
     """
@@ -440,10 +447,16 @@ class Converter:
             self.target_format in self._supported_formats[Category.MOVIE_CODECS].keys()
         ):
             self.to_codec(
+                input=self.input,
+                output=self.output,
+                format=self.target_format,
+                recursive=self.recursive,
                 file_paths=file_paths,
+                framerate=self.framerate,
                 codec=self._supported_formats[Category.MOVIE_CODECS][
                     self.target_format
                 ],
+                delete=self.delete,
             )
         elif self.target_format in self._supported_formats[Category.IMAGE].keys():
             self._supported_formats[Category.IMAGE][self.target_format](
@@ -524,71 +537,6 @@ class Converter:
         except Exception as e:
             self.event_logger.error(f"{lang.get_translation('error', self.locale)}: {str(e)}")
             raise
-
-    def to_codec(self, file_paths: dict, codec: dict) -> None:
-        # Convert movie to same movie with different codec
-        for codec_path_set in file_paths[Category.MOVIE]:
-            if not self.recursive or self.input != self.output:
-                out_path = os.path.abspath(
-                    os.path.join(
-                        self.output,
-                        f"{codec_path_set[1]}_{self.target_format}.{codec[1]}",
-                    )
-                )
-            else:
-                out_path = os.path.abspath(
-                    os.path.join(codec_path_set[0], f"{codec_path_set[1]}.{format}")
-                )
-            if self.file_handler.has_visuals(codec_path_set):
-                video = VideoFileClip(
-                    self.file_handler.join_back(codec_path_set),
-                    audio=True,
-                    fps_source="tbr",
-                )
-                try:
-                    video.write_videofile(
-                        out_path,
-                        codec=codec[0],
-                        fps=video.fps if self.framerate is None else self.framerate,
-                        audio=True,
-                        logger=self.prog_logger,
-                    )
-                except Exception as _:
-                    if os.path.exists(out_path):
-                        # There might be some residue left, remove it
-                        os.remove(out_path)
-                    self.event_logger.info(
-                        f"\n\n[!] {lang.get_translation('codec_fallback', self.locale).replace('[path]', f'"{codec_path_set[2]}"').replace('[format]', f'{codec[1]}')}\n"
-                    )
-                    video.write_videofile(
-                        out_path,
-                        codec=codec[0],
-                        fps=video.fps if self.framerate is None else self.framerate,
-                        audio=True,
-                        logger=self.prog_logger,
-                    )
-                video.close()
-            else:
-                # Audio-only video file
-                audio = AudioFileClip(self.file_handler.join_back(codec_path_set))
-                # Create new VideoClip with audio only
-                clip = VideoClip(
-                    lambda t: np.zeros(
-                        (16, 16, 3), dtype=np.uint8
-                    ),  # 16 black pixels at least, required by moviepy
-                    duration=audio.duration,
-                )
-                clip = clip.set_audio(audio)
-                clip.write_videofile(
-                    out_path,
-                    codec=codec[0],
-                    fps=24 if self.framerate is None else self.framerate,
-                    audio=True,
-                    logger=self.prog_logger,
-                )
-                clip.close()
-                audio.close()
-            self.file_handler.post_process(codec_path_set, out_path, self.delete)
 
     def to_protocol(self, file_paths: dict, protocol: list) -> None:
         # Convert movie files into adaptive streaming formats HLS (.m3u8) or DASH (.mpd).
