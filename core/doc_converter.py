@@ -4,6 +4,8 @@ import docx
 import pptx
 import shutil
 import mammoth
+import subprocess
+import utils.language_support as lang
 from PIL import Image
 from tqdm import tqdm
 from weasyprint import HTML
@@ -218,3 +220,74 @@ class DocumentConverter:
                 # Convert html to PDF, save that
                 HTML(string=document.value.encode("utf-8")).write_pdf(pdf_path)
                 self.file_handler.post_process(doc_path_set, pdf_path, delete)
+
+    def to_subtitles(self, 
+                     input: str,
+                     output: str,
+                     file_paths: dict,
+                     format: str,
+                     delete: bool) -> None:
+        for movie_path_set in file_paths[Category.MOVIE]:
+            input_path = self.file_handler.join_back(movie_path_set)
+            out_path = os.path.abspath(
+                os.path.join(output, f"{movie_path_set[1]}.srt")
+            )
+            self.event_logger.info(
+                f"[+] {lang.get_translation('extract_subtitles', self.locale)} '{input_path}'"
+            )
+            try:
+                # Use FFmpeg to extract subtitles
+                _ = subprocess.run(
+                    [
+                        "ffmpeg",
+                        "-i",
+                        input_path,
+                        "-map",
+                        "0:s:0",  # Selects first subtitle stream
+                        "-c:s",
+                        "srt",
+                        out_path,
+                    ],
+                    capture_output=True,
+                    text=True,
+                )
+
+                if os.path.exists(out_path) and os.path.getsize(out_path) > 0:
+                    self.event_logger.info(
+                        f"[+] {lang.get_translation('subtitles_success', self.locale)} '{out_path}'"
+                    )
+                    self.file_handler.post_process(
+                        movie_path_set, out_path, delete, show_status=False
+                    )
+                else:
+                    # Try extracting closed captions when direct extract fails (found mostly in MP4 and MKV)
+                    self.event_logger.info(
+                        f"[!] {lang.get_translation('extract_subtitles_alt', self.locale)}"
+                    )
+                    _ = subprocess.run(
+                        ["ffmpeg", "-i", input_path, "-c:s", format, out_path],
+                        capture_output=True,
+                        text=True,
+                    )
+                    if os.path.exists(out_path) and os.path.getsize(out_path) > 0:
+                        self.event_logger.info(
+                            f"[+] {lang.get_translation('embed_subtitles_success')} '{out_path}'"
+                        )
+                        self.file_handler.post_process(
+                            movie_path_set, out_path, delete, show_status=False
+                        )
+                    else:
+                        self.event_logger.info(
+                            f"[!] {lang.get_translation('embed_subtitles_fail', self.locale)} '{input_path}'"
+                        )
+            except Exception as e:
+                self.event_logger.info(
+                    f"[!] {lang.get_translation('extract_subtitles_fail', self.locale)} {str(e)}"
+                )
+                try:
+                    subprocess.run(["ffmpeg", "-version"], capture_output=True)
+                except FileNotFoundError:
+                    self.event_logger.info(
+                        f"[!] {lang.get_translation('ffmpeg_not_found', self.locale)}"
+                    )
+                    break

@@ -32,7 +32,7 @@ from moviepy import (
     clips_array,
 )
 
-# TODO: Move ~~to_markdown~~, to_pdf, to_subtitles, to_office to doc_converter
+# TODO: Move ~~to_markdown~~, ~~to_pdf~~, ~~to_subtitles~~, to_office to doc_converter
 # TODO: Finalize doc_converter
 # TODO: Move to_frames, to_bmp, to_webp, to_gif to image_converter
 # TODO: Finalize image_converter
@@ -121,7 +121,7 @@ class Controller:
                 "pdf": self.doc_converter.to_pdf,
                 "docx": self.to_office,
                 "pptx": self.to_office,
-                "srt": self.to_subtitles,
+                "srt": self.doc_converter.to_subtitles,
             },
             Category.MOVIE: {
                 "webm": "libvpx",
@@ -561,72 +561,6 @@ class Controller:
                 f"{lang.get_translation('error', self.locale)}: {str(e)}"
             )
             raise
-
-    def to_subtitles(self, file_paths: dict, format: str) -> None:
-        for movie_path_set in file_paths[Category.MOVIE]:
-            input_path = self.file_handler.join_back(movie_path_set)
-            out_path = os.path.abspath(
-                os.path.join(self.output, f"{movie_path_set[1]}.srt")
-            )
-            self.event_logger.info(
-                f"[+] {lang.get_translation('extract_subtitles', self.locale)} '{input_path}'"
-            )
-            try:
-                # Use FFmpeg to extract subtitles
-                _ = subprocess.run(
-                    [
-                        "ffmpeg",
-                        "-i",
-                        input_path,
-                        "-map",
-                        "0:s:0",  # Selects first subtitle stream
-                        "-c:s",
-                        "srt",
-                        out_path,
-                    ],
-                    capture_output=True,
-                    text=True,
-                )
-
-                if os.path.exists(out_path) and os.path.getsize(out_path) > 0:
-                    self.event_logger.info(
-                        f"[+] {lang.get_translation('subtitles_success', self.locale)} '{out_path}'"
-                    )
-                    self.file_handler.post_process(
-                        movie_path_set, out_path, self.delete, show_status=False
-                    )
-                else:
-                    # Try extracting closed captions when direct extract fails (found mostly in MP4 and MKV)
-                    self.event_logger.info(
-                        f"[!] {lang.get_translation('extract_subtitles_alt', self.locale)}"
-                    )
-                    _ = subprocess.run(
-                        ["ffmpeg", "-i", input_path, "-c:s", format, out_path],
-                        capture_output=True,
-                        text=True,
-                    )
-                    if os.path.exists(out_path) and os.path.getsize(out_path) > 0:
-                        self.event_logger.info(
-                            f"[+] {lang.get_translation('embed_subtitles_success')} '{out_path}'"
-                        )
-                        self.file_handler.post_process(
-                            movie_path_set, out_path, self.delete, show_status=False
-                        )
-                    else:
-                        self.event_logger.info(
-                            f"[!] {lang.get_translation('embed_subtitles_fail', self.locale)} '{input_path}'"
-                        )
-            except Exception as e:
-                self.event_logger.info(
-                    f"[!] {lang.get_translation('extract_subtitles_fail', self.locale)} {str(e)}"
-                )
-                try:
-                    subprocess.run(["ffmpeg", "-version"], capture_output=True)
-                except FileNotFoundError:
-                    self.event_logger.info(
-                        f"[!] {lang.get_translation('ffmpeg_not_found', self.locale)}"
-                    )
-                    break
 
     def to_office(self, file_paths: dict, format: str) -> None:
         def _new_container():
