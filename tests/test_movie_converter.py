@@ -1,7 +1,7 @@
 import pytest
-from unittest.mock import MagicMock, patch, call
-from core.movie_converter import MovieConverter
 from utils.category import Category
+from core.movie_converter import MovieConverter
+from unittest.mock import MagicMock, patch, call
 
 
 @pytest.fixture
