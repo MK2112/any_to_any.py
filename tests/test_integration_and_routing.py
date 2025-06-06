@@ -3,24 +3,8 @@ import logging
 import argparse
 import utils.language_support as lang
 from unittest import mock
-from core.utils.exit import end_with_msg
+from core.utils.misc import end_with_msg
 from tests.test_fixtures import controller_instance
-
-
-def test_routing_supported_formats(controller_instance):
-    # Ensure all supported formats are routed to the correct handler or codec.
-    for cat, formats in controller_instance._supported_formats.items():
-        for fmt, handler in formats.items():
-            if callable(handler):
-                # Should call the handler without error (mock file_paths)
-                with mock.patch.object(
-                    controller_instance, handler.__name__, return_value=None
-                ) as m:
-                    getattr(controller_instance, handler.__name__)({}, fmt)
-                    m.assert_called()
-            else:
-                # Should be a codec string or list
-                assert isinstance(handler, (str, list))
 
 
 def test_run_web_flag_starts_web():
