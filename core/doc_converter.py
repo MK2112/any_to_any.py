@@ -72,7 +72,7 @@ class DocumentConverter:
     def to_pdf(self, output: str, file_paths: dict, format: str, delete: bool) -> None:
         # Convert GIFs to Frames using to_frames
         # Produces a folder with gif frame for each gif
-        gif_to_frames(file_paths)
+        gif_to_frames(output, file_paths, self.file_handler)
         # Convert Images to PDF
         for image_path_set in file_paths[Category.IMAGE]:
             # Convert image to pdf
