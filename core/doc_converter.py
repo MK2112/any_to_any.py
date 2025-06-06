@@ -12,7 +12,8 @@ from weasyprint import HTML
 from moviepy import VideoFileClip
 from markdownify import markdownify
 from utils.category import Category
-from core.utils.misc import gifs_to_frames
+from core.image_converter import gif_to_frames
+
 
 def office_to_frames(
     doc_path_set: tuple,
@@ -59,19 +60,19 @@ def office_to_frames(
     except Exception as e:
         event_logger.error(e)
 
-class DocumentConverter:
 
-    def __init__(self, file_handler, prog_logger, event_logger, locale: str = "English"):
+class DocumentConverter:
+    def __init__(
+        self, file_handler, prog_logger, event_logger, locale: str = "English"
+    ):
         self.file_handler = file_handler
         self.prog_logger = prog_logger
         self.event_logger = event_logger
         self.locale = locale
 
-    def to_markdown(self,
-                    output: str,
-                    file_paths: dict, 
-                    format: str,
-                    delete: bool) -> None:
+    def to_markdown(
+        self, output: str, file_paths: dict, format: str, delete: bool
+    ) -> None:
         # Convert Documents to Markdown
         for doc_path_set in file_paths[Category.DOCUMENT]:
             if doc_path_set[2] == "docx":
@@ -114,14 +115,10 @@ class DocumentConverter:
                     md_file.write(markdown_text)
                 self.file_handler.post_process(doc_path_set, md_path, delete)
 
-    def to_pdf(self, 
-               output: str,
-               file_paths: dict,
-               format: str,
-               delete: bool) -> None:
+    def to_pdf(self, output: str, file_paths: dict, format: str, delete: bool) -> None:
         # Convert GIFs to Frames using to_frames
         # Produces a folder with gif frame for each gif
-        gifs_to_frames(file_paths)
+        gif_to_frames(file_paths)
         # Convert Images to PDF
         for image_path_set in file_paths[Category.IMAGE]:
             # Convert image to pdf
@@ -220,17 +217,13 @@ class DocumentConverter:
                 HTML(string=document.value.encode("utf-8")).write_pdf(pdf_path)
                 self.file_handler.post_process(doc_path_set, pdf_path, delete)
 
-    def to_subtitles(self, 
-                     output: str,
-                     file_paths: dict,
-                     format: str,
-                     delete: bool) -> None:
+    def to_subtitles(
+        self, output: str, file_paths: dict, format: str, delete: bool
+    ) -> None:
         # Extract Subtitles from Movies
         for movie_path_set in file_paths[Category.MOVIE]:
             input_path = self.file_handler.join_back(movie_path_set)
-            out_path = os.path.abspath(
-                os.path.join(output, f"{movie_path_set[1]}.srt")
-            )
+            out_path = os.path.abspath(os.path.join(output, f"{movie_path_set[1]}.srt"))
             self.event_logger.info(
                 f"[+] {lang.get_translation('extract_subtitles', self.locale)} '{input_path}'"
             )
@@ -291,11 +284,9 @@ class DocumentConverter:
                     )
                     break
 
-    def to_office(self, 
-                  output: str,
-                  file_paths: dict,
-                  format: str,
-                  delete: bool) -> None:
+    def to_office(
+        self, output: str, file_paths: dict, format: str, delete: bool
+    ) -> None:
         # Convert Images and Movies to Office Documents
         def _new_container():
             # Type-specific container creation
@@ -328,7 +319,7 @@ class DocumentConverter:
                 except docx.image.exceptions.UnexpectedEndOfFileError as e:
                     self.event_logger.info(e)
 
-        gifs_to_frames(output, file_paths, self.file_handler)
+        gif_to_frames(output, file_paths, self.file_handler)
 
         for image_path_set in file_paths[Category.IMAGE]:
             out_path = os.path.abspath(

@@ -4,18 +4,7 @@ from moviepy import VideoFileClip
 from utils.category import Category
 
 
-def end_with_msg(event_logger, exception: Exception, msg: str) -> None:
-        # Single point of exit in the entire application
-        if exception is not None:
-            event_logger.warning(msg)
-            raise exception(msg)
-        else:
-            event_logger.info(msg)
-            exit(1)
-
-def gifs_to_frames(output: str,
-                   file_paths: dict,
-                   file_handler) -> None:
+def gif_to_frames(output: str, file_paths: dict, file_handler) -> None:
     # Convert GIFs to frames, place those in a folder
     gifs = [
         image_path
@@ -24,20 +13,14 @@ def gifs_to_frames(output: str,
     ]
     if len(gifs) > 0:
         for image_path_set in gifs:
-            clip = VideoFileClip(
-                file_handler.join_back(image_path_set), audio=False
-            )
+            clip = VideoFileClip(file_handler.join_back(image_path_set), audio=False)
             # Calculate zero-padding width based on total number of frames
             total_frames = int(clip.duration * clip.fps)
             num_digits = len(str(total_frames))
             # Create a dedicated folder for the gif to store its frames
             if not os.path.exists(os.path.join(output, image_path_set[1])):
-                os.makedirs(
-                    os.path.join(output, image_path_set[1]), exist_ok=True
-                )
-            for i, frame in enumerate(
-                clip.iter_frames(fps=clip.fps, dtype="uint8")
-            ):
+                os.makedirs(os.path.join(output, image_path_set[1]), exist_ok=True)
+            for i, frame in enumerate(clip.iter_frames(fps=clip.fps, dtype="uint8")):
                 frame_filename = f"{image_path_set[1]}-{i:0{num_digits}d}.png"
                 frame_path = os.path.abspath(
                     os.path.join(output, image_path_set[1], frame_filename)

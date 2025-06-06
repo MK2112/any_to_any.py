@@ -16,10 +16,11 @@ from pathlib import Path
 from weasyprint import HTML
 from utils.category import Category
 from utils.prog_logger import ProgLogger
+from core.utils.exit import end_with_msg
+from core.image_converter import gif_to_frames
 from core.audio_converter import AudioConverter
 from core.movie_converter import MovieConverter
 from core.utils.file_handler import FileHandler
-from core.utils.misc import end_with_msg, gifs_to_frames
 from core.utils.directory_watcher import DirectoryWatcher
 from core.doc_converter import office_to_frames, DocumentConverter
 from moviepy import (
@@ -566,12 +567,12 @@ class Controller:
         # Converting to image frame sets
         # This works for images and movies only
         format = "jpeg" if format == "jpg" else format
-        gifs_to_frames(self.output, file_paths, self.file_handler)
+        gif_to_frames(self.output, file_paths, self.file_handler)
         for image_path_set in file_paths[Category.IMAGE]:
             if image_path_set[2] == format:
                 continue
             if image_path_set[2] == "gif":
-                # gifs_to_frames did that out of loop already, just logging here
+                # gif_to_frames did that out of loop already, just logging here
                 self.file_handler.post_process(image_path_set, self.output, self.delete)
             else:
                 if not os.path.exists(os.path.join(self.output, image_path_set[1])):

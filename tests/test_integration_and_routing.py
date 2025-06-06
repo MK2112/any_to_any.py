@@ -3,7 +3,7 @@ import logging
 import argparse
 import utils.language_support as lang
 from unittest import mock
-from core.utils.misc import end_with_msg
+from core.utils.exit import end_with_msg
 from tests.test_fixtures import controller_instance
 
 
