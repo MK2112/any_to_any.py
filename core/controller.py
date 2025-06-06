@@ -32,7 +32,7 @@ from moviepy import (
     clips_array,
 )
 
-# TODO: Move to_markdown, to_pdf, to_subtitles, to_office to doc_converter
+# TODO: Move ~~to_markdown~~, to_pdf, to_subtitles, to_office to doc_converter
 # TODO: Finalize doc_converter
 # TODO: Move to_frames, to_bmp, to_webp, to_gif to image_converter
 # TODO: Finalize image_converter
@@ -118,7 +118,7 @@ class Controller:
             },
             Category.DOCUMENT: {
                 "md": self.doc_converter.to_markdown,
-                "pdf": self.to_pdf,
+                "pdf": self.doc_converter.to_pdf,
                 "docx": self.to_office,
                 "pptx": self.to_office,
                 "srt": self.to_subtitles,
@@ -784,108 +784,6 @@ class Controller:
                         doc.add_page_break()
                 doc.save(out_path)
                 self.file_handler.post_process(document_path_set, out_path, self.delete)
-
-    def to_pdf(self, file_paths: dict, format: str) -> None:
-        # Convert GIFs to Frames using to_frames
-        # Produces a folder with gif frame for each gif
-        self._gifs_to_frames(file_paths)
-        # Convert Images to PDF
-        for image_path_set in file_paths[Category.IMAGE]:
-            # Convert image to pdf
-            pdf_path = ""
-            if image_path_set[2] != "gif":
-                doc = fitz.open()
-                img = fitz.Pixmap(self.file_handler.join_back(image_path_set))
-                rect = fitz.Rect(0, 0, img.width, img.height)
-                page = doc.new_page(width=rect.width, height=rect.height)
-                page.insert_image(rect, pixmap=img)
-                pdf_path = os.path.abspath(
-                    os.path.join(self.output, f"{image_path_set[1]}.{format}")
-                )
-                doc.save(pdf_path)
-                doc.close()
-                self.file_handler.post_process(image_path_set, pdf_path, self.delete)
-            elif image_path_set[2] == "gif":
-                # We suppose the gif was converted to frames and we have a folder of pngs
-                # All pngs shall be merged into one pdf
-                gif_frame_path = os.path.join(self.output, image_path_set[1])
-                pdf_path = os.path.abspath(
-                    os.path.join(self.output, f"{image_path_set[1]}.{format}")
-                )
-                doc = fitz.open()
-                for frame in sorted(os.listdir(gif_frame_path)):
-                    if frame.endswith(".png"):
-                        img = fitz.Pixmap(os.path.join(gif_frame_path, frame))
-                        rect = fitz.Rect(0, 0, img.width, img.height)
-                        page = doc.new_page(width=rect.width, height=rect.height)
-                        page.insert_image(rect, pixmap=img)
-                doc.save(pdf_path)
-                doc.close()
-                # Remove the gif frame folder
-                shutil.rmtree(gif_frame_path)
-                self.file_handler.post_process(image_path_set, pdf_path, self.delete)
-        # Convert Movies to PDF
-        for movie_path_set in file_paths[Category.MOVIE]:
-            if self.file_handler.has_visuals(movie_path_set):
-                clip = VideoFileClip(
-                    self.file_handler.join_back(movie_path_set),
-                    audio=False,
-                    fps_source="tbr",
-                )
-                pdf_path = os.path.abspath(
-                    os.path.join(self.output, f"{movie_path_set[1]}.{format}")
-                )
-                num_digits = len(str(int(clip.duration * clip.fps)))
-                doc = fitz.open()
-                for i, frame in tqdm(
-                    enumerate(clip.iter_frames(fps=clip.fps, dtype="uint8")),
-                ):
-                    frame_path = os.path.abspath(
-                        os.path.join(
-                            self.output,
-                            f"{movie_path_set[1]}-temp-{i:0{num_digits}d}.png",
-                        )
-                    )
-                    Image.fromarray(frame).save(frame_path, format="PNG")
-                    img = fitz.Pixmap(frame_path)
-                    rect = fitz.Rect(0, 0, img.width, img.height)
-                    page = doc.new_page(width=rect.width, height=rect.height)
-                    page.insert_image(rect, pixmap=img)
-                    os.remove(frame_path)
-                doc.save(pdf_path)
-                doc.close()
-                clip.close()
-                self.file_handler.post_process(movie_path_set, pdf_path, self.delete)
-        # Convert Documents to PDF
-        for doc_path_set in file_paths[Category.DOCUMENT]:
-            if doc_path_set[2] == "pdf":
-                # If the document is already a pdf, skip it
-                continue
-            if doc_path_set[2] == "srt":
-                # Convert srt to pdf
-                pdf_path = os.path.abspath(
-                    os.path.join(self.output, f"{doc_path_set[1]}.{format}")
-                )
-                with open(self.file_handler.join_back(doc_path_set), "r") as srt_file:
-                    srt_content = srt_file.read()
-                # Insert the SRT content into the PDF
-                doc = fitz.open()
-                page = doc.new_page()
-                page.insert_text((50, 50), srt_content, fontsize=12)
-                doc.save(pdf_path)
-                doc.close()
-                self.file_handler.post_process(doc_path_set, pdf_path, self.delete)
-            elif doc_path_set[2] == "docx":
-                pdf_path = os.path.abspath(
-                    os.path.join(self.output, f"{doc_path_set[1]}.{format}")
-                )
-                docx_doc = open(self.file_handler.join_back(doc_path_set), "rb")
-                # Convert docx to HTML as intermediary
-                document = mammoth.convert_to_html(docx_doc)
-                docx_doc.close()
-                # Convert html to PDF, save that
-                HTML(string=document.value.encode("utf-8")).write_pdf(pdf_path)
-                self.file_handler.post_process(doc_path_set, pdf_path, self.delete)
 
     def to_frames(self, file_paths: dict, format: str) -> None:
         # Converting to image frame sets
