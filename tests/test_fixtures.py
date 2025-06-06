@@ -3,7 +3,8 @@ import sys
 import pytest
 import shutil
 import tempfile
-from core.converter import Converter
+from core.controller import Controller
+
 
 @pytest.fixture
 def temp_media_dir(tmp_path):
@@ -16,11 +17,13 @@ def temp_media_dir(tmp_path):
     (media_dir / "test.txt").write_text("not a media file")
     return media_dir
 
+
 @pytest.fixture
 def test_input_folder(tmp_path):
     test_folder = tmp_path / "test_input"
     test_folder.mkdir()
     return test_folder
+
 
 @pytest.fixture
 def test_output_folder(tmp_path):
@@ -28,8 +31,9 @@ def test_output_folder(tmp_path):
     test_folder.mkdir()
     return test_folder
 
+
 @pytest.fixture
-def converter_instance():
-    converter = Converter()
-    converter.locale = "English"
-    return converter
+def controller_instance():
+    controller = Controller()
+    controller.locale = "English"
+    return controller

@@ -40,7 +40,7 @@ from moviepy import (
 # TODO: Add converter-wise tests
 
 
-class Converter:
+class Controller:
     """
     Taking an input directory of files, convert them to a multitude of formats.
     Interact with the script using the command line arguments or the web interface.
