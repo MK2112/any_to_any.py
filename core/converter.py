@@ -32,13 +32,13 @@ from moviepy import (
     clips_array,
 )
 
-# TODO: Finalize to_codec outsource
 # TODO: Rename converter.py to controller.py
 # TODO: Move to_protocol to movie_converter
 # TODO: Finalize movie_converter
 # TODO: Move to_markdown, to_pdf, to_subtitles, to_office to doc_converter
 # TODO: Move to_frames, to_bmp, to_webp, to_gif to image_converter
 # TODO: Add converter-wise tests
+
 
 class Converter:
     """
@@ -195,10 +195,12 @@ class Converter:
         self.web_host = None
         self.file_handler = FileHandler(self.event_logger, self.locale)
         # Setup distinct converters
-        self.audio_converter = AudioConverter(self.file_handler, self.prog_logger, 
-                                              self.event_logger, self.locale)
-        self.movie_converter = MovieConverter(self.file_handler, self.prog_logger,
-                                              self.event_logger, self.locale)
+        self.audio_converter = AudioConverter(
+            self.file_handler, self.prog_logger, self.event_logger, self.locale
+        )
+        self.movie_converter = MovieConverter(
+            self.file_handler, self.prog_logger, self.event_logger, self.locale
+        )
 
     def _end_with_msg(self, exception: Exception, msg: str) -> None:
         # Single point of exit
@@ -446,7 +448,7 @@ class Converter:
         elif (
             self.target_format in self._supported_formats[Category.MOVIE_CODECS].keys()
         ):
-            self.to_codec(
+            self.movie_converter.to_codec(
                 input=self.input,
                 output=self.output,
                 format=self.target_format,
@@ -487,15 +489,19 @@ class Converter:
     def watchdropzone(self, watch_path: str) -> None:
         # Watch a directory for new files and process them automatically
         def handle_file_event(event_type: str, file_path: str) -> None:
-            if event_type == 'created':
+            if event_type == "created":
                 try:
-                    self.event_logger.info(f"[>] {lang.get_translation('dropzone_new_file', self.locale)}: {file_path}")
+                    self.event_logger.info(
+                        f"[>] {lang.get_translation('dropzone_new_file', self.locale)}: {file_path}"
+                    )
                     if os.path.isfile(file_path):
                         # Create a temporary instance with distinct settings
                         temp_instance = self.__class__()
                         # Configure the instance with current settings
                         temp_instance.output = self.output
-                        temp_instance.delete = True  # Delete original files after processing
+                        temp_instance.delete = (
+                            True  # Delete original files after processing
+                        )
                         temp_instance.locale = self.locale
                         temp_instance.framerate = self.framerate
                         temp_instance.quality = self.quality
@@ -504,38 +510,56 @@ class Converter:
                         temp_instance.recursive = True
                         temp_instance.event_logger = self.event_logger
                         temp_instance.file_handler = self.file_handler
-                        
+
                         # Process the file
-                        file_paths = temp_instance.file_handler.get_file_paths([file_path])
+                        file_paths = temp_instance.file_handler.get_file_paths(
+                            [file_path]
+                        )
                         if file_paths:
                             try:
                                 temp_instance.process_files(file_paths)
                             except Exception as e:
-                                self.event_logger.error(f"{lang.get_translation('error', self.locale)}: {file_path} - {str(e)}")
+                                self.event_logger.error(
+                                    f"{lang.get_translation('error', self.locale)}: {file_path} - {str(e)}"
+                                )
                 except Exception as e:
-                    self.event_logger.error(f"{lang.get_translation('error', self.locale)}: {file_path} - {str(e)}")
-        
+                    self.event_logger.error(
+                        f"{lang.get_translation('error', self.locale)}: {file_path} - {str(e)}"
+                    )
+
         try:
             # Validate watch path
             watch_path = os.path.abspath(watch_path)
             if not os.path.exists(watch_path):
-                self.event_logger.error(f"{lang.get_translation('not_exist_not_dir', self.locale)}: {watch_path}")
+                self.event_logger.error(
+                    f"{lang.get_translation('not_exist_not_dir', self.locale)}: {watch_path}"
+                )
                 return
             if not os.path.isdir(watch_path):
-                self.event_logger.error(f"{lang.get_translation('watch_not_dir', self.locale)}: {watch_path}")
+                self.event_logger.error(
+                    f"{lang.get_translation('watch_not_dir', self.locale)}: {watch_path}"
+                )
                 return
-                
-            self.event_logger.info(f"[>] {lang.get_translation('watch_start', self.locale)}: {watch_path}")
-            self.event_logger.info(f"[>] {lang.get_translation('watch_stop', self.locale)}")
-            
+
+            self.event_logger.info(
+                f"[>] {lang.get_translation('watch_start', self.locale)}: {watch_path}"
+            )
+            self.event_logger.info(
+                f"[>] {lang.get_translation('watch_stop', self.locale)}"
+            )
+
             # Start the directory watcher with error handling
             with DirectoryWatcher(watch_path, handle_file_event) as watcher:
                 watcher.watch()
-                
+
         except KeyboardInterrupt:
-            self.event_logger.info(f"\n[!] {lang.get_translation('watch_halt', self.locale)}")
+            self.event_logger.info(
+                f"\n[!] {lang.get_translation('watch_halt', self.locale)}"
+            )
         except Exception as e:
-            self.event_logger.error(f"{lang.get_translation('error', self.locale)}: {str(e)}")
+            self.event_logger.error(
+                f"{lang.get_translation('error', self.locale)}: {str(e)}"
+            )
             raise
 
     def to_protocol(self, file_paths: dict, protocol: list) -> None:
@@ -667,7 +691,9 @@ class Converter:
                 ]
                 try:
                     self._run_command(cmd)
-                    self.file_handler.post_process(movie_path_set, out_path, self.delete)
+                    self.file_handler.post_process(
+                        movie_path_set, out_path, self.delete
+                    )
                 except Exception as e:
                     self._end_with_msg(
                         movie_path_set,
@@ -1120,12 +1146,14 @@ class Converter:
                     self.output = self.input
             if doc_path_set[2] in ["docx", "pptx"]:
                 # Read all images from docx, write to os.path.join(self.output, doc_path_set[1])
-                office_to_frames(doc_path_set=doc_path_set,
-                                 format=format,
-                                 output=self.output,
-                                 delete=self.delete,
-                                 file_handler=self.file_handler,
-                                 event_logger=self.event_logger)
+                office_to_frames(
+                    doc_path_set=doc_path_set,
+                    format=format,
+                    output=self.output,
+                    delete=self.delete,
+                    file_handler=self.file_handler,
+                    event_logger=self.event_logger,
+                )
             if doc_path_set[2] == "pdf":
                 # Per page, convert pdf to image
                 pdf_path = self.file_handler.join_back(doc_path_set)
@@ -1341,12 +1369,14 @@ class Converter:
         # Documents can sometimes be converted to bmp, e.g. contents of docx, pdf
         for doc_path_set in file_paths[Category.DOCUMENT]:
             if doc_path_set[2] == "docx":
-                office_to_frames(doc_path_set=doc_path_set,
-                                 format=format,
-                                 output=self.output,
-                                 delete=self.delete,
-                                 file_handler=self.file_handler,
-                                 event_logger=self.event_logger)
+                office_to_frames(
+                    doc_path_set=doc_path_set,
+                    format=format,
+                    output=self.output,
+                    delete=self.delete,
+                    file_handler=self.file_handler,
+                    event_logger=self.event_logger,
+                )
             if doc_path_set[2] == "pdf":
                 pdf_path = self.file_handler.join_back(doc_path_set)
                 bmp_path = os.path.abspath(
@@ -1444,12 +1474,14 @@ class Converter:
         # Documents may be convertable to bmps, e.g. pdfs
         for doc_path_set in file_paths[Category.DOCUMENT]:
             if doc_path_set[2] == "docx":
-                office_to_frames(doc_path_set=doc_path_set,
-                                 format=format,
-                                 output=self.output,
-                                 delete=self.delete,
-                                 file_handler=self.file_handler,
-                                 event_logger=self.event_logger)
+                office_to_frames(
+                    doc_path_set=doc_path_set,
+                    format=format,
+                    output=self.output,
+                    delete=self.delete,
+                    file_handler=self.file_handler,
+                    event_logger=self.event_logger,
+                )
             if doc_path_set[2] == "pdf":
                 pdf_path = self.file_handler.join_back(doc_path_set)
                 bmp_path = os.path.abspath(
@@ -1666,7 +1698,9 @@ class Converter:
                         audio.close()
                     if video is not None:
                         video.close()
-                self.file_handler.post_process(movie_path_set, merged_out_path, self.delete)
+                self.file_handler.post_process(
+                    movie_path_set, merged_out_path, self.delete
+                )
                 # Only delete the audio file if it was in the input set, not if just found in dir
                 if audio_fit in file_paths[Category.AUDIO]:
                     self.file_handler.post_process(
