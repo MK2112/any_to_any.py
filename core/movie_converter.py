@@ -7,25 +7,35 @@ from PIL import Image
 from tqdm import tqdm
 from utils.category import Category
 from core.doc_converter import office_to_frames
-from moviepy import VideoFileClip, ImageClip, AudioFileClip, VideoClip, concatenate_videoclips
+from moviepy import (
+    VideoFileClip,
+    ImageClip,
+    AudioFileClip,
+    VideoClip,
+    concatenate_videoclips,
+)
+
 
 class MovieConverter:
-
-    def __init__(self, file_handler, prog_logger, event_logger, locale: str = "English"):
+    def __init__(
+        self, file_handler, prog_logger, event_logger, locale: str = "English"
+    ):
         self.file_handler = file_handler
         self.prog_logger = prog_logger
         self.event_logger = event_logger
         self.locale = locale
 
-    def to_movie(self, 
-                 input: str,
-                 output: str,
-                 recursive: bool,
-                 file_paths: dict, 
-                 format: str,
-                 framerate: int, 
-                 codec: str,
-                 delete: bool) -> None:
+    def to_movie(
+        self,
+        input: str,
+        output: str,
+        recursive: bool,
+        file_paths: dict,
+        format: str,
+        framerate: int,
+        codec: str,
+        delete: bool,
+    ) -> None:
         # Convert to movie with specified format
         pngs = bmps = jpgs = []
         for image_path_set in file_paths[Category.IMAGE]:
@@ -56,25 +66,19 @@ class MovieConverter:
                 pngs.append(
                     ImageClip(
                         self.file_handler.join_back(image_path_set)
-                    ).with_duration(
-                        1 / 24 if framerate is None else 1 / framerate
-                    )
+                    ).with_duration(1 / 24 if framerate is None else 1 / framerate)
                 )
             elif image_path_set[2] == "jpeg" or image_path_set[2] == "jpg":
                 jpgs.append(
                     ImageClip(
                         self.file_handler.join_back(image_path_set)
-                    ).with_duration(
-                        1 / 24 if framerate is None else 1 / framerate
-                    )
+                    ).with_duration(1 / 24 if framerate is None else 1 / framerate)
                 )
             elif image_path_set[2] == "bmp":
                 bmps.append(
                     ImageClip(
                         self.file_handler.join_back(image_path_set)
-                    ).with_duration(
-                        1 / 24 if framerate is None else 1 / framerate
-                    )
+                    ).with_duration(1 / 24 if framerate is None else 1 / framerate)
                 )
             # No post_process here, we just accumulated for processing if not .gif
 
@@ -82,9 +86,7 @@ class MovieConverter:
         for pics in [pngs, jpgs, bmps]:
             if len(pics) > 0:
                 final_clip = concatenate_videoclips(pics, method="compose")
-                out_path = os.path.abspath(
-                    os.path.join(output, f"merged.{format}")
-                )
+                out_path = os.path.abspath(os.path.join(output, f"merged.{format}"))
                 final_clip.write_videofile(
                     out_path,
                     fps=24 if framerate is None else framerate,
@@ -141,8 +143,14 @@ class MovieConverter:
             if doc_path_set[2] == "docx":
                 # Convert docx to list of images first
                 # Stitch that together, convert to movie
-                office_to_frames(doc_path_set, "jpeg", output, delete, 
-                                 self.file_handler, self.event_logger)
+                office_to_frames(
+                    doc_path_set,
+                    "jpeg",
+                    output,
+                    delete,
+                    self.file_handler,
+                    self.event_logger,
+                )
                 # This creates a folder named docx_path_set[1] in the output directory
                 # with all the images in it
                 # Now we can convert that to a movie
@@ -200,9 +208,7 @@ class MovieConverter:
                 # Convert the JPEG files to a video
                 image_files = sorted(image_files)
                 image_clips = [
-                    ImageClip(
-                        os.path.join(output, doc_path_set[1], img)
-                    ).with_duration(
+                    ImageClip(os.path.join(output, doc_path_set[1], img)).with_duration(
                         (1 / framerate) if framerate is not None else 1 / 24
                     )
                     for img in image_files
@@ -218,17 +224,19 @@ class MovieConverter:
 
                 # Remove the temporary image files
                 shutil.rmtree(os.path.join(output, doc_path_set[1]))
-                self.file_handler.post_process(doc_path_set, movie_path, delete)    
-        
-    def to_codec(self,
-                 input: str,
-                 output: str,
-                 format: str,
-                 recursive: bool,
-                 file_paths: dict,
-                 framerate: int, 
-                 codec: dict,
-                 delete: bool) -> None:
+                self.file_handler.post_process(doc_path_set, movie_path, delete)
+
+    def to_codec(
+        self,
+        input: str,
+        output: str,
+        format: str,
+        recursive: bool,
+        file_paths: dict,
+        framerate: int,
+        codec: dict,
+        delete: bool,
+    ) -> None:
         # Convert movie to same movie with different codec
         for codec_path_set in file_paths[Category.MOVIE]:
             if not recursive or input != output:

@@ -3,25 +3,29 @@ import utils.language_support as lang
 from utils.category import Category
 from moviepy import AudioFileClip, VideoFileClip
 
-class AudioConverter:
 
-    def __init__(self, file_handler, prog_logger, event_logger, locale: str = "English"):
-        # These aren't supposed to be copies, but, like here, references 
+class AudioConverter:
+    def __init__(
+        self, file_handler, prog_logger, event_logger, locale: str = "English"
+    ):
+        # These aren't supposed to be copies, but, like here, references
         # to the original objects that got passed
         self.file_handler = file_handler
         self.prog_logger = prog_logger
         self.event_logger = event_logger
         self.locale = locale
 
-    def to_audio(self,
-                 file_paths: dict,
-                 format: str,
-                 codec: str,
-                 recursive: bool,
-                 bitrate: str,    # self._audio_bitrate(format, self.quality),
-                 input: str,
-                 output: str,
-                 delete: str) -> None:
+    def to_audio(
+        self,
+        file_paths: dict,
+        format: str,
+        codec: str,
+        recursive: bool,
+        bitrate: str,  # self._audio_bitrate(format, self.quality),
+        input: str,
+        output: str,
+        delete: str,
+    ) -> None:
         # Audio to audio conversion
         for audio_path_set in file_paths[Category.AUDIO]:
             if audio_path_set[2] == format:
@@ -29,9 +33,13 @@ class AudioConverter:
             audio = AudioFileClip(self.file_handler.join_back(audio_path_set))
             # If recursive, create file outright where its source was found
             if not recursive or input != output:
-                out_path = os.path.abspath(os.path.join(output, f"{audio_path_set[1]}.{format}"))
+                out_path = os.path.abspath(
+                    os.path.join(output, f"{audio_path_set[1]}.{format}")
+                )
             else:
-                out_path = os.path.abspath(os.path.join(audio_path_set[0], f"{audio_path_set[1]}.{format}"))
+                out_path = os.path.abspath(
+                    os.path.join(audio_path_set[0], f"{audio_path_set[1]}.{format}")
+                )
             # Write audio to file
             try:
                 audio.write_audiofile(

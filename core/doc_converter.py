@@ -3,12 +3,15 @@ from tqdm import tqdm
 import docx
 import pptx
 
-def office_to_frames(doc_path_set: tuple, 
-                     format: str, 
-                     output: str,
-                     delete: bool, 
-                     file_handler, 
-                     event_logger) -> None:
+
+def office_to_frames(
+    doc_path_set: tuple,
+    format: str,
+    output: str,
+    delete: bool,
+    file_handler,
+    event_logger,
+) -> None:
     # Utility function available beyond DocumentConverter scope
     # Used e.g. in MovieConverter, placing it here makes it accessible easily
     full_path = file_handler.join_back(doc_path_set)
