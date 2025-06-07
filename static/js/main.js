@@ -124,7 +124,7 @@ function pollProgress(jobId) {
                 }
                 
                 // Update status text with more detailed information
-                let statusText = `Processing: ${percent}%`;
+                let statusText = `${percent}%`;
                 if (data.status === 'processing' && data.current_bar) {
                     statusText += ` (${data.current_bar})`;
                 }
