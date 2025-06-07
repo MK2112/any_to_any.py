@@ -46,30 +46,68 @@ with app.app_context():
     _ = controller.supported_formats
 
 
-def push_zip(cv_dir: str):
-    """Create a zip file from the contents of cv_dir and serve it for download."""
+def push_zip(source_path: str):
+    # Create .zip file from source path, serve it for download.
+    # Source can be either a directory or a single file, doesn't matter.
     # Create a temporary file for the zip
     temp_fd, temp_path = tempfile.mkstemp(suffix='.zip')
     os.close(temp_fd)
     
     try:
-        # Create the zip file
-        shutil.make_archive(temp_path[:-4], 'zip', cv_dir)
-        
-        # Remove the converted files directory
-        shutil.rmtree(cv_dir, ignore_errors=True)
+        if os.path.isdir(source_path):
+            # If source is a directory, zip its contents
+            base_dir = os.path.dirname(source_path)
+            dir_name = os.path.basename(source_path)
+            
+            # Create the zip file with the directory's contents
+            shutil.make_archive(temp_path[:-4], 'zip', base_dir, dir_name)
+            
+            # Clean up the original directory
+            shutil.rmtree(source_path, ignore_errors=True)
+            
+            # Set the download name based on the directory name
+            download_name = f'any_to_any_-_{dir_name}.zip'
+        else:
+            # If source is a file, zip just that file
+            file_name = os.path.basename(source_path)
+            
+            # Create a temporary directory to hold the file
+            temp_dir = tempfile.mkdtemp()
+            temp_file_path = os.path.join(temp_dir, file_name)
+            
+            try:
+                # Move the file to the temp directory
+                shutil.move(source_path, temp_file_path)
+                
+                # Create the zip file with the single file
+                shutil.make_archive(temp_path[:-4], 'zip', temp_dir)
+                
+                # Set the download name based on the file name
+                download_name = f'any_to_any_-_{file_name}.zip'
+            finally:
+                # Clean up the temporary directory
+                shutil.rmtree(temp_dir, ignore_errors=True)
         
         # Send the file
-        return send_file(
+        response = send_file(
             temp_path,
             as_attachment=True,
-            download_name=f'any_to_any_-_{os.path.basename(cv_dir)}.zip',
+            download_name=download_name,
             mimetype='application/zip'
         )
-    except Exception:
+        
+        # Clean up the temp file after sending
+        try:
+            response.call_on_close(lambda: os.unlink(temp_path) if os.path.exists(temp_path) else None)
+        except Exception as e:
+            app.logger.error(f"Error setting up cleanup for temp file {temp_path}: {str(e)}")
+            
+        return response
+    except Exception as e:
         # Clean up temp file if it exists
         if os.path.exists(temp_path):
             os.unlink(temp_path)
+        app.logger.error(f"Error in push_zip: {str(e)}")
         raise
 
 
@@ -118,7 +156,7 @@ def send_to_backend(
     merge: bool,
     concat: bool,
 ):
-    """Process files in the background and update progress."""
+    # Process files in the background and update progress
     job_id = getattr(controller_instance.prog_logger, 'job_id', None)
     shared_dict = getattr(controller_instance.prog_logger, 'shared_progress_dict', None)
     
@@ -258,7 +296,7 @@ def concat():
 
 @app.route("/progress/<job_id>", methods=["GET"])
 def get_progress(job_id):
-    """Get the current progress of a conversion job."""
+    # Get the current progress of a conversion job
     with progress_lock:
         # Get the current progress, or default values if job not found
         progress = shared_progress_dict.get(job_id, {
@@ -297,18 +335,37 @@ def get_progress(job_id):
 
 @app.route("/download/<job_id>", methods=["GET"])
 def download_zip(job_id):
-    """Download the converted files as a zip archive."""
-    cv_dir = f"{app.config['CONVERTED_FILES_DEST']}_{job_id}"
+    # Download the converted files as a .zip archive
+    # Handles both single files and directories of files
+    base_path = f"{app.config['CONVERTED_FILES_DEST']}_{job_id}"
     
-    # Check if directory exists and has files
-    if not os.path.exists(cv_dir) or not os.path.isdir(cv_dir):
-        abort(404, "Output directory not found")
+    # Check if the path exists
+    if not os.path.exists(base_path):
+        abort(404, "Output not found")
+    
+    # If it's a directory, check if it has any content
+    if os.path.isdir(base_path):
+        # Check for any files or directories
+        has_content = False
+        for root, dirs, files in os.walk(base_path):
+            if files or dirs:
+                has_content = True
+                break
         
-    files = [f for f in os.listdir(cv_dir) if os.path.isfile(os.path.join(cv_dir, f))]
-    if not files:
-        abort(404, "No converted files found")
+        if not has_content:
+            abort(404, "No converted files found in output directory")
     
-    return push_zip(cv_dir)
+    # If it's a single file, handle it directly
+    if os.path.isfile(base_path):
+        try:
+            # For single files, we'll zip just that file
+            return push_zip(base_path)
+        except Exception as e:
+            app.logger.error(f"Error processing single file: {str(e)}")
+            abort(500, f"Error processing file: {str(e)}")
+    
+    # For directories, use the directory as the source
+    return push_zip(base_path)
 
 
 @app.route("/language", methods=["POST"])
