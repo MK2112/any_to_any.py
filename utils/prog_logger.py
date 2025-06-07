@@ -39,7 +39,7 @@ class ProgLogger(ProgressBarLogger):
             total = self.bars[bar].get('total', 100)  # Default to 100 if total not available
             
             # Initialize tqdm progress bar
-            self.tqdm_bar = tqdm(total=total, desc="Processing", unit="chunks")
+            self.tqdm_bar = tqdm(total=total, unit="chunks")
             
             # Initialize web progress info
             if self.job_id and self.shared_progress_dict is not None:
