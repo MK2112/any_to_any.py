@@ -492,29 +492,29 @@ class Controller:
                         f"[>] {lang.get_translation('dropzone_new_file', self.locale)}: {file_path}"
                     )
                     if os.path.isfile(file_path):
-                        # Create a temporary instance with distinct settings
-                        temp_instance = self.__class__()
+                        # Create a temporary instance within, with distinct settings
+                        dropzone_controller = self.__class__()
                         # Configure the instance with current settings
-                        temp_instance.output = self.output
-                        temp_instance.delete = (
+                        dropzone_controller.output = self.output
+                        dropzone_controller.delete = (
                             True  # Delete original files after processing
                         )
-                        temp_instance.locale = self.locale
-                        temp_instance.framerate = self.framerate
-                        temp_instance.quality = self.quality
-                        temp_instance.merging = self.merging
-                        temp_instance.concatenating = self.concatenating
-                        temp_instance.recursive = True
-                        temp_instance.event_logger = self.event_logger
-                        temp_instance.file_handler = self.file_handler
+                        dropzone_controller.locale = self.locale
+                        dropzone_controller.framerate = self.framerate
+                        dropzone_controller.quality = self.quality
+                        dropzone_controller.merging = self.merging
+                        dropzone_controller.concatenating = self.concatenating
+                        dropzone_controller.recursive = True
+                        dropzone_controller.event_logger = self.event_logger
+                        dropzone_controller.file_handler = self.file_handler
 
                         # Process the file
-                        file_paths = temp_instance.file_handler.get_file_paths(
+                        file_paths = dropzone_controller.file_handler.get_file_paths(
                             [file_path]
                         )
                         if file_paths:
                             try:
-                                temp_instance.process_files(file_paths)
+                                dropzone_controller.process_files(file_paths)
                             except Exception as e:
                                 self.event_logger.error(
                                     f"{lang.get_translation('error', self.locale)}: {file_path} - {str(e)}"
