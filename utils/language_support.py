@@ -757,7 +757,7 @@ TRANSLATIONS = {
         "lang_not_supported": f"Language not supported (supported: {', '.join(LANGUAGE_CODES.keys())})",
         "js_warn_intro": "requires JavaScript to function as intended.",
         "js_warn_outro": "Please enable JavaScript in your browser settings.",
-        "drag_drop_hint": "Drag and Drop or Click to select files",
+        "drag_drop_hint": "Drag and Drop or Click to Select Files",
         "convert_to": "Convert to",
         "convert_web_help": "Convert all provided files to the selected format",
         "merge": "Merge",
