@@ -475,26 +475,98 @@ class ImageConverter:
         # All images in the input directory are merged into one gif
         if len(file_paths[Category.IMAGE]) > 0:
             images = []
-            for image_path_set in file_paths[Category.IMAGE]:
-                if image_path_set[2] == format:
-                    continue
-                with Image.open(self.file_handler.join_back(image_path_set)) as image:
-                    images.append(image.convert("RGB"))
-            images[0].save(
-                os.path.join(output, f"merged.{format}"),
-                save_all=True,
-                append_images=images[1:],
+            total_images = len(file_paths[Category.IMAGE])
+            processed = 0
+            
+            # Log start of GIF creation
+            if hasattr(self, 'prog_logger') and hasattr(self.prog_logger, 'bars_callback'):
+                self.prog_logger.bars_callback('gif', 'index', 0, 0)
+            
+            # Create tqdm progress bar
+            progress_bar = tqdm(
+                total=total_images,
+                unit="img",
+                leave=False,
+                disable=not getattr(self, 'verbose', True)  # Respect verbosity setting
             )
+            
+            try:
+                for i, image_path_set in enumerate(file_paths[Category.IMAGE], 1):
+                    if image_path_set[2] == format:
+                        progress_bar.update(1)  # Update for skipped images too
+                        continue
+                        
+                    try:
+                        with Image.open(self.file_handler.join_back(image_path_set)) as image:
+                            images.append(image.convert("RGB"))
+                        processed += 1
+                        
+                        # Update progress after each image
+                        if hasattr(self, 'prog_logger') and hasattr(self.prog_logger, 'bars_callback'):
+                            self.prog_logger.bars_callback('gif', 'index', i, i-1)
+                        
+                        progress_bar.set_postfix({"current": os.path.basename(image_path_set[1])}, refresh=False)
+                        progress_bar.update(1)
+                            
+                    except Exception as e:
+                        error_msg = f"Error processing image {os.path.basename(image_path_set[1])}: {str(e)}"
+                        if hasattr(self, 'prog_logger'):
+                            self.prog_logger.log(error_msg)
+                        progress_bar.write(error_msg)  # Show error in tqdm output
+                        raise  # Re-raise to maintain original error handling
+                        
+            finally:
+                progress_bar.close()
+            
+            if images:
+                output_path = os.path.join(output, f"{output}_merged.{format}")
+                try:
+                    images[0].save(
+                        output_path,
+                        save_all=True,
+                        append_images=images[1:],
+                    )
+                    # Log completion
+                    if hasattr(self, 'prog_logger') and hasattr(self.prog_logger, 'bars_callback'):
+                        self.prog_logger.bars_callback('gif', 'index', total_images, total_images-1)
+                except Exception as e:
+                    if hasattr(self, 'prog_logger'):
+                        self.prog_logger.log(f"Error saving GIF {output_path}: {str(e)}")
+                    raise
         # Movies are converted to gifs as well, retaining 1/3 of the frames
-        for movie_path_set in file_paths[Category.MOVIE]:
+        for i, movie_path_set in enumerate(file_paths[Category.MOVIE], 1):
             if self.file_handler.has_visuals(movie_path_set):
-                video = VideoFileClip(
-                    self.file_handler.join_back(movie_path_set),
-                    audio=False,
-                    fps_source="tbr",
-                )
-                gif_path = os.path.join(output, f"{movie_path_set[1]}.{format}")
-                video.write_gif(gif_path, fps=video.fps // 3, logger=self.prog_logger)
+                try:
+                    # Log start of video to GIF conversion
+                    if hasattr(self, 'prog_logger') and hasattr(self.prog_logger, 'bars_callback'):
+                        self.prog_logger.bars_callback('video_gif', 'index', 0, 0)
+                    
+                    video = VideoFileClip(
+                        self.file_handler.join_back(movie_path_set),
+                        audio=False,
+                        fps_source="tbr",
+                    )
+                    gif_path = os.path.join(output, f"{movie_path_set[1]}.{format}")
+                    
+                    # Calculate target fps, ensuring it's at least 1
+                    target_fps = max(1, int(video.fps // 3))
+                    
+                    # Write GIF with progress logging
+                    video.write_gif(
+                        gif_path, 
+                        fps=target_fps, 
+                        logger=self.prog_logger,
+                        verbose=False  # Disable moviepy's default progress bar
+                    )
+                    
+                    # Log completion of this video
+                    if hasattr(self, 'prog_logger') and hasattr(self.prog_logger, 'bars_callback'):
+                        self.prog_logger.bars_callback('video_gif', 'index', i, i-1)
+                        
+                except Exception as e:
+                    if hasattr(self, 'prog_logger'):
+                        self.prog_logger.log(f"Error converting video {movie_path_set} to GIF: {str(e)}")
+                    raise  # Re-raise to maintain original error handling
                 video.close()
                 self.file_handler.post_process(movie_path_set, gif_path, delete)
             else:
