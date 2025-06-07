@@ -140,7 +140,6 @@ main, form, #drop-area {
 
 #progress-container {
     width: 100%;
-    border-radius: 4px;
     margin: 10px 0;
     overflow: hidden;
     display: none;
@@ -148,6 +147,7 @@ main, form, #drop-area {
 
 #progress-bar {
     height: 30px;
+    border-radius: 4px;
     background: linear-gradient(90deg, #4CAF50, #8BC34A);
     width: 0%;
     transition: width 0.3s ease-in-out;
