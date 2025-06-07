@@ -2,6 +2,7 @@ import os
 import shutil
 import tempfile
 import threading
+import time
 import webbrowser
 import utils.language_support as lang
 from core.controller import Controller
@@ -17,9 +18,19 @@ app.secret_key = os.urandom(32)  # Distinguish session
 
 host = "127.0.0.1"
 port = 5000
-controller = Controller()
-controller.web_flag = True
-controller.web_host = f"{'http' if host.lower() in ['127.0.0.1', 'localhost'] else 'https'}://{host}:{port}"
+
+# Initialize a default controller for the app
+controller = None
+
+# This function creates a new controller instance with the given job_id
+def create_controller(job_id=None, shared_progress_dict=None):
+    controller = Controller(job_id=job_id, shared_progress_dict=shared_progress_dict)
+    controller.web_flag = True
+    controller.web_host = f"{'http' if host.lower() in ['127.0.0.1', 'localhost'] else 'https'}://{host}:{port}"
+    return controller
+
+# Create default controller for the app
+controller = create_controller()
 
 # Shared progress dictionary for job tracking
 shared_progress_dict = {}
@@ -98,6 +109,7 @@ def index():
 
 
 def send_to_backend(
+    controller_instance,
     input_path_args: list,
     format: str,
     output: str,
@@ -105,23 +117,26 @@ def send_to_backend(
     quality: str,
     merge: bool,
     concat: bool,
-    job_id: str = None,
-    shared_progress_dict: dict = None,
 ):
     """Process files in the background and update progress."""
+    job_id = getattr(controller_instance.prog_logger, 'job_id', None)
+    shared_dict = getattr(controller_instance.prog_logger, 'shared_progress_dict', None)
+    
     try:
         # Set initial progress
-        if job_id and shared_progress_dict is not None:
+        if job_id and shared_dict is not None:
             with progress_lock:
-                shared_progress_dict[job_id] = {
+                shared_dict[job_id] = {
                     'progress': 0,
                     'total': 100,
                     'status': 'processing',
-                    'error': None
+                    'error': None,
+                    'started_at': time.time(),
+                    'last_updated': time.time()
                 }
         
         # Run the conversion
-        controller.run(
+        controller_instance.run(
             input_path_args=input_path_args,
             format=format,
             output=output,
@@ -137,21 +152,27 @@ def send_to_backend(
         )
         
         # Mark as done
-        if job_id and shared_progress_dict is not None:
+        if job_id and shared_dict is not None:
             with progress_lock:
-                shared_progress_dict[job_id].update({
+                shared_dict[job_id].update({
                     'progress': 100,
-                    'status': 'done'
+                    'status': 'done',
+                    'completed_at': time.time(),
+                    'last_updated': time.time()
                 })
                 
     except Exception as e:
-        # Update progress with error
-        if job_id and shared_progress_dict is not None:
+        error_msg = str(e)
+        if job_id and shared_dict is not None:
             with progress_lock:
-                shared_progress_dict[job_id].update({
-                    'status': 'error',
-                    'error': str(e)
-                })
+                if job_id in shared_dict:
+                    shared_dict[job_id].update({
+                        'status': 'error',
+                        'error': error_msg,
+                        'completed_at': time.time(),
+                        'last_updated': time.time()
+                    })
+        # Re-raise the exception to be handled by the caller
         raise
         
     finally:
@@ -163,20 +184,22 @@ def send_to_backend(
 @app.route("/convert", methods=["POST"])
 def convert():
     format, up_dir, cv_dir, job_id = process_params()
-    # Start conversion in a thread for async progress
+    # Create a new controller instance for this job
+    job_controller = create_controller(job_id=job_id, shared_progress_dict=shared_progress_dict)
+    
+    # Start conversion in background thread
     thread = threading.Thread(
         target=send_to_backend,
-        kwargs={
-            "input_path_args": [up_dir],
-            "format": format,
-            "output": cv_dir,
-            "framerate": None,
-            "quality": None,
-            "merge": None,
-            "concat": None,
-            "job_id": job_id,
-            "shared_progress_dict": shared_progress_dict,
-        },
+        args=(
+            job_controller,
+            [up_dir],
+            format,
+            cv_dir,
+            0,
+            "high",
+            False,
+            False,
+        ),
     )
     thread.start()
     # Return job_id so frontend can poll progress
@@ -185,43 +208,51 @@ def convert():
 
 @app.route("/merge", methods=["POST"])
 def merge():
-    _, up_dir, cv_dir, job_id = process_params()
+    format, up_dir, cv_dir, job_id = process_params()
+    # Create a new controller instance for this job
+    job_controller = create_controller(job_id=job_id, shared_progress_dict=shared_progress_dict)
+    
+    # Start conversion in background thread
     thread = threading.Thread(
         target=send_to_backend,
-        kwargs={
-            "input_path_args": [up_dir],
-            "format": None,
-            "output": cv_dir,
-            "framerate": None,
-            "quality": None,
-            "merge": True,
-            "concat": None,
-            "job_id": job_id,
-            "shared_progress_dict": shared_progress_dict,
-        },
+        args=(
+            job_controller,
+            [up_dir],
+            format,
+            cv_dir,
+            0,
+            "high",
+            True,
+            False,
+        ),
     )
     thread.start()
+    # Return job_id so frontend can poll progress
     return jsonify({"job_id": job_id}), 202
 
 
 @app.route("/concat", methods=["POST"])
 def concat():
-    _, up_dir, cv_dir, job_id = process_params()
+    format, up_dir, cv_dir, job_id = process_params()
+    # Create a new controller instance for this job
+    job_controller = create_controller(job_id=job_id, shared_progress_dict=shared_progress_dict)
+    
+    # Start conversion in background thread
     thread = threading.Thread(
         target=send_to_backend,
-        kwargs={
-            "input_path_args": [up_dir],
-            "format": None,
-            "output": cv_dir,
-            "framerate": None,
-            "quality": None,
-            "merge": None,
-            "concat": True,
-            "job_id": job_id,
-            "shared_progress_dict": shared_progress_dict,
-        },
+        args=(
+            job_controller,
+            [up_dir],
+            format,
+            cv_dir,
+            0,
+            "high",
+            False,
+            True,
+        ),
     )
     thread.start()
+    # Return job_id so frontend can poll progress
     return jsonify({"job_id": job_id}), 202
 
 
@@ -229,13 +260,39 @@ def concat():
 def get_progress(job_id):
     """Get the current progress of a conversion job."""
     with progress_lock:
+        # Get the current progress, or default values if job not found
         progress = shared_progress_dict.get(job_id, {
             'progress': 0,
             'total': 100,
-            'status': 'processing',
-            'error': None
+            'status': 'waiting',  # Indicate job hasn't started yet
+            'error': None,
+            'progress_percent': 0
         })
-        return jsonify(progress)
+        
+        # Ensure we have a progress percentage
+        if 'progress_percent' not in progress:
+            if progress.get('total', 0) > 0:
+                progress['progress_percent'] = int((progress.get('progress', 0) / progress['total']) * 100)
+            else:
+                progress['progress_percent'] = 0
+        
+        # Clean up completed or errored jobs that are older than 5 minutes
+        current_time = time.time()
+        for jid in list(shared_progress_dict.keys()):
+            job = shared_progress_dict[jid]
+            if job.get('status') in ['done', 'error'] and (current_time - job.get('completed_at', 0)) > 300:
+                del shared_progress_dict[jid]
+        
+        # Create a new dict to avoid thread-safety issues
+        response = {
+            'progress': progress.get('progress', 0),
+            'total': progress.get('total', 100),
+            'status': progress.get('status', 'waiting'),
+            'error': progress.get('error'),
+            'progress_percent': progress.get('progress_percent', 0)
+        }
+        
+        return jsonify(response)
 
 
 @app.route("/download/<job_id>", methods=["GET"])

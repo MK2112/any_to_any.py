@@ -43,9 +43,9 @@ class Controller:
     Run via any_to_any.py script.
     """
 
-    def __init__(self):
-        # Setting up progress logger
-        self.prog_logger = ProgLogger()
+    def __init__(self, job_id=None, shared_progress_dict=None):
+        # Setting up progress logger with optional web progress tracking
+        self.prog_logger = ProgLogger(job_id=job_id, shared_progress_dict=shared_progress_dict)
         # Get locale
         self.locale = lang.get_system_language()
         # Setting up event logger and format

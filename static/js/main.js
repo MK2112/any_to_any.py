@@ -102,15 +102,45 @@ function pollProgress(jobId) {
                     throw new Error(data.error || 'Conversion failed');
                 }
 
-                // Update progress
-                const percent = Math.min(100, Math.max(0, data.progress || 0));
-                progressBar.style.width = `${percent}%`;
-                progressStatus.textContent = `Processing: ${percent}%`;
+                // Update progress using progress_percent if available, otherwise calculate from progress/total
+                let percent = 0;
+                if (data.progress_percent !== undefined) {
+                    percent = Math.min(100, Math.max(0, data.progress_percent));
+                } else if (data.total > 0) {
+                    percent = Math.min(100, Math.max(0, Math.round((data.progress / data.total) * 100)));
+                }
+                
+                // Smooth animation for progress bar
+                const currentWidth = parseFloat(progressBar.style.width) || 0;
+                if (Math.abs(percent - currentWidth) > 1) {
+                    progressBar.style.transition = 'width 0.3s ease-in-out';
+                    progressBar.style.width = `${percent}%`;
+                } else if (progressBar.style.transition) {
+                    // Remove transition for small updates to prevent stuttering
+                    progressBar.style.transition = 'none';
+                    progressBar.style.width = `${percent}%`;
+                } else {
+                    progressBar.style.width = `${percent}%`;
+                }
+                
+                // Update status text with more detailed information
+                let statusText = `Processing: ${percent}%`;
+                if (data.status === 'processing' && data.current_bar) {
+                    statusText += ` (${data.current_bar})`;
+                }
+                progressStatus.textContent = statusText; 
+                
+                // Add a visual indicator when progress is stuck
+                if (percent > 0 && percent < 100) {
+                    progressBar.classList.add('active');
+                } else {
+                    progressBar.classList.remove('active');
+                }
 
                 // Handle completion
                 if (data.status === 'done') {
                     clearInterval(pollInterval);
-                    progressStatus.textContent = 'Downloading...';
+                    progressStatus.textContent = 'Starting Download...';
                     
                     // Trigger download
                     window.location.href = `/download/${jobId}`;
