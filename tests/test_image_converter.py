@@ -13,7 +13,7 @@ from core.image_converter import ImageConverter, office_to_frames
 
 
 class TestOfficeToFrames:
-    """Test the standalone office_to_frames function"""
+    # Test the standalone office_to_frames function
 
     @pytest.fixture
     def mock_dependencies(self):
@@ -30,7 +30,7 @@ class TestOfficeToFrames:
     def test_office_to_frames_docx_success(
         self, mock_docx, mock_os, mock_tqdm, mock_dependencies
     ):
-        """Test successful DOCX image extraction"""
+        # Test successful DOCX image extraction
         file_handler, event_logger = mock_dependencies
 
         # Setup mocks
@@ -67,7 +67,7 @@ class TestOfficeToFrames:
     def test_office_to_frames_pptx_success(
         self, mock_pptx, mock_os, mock_tqdm, mock_dependencies
     ):
-        """Test successful PPTX image extraction"""
+        # Test successful PPTX image extraction
         file_handler, event_logger = mock_dependencies
 
         # Setup mocks
@@ -103,7 +103,7 @@ class TestOfficeToFrames:
     def test_office_to_frames_exception_handling(
         self, mock_docx, mock_os, mock_tqdm, mock_dependencies
     ):
-        """Test exception handling in office_to_frames"""
+        # Test exception handling in office_to_frames
         file_handler, event_logger = mock_dependencies
 
         # Setup mocks
@@ -123,7 +123,7 @@ class TestOfficeToFrames:
 
 
 class TestGifToFrames:
-    """Test the gif_to_frames function"""
+    # Test the gif_to_frames function
 
     @pytest.fixture
     def mock_file_handler(self):
@@ -143,7 +143,7 @@ class TestGifToFrames:
 
 
 class TestImageConverter:
-    """Test the ImageConverter class"""
+    # Test the ImageConverter class
 
     @pytest.fixture
     def converter(self):
@@ -164,7 +164,7 @@ class TestImageConverter:
         return converter
 
     class TestToGif:
-        """Test to_gif method"""
+        # Test to_gif method
 
         @patch("core.image_converter.VideoFileClip")
         @patch("core.image_converter.Image.open")
@@ -172,7 +172,7 @@ class TestImageConverter:
         def test_to_gif_image_conversion(
             self, mock_os, mock_image_open, mock_video_clip, converter
         ):
-            """Test image to GIF conversion"""
+            # Test image to GIF conversion
             # Setup mocks
             mock_os.path.exists.return_value = True
             mock_os.makedirs = Mock()
@@ -206,12 +206,12 @@ class TestImageConverter:
             mock_img.convert.assert_called_once_with("RGB")
 
     class TestErrorHandling:
-        """Test error handling"""
+        # Test error handling
 
         @patch("core.image_converter.VideoFileClip")
         @patch("core.image_converter.os")
         def test_unsupported_movie_format(self, mock_os, mock_video_clip, converter):
-            """Test handling of unsupported movie formats"""
+            # Test handling of unsupported movie formats
             # Setup mocks
             mock_os.path.exists.return_value = True
             mock_os.makedirs = Mock()
@@ -238,12 +238,12 @@ class TestImageConverter:
             assert "unsupported" in converter.event_logger.info.call_args[0][0].lower()
 
     class TestEdgeCases:
-        """Test edge cases"""
+        # Test edge cases
 
         @patch("core.image_converter.VideoFileClip")
         @patch("core.image_converter.os")
         def test_empty_file_paths(self, mock_os, mock_video_clip, converter):
-            """Test with empty file paths"""
+            # Test with empty file paths
             # Setup mocks
             mock_os.path.exists.return_value = True
             mock_os.makedirs = Mock()
@@ -274,7 +274,7 @@ class TestImageConverter:
         def test_format_already_matches_target(
             self, mock_os, mock_video_clip, converter
         ):
-            """Test when source format matches target format"""
+            # Test when source format matches target format
             # Setup mocks
             mock_os.path.exists.return_value = True
             mock_os.makedirs = Mock()

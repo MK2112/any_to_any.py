@@ -14,7 +14,7 @@ class TestAudioConverter:
     
     @pytest.fixture
     def mock_dependencies(self):
-        """Create mock dependencies for AudioConverter"""
+        # Create mock dependencies for AudioConverter
         file_handler = Mock()
         prog_logger = Mock()
         event_logger = Mock()
@@ -22,13 +22,13 @@ class TestAudioConverter:
     
     @pytest.fixture
     def audio_converter(self, mock_dependencies):
-        """Create AudioConverter instance with mocked dependencies"""
+        # Create AudioConverter instance with mocked dependencies
         file_handler, prog_logger, event_logger = mock_dependencies
         return AudioConverter(file_handler, prog_logger, event_logger, "English")
     
     @pytest.fixture
     def sample_file_paths(self):
-        """Sample file paths structure for testing"""
+        # Sample file paths structure for testing
         return {
             Category.AUDIO: [
                 ("/path/to", "audio1", "mp3"),
@@ -43,7 +43,7 @@ class TestAudioConverter:
         }
     
     def test_init_stores_references_correctly(self, mock_dependencies):
-        """Test that AudioConverter stores references to passed objects"""
+        # Test that AudioConverter stores references to passed objects
         file_handler, prog_logger, event_logger = mock_dependencies
         converter = AudioConverter(file_handler, prog_logger, event_logger, "French")
         
@@ -53,16 +53,15 @@ class TestAudioConverter:
         assert converter.locale == "French"
     
     def test_init_default_locale(self, mock_dependencies):
-        """Test that default locale is English"""
+        # Test that default locale is English
         file_handler, prog_logger, event_logger = mock_dependencies
         converter = AudioConverter(file_handler, prog_logger, event_logger)
         
         assert converter.locale == "English"
     
     @patch('core.audio_converter.AudioFileClip')
-    def test_audio_conversion_skips_same_format(self, mock_audio_clip, 
-                                              audio_converter, mock_dependencies):
-        """Test that conversion is skipped when source and target format are the same"""
+    def test_audio_conversion_skips_same_format(self, mock_audio_clip, audio_converter, mock_dependencies):
+        # Test that conversion is skipped when source and target format are the same
         file_handler, prog_logger, event_logger = mock_dependencies
         
         file_paths = {
@@ -81,7 +80,7 @@ class TestAudioConverter:
     @patch('os.path.join')
     def test_audio_conversion_recursive_mode(self, mock_join, mock_abspath, mock_audio_clip,
                                            audio_converter, mock_dependencies):
-        """Test recursive mode places output in source directory"""
+        # Test recursive mode places output in source directory
         file_handler, prog_logger, event_logger = mock_dependencies
         
         mock_audio = Mock()
@@ -106,7 +105,7 @@ class TestAudioConverter:
     @patch('os.path.exists')
     def test_audio_conversion_fps_fallback(self, mock_exists, mock_get_translation, mock_audio_clip,
                                          audio_converter, mock_dependencies):
-        """Test fallback to 48000 fps when source rate is incompatible"""
+        # Test fallback to 48000 fps when source rate is incompatible
         file_handler, prog_logger, event_logger = mock_dependencies
         
         mock_audio = Mock()
@@ -141,7 +140,7 @@ class TestAudioConverter:
     def test_video_to_audio_conversion_with_visuals(self, mock_exists, mock_join, mock_abspath, 
                                                    mock_video_clip, audio_converter, 
                                                    mock_dependencies):
-        """Test video to audio conversion for files with visuals"""
+        # Test video to audio conversion for files with visuals
         file_handler, prog_logger, event_logger = mock_dependencies
         
         mock_video = Mock()
@@ -185,7 +184,7 @@ class TestAudioConverter:
     @patch('os.path.exists')
     def test_video_to_audio_no_audio_track(self, mock_exists, mock_get_translation, mock_video_clip,
                                          audio_converter, mock_dependencies):
-        """Test handling of video files with no audio track"""
+        # Test handling of video files with no audio track
         file_handler, prog_logger, event_logger = mock_dependencies
         
         mock_video = Mock()
@@ -216,7 +215,7 @@ class TestAudioConverter:
     @patch('os.path.exists')
     def test_video_to_audio_audio_only_file(self, mock_exists, mock_video_clip, mock_audio_clip,
                                            audio_converter, mock_dependencies):
-        """Test handling of audio-only video container files"""
+        # Test handling of audio-only video container files
         file_handler, prog_logger, event_logger = mock_dependencies
         
         mock_audio = Mock()
@@ -246,7 +245,7 @@ class TestAudioConverter:
     @patch('os.path.exists')
     def test_video_to_audio_extraction_failure(self, mock_exists, mock_get_translation, mock_audio_clip,
                                              audio_converter, mock_dependencies):
-        """Test handling of audio extraction failure from video files"""
+        # Test handling of audio extraction failure from video files
         file_handler, prog_logger, event_logger = mock_dependencies
         
         mock_audio_clip.side_effect = Exception("Extraction failed")
@@ -268,7 +267,7 @@ class TestAudioConverter:
         file_handler.post_process.assert_not_called()
     
     def test_empty_file_paths(self, audio_converter):
-        """Test handling of empty file paths"""
+        # Test handling of empty file paths
         empty_paths = {Category.AUDIO: [], Category.MOVIE: []}
         
         # Should not raise any exceptions
@@ -280,7 +279,7 @@ class TestAudioConverter:
     @patch('os.path.exists')
     def test_multiple_files_processing(self, mock_exists, mock_video_clip, mock_audio_clip,
                                      audio_converter, mock_dependencies, sample_file_paths):
-        """Test processing multiple audio and video files"""
+        # Test processing multiple audio and video files
         file_handler, prog_logger, event_logger = mock_dependencies
         
         # Setup mocks for audio files
@@ -319,14 +318,14 @@ class TestAudioConverter:
         ("French", 1)
     ])
     def test_different_locales(self, locale, expected_calls, mock_dependencies):
-        """Test AudioConverter works with different locales"""
+        # Test AudioConverter works with different locales
         file_handler, prog_logger, event_logger = mock_dependencies
         converter = AudioConverter(file_handler, prog_logger, event_logger, locale)
         
         assert converter.locale == locale
     
     def test_parameter_passing_integrity(self, audio_converter, mock_dependencies):
-        """Test that all parameters are passed correctly through the chain"""
+        # Test that all parameters are passed correctly through the chain
         file_handler, prog_logger, event_logger = mock_dependencies
         
         # Test with specific parameter values
@@ -348,7 +347,7 @@ class TestAudioConverter:
 
 # Integration-style tests
 class TestAudioConverterIntegration:
-    """Integration tests that test broader functionality"""
+    # Integration tests that test broader functionality
     
     @patch('core.audio_converter.AudioFileClip')
     @patch('core.audio_converter.VideoFileClip')
@@ -356,7 +355,7 @@ class TestAudioConverterIntegration:
     @patch('os.path.exists')
     def test_mixed_success_and_failure_scenario(self, mock_exists, mock_get_translation, 
                                                mock_video_clip, mock_audio_clip):
-        """Test scenario with mix of successful and failed conversions"""
+        # Test scenario with mix of successful and failed conversions
         # Setup
         file_handler = Mock()
         prog_logger = Mock()

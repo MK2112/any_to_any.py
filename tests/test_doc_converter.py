@@ -16,7 +16,7 @@ from utils.category import Category
 
 @pytest.fixture
 def mock_file_handler():
-    """Create a mock file handler."""
+    # Create a mock file handler
     handler = Mock()
     handler.join_back.return_value = "/mock/path/file.ext"
     handler.post_process.return_value = None
@@ -26,13 +26,13 @@ def mock_file_handler():
 
 @pytest.fixture
 def mock_prog_logger():
-    """Create a mock progress logger."""
+    # Create a mock progress logger
     return Mock()
 
 
 @pytest.fixture
 def mock_event_logger():
-    """Create a mock event logger."""
+    # Create a mock event logger
     logger = Mock()
     logger.info.return_value = None
     return logger
@@ -40,7 +40,7 @@ def mock_event_logger():
 
 @pytest.fixture
 def document_converter(mock_file_handler, mock_prog_logger, mock_event_logger):
-    """Create a DocumentConverter instance with mocked dependencies."""
+    # Create a DocumentConverter instance with mocked dependencies
     return DocumentConverter(
         file_handler=mock_file_handler,
         prog_logger=mock_prog_logger,
@@ -51,7 +51,7 @@ def document_converter(mock_file_handler, mock_prog_logger, mock_event_logger):
 
 @pytest.fixture
 def temp_output_dir():
-    """Create a temporary directory for test outputs."""
+    # Create a temporary directory for test outputs
     temp_dir = tempfile.mkdtemp()
     yield temp_dir
     shutil.rmtree(temp_dir, ignore_errors=True)
@@ -59,7 +59,7 @@ def temp_output_dir():
 
 @pytest.fixture
 def sample_file_paths():
-    """Create sample file paths for testing."""
+    # Create sample file paths for testing
     return {
         Category.DOCUMENT: [
             ("/path", "test_doc", "docx"),
@@ -80,7 +80,7 @@ def sample_file_paths():
 
 
 class TestDocumentConverterInit:
-    """Test DocumentConverter initialization."""
+    # Test DocumentConverter initialization
     
     def test_init_with_default_locale(self, mock_file_handler, mock_prog_logger, mock_event_logger):
         converter = DocumentConverter(
@@ -101,11 +101,11 @@ class TestDocumentConverterInit:
 
 
 class TestDocumentConverterToMarkdown:
-    """Test the to_markdown conversion method."""
+    # Test the to_markdown conversion method
     
     @patch('core.doc_converter.markdownify')
     def test_to_markdown_docx_conversion(self, mock_markdownify, document_converter, temp_output_dir, sample_file_paths):
-        """Test DOCX to Markdown conversion."""
+        # Test DOCX to Markdown conversion
         # Setup
         docx_path = os.path.join(temp_output_dir, "test_doc.docx")
         doc = docx.Document()
@@ -166,7 +166,7 @@ class TestDocumentConverterToMarkdown:
 
 
 class TestDocumentConverterToPdf:
-    """Test the to_pdf conversion method."""
+    # Test the to_pdf conversion method
     
     @patch('core.doc_converter.fitz.open')
     @patch('core.doc_converter.fitz.Pixmap')
@@ -174,7 +174,7 @@ class TestDocumentConverterToPdf:
         self, mock_pixmap, mock_fitz_open,
         document_converter, temp_output_dir, sample_file_paths
     ):
-        """Test image to PDF conversion."""
+        # Test image to PDF conversion
         # Setup
         mock_doc = MagicMock()
         mock_page = MagicMock()
@@ -212,7 +212,7 @@ class TestDocumentConverterToPdf:
         self, mock_rmtree, mock_pixmap, mock_join, mock_listdir, mock_fitz_open,
         mock_gif_to_frames, document_converter, temp_output_dir
     ):
-        """Test GIF to PDF conversion."""
+        # Test GIF to PDF conversion
         # Setup
         mock_doc = MagicMock()
         mock_page = MagicMock()
@@ -306,7 +306,7 @@ class TestDocumentConverterToPdf:
 
 
 class TestDocumentConverterToSubtitles:
-    """Test the to_subtitles conversion method."""
+    # Test the to_subtitles conversion method
     
     @patch('subprocess.run')
     @patch('os.path.exists')
@@ -359,10 +359,10 @@ class TestDocumentConverterToSubtitles:
 
 
 class TestDocumentConverterEdgeCases:
-    """Test edge cases and error conditions."""
+    # Test edge cases and error conditions
     
     def test_empty_file_paths(self, document_converter, temp_output_dir):
-        """Test behavior with empty file paths."""
+        # Test behavior with empty file paths
         empty_paths = {
             Category.DOCUMENT: [],
             Category.IMAGE: [],
@@ -377,7 +377,7 @@ class TestDocumentConverterEdgeCases:
     
     @patch('fitz.open')
     def test_pdf_skip_existing_pdf(self, mock_fitz_open, document_converter, temp_output_dir):
-        """Test that PDF conversion skips files already in PDF format."""
+        # Test that PDF conversion skips files already in PDF format
         pdf_files = {
             Category.DOCUMENT: [("/path", "test", "pdf")],
             Category.IMAGE: [],
@@ -392,7 +392,7 @@ class TestDocumentConverterEdgeCases:
 
 
 class TestDocumentConverterIntegration:
-    """Integration tests that test multiple components together."""
+    # Integration tests that test multiple components together
     
     @patch('core.image_converter.gif_to_frames')
     @patch('fitz.open')
@@ -402,7 +402,7 @@ class TestDocumentConverterIntegration:
         self, mock_weasyprint, mock_mammoth, mock_fitz_open, mock_gif_to_frames,
         document_converter, temp_output_dir
     ):
-        """Test DOCX to PDF conversion integration."""
+        # Test DOCX to PDF conversion integration
         mock_document = Mock()
         mock_document.value = "<p>Test content</p>"
         mock_mammoth.return_value = mock_document

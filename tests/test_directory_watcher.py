@@ -1,4 +1,3 @@
-"""Tests for the DirectoryWatcher class."""
 import time
 import pytest
 import tempfile
@@ -13,16 +12,16 @@ sys.path.append(str(Path(__file__).parent.parent))
 from core.utils.directory_watcher import DirectoryWatcher
 
 class TestDirectoryWatcher:
-    """Test suite for DirectoryWatcher class."""
+    # Test suite for DirectoryWatcher class
     
     @pytest.fixture
     def temp_dir(self):
-        """Create and clean up a temporary directory for testing."""
+        # Create and clean up a temporary directory for testing
         with tempfile.TemporaryDirectory() as temp_dir:
             yield Path(temp_dir)
 
     def test_initialization(self, temp_dir):
-        """Test DirectoryWatcher initialization."""
+        # Test DirectoryWatcher initialization
         callback = MagicMock()
         watcher = DirectoryWatcher(str(temp_dir), callback)
         
@@ -31,7 +30,7 @@ class TestDirectoryWatcher:
         assert watcher.is_running() is False
 
     def test_start_stop(self, temp_dir):
-        """Test starting and stopping the watcher."""
+        # Test starting and stopping the watcher
         callback = MagicMock()
         watcher = DirectoryWatcher(str(temp_dir), callback)
         
@@ -44,7 +43,7 @@ class TestDirectoryWatcher:
         assert watcher.is_running() is False
 
     def test_context_manager(self, temp_dir):
-        """Test using DirectoryWatcher as a context manager."""
+        # Test using DirectoryWatcher as a context manager
         callback = MagicMock()
         
         with DirectoryWatcher(str(temp_dir), callback) as watcher:
@@ -54,7 +53,7 @@ class TestDirectoryWatcher:
         assert watcher.is_running() is False
 
     def test_file_creation_event(self, temp_dir):
-        """Test that file creation triggers the callback."""
+        # Test that file creation triggers the callback
         callback = MagicMock()
         
         with DirectoryWatcher(str(temp_dir), callback) as _:
@@ -72,7 +71,7 @@ class TestDirectoryWatcher:
             assert str(file_path) == str(test_file)
 
     def test_file_modification_event(self, temp_dir):
-        """Test that file modification triggers the callback."""
+        # Test that file modification triggers the callback
         # First create a file
         test_file = temp_dir / "test.txt"
         test_file.touch()
@@ -97,7 +96,7 @@ class TestDirectoryWatcher:
             assert str(file_path) == str(test_file)
 
     def test_non_recursive_watch(self, temp_dir):
-        """Test that non-recursive watch only watches the top level."""
+        # Test that non-recursive watch only watches the top level
         # Create a subdirectory
         subdir = temp_dir / "subdir"
         subdir.mkdir()
@@ -123,7 +122,7 @@ class TestDirectoryWatcher:
             assert str(file_path) == str(top_file)
 
     def test_watch_method(self, temp_dir):
-        """Test the blocking watch method."""
+        # Test the blocking watch method
         callback = MagicMock()
         
         # Start the watcher in a separate thread
@@ -157,7 +156,7 @@ class TestDirectoryWatcher:
                 thread.join(timeout=0.1)  # Give it a bit more time
 
     def test_error_handling(self, temp_dir):
-        """Test that errors in the callback don't crash the watcher."""
+        # Test that errors in the callback don't crash the watcher
         def error_callback(event_type, file_path):
             if "error" in str(file_path):
                 raise ValueError("Test error")
@@ -178,7 +177,7 @@ class TestDirectoryWatcher:
             assert watcher_obj.is_running() is True
 
     def test_multiple_events(self, temp_dir):
-        """Test handling of multiple file events."""
+        # Test handling of multiple file events
         events = []
         
         def callback(event_type, file_path):
