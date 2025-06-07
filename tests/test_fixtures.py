@@ -1,11 +1,10 @@
 import os
 import sys
 import pytest
-import tempfile
 import shutil
+import tempfile
+from core.controller import Controller
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from any_to_any import AnyToAny
 
 @pytest.fixture
 def temp_media_dir(tmp_path):
@@ -18,11 +17,13 @@ def temp_media_dir(tmp_path):
     (media_dir / "test.txt").write_text("not a media file")
     return media_dir
 
+
 @pytest.fixture
 def test_input_folder(tmp_path):
     test_folder = tmp_path / "test_input"
     test_folder.mkdir()
     return test_folder
+
 
 @pytest.fixture
 def test_output_folder(tmp_path):
@@ -30,6 +31,9 @@ def test_output_folder(tmp_path):
     test_folder.mkdir()
     return test_folder
 
+
 @pytest.fixture
-def any_to_any_instance():
-    return AnyToAny()
+def controller_instance():
+    controller = Controller()
+    controller.locale = "English"
+    return controller

@@ -138,6 +138,52 @@ main, form, #drop-area {
     margin-bottom: 10px;
 }
 
+#progress-container {
+    width: 100%;
+    margin: 10px 0;
+    overflow: hidden;
+    display: none;
+}
+
+#progress-bar {
+    height: 30px;
+    border-radius: 4px;
+    background: linear-gradient(90deg, #4CAF50, #8BC34A);
+    width: 0%;
+    transition: width 0.3s ease-in-out;
+    position: relative;
+    overflow: hidden;
+}
+
+#progress-bar.active::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0.3) 0%,
+        rgba(255, 255, 255, 0.5) 50%,
+        rgba(255, 255, 255, 0.3) 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite linear;
+}
+
+@keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+#progress-status {
+    text-align: center;
+    margin: 5px 0;
+    font-size: 0.9em;
+    color: #666;
+}
+
 .loader {
     display: none;
     border: 6px solid #f3f3f3;
