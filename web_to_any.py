@@ -15,7 +15,7 @@ app = Flask(__name__, template_folder=os.path.abspath("templates"))
 app.secret_key = os.urandom(32)  # Distinguish session
 
 # Disable Flask's default access logging
-log = logging.getLogger('werkzeug')
+log = logging.getLogger("werkzeug")
 log.setLevel(logging.ERROR)
 
 # Optional: Keep our own logs at ERROR level to still see important errors
@@ -27,12 +27,14 @@ port = 5000
 # Initialize a default controller for the app
 controller = None
 
+
 # This function creates a new controller instance with the given job_id
 def create_controller(job_id=None, shared_progress_dict=None):
     controller = Controller(job_id=job_id, shared_progress_dict=shared_progress_dict)
     controller.web_flag = True
     controller.web_host = f"{'http' if host.lower() in ['127.0.0.1', 'localhost'] else 'https'}://{host}:{port}"
     return controller
+
 
 # Create default controller for the app
 controller = create_controller()
@@ -55,58 +57,62 @@ def push_zip(source_path: str):
     # Create .zip file from source path, serve it for download.
     # Source can be either a directory or a single file, doesn't matter.
     # Create a temporary file for the zip
-    temp_fd, temp_path = tempfile.mkstemp(suffix='.zip')
+    temp_fd, temp_path = tempfile.mkstemp(suffix=".zip")
     os.close(temp_fd)
-    
+
     try:
         if os.path.isdir(source_path):
             # If source is a directory, zip its contents
             base_dir = os.path.dirname(source_path)
             dir_name = os.path.basename(source_path)
-            
+
             # Create the zip file with the directory's contents
-            shutil.make_archive(temp_path[:-4], 'zip', base_dir, dir_name)
-            
+            shutil.make_archive(temp_path[:-4], "zip", base_dir, dir_name)
+
             # Clean up the original directory
             shutil.rmtree(source_path, ignore_errors=True)
-            
+
             # Set the download name based on the directory name
-            download_name = f'any_to_any_-_{dir_name}.zip'
+            download_name = f"any_to_any_-_{dir_name}.zip"
         else:
             # If source is a file, zip just that file
             file_name = os.path.basename(source_path)
-            
+
             # Create a temporary directory to hold the file
             temp_dir = tempfile.mkdtemp()
             temp_file_path = os.path.join(temp_dir, file_name)
-            
+
             try:
                 # Move the file to the temp directory
                 shutil.move(source_path, temp_file_path)
-                
+
                 # Create the zip file with the single file
-                shutil.make_archive(temp_path[:-4], 'zip', temp_dir)
-                
+                shutil.make_archive(temp_path[:-4], "zip", temp_dir)
+
                 # Set the download name based on the file name
-                download_name = f'any_to_any_-_{file_name}.zip'
+                download_name = f"any_to_any_-_{file_name}.zip"
             finally:
                 # Clean up the temporary directory
                 shutil.rmtree(temp_dir, ignore_errors=True)
-        
+
         # Send the file
         response = send_file(
             temp_path,
             as_attachment=True,
             download_name=download_name,
-            mimetype='application/zip'
+            mimetype="application/zip",
         )
-        
+
         # Clean up the temp file after sending
         try:
-            response.call_on_close(lambda: os.unlink(temp_path) if os.path.exists(temp_path) else None)
+            response.call_on_close(
+                lambda: os.unlink(temp_path) if os.path.exists(temp_path) else None
+            )
         except Exception as e:
-            app.logger.error(f"Error setting up cleanup for temp file {temp_path}: {str(e)}")
-            
+            app.logger.error(
+                f"Error setting up cleanup for temp file {temp_path}: {str(e)}"
+            )
+
         return response
     except Exception as e:
         # Clean up temp file if it exists
@@ -162,22 +168,22 @@ def send_to_backend(
     concat: bool,
 ):
     # Process files in the background and update progress
-    job_id = getattr(controller_instance.prog_logger, 'job_id', None)
-    shared_dict = getattr(controller_instance.prog_logger, 'shared_progress_dict', None)
-    
+    job_id = getattr(controller_instance.prog_logger, "job_id", None)
+    shared_dict = getattr(controller_instance.prog_logger, "shared_progress_dict", None)
+
     try:
         # Set initial progress
         if job_id and shared_dict is not None:
             with progress_lock:
                 shared_dict[job_id] = {
-                    'progress': 0,
-                    'total': 100,
-                    'status': 'processing',
-                    'error': None,
-                    'started_at': time.time(),
-                    'last_updated': time.time()
+                    "progress": 0,
+                    "total": 100,
+                    "status": "processing",
+                    "error": None,
+                    "started_at": time.time(),
+                    "last_updated": time.time(),
                 }
-        
+
         # Run the conversion
         controller_instance.run(
             input_path_args=input_path_args,
@@ -193,34 +199,42 @@ def send_to_backend(
             dropzone=False,
             language="en_US",
         )
-        
+
         # Mark as done
         if job_id and shared_dict is not None:
             with progress_lock:
-                shared_dict[job_id].update({
-                    'progress': 100,
-                    'status': 'done',
-                    'completed_at': time.time(),
-                    'last_updated': time.time()
-                })
-                
+                shared_dict[job_id].update(
+                    {
+                        "progress": 100,
+                        "status": "done",
+                        "completed_at": time.time(),
+                        "last_updated": time.time(),
+                    }
+                )
+
     except Exception as e:
         error_msg = str(e)
         if job_id and shared_dict is not None:
             with progress_lock:
                 if job_id in shared_dict:
-                    shared_dict[job_id].update({
-                        'status': 'error',
-                        'error': error_msg,
-                        'completed_at': time.time(),
-                        'last_updated': time.time()
-                    })
+                    shared_dict[job_id].update(
+                        {
+                            "status": "error",
+                            "error": error_msg,
+                            "completed_at": time.time(),
+                            "last_updated": time.time(),
+                        }
+                    )
         # Re-raise the exception to be handled by the caller
         raise
-        
+
     finally:
         # Clean up uploaded files
-        if input_path_args and len(input_path_args) > 0 and os.path.exists(input_path_args[0]):
+        if (
+            input_path_args
+            and len(input_path_args) > 0
+            and os.path.exists(input_path_args[0])
+        ):
             shutil.rmtree(input_path_args[0], ignore_errors=True)
 
 
@@ -228,8 +242,10 @@ def send_to_backend(
 def convert():
     format, up_dir, cv_dir, job_id = process_params()
     # Create a new controller instance for this job
-    job_controller = create_controller(job_id=job_id, shared_progress_dict=shared_progress_dict)
-    
+    job_controller = create_controller(
+        job_id=job_id, shared_progress_dict=shared_progress_dict
+    )
+
     # Start conversion in background thread
     thread = threading.Thread(
         target=send_to_backend,
@@ -253,8 +269,10 @@ def convert():
 def merge():
     format, up_dir, cv_dir, job_id = process_params()
     # Create a new controller instance for this job
-    job_controller = create_controller(job_id=job_id, shared_progress_dict=shared_progress_dict)
-    
+    job_controller = create_controller(
+        job_id=job_id, shared_progress_dict=shared_progress_dict
+    )
+
     # Start conversion in background thread
     thread = threading.Thread(
         target=send_to_backend,
@@ -278,8 +296,10 @@ def merge():
 def concat():
     format, up_dir, cv_dir, job_id = process_params()
     # Create a new controller instance for this job
-    job_controller = create_controller(job_id=job_id, shared_progress_dict=shared_progress_dict)
-    
+    job_controller = create_controller(
+        job_id=job_id, shared_progress_dict=shared_progress_dict
+    )
+
     # Start conversion in background thread
     thread = threading.Thread(
         target=send_to_backend,
@@ -304,37 +324,45 @@ def get_progress(job_id):
     # Get the current progress of a conversion job
     with progress_lock:
         # Get the current progress, or default values if job not found
-        progress = shared_progress_dict.get(job_id, {
-            'progress': 0,
-            'total': 100,
-            'status': 'waiting',  # Indicate job hasn't started yet
-            'error': None,
-            'progress_percent': 0
-        })
-        
+        progress = shared_progress_dict.get(
+            job_id,
+            {
+                "progress": 0,
+                "total": 100,
+                "status": "waiting",  # Indicate job hasn't started yet
+                "error": None,
+                "progress_percent": 0,
+            },
+        )
+
         # Ensure we have a progress percentage
-        if 'progress_percent' not in progress:
-            if progress.get('total', 0) > 0:
-                progress['progress_percent'] = int((progress.get('progress', 0) / progress['total']) * 100)
+        if "progress_percent" not in progress:
+            if progress.get("total", 0) > 0:
+                progress["progress_percent"] = int(
+                    (progress.get("progress", 0) / progress["total"]) * 100
+                )
             else:
-                progress['progress_percent'] = 0
-        
+                progress["progress_percent"] = 0
+
         # Clean up completed or errored jobs that are older than 5 minutes
         current_time = time.time()
         for jid in list(shared_progress_dict.keys()):
             job = shared_progress_dict[jid]
-            if job.get('status') in ['done', 'error'] and (current_time - job.get('completed_at', 0)) > 300:
+            if (
+                job.get("status") in ["done", "error"]
+                and (current_time - job.get("completed_at", 0)) > 300
+            ):
                 del shared_progress_dict[jid]
-        
+
         # Create a new dict to avoid thread-safety issues
         response = {
-            'progress': progress.get('progress', 0),
-            'total': progress.get('total', 100),
-            'status': progress.get('status', 'waiting'),
-            'error': progress.get('error'),
-            'progress_percent': progress.get('progress_percent', 0)
+            "progress": progress.get("progress", 0),
+            "total": progress.get("total", 100),
+            "status": progress.get("status", "waiting"),
+            "error": progress.get("error"),
+            "progress_percent": progress.get("progress_percent", 0),
         }
-        
+
         return jsonify(response)
 
 
@@ -343,11 +371,11 @@ def download_zip(job_id):
     # Download the converted files as a .zip archive
     # Handles both single files and directories of files
     base_path = f"{app.config['CONVERTED_FILES_DEST']}_{job_id}"
-    
+
     # Check if the path exists
     if not os.path.exists(base_path):
         abort(404, "Output not found")
-    
+
     # If it's a directory, check if it has any content
     if os.path.isdir(base_path):
         # Check for any files or directories
@@ -356,10 +384,10 @@ def download_zip(job_id):
             if files or dirs:
                 has_content = True
                 break
-        
+
         if not has_content:
             abort(404, "No converted files found in output directory")
-    
+
     # If it's a single file, handle it directly
     if os.path.isfile(base_path):
         try:
@@ -368,7 +396,7 @@ def download_zip(job_id):
         except Exception as e:
             app.logger.error(f"Error processing single file: {str(e)}")
             abort(500, f"Error processing file: {str(e)}")
-    
+
     # For directories, use the directory as the source
     return push_zip(base_path)
 
