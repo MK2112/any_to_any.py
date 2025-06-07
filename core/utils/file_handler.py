@@ -22,16 +22,34 @@ class FileHandler:
         delete: bool,
         show_status: bool = True,
     ) -> None:
-        # Post process after conversion, print, delete source file if desired
-        if show_status:
-            self.event_logger.info(
-                f'[+] {lang.get_translation("converted", self.locale)} "{self.join_back(file_path_set)}" 🡢 "{out_path}"'
+        try:
+            source_path = self.join_back(file_path_set)
+            
+            # Only log if the conversion was successful and output exists
+            if show_status and os.path.exists(out_path):
+                self.event_logger.info(
+                    f'[+] {lang.get_translation("converted", self.locale)} '
+                    f'"{source_path}" 🡢 "{out_path}"'
+                )
+            
+            # Only delete source file if requested, output exists, and source exists
+            if delete and os.path.exists(out_path) and os.path.exists(source_path):
+                try:
+                    os.remove(source_path)
+                    self.event_logger.info(
+                        f'[-] {lang.get_translation("removed", self.locale)} "{source_path}"'
+                    )
+                except OSError as e:
+                    self.event_logger.warning(
+                        f'[!] {lang.get_translation("error", self.locale)}: '
+                        f'{lang.get_translation("could_not_remove", self.locale)} "{source_path}": {str(e)}'
+                    )
+                    
+        except Exception as e:
+            self.event_logger.error(
+                f'[!] {lang.get_translation("error", self.locale)} in post_process: {str(e)}'
             )
-        if delete:
-            os.remove(self.join_back(file_path_set))
-            self.event_logger.info(
-                f'[-] {lang.get_translation("removed", self.locale)} "{self.join_back(file_path_set)}"'
-            )
+            raise
 
     def has_visuals(self, file_path_set: tuple) -> bool:
         try:

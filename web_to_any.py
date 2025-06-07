@@ -5,18 +5,8 @@ import threading
 import webbrowser
 import utils.language_support as lang
 from core.controller import Controller
-from utils.prog_logger import ProgLogger
 from flask_uploads import UploadSet, configure_uploads, ALL
-from flask import (
-    Flask,
-    render_template,
-    request,
-    send_file,
-    Response,
-    jsonify,
-    abort,
-    session,
-)
+from flask import Flask, render_template, request, send_file, jsonify, abort, session
 
 """
 Web server providing a web interface as extension to the CLI-based any_to_any.py
@@ -45,17 +35,31 @@ with app.app_context():
     _ = controller.supported_formats
 
 
-def push_zip(cv_dir: str) -> Response:
-    # Check if cv_dir is empty
-    if len(os.listdir(cv_dir)) == 0:
-        return Response("No files to convert", status=100)
-    # Create a temporary dir for zip file
-    temp_dir = tempfile.mkdtemp()
-    zip_filename = os.path.join(temp_dir, "converted_files.zip")
-    # Zip all files in the 'converted' directory and save it in the temporary directory
-    shutil.make_archive(zip_filename[:-4], "zip", cv_dir)
-    shutil.rmtree(cv_dir)  # Clean up 'converted' dir
-    return send_file(zip_filename, as_attachment=True)  # Return zip file
+def push_zip(cv_dir: str):
+    """Create a zip file from the contents of cv_dir and serve it for download."""
+    # Create a temporary file for the zip
+    temp_fd, temp_path = tempfile.mkstemp(suffix='.zip')
+    os.close(temp_fd)
+    
+    try:
+        # Create the zip file
+        shutil.make_archive(temp_path[:-4], 'zip', cv_dir)
+        
+        # Remove the converted files directory
+        shutil.rmtree(cv_dir, ignore_errors=True)
+        
+        # Send the file
+        return send_file(
+            temp_path,
+            as_attachment=True,
+            download_name=f'any_to_any_-_{os.path.basename(cv_dir)}.zip',
+            mimetype='application/zip'
+        )
+    except Exception:
+        # Clean up temp file if it exists
+        if os.path.exists(temp_path):
+            os.unlink(temp_path)
+        raise
 
 
 def process_params() -> tuple:
@@ -103,13 +107,20 @@ def send_to_backend(
     concat: bool,
     job_id: str = None,
     shared_progress_dict: dict = None,
-) -> None:
+):
+    """Process files in the background and update progress."""
     try:
-        # Patch AnyToAny's prog_logger for this job
+        # Set initial progress
         if job_id and shared_progress_dict is not None:
-            controller.prog_logger = ProgLogger(
-                job_id=job_id, shared_progress_dict=shared_progress_dict
-            )
+            with progress_lock:
+                shared_progress_dict[job_id] = {
+                    'progress': 0,
+                    'total': 100,
+                    'status': 'processing',
+                    'error': None
+                }
+        
+        # Run the conversion
         controller.run(
             input_path_args=input_path_args,
             format=format,
@@ -122,23 +133,31 @@ def send_to_backend(
             across=False,
             recursive=False,
             dropzone=False,
-            language=None,
+            language="en_US",
         )
-    except Exception as e:
-        # Write error to progress dict for this job
+        
+        # Mark as done
         if job_id and shared_progress_dict is not None:
             with progress_lock:
-                shared_progress_dict[job_id] = {
-                    "progress": 0,
-                    "total": 1,
-                    "status": "error",
-                    "error": str(e),
-                }
+                shared_progress_dict[job_id].update({
+                    'progress': 100,
+                    'status': 'done'
+                })
+                
+    except Exception as e:
+        # Update progress with error
+        if job_id and shared_progress_dict is not None:
+            with progress_lock:
+                shared_progress_dict[job_id].update({
+                    'status': 'error',
+                    'error': str(e)
+                })
         raise
+        
     finally:
-        # Remove upload dir and contents therein
-        if len(input_path_args[0]) > 0:
-            shutil.rmtree(input_path_args[0])
+        # Clean up uploaded files
+        if input_path_args and len(input_path_args) > 0 and os.path.exists(input_path_args[0]):
+            shutil.rmtree(input_path_args[0], ignore_errors=True)
 
 
 @app.route("/convert", methods=["POST"])
@@ -208,18 +227,30 @@ def concat():
 
 @app.route("/progress/<job_id>", methods=["GET"])
 def get_progress(job_id):
+    """Get the current progress of a conversion job."""
     with progress_lock:
-        progress = shared_progress_dict.get(job_id)
-        if not progress:
-            abort(404)
+        progress = shared_progress_dict.get(job_id, {
+            'progress': 0,
+            'total': 100,
+            'status': 'processing',
+            'error': None
+        })
         return jsonify(progress)
 
 
 @app.route("/download/<job_id>", methods=["GET"])
 def download_zip(job_id):
+    """Download the converted files as a zip archive."""
     cv_dir = f"{app.config['CONVERTED_FILES_DEST']}_{job_id}"
-    if not os.path.exists(cv_dir) or len(os.listdir(cv_dir)) == 0:
-        abort(404)
+    
+    # Check if directory exists and has files
+    if not os.path.exists(cv_dir) or not os.path.isdir(cv_dir):
+        abort(404, "Output directory not found")
+        
+    files = [f for f in os.listdir(cv_dir) if os.path.isfile(os.path.join(cv_dir, f))]
+    if not files:
+        abort(404, "No converted files found")
+    
     return push_zip(cv_dir)
 
 

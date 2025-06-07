@@ -103,22 +103,54 @@ class ImageConverter:
         # Converting to image frame sets
         # This works for images and movies only
         format = "jpeg" if format == "jpg" else format
+        
+        # Handle GIF files first
         gif_to_frames(output, file_paths, self.file_handler)
+        
+        # Process regular image files
         for image_path_set in file_paths[Category.IMAGE]:
-            if image_path_set[2] == format:
-                continue
-            if image_path_set[2] == "gif":
-                # gif_to_frames did that out of loop already, just logging here
-                self.file_handler.post_process(image_path_set, output, delete)
-            else:
-                if not os.path.exists(os.path.join(output, image_path_set[1])):
-                    output = input
+            try:
+                if image_path_set[2] == format:
+                    continue
+                    
+                if image_path_set[2] == "gif":
+                    # gif_to_frames already processed these
+                    self.file_handler.post_process(image_path_set, output, delete)
+                    continue
+                
+                # Ensure output directory exists
+                output_dir = os.path.dirname(os.path.join(output, image_path_set[1]))
+                os.makedirs(output_dir, exist_ok=True)
+                
+                # Construct full output path
                 img_path = os.path.abspath(
                     os.path.join(output, f"{image_path_set[1]}.{format}")
                 )
+                
+                # Convert and save the image
                 with Image.open(self.file_handler.join_back(image_path_set)) as img:
-                    img.convert("RGB").save(img_path, format=format)
-                self.file_handler.post_process(image_path_set, img_path, delete)
+                    # Convert to RGB if needed (important for WebP to PNG)
+                    if img.mode != 'RGB':
+                        img = img.convert('RGB')
+                    img.save(img_path, format=format.upper())
+                
+                # Verify the file was created before deleting source
+                if os.path.exists(img_path):
+                    self.file_handler.post_process(image_path_set, img_path, delete)
+                else:
+                    self.event_logger.error(
+                        f"[!] {lang.get_translation('conversion_failed', self.locale)}: "
+                        f"{self.file_handler.join_back(image_path_set)}"
+                    )
+                    
+            except Exception as e:
+                self.event_logger.error(
+                    f"[!] {lang.get_translation('error', self.locale)} "
+                    f"converting {self.file_handler.join_back(image_path_set)}: {str(e)}"
+                )
+                # Don't delete source file if conversion failed
+                delete = False
+                continue
         # Convert documents to image frames
         for doc_path_set in file_paths[Category.DOCUMENT]:
             if doc_path_set[2] == format:
