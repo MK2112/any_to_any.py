@@ -149,7 +149,7 @@ def index():
     translations = lang.get_all_translations(lang.LANGUAGE_CODES[lang_code])
     return render_template(
         "index.html",
-        title="Any_To_Any.py",
+        title="any_to_any.py",
         options=controller.supported_formats,
         translations=translations,
         lang_code=lang_code,
