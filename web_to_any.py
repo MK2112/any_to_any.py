@@ -8,13 +8,18 @@ import utils.language_support as lang
 from core.controller import Controller
 from flask_uploads import UploadSet, configure_uploads, ALL
 from flask import Flask, render_template, request, send_file, jsonify, abort, session
+import logging
 
-"""
-Web server providing a web interface as extension to the CLI-based any_to_any.py
-"""
-
+# Web server providing a web interface as extension to the CLI-based any_to_any.py
 app = Flask(__name__, template_folder=os.path.abspath("templates"))
 app.secret_key = os.urandom(32)  # Distinguish session
+
+# Disable Flask's default access logging
+log = logging.getLogger('werkzeug')
+log.setLevel(logging.ERROR)
+
+# Optional: Keep our own logs at ERROR level to still see important errors
+app.logger.setLevel(logging.ERROR)
 
 host = "127.0.0.1"
 port = 5000
