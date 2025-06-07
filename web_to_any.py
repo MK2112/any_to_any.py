@@ -150,7 +150,7 @@ def index():
     return render_template(
         "index.html",
         title="Any_To_Any.py",
-        options=controller.supported_formats,
+        options=sorted(controller.supported_formats),
         translations=translations,
         lang_code=lang_code,
         supported_languages=lang.LANGUAGE_CODES,
