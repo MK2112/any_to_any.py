@@ -14,7 +14,7 @@ class FileHandler:
         return os.path.abspath(
             f"{file_path_set[0]}{file_path_set[1]}.{file_path_set[2]}"
         )
-    
+
     def post_process(
         self,
         file_path_set: tuple,
@@ -24,14 +24,14 @@ class FileHandler:
     ) -> None:
         try:
             source_path = self.join_back(file_path_set)
-            
+
             # Only log if the conversion was successful and output exists
             if show_status and os.path.exists(out_path):
                 self.event_logger.info(
-                    f'[+] {lang.get_translation("converted", self.locale)} '
+                    f"[+] {lang.get_translation('converted', self.locale)} "
                     f'"{source_path}" 🡢 "{out_path}"'
                 )
-            
+
             # Only delete source file if requested, output exists, and source exists
             if delete and os.path.exists(out_path) and os.path.exists(source_path):
                 try:
@@ -41,13 +41,13 @@ class FileHandler:
                     )
                 except OSError as e:
                     self.event_logger.warning(
-                        f'[!] {lang.get_translation("error", self.locale)}: '
+                        f"[!] {lang.get_translation('error', self.locale)}: "
                         f'{lang.get_translation("could_not_remove", self.locale)} "{source_path}": {str(e)}'
                     )
-                    
+
         except Exception as e:
             self.event_logger.error(
-                f'[!] {lang.get_translation("error", self.locale)} in post_process: {str(e)}'
+                f"[!] {lang.get_translation('error', self.locale)} in post_process: {str(e)}"
             )
             raise
 

@@ -103,37 +103,37 @@ class ImageConverter:
         # Converting to image frame sets
         # This works for images and movies only
         format = "jpeg" if format == "jpg" else format
-        
+
         # Handle GIF files first
         gif_to_frames(output, file_paths, self.file_handler)
-        
+
         # Process regular image files
         for image_path_set in file_paths[Category.IMAGE]:
             try:
                 if image_path_set[2] == format:
                     continue
-                    
+
                 if image_path_set[2] == "gif":
                     # gif_to_frames already processed these
                     self.file_handler.post_process(image_path_set, output, delete)
                     continue
-                
+
                 # Ensure output directory exists
                 output_dir = os.path.dirname(os.path.join(output, image_path_set[1]))
                 os.makedirs(output_dir, exist_ok=True)
-                
+
                 # Construct full output path
                 img_path = os.path.abspath(
                     os.path.join(output, f"{image_path_set[1]}.{format}")
                 )
-                
+
                 # Convert and save the image
                 with Image.open(self.file_handler.join_back(image_path_set)) as img:
                     # Convert to RGB if needed (important for WebP to PNG)
-                    if img.mode != 'RGB':
-                        img = img.convert('RGB')
+                    if img.mode != "RGB":
+                        img = img.convert("RGB")
                     img.save(img_path, format=format.upper())
-                
+
                 # Verify the file was created before deleting source
                 if os.path.exists(img_path):
                     self.file_handler.post_process(image_path_set, img_path, delete)
@@ -142,7 +142,7 @@ class ImageConverter:
                         f"[!] {lang.get_translation('conversion_failed', self.locale)}: "
                         f"{self.file_handler.join_back(image_path_set)}"
                     )
-                    
+
             except Exception as e:
                 self.event_logger.error(
                     f"[!] {lang.get_translation('error', self.locale)} "
@@ -477,47 +477,56 @@ class ImageConverter:
             images = []
             total_images = len(file_paths[Category.IMAGE])
             processed = 0
-            
+
             # Log start of GIF creation
-            if hasattr(self, 'prog_logger') and hasattr(self.prog_logger, 'bars_callback'):
-                self.prog_logger.bars_callback('gif', 'index', 0, 0)
-            
+            if hasattr(self, "prog_logger") and hasattr(
+                self.prog_logger, "bars_callback"
+            ):
+                self.prog_logger.bars_callback("gif", "index", 0, 0)
+
             # Create tqdm progress bar
             progress_bar = tqdm(
                 total=total_images,
                 unit="img",
                 leave=False,
-                disable=not getattr(self, 'verbose', True)  # Respect verbosity setting
+                disable=not getattr(self, "verbose", True),  # Respect verbosity setting
             )
-            
+
             try:
                 for i, image_path_set in enumerate(file_paths[Category.IMAGE], 1):
                     if image_path_set[2] == format:
                         progress_bar.update(1)  # Update for skipped images too
                         continue
-                        
+
                     try:
-                        with Image.open(self.file_handler.join_back(image_path_set)) as image:
+                        with Image.open(
+                            self.file_handler.join_back(image_path_set)
+                        ) as image:
                             images.append(image.convert("RGB"))
                         processed += 1
-                        
+
                         # Update progress after each image
-                        if hasattr(self, 'prog_logger') and hasattr(self.prog_logger, 'bars_callback'):
-                            self.prog_logger.bars_callback('gif', 'index', i, i-1)
-                        
-                        progress_bar.set_postfix({"current": os.path.basename(image_path_set[1])}, refresh=False)
+                        if hasattr(self, "prog_logger") and hasattr(
+                            self.prog_logger, "bars_callback"
+                        ):
+                            self.prog_logger.bars_callback("gif", "index", i, i - 1)
+
+                        progress_bar.set_postfix(
+                            {"current": os.path.basename(image_path_set[1])},
+                            refresh=False,
+                        )
                         progress_bar.update(1)
-                            
+
                     except Exception as e:
                         error_msg = f"Error processing image {os.path.basename(image_path_set[1])}: {str(e)}"
-                        if hasattr(self, 'prog_logger'):
+                        if hasattr(self, "prog_logger"):
                             self.prog_logger.log(error_msg)
                         progress_bar.write(error_msg)  # Show error in tqdm output
                         raise  # Re-raise to maintain original error handling
-                        
+
             finally:
                 progress_bar.close()
-            
+
             if images:
                 output_path = os.path.join(output, f"{output}_merged.{format}")
                 try:
@@ -527,45 +536,57 @@ class ImageConverter:
                         append_images=images[1:],
                     )
                     # Log completion
-                    if hasattr(self, 'prog_logger') and hasattr(self.prog_logger, 'bars_callback'):
-                        self.prog_logger.bars_callback('gif', 'index', total_images, total_images-1)
+                    if hasattr(self, "prog_logger") and hasattr(
+                        self.prog_logger, "bars_callback"
+                    ):
+                        self.prog_logger.bars_callback(
+                            "gif", "index", total_images, total_images - 1
+                        )
                 except Exception as e:
-                    if hasattr(self, 'prog_logger'):
-                        self.prog_logger.log(f"Error saving GIF {output_path}: {str(e)}")
+                    if hasattr(self, "prog_logger"):
+                        self.prog_logger.log(
+                            f"Error saving GIF {output_path}: {str(e)}"
+                        )
                     raise
         # Movies are converted to gifs as well, retaining 1/3 of the frames
         for i, movie_path_set in enumerate(file_paths[Category.MOVIE], 1):
             if self.file_handler.has_visuals(movie_path_set):
                 try:
                     # Log start of video to GIF conversion
-                    if hasattr(self, 'prog_logger') and hasattr(self.prog_logger, 'bars_callback'):
-                        self.prog_logger.bars_callback('video_gif', 'index', 0, 0)
-                    
+                    if hasattr(self, "prog_logger") and hasattr(
+                        self.prog_logger, "bars_callback"
+                    ):
+                        self.prog_logger.bars_callback("video_gif", "index", 0, 0)
+
                     video = VideoFileClip(
                         self.file_handler.join_back(movie_path_set),
                         audio=False,
                         fps_source="tbr",
                     )
                     gif_path = os.path.join(output, f"{movie_path_set[1]}.{format}")
-                    
+
                     # Calculate target fps, ensuring it's at least 1
                     target_fps = max(1, int(video.fps // 3))
-                    
+
                     # Write GIF with progress logging
                     video.write_gif(
-                        gif_path, 
-                        fps=target_fps, 
+                        gif_path,
+                        fps=target_fps,
                         logger=self.prog_logger,
-                        verbose=False  # Disable moviepy's default progress bar
+                        verbose=False,  # Disable moviepy's default progress bar
                     )
-                    
+
                     # Log completion of this video
-                    if hasattr(self, 'prog_logger') and hasattr(self.prog_logger, 'bars_callback'):
-                        self.prog_logger.bars_callback('video_gif', 'index', i, i-1)
-                        
+                    if hasattr(self, "prog_logger") and hasattr(
+                        self.prog_logger, "bars_callback"
+                    ):
+                        self.prog_logger.bars_callback("video_gif", "index", i, i - 1)
+
                 except Exception as e:
-                    if hasattr(self, 'prog_logger'):
-                        self.prog_logger.log(f"Error converting video {movie_path_set} to GIF: {str(e)}")
+                    if hasattr(self, "prog_logger"):
+                        self.prog_logger.log(
+                            f"Error converting video {movie_path_set} to GIF: {str(e)}"
+                        )
                     raise  # Re-raise to maintain original error handling
                 video.close()
                 self.file_handler.post_process(movie_path_set, gif_path, delete)
@@ -614,7 +635,7 @@ class ImageConverter:
                     prs = pptx.Presentation(input_path)
                     for slide in prs.slides:
                         for shape in slide.shapes:
-                            if shape.shape_type == 13: # Picture
+                            if shape.shape_type == 13:  # Picture
                                 image = shape.image
                                 img_bytes = image.blob
                                 img = Image.open(img_bytes)

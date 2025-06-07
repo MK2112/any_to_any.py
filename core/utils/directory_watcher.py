@@ -1,6 +1,3 @@
-"""
-Directory watcher implementation for monitoring file system events.
-"""
 import time
 from pathlib import Path
 from typing import Callable, Optional
@@ -9,15 +6,7 @@ from watchdog.events import FileSystemEventHandler
 
 
 class DirectoryWatcher:
-    """
-    A class to watch for file system events in a directory and its subdirectories.
-    
-    Args:
-        watch_path: Directory path to watch
-        event_handler: Callback function that takes (event_type, src_path)
-        recursive: Whether to watch subdirectories (default: True)
-    """
-    
+    # Watches for file system events in a directory and its subdirectories
     def __init__(self, watch_path: str, event_handler: Callable, recursive: bool = True):
         self.watch_path = Path(watch_path).resolve()
         self.event_handler = event_handler
@@ -26,7 +15,7 @@ class DirectoryWatcher:
         self._running = False
 
     def start(self) -> None:
-        """Start watching the directory."""
+        # Start watching the directory
         if self._running:
             return
             
@@ -59,7 +48,7 @@ class DirectoryWatcher:
             raise RuntimeError(f"Failed to start directory watcher: {e}")
 
     def stop(self) -> None:
-        """Stop watching the directory."""
+        # Stop watching the directory
         if self.observer:
             self.observer.stop()
             self.observer.join()
@@ -67,25 +56,20 @@ class DirectoryWatcher:
         self._running = False
 
     def __enter__(self):
-        """Context manager entry."""
+        # Context manager entry
         self.start()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        """Context manager exit."""
+        # Context manager exit
         self.stop()
 
     def is_running(self) -> bool:
-        """Check if the watcher is running."""
+        # Check if the watcher is running
         return self._running and self.observer is not None and self.observer.is_alive()
 
     def watch(self, interval: float = 1.0) -> None:
-        """
-        Start watching and block until KeyboardInterrupt.
-        
-        Args:
-            interval: Sleep interval between checks in seconds (default: 1.0)
-        """
+        # Start watching and block until KeyboardInterrupt
         self.start()
         try:
             while self.is_running():
