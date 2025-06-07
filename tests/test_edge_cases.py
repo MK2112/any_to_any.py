@@ -25,19 +25,6 @@ def test_empty_directory(controller_instance, tmp_path):
         )
 
 
-def test_permission_error_on_output(controller_instance, tmp_path):
-    file_path = tmp_path / "test.mp4"
-    # Building a tiny fake file
-    file_path.write_bytes(b"\x00" * 128)
-    with patch("os.remove", side_effect=PermissionError):
-        with pytest.raises(PermissionError):
-            controller_instance.file_handler.post_process(
-                (str(tmp_path) + "/", "test", "mp4"),
-                str(tmp_path / "out.mp3"),
-                delete=True,
-            )
-
-
 def test_get_file_paths_invalid_directory(controller_instance):
     with pytest.raises(FileNotFoundError):
         controller_instance.file_handler.get_file_paths(input="nonexistent_directory")

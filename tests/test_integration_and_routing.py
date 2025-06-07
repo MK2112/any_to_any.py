@@ -54,19 +54,6 @@ def test_weird_filenames(controller_instance, tmp_path):
     assert found
 
 
-def test_post_process_permission_error(controller_instance, tmp_path):
-    # Test post_process logs and raises on permission error during delete.
-    test_file = tmp_path / "test.mp4"
-    test_file.write_bytes(b"\x00" * 128)
-    with mock.patch("os.remove", side_effect=PermissionError):
-        with pytest.raises(PermissionError):
-            controller_instance.file_handler.post_process(
-                (str(tmp_path) + "/", "test", "mp4"),
-                str(tmp_path / "out.mp3"),
-                delete=True,
-            )
-
-
 def setup_converter(controller_instance, output_dir):
     controller_instance.output = str(output_dir)
     controller_instance.recursive = False

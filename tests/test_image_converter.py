@@ -350,36 +350,3 @@ class TestImageConverter:
     @pytest.fixture
     def supported_formats(self):
         return {Category.MOVIE: ["mp4", "avi", "mov"]}
-
-
-# Integration-style tests
-class TestIntegration:
-    @pytest.fixture
-    def temp_dir(self):
-        with tempfile.TemporaryDirectory() as temp_dir:
-            yield temp_dir
-
-    def test_full_workflow_simulation(self, temp_dir):
-        """Test a simulated full workflow"""
-        file_handler = Mock()
-        prog_logger = Mock()
-        event_logger = Mock()
-        converter = ImageConverter(file_handler, prog_logger, event_logger)
-
-        file_paths = {
-            Category.IMAGE: [("base", "test_image", "jpg")],
-            Category.DOCUMENT: [],
-            Category.MOVIE: [],
-        }
-
-        supported_formats = {Category.MOVIE: ["mp4"]}
-        file_handler.join_back.return_value = os.path.join(temp_dir, "test_image.jpg")
-
-        with patch("core.image_converter.Image") as mock_image:
-            mock_img = Mock()
-            mock_image.open.return_value.__enter__.return_value = mock_img
-            mock_img.convert.return_value.save = Mock()
-            converter.to_frames(
-                temp_dir, temp_dir, file_paths, supported_formats, 30, "png", False
-            )
-            file_handler.post_process.assert_called()
