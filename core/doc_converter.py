@@ -179,7 +179,7 @@ class DocumentConverter:
             input_path = self.file_handler.join_back(movie_path_set)
             out_path = os.path.abspath(os.path.join(output, f"{movie_path_set[1]}.srt"))
             self.event_logger.info(
-                f"[+] {lang.get_translation('extract_subtitles', self.locale)} '{input_path}'"
+                f"[>] {lang.get_translation('extract_subtitles', self.locale)} '{input_path}'"
             )
             try:
                 # Use FFmpeg to extract subtitles
@@ -200,7 +200,7 @@ class DocumentConverter:
 
                 if os.path.exists(out_path) and os.path.getsize(out_path) > 0:
                     self.event_logger.info(
-                        f"[+] {lang.get_translation('subtitles_success', self.locale)} '{out_path}'"
+                        f"[>] {lang.get_translation('subtitles_success', self.locale)} '{out_path}'"
                     )
                     self.file_handler.post_process(
                         movie_path_set, out_path, delete, show_status=False
@@ -217,7 +217,7 @@ class DocumentConverter:
                     )
                     if os.path.exists(out_path) and os.path.getsize(out_path) > 0:
                         self.event_logger.info(
-                            f"[+] {lang.get_translation('embed_subtitles_success')} '{out_path}'"
+                            f"[>] {lang.get_translation('embed_subtitles_success')} '{out_path}'"
                         )
                         self.file_handler.post_process(
                             movie_path_set, out_path, delete, show_status=False
@@ -400,3 +400,132 @@ class DocumentConverter:
                         doc.add_page_break()
                 doc.save(out_path)
                 self.file_handler.post_process(document_path_set, out_path, delete)
+
+    def split_pdf(self, output: str, doc_path_set: tuple, page_ranges: str, delete: bool, format: str = "pdf"):
+        # output: str - output directory
+        # doc_path_set: tuple - (path, name, format)
+        # page_ranges: str - page ranges to split the document into
+        # delete: bool - delete the original document after completion
+        # format: str - format of the document
+        doc_path = self.file_handler.join_back(doc_path_set)
+        if format == "pdf":
+            # Open the PDF document
+            pdf = fitz.open(doc_path)
+            total_pages = len(pdf)
+            if total_pages == 0:
+                pdf.close()
+                return
+            # Parse page_ranges into a list of tuples
+            parsed_ranges = self._parse_page_ranges(page_ranges, total_pages)
+
+            # None means any splitting efforts would be futile, skip
+            if parsed_ranges is None:
+                pdf.close()
+                return
+
+            # Create output directory if it doesn't exist
+            os.makedirs(output, exist_ok=True)
+            for i, (start, end) in enumerate(parsed_ranges):
+                new_pdf = fitz.open()
+                new_pdf.insert_pdf(pdf, from_page=start-1, to_page=end-1)
+                # Generate output filename
+                if len(parsed_ranges) == 1:
+                    out_filename = f"{doc_path_set[1]}_{start}-{end}.{format}"
+                else:
+                    out_filename = f"{doc_path_set[1]}_split_{i+1}_{start}-{end}.{format}"
+                out_path = os.path.abspath(os.path.join(output, out_filename))
+                # Save new PDF
+                new_pdf.save(out_path)
+                new_pdf.close()
+                self.event_logger.info(f"[+] {lang.get_translation('split_produced', self.locale)}: {out_path}")
+            # Close source PDF
+            pdf.close()
+            self.file_handler.post_process(doc_path_set, out_path, delete)
+
+    def _parse_page_ranges(self, page_ranges: str, total_pages: int) -> list[tuple[int, int]] | None:
+        """
+        Parse page_ranges string into list of (start, end) tuples.
+        Handles: None, '1-5', '2-5,3-4', '3-6, 8-20, 23-45, rest', 'all', 'rest', 
+        '3-6;15-22', '1-7;8-15;20-22;rest', '3', '35', '12-end', '2-end',
+        '2-5, 3-6, 12-end', '2-end, 3-6, 12-end', '2-end, 3-6'
+        """
+        if not page_ranges or page_ranges.strip() == "":
+            # Default to all pages
+            return None #[(1, total_pages)], we don't need that, skip that
+        page_ranges = page_ranges.strip()
+        if page_ranges.lower() in ["all", "rest"]:
+            return None #[(1, total_pages)], we don't need that, skip that
+
+        ranges = []
+        for delim in [',', ';']:
+            # Split by comma or semicolon
+            if delim in page_ranges:
+                ranges = [r.strip() for r in page_ranges.split(delim)]
+                break
+        if not ranges:
+            # No delimiters found
+            ranges = [page_ranges.strip()]
+        
+        parsed_ranges = []
+        # Track where 'rest' should start
+        rest_start = 1
+        
+        for range_str in ranges:
+            range_str = range_str.strip()
+            if range_str.lower() == "rest":
+                # 'rest': from highest processed page + 1 to end
+                if parsed_ranges:
+                    # Find highest end page processed so far
+                    max_end = max(end for _, end in parsed_ranges)
+                    rest_start = max_end + 1
+                parsed_ranges.append((rest_start, total_pages))
+                continue
+            
+            # Handle single page numbers
+            if range_str.isdigit():
+                page_num = int(range_str)
+                if 1 <= page_num <= total_pages:
+                    parsed_ranges.append((page_num, page_num))
+                    rest_start = max(rest_start, page_num + 1)
+                continue
+            
+            # Handle ranges like "1-5", "12-end", "2-end"
+            if '-' in range_str:
+                parts = range_str.split('-', 1)
+                if len(parts) == 2:
+                    start_str, end_str = parts[0].strip(), parts[1].strip()
+                    
+                    # Parse start
+                    try:
+                        start = int(start_str)
+                    except ValueError:
+                        continue # Some invalid range
+                    
+                    # Parse end
+                    if end_str.lower() == "end":
+                        end = total_pages
+                    else:
+                        try:
+                            end = int(end_str)
+                        except ValueError:
+                            continue # Some invalid range
+                    
+                    # Validate, add range
+                    if 1 <= start <= total_pages and 1 <= end <= total_pages and start <= end:
+                        parsed_ranges.append((start, end))
+                        rest_start = max(rest_start, end + 1)
+        
+        # Remove duplicate range tuples, preserve order
+        # Ranges still are allowed to overlap, must each be unique though
+        seen = set()
+        unique_ranges = []
+        for range_tuple in parsed_ranges:
+            if range_tuple not in seen:
+                seen.add(range_tuple)
+                unique_ranges.append(range_tuple)
+        
+        if not unique_ranges:
+            # If no valid ranges parsed, default to all pages, which is None
+            unique_ranges = None
+        
+        return unique_ranges
