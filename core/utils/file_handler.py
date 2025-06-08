@@ -28,7 +28,7 @@ class FileHandler:
             # Only log if the conversion was successful and output exists
             if show_status and os.path.exists(out_path):
                 self.event_logger.info(
-                    f"[+] {lang.get_translation('converted', self.locale)} "
+                    f"[>] {lang.get_translation('converted', self.locale)} "
                     f'"{source_path}" 🡢 "{out_path}"'
                 )
 

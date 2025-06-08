@@ -59,6 +59,7 @@ You can structure a command in three fundamental ways:
 | `-q` or </br>`--quality`     | Set output file quality, either `low`, `medium`, or `high`; default is same as input. |
 | `-m` or </br>`--merge`       | Merge movie file with equally named audio file to become its audio track. |
 | `-c` or </br>`--concat`      | Concatenate input files of the same type (images, audio, video) into one output file (e.g. `concatenated_video.mp4` for movie files, `concatenated_audio.mp3` for audio files). |
+| `-s` or </br>`--split`       | Split a PDF into multiple files, either by page count or page ranges, e.g. `1-2,3-5` or `10` or `1-3,2-6,8-end` or `1-5,rest`. |
 | `-a` or </br>`--across`      | Merge/Concatenate across directories when multiple directories are provided. |
 | `-w` or </br>`--web`         | Ignores all other arguments, starts browser + a web server at `http://localhost:5000`. |
 | `-d` or </br>`--delete`      | Delete input files after conversion. |
@@ -101,6 +102,11 @@ python any_to_any.py -i /path/to/file.gif -f mp4
 You may also convert the images contained in a DOCX file to an MP4 video:
 ```python
 python any_to_any.py -i /path/to/file.docx -f mp4
+```
+
+Split a PDF into multiple files, either by page count or page ranges, e.g. `1-2,3-5` or `10` or `1-3,2-6,8-end` or `1-5,rest`:
+```python
+python any_to_any.py -i /path/to/file.pdf -s 1-3,2-6,8-end
 ```
 
 ### Directory Processing

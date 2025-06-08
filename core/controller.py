@@ -23,8 +23,6 @@ from moviepy import (
     clips_array,
 )
 
-# TODO: Add converter-wise tests
-
 class Controller:
     """
     Taking an input directory of files, convert them to a multitude of formats.
@@ -227,6 +225,7 @@ class Controller:
         output: str,
         framerate: int,
         quality: str,
+        split: str,
         merge: bool,
         concat: bool,
         delete: bool,
@@ -300,6 +299,8 @@ class Controller:
         self.merging = merge
         # Concatenate files of same type (img/movie/audio) back to back
         self.concatenating = concat
+        # Split files into smaller parts
+        self.page_ranges = split
 
         file_paths = {}
         was_none, found_files = False, False
@@ -347,7 +348,7 @@ class Controller:
                         f"[!] {lang.get_translation('error', self.locale)}: {lang.get_translation('dropzone_diff', self.locale)}",
                     )
                 self.event_logger.info(
-                    f"[+] {lang.get_translation('dropzone_active', self.locale)} {self.input}"
+                    f"[>] {lang.get_translation('dropzone_active', self.locale)} {self.input}"
                 )
                 self.watchdropzone(self.input)
                 return
@@ -475,6 +476,8 @@ class Controller:
             self.merge(file_paths, getattr(self, "across", False))
         elif self.concatenating:
             self.concat(file_paths, self.target_format)
+        elif self.page_ranges is not None:
+            self.split(file_paths, self.page_ranges)
         else:
             # Handle unsupported formats here
             end_with_msg(
@@ -559,6 +562,25 @@ class Controller:
             )
             raise
 
+    def split(self, file_paths: dict, page_ranges) -> None:
+        for doc_path_set in file_paths[Category.DOCUMENT]:
+            if hasattr(self.prog_logger, 'shared_progress_dict') and self.prog_logger.shared_progress_dict:
+                import threading
+                with threading.Lock():
+                    if self.prog_logger.job_id in self.prog_logger.shared_progress_dict:
+                        self.prog_logger.shared_progress_dict[self.prog_logger.job_id].update({
+                            'status': f'splitting {doc_path_set[1]}',
+                            'last_updated': time.time()
+                        })
+            if doc_path_set[2] == "pdf":
+                self.doc_converter.split_pdf(
+                    output=self.output,
+                    doc_path_set=doc_path_set,
+                    format='pdf',
+                    delete=self.delete,
+                    page_ranges=page_ranges
+                )
+
     def concat(self, file_paths: dict, format: str) -> None:
         # Concatenate files of same type (img/movie/audio) back to back
         # Concatenate audio files
@@ -634,7 +656,7 @@ class Controller:
         if file_paths[Category.DOCUMENT] and (
             format is None or format in self._supported_formats[Category.DOCUMENT]
         ):
-            pdf_out_path = os.path.join(self.output, "concatenated_pdfs.pdf")
+            pdf_out_path = os.path.join(self.output, "concatenated.pdf")
             pdfs = sorted(
                 [
                     doc_path_set if doc_path_set[2] == "pdf" else None
@@ -736,7 +758,6 @@ class Controller:
         self.event_logger.info(
             f"[+] {lang.get_translation('concat_success', self.locale)}"
         )
-
 
     def merge(self, file_paths: dict, across: bool = False) -> None:
         # For movie files and equally named audio file, merge them together under same name
