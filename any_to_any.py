@@ -122,8 +122,25 @@ if __name__ == "__main__":
         type=str,
         required=False,
     )
+    parser.add_argument(
+        "-s",
+        "--split",
+        help=f"{lang.get_translation('split_help', controller.locale)}",
+        type=str,
+        required=False,
+    )
 
     args = vars(parser.parse_args())
+
+    if args["split"] and (args["merge"] or args["concat"]):
+        parser.error(
+            f"{lang.get_translation('split_merge_error', controller.locale)}"
+        )
+
+    if args["merge"] and args["concat"]:
+        parser.error(
+            f"{lang.get_translation('merge_concat_error', controller.locale)}"
+        )
 
     if args["web"]:
         # Check for web frontend request
@@ -139,6 +156,7 @@ if __name__ == "__main__":
             output=args["output"],
             framerate=args["framerate"],
             quality=args["quality"],
+            split=args["split"],
             merge=args["merge"],
             concat=args["concat"],
             delete=args["delete"],
