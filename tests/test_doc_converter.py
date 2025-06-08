@@ -391,6 +391,62 @@ class TestDocumentConverterEdgeCases:
         mock_fitz_open.assert_not_called()
 
 
+class TestDocumentConverterPdfSplitting:
+    def test_split_pdf_with_real_file(self, document_converter, temp_output_dir):
+        """Test PDF splitting with a real PDF file."""
+        # Create a simple PDF with 5 pages
+        pdf_path = os.path.join(temp_output_dir, 'test.pdf')
+        doc = fitz.open()
+        
+        # Add 5 pages with page numbers
+        for i in range(5):
+            page = doc.new_page()
+            page.insert_text((72, 72), f"Page {i+1}")
+        doc.save(pdf_path)
+        doc.close()
+        
+        # Test splitting into two parts: pages 1-2 and 3-5
+        doc_path_set = (temp_output_dir, 'test', 'pdf')
+        document_converter.file_handler.join_back.return_value = pdf_path
+        
+        # Split the PDF
+        document_converter.split_pdf(
+            output=temp_output_dir,
+            doc_path_set=doc_path_set,
+            page_ranges='1-2,3-5',
+            delete=False,
+            format='pdf'
+        )
+        
+        # Verify the output files were created with the correct naming pattern
+        part1_path = os.path.join(temp_output_dir, 'test_split_1_1-2.pdf')
+        part2_path = os.path.join(temp_output_dir, 'test_split_2_3-5.pdf')
+        
+        assert os.path.exists(part1_path)
+        assert os.path.exists(part2_path)
+        
+        # Verify the page counts are correct
+        part1 = fitz.open(part1_path)
+        part2 = fitz.open(part2_path)
+        
+        assert len(part1) == 2  # First part has 2 pages
+        assert len(part2) == 3  # Second part has 3 pages
+        
+        # Clean up
+        part1.close()
+        part2.close()
+        
+        # Verify the content of the first page of each part
+        part1 = fitz.open(part1_path)
+        part2 = fitz.open(part2_path)
+        
+        assert "Page 1" in part1[0].get_text()
+        assert "Page 3" in part2[0].get_text()
+        
+        part1.close()
+        part2.close()
+
+
 class TestDocumentConverterIntegration:
     # Integration tests that test multiple components together
     
