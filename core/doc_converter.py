@@ -437,7 +437,7 @@ class DocumentConverter:
                 # Save new PDF
                 new_pdf.save(out_path)
                 new_pdf.close()
-                self.event_logger.info(f"[+] {lang.get_translation('split_produced', self.locale)}: {out_path}")
+                self.event_logger.info(f"[>] {lang.get_translation('split_produced', self.locale)}: {out_path}")
             # Close source PDF
             pdf.close()
             self.file_handler.post_process(doc_path_set, out_path, delete)
