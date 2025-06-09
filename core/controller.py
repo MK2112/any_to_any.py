@@ -23,6 +23,7 @@ from moviepy import (
     clips_array,
 )
 
+
 class Controller:
     """
     Taking an input directory of files, convert them to a multitude of formats.
@@ -32,7 +33,9 @@ class Controller:
 
     def __init__(self, job_id=None, shared_progress_dict=None):
         # Setting up progress logger with optional web progress tracking
-        self.prog_logger = ProgLogger(job_id=job_id, shared_progress_dict=shared_progress_dict)
+        self.prog_logger = ProgLogger(
+            job_id=job_id, shared_progress_dict=shared_progress_dict
+        )
         # Get locale
         self.locale = lang.get_system_language()
         # Setting up event logger and format
@@ -564,21 +567,29 @@ class Controller:
 
     def split(self, file_paths: dict, page_ranges) -> None:
         for doc_path_set in file_paths[Category.DOCUMENT]:
-            if hasattr(self.prog_logger, 'shared_progress_dict') and self.prog_logger.shared_progress_dict:
+            if (
+                hasattr(self.prog_logger, "shared_progress_dict")
+                and self.prog_logger.shared_progress_dict
+            ):
                 import threading
+
                 with threading.Lock():
                     if self.prog_logger.job_id in self.prog_logger.shared_progress_dict:
-                        self.prog_logger.shared_progress_dict[self.prog_logger.job_id].update({
-                            'status': f'splitting {doc_path_set[1]}',
-                            'last_updated': time.time()
-                        })
+                        self.prog_logger.shared_progress_dict[
+                            self.prog_logger.job_id
+                        ].update(
+                            {
+                                "status": f"splitting {doc_path_set[1]}",
+                                "last_updated": time.time(),
+                            }
+                        )
             if doc_path_set[2] == "pdf":
                 self.doc_converter.split_pdf(
                     output=self.output,
                     doc_path_set=doc_path_set,
-                    format='pdf',
+                    format="pdf",
                     delete=self.delete,
-                    page_ranges=page_ranges
+                    page_ranges=page_ranges,
                 )
 
     def concat(self, file_paths: dict, format: str) -> None:
@@ -604,7 +615,7 @@ class Controller:
                 logger=self.prog_logger,
             )
             concat_audio.close()
-        
+
         # Concatenate movie files
         if file_paths[Category.MOVIE] and (
             format is None or format in self._supported_formats[Category.MOVIE]
@@ -629,7 +640,7 @@ class Controller:
                 logger=self.prog_logger,
             )
             concat_vid.close()
-        
+
         # Concatenate image files (make a gif out of them)
         if file_paths[Category.IMAGE] and (
             format is None or format in self._supported_formats[Category.IMAGE]
@@ -651,7 +662,7 @@ class Controller:
                 gif_out_path, fps=self.framerate, logger=self.prog_logger
             )
             concatenated_image.close()  # Added for consistency
-        
+
         # Concatenate document files (keep respective document format)
         if file_paths[Category.DOCUMENT] and (
             format is None or format in self._supported_formats[Category.DOCUMENT]
@@ -665,7 +676,7 @@ class Controller:
                 key=lambda x: x[1] if x else "",  # Handle None values
             )
             pdfs = [pdf for pdf in pdfs if pdf is not None]  # Filter out None values
-            
+
             srt_out_path = os.path.join(self.output, "concatenated_subtitles.srt")
             srts = sorted(
                 [
@@ -675,25 +686,36 @@ class Controller:
                 key=lambda x: x[1] if x else "",  # Handle None values
             )
             srts = [srt for srt in srts if srt is not None]  # Filter out None values
-            
+
             if len(pdfs) > 0:
                 # Produce a single pdf file
                 # Set up manual progress tracking for PDF concatenation
-                if hasattr(self.prog_logger, 'job_id') and self.prog_logger.job_id:
+                if hasattr(self.prog_logger, "job_id") and self.prog_logger.job_id:
                     total_pdfs = len(pdfs)
                     for i, doc_path_set in enumerate(pdfs):
                         # Update progress manually since PDF operations don't have built-in progress
-                        if hasattr(self.prog_logger, 'shared_progress_dict') and self.prog_logger.shared_progress_dict:
+                        if (
+                            hasattr(self.prog_logger, "shared_progress_dict")
+                            and self.prog_logger.shared_progress_dict
+                        ):
                             import threading
+
                             with threading.Lock():
-                                if self.prog_logger.job_id in self.prog_logger.shared_progress_dict:
-                                    self.prog_logger.shared_progress_dict[self.prog_logger.job_id].update({
-                                        'progress': i,
-                                        'total': total_pdfs,
-                                        'status': f'processing PDF {i+1}/{total_pdfs}',
-                                        'last_updated': time.time()
-                                    })
-                
+                                if (
+                                    self.prog_logger.job_id
+                                    in self.prog_logger.shared_progress_dict
+                                ):
+                                    self.prog_logger.shared_progress_dict[
+                                        self.prog_logger.job_id
+                                    ].update(
+                                        {
+                                            "progress": i,
+                                            "total": total_pdfs,
+                                            "status": f"processing PDF {i + 1}/{total_pdfs}",
+                                            "last_updated": time.time(),
+                                        }
+                                    )
+
                 doc = fitz.open()
                 for doc_path_set in pdfs:
                     pdf_path = self.file_handler.join_back(doc_path_set)
@@ -702,24 +724,35 @@ class Controller:
                     pdf_document.close()
                 doc.save(pdf_out_path)
                 doc.close()
-                
+
             if len(srts) > 0:
                 # Set up manual progress tracking for SRT concatenation
-                if hasattr(self.prog_logger, 'job_id') and self.prog_logger.job_id:
+                if hasattr(self.prog_logger, "job_id") and self.prog_logger.job_id:
                     total_srts = len(srts)
                     for i, doc_path_set in enumerate(srts):
                         # Update progress manually
-                        if hasattr(self.prog_logger, 'shared_progress_dict') and self.prog_logger.shared_progress_dict:
+                        if (
+                            hasattr(self.prog_logger, "shared_progress_dict")
+                            and self.prog_logger.shared_progress_dict
+                        ):
                             import threading
+
                             with threading.Lock():
-                                if self.prog_logger.job_id in self.prog_logger.shared_progress_dict:
-                                    self.prog_logger.shared_progress_dict[self.prog_logger.job_id].update({
-                                        'progress': i,
-                                        'total': total_srts,
-                                        'status': f'processing SRT {i+1}/{total_srts}',
-                                        'last_updated': time.time()
-                                    })
-                
+                                if (
+                                    self.prog_logger.job_id
+                                    in self.prog_logger.shared_progress_dict
+                                ):
+                                    self.prog_logger.shared_progress_dict[
+                                        self.prog_logger.job_id
+                                    ].update(
+                                        {
+                                            "progress": i,
+                                            "total": total_srts,
+                                            "status": f"processing SRT {i + 1}/{total_srts}",
+                                            "last_updated": time.time(),
+                                        }
+                                    )
+
                 for doc_path_set in srts:
                     # Produce a single srt file
                     srt_path = self.file_handler.join_back(doc_path_set)
@@ -729,32 +762,43 @@ class Controller:
                     with open(srt_out_path, "a") as srt_file:
                         srt_file.write(srt_content)
                         srt_file.write("\n")
-        
+
         # Post-processing with progress tracking
         total_categories = sum(len(files) for files in file_paths.values())
         processed_files = 0
-        
+
         for category in file_paths.keys():
             # Iterate over each input category and post-process respective files
             for i, file_path in enumerate(file_paths[category]):
                 # Manual progress update for post-processing
-                if hasattr(self.prog_logger, 'job_id') and self.prog_logger.job_id:
-                    if hasattr(self.prog_logger, 'shared_progress_dict') and self.prog_logger.shared_progress_dict:
+                if hasattr(self.prog_logger, "job_id") and self.prog_logger.job_id:
+                    if (
+                        hasattr(self.prog_logger, "shared_progress_dict")
+                        and self.prog_logger.shared_progress_dict
+                    ):
                         import threading
+
                         with threading.Lock():
-                            if self.prog_logger.job_id in self.prog_logger.shared_progress_dict:
-                                self.prog_logger.shared_progress_dict[self.prog_logger.job_id].update({
-                                    'progress': processed_files,
-                                    'total': total_categories,
-                                    'status': f'post-processing files ({processed_files+1}/{total_categories})',
-                                    'last_updated': time.time()
-                                })
-                
+                            if (
+                                self.prog_logger.job_id
+                                in self.prog_logger.shared_progress_dict
+                            ):
+                                self.prog_logger.shared_progress_dict[
+                                    self.prog_logger.job_id
+                                ].update(
+                                    {
+                                        "progress": processed_files,
+                                        "total": total_categories,
+                                        "status": f"post-processing files ({processed_files + 1}/{total_categories})",
+                                        "last_updated": time.time(),
+                                    }
+                                )
+
                 self.file_handler.post_process(
                     file_path, self.output, self.delete, show_status=(i == 0)
                 )
                 processed_files += 1
-        
+
         self.event_logger.info(
             f"[+] {lang.get_translation('concat_success', self.locale)}"
         )
@@ -765,24 +809,35 @@ class Controller:
         # If only a video file is provided, look for a matching audio file in the same directory
         found_audio = False
         audio_exts = list(self._supported_formats[Category.AUDIO].keys())
-        
+
         total_movies = len(file_paths[Category.MOVIE])
         processed_movies = 0
 
         for movie_path_set in file_paths[Category.MOVIE]:
             # Manual progress update for merge operations
-            if hasattr(self.prog_logger, 'job_id') and self.prog_logger.job_id:
-                if hasattr(self.prog_logger, 'shared_progress_dict') and self.prog_logger.shared_progress_dict:
+            if hasattr(self.prog_logger, "job_id") and self.prog_logger.job_id:
+                if (
+                    hasattr(self.prog_logger, "shared_progress_dict")
+                    and self.prog_logger.shared_progress_dict
+                ):
                     import threading
+
                     with threading.Lock():
-                        if self.prog_logger.job_id in self.prog_logger.shared_progress_dict:
-                            self.prog_logger.shared_progress_dict[self.prog_logger.job_id].update({
-                                'progress': processed_movies,
-                                'total': total_movies,
-                                'status': f'merging video {processed_movies+1}/{total_movies}',
-                                'last_updated': time.time()
-                            })
-            
+                        if (
+                            self.prog_logger.job_id
+                            in self.prog_logger.shared_progress_dict
+                        ):
+                            self.prog_logger.shared_progress_dict[
+                                self.prog_logger.job_id
+                            ].update(
+                                {
+                                    "progress": processed_movies,
+                                    "total": total_movies,
+                                    "status": f"merging video {processed_movies + 1}/{total_movies}",
+                                    "last_updated": time.time(),
+                                }
+                            )
+
             # Try to find a corresponding audio file in the input set
             # (e.g. "-1 path1 -2 path2 -n pathn")
             if across:
@@ -839,15 +894,17 @@ class Controller:
                     )
                 except Exception as e:
                     # Handle errors gracefully and update progress logger
-                    if hasattr(self.prog_logger, 'set_error'):
-                        self.prog_logger.set_error(f"Error merging {movie_path_set[1]}: {str(e)}")
+                    if hasattr(self.prog_logger, "set_error"):
+                        self.prog_logger.set_error(
+                            f"Error merging {movie_path_set[1]}: {str(e)}"
+                        )
                     raise
                 finally:
                     if audio is not None:
                         audio.close()
                     if video is not None:
                         video.close()
-                
+
                 self.file_handler.post_process(
                     movie_path_set, merged_out_path, self.delete
                 )
@@ -856,23 +913,31 @@ class Controller:
                     self.file_handler.post_process(
                         audio_fit, merged_out_path, self.delete, show_status=False
                     )
-            
+
             processed_movies += 1
 
         if not found_audio:
             self.event_logger.warning(
                 f"[!] {lang.get_translation('no_audio_movie_match', self.locale)}"
             )
-            
+
         # Final progress update
-        if hasattr(self.prog_logger, 'job_id') and self.prog_logger.job_id:
-            if hasattr(self.prog_logger, 'shared_progress_dict') and self.prog_logger.shared_progress_dict:
+        if hasattr(self.prog_logger, "job_id") and self.prog_logger.job_id:
+            if (
+                hasattr(self.prog_logger, "shared_progress_dict")
+                and self.prog_logger.shared_progress_dict
+            ):
                 import threading
+
                 with threading.Lock():
                     if self.prog_logger.job_id in self.prog_logger.shared_progress_dict:
-                        self.prog_logger.shared_progress_dict[self.prog_logger.job_id].update({
-                            'progress': total_movies,
-                            'total': total_movies,
-                            'status': 'merge completed',
-                            'last_updated': time.time()
-                        })
+                        self.prog_logger.shared_progress_dict[
+                            self.prog_logger.job_id
+                        ].update(
+                            {
+                                "progress": total_movies,
+                                "total": total_movies,
+                                "status": "merge completed",
+                                "last_updated": time.time(),
+                            }
+                        )
