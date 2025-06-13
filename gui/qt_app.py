@@ -1,7 +1,6 @@
 import os
 import sys
 from pathlib import Path
-from PyQt6.QtGui import QIcon, QFont
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtWidgets import (
     QApplication,
@@ -13,12 +12,16 @@ from PyQt6.QtWidgets import (
     QLabel,
     QFileDialog,
     QComboBox,
+    QLineEdit,
+    QCheckBox,
     QProgressBar,
     QMessageBox,
     QListWidget,
     QListWidgetItem,
-    QCheckBox,
+    QDialog,
+    QTextEdit,
 )
+import json
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from core.controller import Controller
 import utils.language_support as lang
@@ -49,16 +52,15 @@ class ConversionThread(QThread):
         self.shared_progress = {}
 
     def run(self):
+        import time
+        import copy
         try:
-            # Update progress
             self.progress_updated.emit(10, "Starting conversion...")
 
-            # Create a new controller instance for this conversion
             controller = Controller(
                 job_id=self.job_id, shared_progress_dict=self.shared_progress
             )
 
-            # Prepare output path
             if len(self.input_files) == 1:
                 base_name = Path(self.input_files[0]).stem
                 output_path = str(
@@ -69,17 +71,52 @@ class ConversionThread(QThread):
                     Path(self.output_dir) / f"converted.{self.output_format}"
                 )
 
-            # Run the conversion
-            controller.convert_files(
-                input_path_args=self.input_files,
-                format=self.output_format,
-                output=output_path,
-                merge=self.merge,
-                concat=self.concat,
-            )
+            # Start conversion in a background thread (not blocking this QThread)
+            import threading
+            conversion_done = threading.Event()
+            error_holder = {}
 
-            # Emit completion signal
-            self.conversion_finished.emit(self.job_id, output_path)
+            def conversion_job():
+                try:
+                    controller.convert_files(
+                        input_path_args=self.input_files,
+                        format=self.output_format,
+                        output=output_path,
+                        merge=self.merge,
+                        concat=self.concat,
+                    )
+                except Exception as e:
+                    error_holder['error'] = str(e)
+                finally:
+                    conversion_done.set()
+
+            t = threading.Thread(target=conversion_job)
+            t.start()
+
+            last_progress = -1
+            last_message = ""
+            # Poll progress every 0.25s until done
+            while not conversion_done.is_set():
+                # Defensive copy in case dict is updated concurrently
+                prog = copy.deepcopy(self.shared_progress.get(self.job_id, {}))
+                value = prog.get('progress', None)
+                message = prog.get('message', None)
+                if value is not None and (value != last_progress or message != last_message):
+                    self.progress_updated.emit(int(value), str(message) if message else "")
+                    last_progress = value
+                    last_message = message
+                time.sleep(0.25)
+
+            # Final progress update after completion
+            prog = copy.deepcopy(self.shared_progress.get(self.job_id, {}))
+            value = prog.get('progress', 100)
+            message = prog.get('message', "Done")
+            self.progress_updated.emit(int(value), str(message))
+
+            if 'error' in error_holder:
+                self.error_occurred.emit(error_holder['error'])
+            else:
+                self.conversion_finished.emit(self.job_id, output_path)
 
         except Exception as e:
             self.error_occurred.emit(str(e))
@@ -95,7 +132,46 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(800, 600)
         self.conversion_threads = {}
 
+    def get_supported_formats(self):
+        # Query backend Controller for supported formats
+        formats = {}
+        # Only use the _supported_formats keys that are string (not function)
+        for category, mapping in self.controller._supported_formats.items():
+            for fmt, val in mapping.items():
+                if isinstance(val, str):
+                    formats[fmt] = str(category).split(".")[-1].capitalize()
+        return formats
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event):
+        for url in event.mimeData().urls():
+            path = url.toLocalFile()
+            if os.path.isfile(path):
+                self.add_file_to_list(path)
+            elif os.path.isdir(path):
+                for root, _, files in os.walk(path):
+                    for file in files:
+                        self.add_file_to_list(os.path.join(root, file))
+        event.acceptProposedAction()
+
+    def add_file_to_list(self, file):
+        if file not in [self.file_list.item(i).data(Qt.ItemDataRole.UserRole) for i in range(self.file_list.count())]:
+            item = QListWidgetItem(Path(file).name)
+            item.setData(Qt.ItemDataRole.UserRole, file)
+            self.file_list.addItem(item)
+
     def init_ui(self):
+        self.last_dir = str(Path.home())
+        self.settings = load_settings()
+        if 'last_dir' in self.settings:
+            self.last_dir = self.settings['last_dir']
+        if 'locale' in self.settings:
+            self.locale = self.settings['locale']
         # Main widget and layout
         main_widget = QWidget()
         self.setCentralWidget(main_widget)
@@ -108,6 +184,12 @@ class MainWindow(QMainWindow):
 
         # File list
         self.file_list = QListWidget()
+        self.file_list.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
+        self.file_list.setAcceptDrops(True)
+        self.file_list.viewport().setAcceptDrops(True)
+        self.file_list.setDragDropMode(QListWidget.DragDropMode.DropOnly)
+        self.file_list.dragEnterEvent = self.dragEnterEvent
+        self.file_list.dropEvent = self.dropEvent
         input_layout.addWidget(self.file_list)
 
         # Add/Remove files buttons
@@ -115,14 +197,27 @@ class MainWindow(QMainWindow):
 
         self.add_files_btn = QPushButton(lang.get_translation("add_files", self.locale))
         self.add_files_btn.clicked.connect(self.add_files)
+        self.add_files_btn.setToolTip(lang.get_translation("add_files", self.locale))
 
         self.add_folder_btn = QPushButton(
             lang.get_translation("add_folder", self.locale)
         )
         self.add_folder_btn.clicked.connect(self.add_folder)
+        self.add_folder_btn.setToolTip(lang.get_translation("add_folder", self.locale))
 
         self.remove_btn = QPushButton(lang.get_translation("remove", self.locale))
         self.remove_btn.clicked.connect(self.remove_selected)
+        self.remove_btn.setToolTip(lang.get_translation("remove_selected_files", self.locale) if hasattr(lang, 'get_translation') else "Remove selected files")
+
+        self.settings_btn = QPushButton(lang.get_translation("settings", self.locale))
+        self.settings_btn.clicked.connect(self.open_settings_dialog)
+        self.settings_btn.setToolTip(lang.get_translation("settings", self.locale))
+        button_layout.addWidget(self.settings_btn)
+
+        self.help_btn = QPushButton(lang.get_translation("help", self.locale))
+        self.help_btn.clicked.connect(self.open_help_dialog)
+        self.help_btn.setToolTip(lang.get_translation("help_about", self.locale) if hasattr(lang, 'get_translation') else "Help/About")
+        button_layout.addWidget(self.help_btn)
 
         button_layout.addWidget(self.add_files_btn)
         button_layout.addWidget(self.add_folder_btn)
@@ -133,13 +228,13 @@ class MainWindow(QMainWindow):
 
         # Output format
         format_layout = QHBoxLayout()
-        format_label = QLabel(lang.get_translation("output_format", self.locale))
+
+        # Dynamically populate supported formats
+        format_label = QLabel(lang.get_translation("convert_to", self.locale))
         self.format_combo = QComboBox()
-
-        # Add supported formats to combo box
-        for category in self.controller.supported_formats:
-            self.format_combo.addItem(category.upper(), category)
-
+        self.supported_formats = self.get_supported_formats()
+        for fmt, desc in self.supported_formats.items():
+            self.format_combo.addItem(f"{fmt} ({desc})", fmt)
         format_layout.addWidget(format_label)
         format_layout.addWidget(self.format_combo)
         format_layout.addStretch()
@@ -147,12 +242,14 @@ class MainWindow(QMainWindow):
         # Output directory
         output_dir_layout = QHBoxLayout()
         output_dir_label = QLabel(lang.get_translation("output_directory", self.locale))
-        self.output_dir_edit = QLabel(str(Path.home() / "Downloads"))
+        self.output_dir_edit = QLineEdit(str(Path.home() / "Downloads"))
         self.output_dir_edit.setStyleSheet("border: 1px solid #ccc; padding: 5px;")
         self.output_dir_edit.setMinimumHeight(30)
+        self.output_dir_edit.setToolTip(lang.get_translation("output_directory", self.locale))
 
         browse_btn = QPushButton(lang.get_translation("browse", self.locale))
         browse_btn.clicked.connect(self.browse_output_dir)
+        browse_btn.setToolTip(lang.get_translation("browse_output_directory", self.locale) if hasattr(lang, 'get_translation') else "Browse for output directory")
 
         output_dir_layout.addWidget(output_dir_label)
         output_dir_layout.addWidget(self.output_dir_edit, 1)
@@ -181,6 +278,7 @@ class MainWindow(QMainWindow):
         # Convert button
         self.convert_btn = QPushButton(lang.get_translation("convert", self.locale))
         self.convert_btn.clicked.connect(self.start_conversion)
+        self.convert_btn.setToolTip(lang.get_translation("start_conversion", self.locale) if hasattr(lang, 'get_translation') else "Start conversion")
         self.convert_btn.setStyleSheet("""
             QPushButton {
                 background-color: #4CAF50;
@@ -214,11 +312,12 @@ class MainWindow(QMainWindow):
         files, _ = file_dialog.getOpenFileNames(
             self,
             lang.get_translation("select_files", self.locale),
-            str(Path.home()),
+            self.last_dir,
             "All Files (*.*)",
         )
-
         if files:
+            self.last_dir = str(Path(files[0]).parent)
+            save_settings({"last_dir": self.last_dir, "locale": self.locale})
             for file in files:
                 if file not in [
                     self.file_list.item(i).data(Qt.ItemDataRole.UserRole)
@@ -228,12 +327,14 @@ class MainWindow(QMainWindow):
                     item.setData(Qt.ItemDataRole.UserRole, file)
                     self.file_list.addItem(item)
 
+
     def add_folder(self):
         folder = QFileDialog.getExistingDirectory(
-            self, lang.get_translation("select_folder", self.locale), str(Path.home())
+            self, lang.get_translation("select_folder", self.locale), self.last_dir
         )
-
         if folder:
+            self.last_dir = folder
+            save_settings({"last_dir": self.last_dir, "locale": self.locale})
             # Add all files from the directory
             for root, _, files in os.walk(folder):
                 for file in files:
@@ -246,6 +347,7 @@ class MainWindow(QMainWindow):
                         item.setData(Qt.ItemDataRole.UserRole, file_path)
                         self.file_list.addItem(item)
 
+
     def remove_selected(self):
         for item in self.file_list.selectedItems():
             self.file_list.takeItem(self.file_list.row(item))
@@ -254,10 +356,11 @@ class MainWindow(QMainWindow):
         directory = QFileDialog.getExistingDirectory(
             self,
             lang.get_translation("select_output_directory", self.locale),
-            str(Path.home()),
+            self.last_dir,
         )
-
         if directory:
+            self.last_dir = directory
+            save_settings({"last_dir": self.last_dir, "locale": self.locale})
             self.output_dir_edit.setText(directory)
 
     def start_conversion(self):
@@ -305,7 +408,7 @@ class MainWindow(QMainWindow):
         # Connect signals
         thread.progress_updated.connect(self.update_progress)
         thread.conversion_finished.connect(self.conversion_completed)
-        thread.error_occurred.connect(self.conversion_error)
+        thread.error_occurred.connect(self.show_detailed_error)
 
         # Store thread reference
         self.conversion_threads[thread.job_id] = thread
@@ -339,12 +442,22 @@ class MainWindow(QMainWindow):
     def conversion_error(self, error_message):
         self.set_ui_enabled(True)
         self.status_label.setText(lang.get_translation("error_occurred", self.locale))
-
         QMessageBox.critical(
             self,
             lang.get_translation("error", self.locale),
             f"{lang.get_translation('conversion_failed', self.locale)}: {error_message}",
         )
+
+    def show_detailed_error(self, error_message):
+        self.set_ui_enabled(True)
+        self.status_label.setText(lang.get_translation("error_occurred", self.locale))
+        dlg = QMessageBox(self)
+        dlg.setWindowTitle(lang.get_translation("error", self.locale))
+        dlg.setIcon(QMessageBox.Icon.Critical)
+        dlg.setText(f"{lang.get_translation('conversion_failed', self.locale)}")
+        dlg.setDetailedText(str(error_message))
+        dlg.setStandardButtons(QMessageBox.StandardButton.Ok)
+        dlg.exec()
 
     def set_ui_enabled(self, enabled):
         self.add_files_btn.setEnabled(enabled)
@@ -366,7 +479,20 @@ class MainWindow(QMainWindow):
             if thread.isRunning():
                 thread.terminate()
                 thread.wait()
+        save_settings({"last_dir": self.last_dir, "locale": self.locale})
         event.accept()
+
+    def open_settings_dialog(self):
+        supported_locales = list(lang.TRANSLATIONS.keys())
+        dlg = SettingsDialog(self, self.locale, supported_locales)
+        if dlg.exec():
+            self.locale = dlg.selected_locale
+            save_settings({"last_dir": self.last_dir, "locale": self.locale})
+            self.init_ui()  # reload UI with new locale
+
+    def open_help_dialog(self):
+        dlg = HelpDialog(self, self.locale)
+        dlg.exec()
 
 
 def main():
@@ -385,6 +511,68 @@ def main():
     window.show()
 
     sys.exit(app.exec())
+
+# --- Additional methods for new features ---
+
+SETTINGS_FILE = str(Path.home() / ".any_to_any_gui_settings.json")
+
+class SettingsDialog(QDialog):
+    def __init__(self, parent, locale, supported_locales):
+        super().__init__(parent)
+        self.setWindowTitle(lang.get_translation("settings", locale))
+        self.selected_locale = locale
+        layout = QVBoxLayout(self)
+        layout.addWidget(QLabel(lang.get_translation("language", locale)))
+        self.locale_combo = QComboBox()
+        for loc in supported_locales:
+            self.locale_combo.addItem(loc)
+            if loc == locale:
+                self.locale_combo.setCurrentText(loc)
+        layout.addWidget(self.locale_combo)
+        btn = QPushButton(lang.get_translation("ok", locale))
+        btn.clicked.connect(self.accept)
+        layout.addWidget(btn)
+        self.locale_combo.currentTextChanged.connect(self.set_locale)
+    def set_locale(self, value):
+        self.selected_locale = value
+
+class HelpDialog(QDialog):
+    def __init__(self, parent, locale):
+        super().__init__(parent)
+        self.setWindowTitle(lang.get_translation("help", locale))
+        layout = QVBoxLayout(self)
+        help_text = QTextEdit()
+        help_text.setReadOnly(True)
+        help_text.setPlainText("""
+any_to_any.py GUI
+
+- Select files or folders to convert
+- Choose output format and directory
+- Set merge/concatenate options
+- Click Convert
+- Drag-and-drop files into the list is supported
+
+For more info, see project README or CLI/web interfaces.
+""")
+        layout.addWidget(help_text)
+        btn = QPushButton(lang.get_translation("ok", locale))
+        btn.clicked.connect(self.accept)
+        layout.addWidget(btn)
+
+
+def load_settings():
+    try:
+        with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+def save_settings(data):
+    try:
+        with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f)
+    except Exception:
+        pass
 
 
 if __name__ == "__main__":
