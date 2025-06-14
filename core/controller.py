@@ -32,11 +32,12 @@ class Controller:
     Run via any_to_any.py script.
     """
 
-    def __init__(self, job_id=None, shared_progress_dict=None):
+    def __init__(self, job_id=None, shared_progress_dict=None, locale=None):
         # Setting up progress logger with optional web progress tracking
         self.prog_logger = ProgLogger(job_id=job_id, shared_progress_dict=shared_progress_dict)
-        # Get locale
-        self.locale = lang.get_system_language()
+
+        self.locale = lang.get_system_language() if locale is None else locale
+
         # Setting up event logger and format
         logging.basicConfig(
             level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -256,7 +257,7 @@ class Controller:
                 self.locale = lang.LANGUAGE_CODES[language]
             else:
                 self.event_logger.warning(
-                    f"[!] {lang.get_translation('error', self.locale)}: {lang.get_translation('lang_not_supported', self.locale)}"
+                    f"[!] {lang.get_translation('lang_not_supported', self.locale)}"
                 )
 
         for _, arg in enumerate(input_path_args):
