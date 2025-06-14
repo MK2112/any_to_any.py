@@ -46,7 +46,7 @@ The GUI is intended for users who want a great UX for `any_to_any.py` without re
 - Merge, concatenate, or extract as easily as with the CLI/web
 - Multi-language support
 
-**To launch the GUI:**
+**Launch the GUI:**
 ```bash
 python gui/qt_app.py
 ```
@@ -56,7 +56,9 @@ If you want to build a standalone executable for Windows/Linux/macOS:
 python gui/build.py
 ```
 
-![screenshot](./img/Any-to-Any-GUI.png)
+<p align="center">
+   <img src="./img/Any-to-Any-GUI.png" width="625" height="auto">
+</p>
 
 ## Command Line Interface
 
