@@ -132,6 +132,10 @@ if __name__ == "__main__":
 
     args = vars(parser.parse_args())
 
+    if args["language"] in lang.LANGUAGE_CODES.keys():
+        # Reinitialize controller with new language
+        controller = Controller(locale=lang.LANGUAGE_CODES[args["language"]])
+
     if args["split"] and (args["merge"] or args["concat"]):
         parser.error(
             f"{lang.get_translation('split_merge_error', controller.locale)}"
@@ -141,7 +145,7 @@ if __name__ == "__main__":
         parser.error(
             f"{lang.get_translation('merge_concat_error', controller.locale)}"
         )
-
+    
     if args["web"]:
         # Check for web frontend request
         if os.name in ["nt"]:
