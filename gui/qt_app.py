@@ -28,7 +28,8 @@ import utils.language_support as lang
 
 
 class ConversionThread(QThread):
-    progress_updated = pyqtSignal(int, str)
+    # Now emits a dict: {'progress': int, 'message': str, 'status': str, 'error': str or None}
+    progress_updated = pyqtSignal(dict)
     conversion_finished = pyqtSignal(str, str)  # job_id, output_path
     error_occurred = pyqtSignal(str)
 
@@ -55,7 +56,12 @@ class ConversionThread(QThread):
         import time
         import copy
         try:
-            self.progress_updated.emit(10, "Starting conversion...")
+            self.progress_updated.emit({
+                'progress': None,
+                'message': "Starting conversion...",
+                'status': 'starting',
+                'error': None
+            })
 
             controller = Controller(
                 job_id=self.job_id, shared_progress_dict=self.shared_progress
@@ -71,7 +77,6 @@ class ConversionThread(QThread):
                     Path(self.output_dir) / f"converted.{self.output_format}"
                 )
 
-            # Start conversion in a background thread (not blocking this QThread)
             import threading
             conversion_done = threading.Event()
             error_holder = {}
@@ -93,25 +98,45 @@ class ConversionThread(QThread):
             t = threading.Thread(target=conversion_job)
             t.start()
 
-            last_progress = -1
-            last_message = ""
+            last_snapshot = None
             # Poll progress every 0.25s until done
             while not conversion_done.is_set():
-                # Defensive copy in case dict is updated concurrently
                 prog = copy.deepcopy(self.shared_progress.get(self.job_id, {}))
-                value = prog.get('progress', None)
-                message = prog.get('message', None)
-                if value is not None and (value != last_progress or message != last_message):
-                    self.progress_updated.emit(int(value), str(message) if message else "")
-                    last_progress = value
-                    last_message = message
+                # Compose full progress dict
+                progress = prog.get('progress', None)
+                total = prog.get('total', 100)
+                percent = None
+                if progress is not None and total:
+                    try:
+                        percent = int(100 * float(progress) / float(total))
+                    except Exception:
+                        percent = None
+                message = prog.get('message', prog.get('status', ''))
+                status = prog.get('status', 'running')
+                error = prog.get('error', None)
+                snapshot = {
+                    'progress': percent,
+                    'message': message,
+                    'status': status,
+                    'error': error
+                }
+                if snapshot != last_snapshot:
+                    self.progress_updated.emit(snapshot)
+                    last_snapshot = snapshot
                 time.sleep(0.25)
 
             # Final progress update after completion
             prog = copy.deepcopy(self.shared_progress.get(self.job_id, {}))
-            value = prog.get('progress', 100)
-            message = prog.get('message', "Done")
-            self.progress_updated.emit(int(value), str(message))
+            percent = 100
+            message = prog.get('message', prog.get('status', "Done"))
+            status = prog.get('status', 'done')
+            error = prog.get('error', None)
+            self.progress_updated.emit({
+                'progress': percent,
+                'message': message,
+                'status': status,
+                'error': error
+            })
 
             if 'error' in error_holder:
                 self.error_occurred.emit(error_holder['error'])
@@ -409,6 +434,10 @@ class MainWindow(QMainWindow):
         thread.progress_updated.connect(self.update_progress)
         thread.conversion_finished.connect(self.conversion_completed)
         thread.error_occurred.connect(self.show_detailed_error)
+        # Show progress bar at start
+        self.progress_bar.setRange(0, 0)
+        self.progress_bar.setStyleSheet("")
+        self.progress_bar.setValue(0)
 
         # Store thread reference
         self.conversion_threads[thread.job_id] = thread
@@ -416,9 +445,39 @@ class MainWindow(QMainWindow):
         # Start thread
         thread.start()
 
-    def update_progress(self, value, message):
-        self.progress_bar.setValue(value)
-        self.status_label.setText(message)
+    def update_progress(self, progress_info):
+        # progress_info: {'progress': int|None, 'message': str, 'status': str, 'error': str|None}
+        value = progress_info.get('progress')
+        message = progress_info.get('message', "")
+        status = progress_info.get('status', "")
+        error = progress_info.get('error')
+
+        # Handle indeterminate state
+        if value is None or status in ("starting", "preparing", "waiting"):
+            self.progress_bar.setRange(0, 0)  # Indeterminate
+        else:
+            self.progress_bar.setRange(0, 100)
+            self.progress_bar.setValue(int(value))
+
+        # Color and style cues
+        if status == "done":
+            self.progress_bar.setStyleSheet("QProgressBar {background: #e0ffe0;} QProgressBar::chunk {background: #4CAF50;}")
+        elif error or status == "error":
+            self.progress_bar.setStyleSheet("QProgressBar {background: #ffe0e0;} QProgressBar::chunk {background: #e53935;}")
+        else:
+            self.progress_bar.setStyleSheet("")  # Default
+
+        # Status label
+        if error:
+            self.status_label.setText(self.tr("Error: ") + str(error))
+        else:
+            self.status_label.setText(str(message))
+
+        # Optionally, hide progress bar when done or error (UX choice)
+        if status == "done" or error:
+            self.progress_bar.setValue(100)
+            self.progress_bar.setRange(0, 100)
+
 
     def conversion_completed(self, job_id, output_path):
         # Remove thread reference
@@ -529,7 +588,7 @@ class SettingsDialog(QDialog):
             if loc == locale:
                 self.locale_combo.setCurrentText(loc)
         layout.addWidget(self.locale_combo)
-        btn = QPushButton("OK")
+        btn = QPushButton("Ok")
         btn.clicked.connect(self.accept)
         layout.addWidget(btn)
         self.locale_combo.currentTextChanged.connect(self.set_locale)
@@ -556,7 +615,7 @@ any_to_any.py GUI
 For more info, see the project README or try the CLI/web interfaces.
 """)
         layout.addWidget(help_text)
-        btn = QPushButton("OK")
+        btn = QPushButton("Ok")
         btn.clicked.connect(self.accept)
         layout.addWidget(btn)
 
