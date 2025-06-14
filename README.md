@@ -45,12 +45,17 @@ The GUI is intended for users who want a great UX for `any_to_any.py` without re
 - Merge, concatenate, or extract as easily as with the CLI/web
 - Multi-language support
 
+**Install GUI-related additional dependencies:**
+```bash
+pip install -r requirements_gui.txt
+```
+
 **Launch the GUI:**
 ```bash
 python gui/qt_app.py
 ```
 
-If you want to build a standalone executable for Windows/Linux/macOS:
+If you want to build a standalone executable for Windows/Linux/macOS, ideally install and use UPX:
 ```bash
 python gui/build.py
 ```
