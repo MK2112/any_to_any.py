@@ -150,7 +150,7 @@ class ConversionThread(QThread):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.controller = Controller()
+        self.controller = Controller(locale=lang.get_system_language())
         self.locale = self.controller.locale
         self.init_ui()
         self.setWindowTitle("any_to_any.py")
@@ -159,12 +159,11 @@ class MainWindow(QMainWindow):
 
     def get_supported_formats(self):
         # Query backend Controller for supported formats
+        # Return a dict of {category: [format, ...]}
         formats = {}
-        # Only use the _supported_formats keys that are string (not function)
         for category, mapping in self.controller._supported_formats.items():
-            for fmt, val in mapping.items():
-                if isinstance(val, str):
-                    formats[fmt] = str(category).split(".")[-1].capitalize()
+            cat_name = str(category).split(".")[-1].replace('_', ' ').title()
+            formats[cat_name] = sorted(list(mapping.keys()))
         return formats
 
     def dragEnterEvent(self, event):
@@ -254,12 +253,18 @@ class MainWindow(QMainWindow):
         # Output format
         format_layout = QHBoxLayout()
 
-        # Dynamically populate supported formats
+        # Dynamically populate supported formats, grouped by category
         format_label = QLabel(lang.get_translation("convert", self.locale))
         self.format_combo = QComboBox()
         self.supported_formats = self.get_supported_formats()
-        for fmt, desc in self.supported_formats.items():
-            self.format_combo.addItem(f"{fmt} ({desc})", fmt)
+        for cat, fmts in self.supported_formats.items():
+            self.format_combo.addItem(f"--- {cat} ---")
+            idx = self.format_combo.count() - 1
+            self.format_combo.model().item(idx).setEnabled(False)
+            for fmt in fmts:
+                self.format_combo.addItem(f"{fmt}", fmt)
+                # Optionally, set tooltip for each format
+                self.format_combo.setItemData(self.format_combo.count() - 1, f"{cat}", Qt.ItemDataRole.ToolTipRole)
         format_layout.addWidget(format_label)
         format_layout.addWidget(self.format_combo)
         format_layout.addStretch()
@@ -394,56 +399,45 @@ class MainWindow(QMainWindow):
             self.file_list.item(i).data(Qt.ItemDataRole.UserRole)
             for i in range(self.file_list.count())
         ]
-
         if not input_files:
             QMessageBox.warning(
                 self,
                 lang.get_translation("error", self.locale),
-                lang.get_translation("no_files_selected", self.locale),
+                lang.get_translation("no_files_selected", self.locale)
             )
             return
 
-        # Get output format and directory
-        output_format = self.format_combo.currentData()
         output_dir = self.output_dir_edit.text()
-
-        # Create output directory if it doesn't exist
-        os.makedirs(output_dir, exist_ok=True)
-
-        # Get options
+        output_format = self.format_combo.currentData()
         merge = self.merge_check.isChecked()
         concat = self.concat_check.isChecked()
 
-        # Disable UI during conversion
-        self.set_ui_enabled(False)
-        self.status_label.setText(
-            lang.get_translation("preparing_conversion", self.locale)
-        )
-
-        # Create and start conversion thread
-        thread = ConversionThread(
-            controller=self.controller,
-            input_files=input_files,
-            output_format=output_format,
-            output_dir=output_dir,
-            merge=merge,
-            concat=concat,
-        )
-
-        # Connect signals
-        thread.progress_updated.connect(self.update_progress)
-        thread.conversion_finished.connect(self.conversion_completed)
-        thread.error_occurred.connect(self.show_detailed_error)
-        # Show progress bar at start
-        self.progress_bar.setRange(0, 0)
-        self.progress_bar.setStyleSheet("")
-        self.progress_bar.setValue(0)
-
-        # Store thread reference
-        self.conversion_threads[thread.job_id] = thread
-
-        # Start thread
-        thread.start()
+        try:
+            self.controller.run(
+                input_path_args=input_files,
+                format=output_format,
+                output=output_dir,
+                framerate=0,
+                quality=None,
+                merge=merge,
+                concat=concat,
+                delete=False,
+                across=False,
+                recursive=False,
+                dropzone=False,
+                language=list(lang.LANGUAGE_CODES.keys())[list(lang.LANGUAGE_CODES.values()).index(lang.get_system_language())],
+            )
+            QMessageBox.information(
+                self,
+                lang.get_translation("success", self.locale),
+                lang.get_translation("conversion_complete", self.locale)
+            )
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                lang.get_translation("error", self.locale),
+                str(e)
+            )
 
     def update_progress(self, progress_info):
         # progress_info: {'progress': int|None, 'message': str, 'status': str, 'error': str|None}
