@@ -349,7 +349,7 @@ class MovieConverter:
                             exist_ok=True,
                         )
                     self.event_logger.info(
-                        f"[+] {lang.get_translation('get_hls', self.locale)} {self.file_handler.join_back(movie_path_set)}: {resolution} at {v_bitrate} video, {a_bitrate} audio"
+                        f"[>] {lang.get_translation('get_hls', self.locale)} {self.file_handler.join_back(movie_path_set)}: {resolution} at {v_bitrate} video, {a_bitrate} audio"
                     )
                     stream = [
                         "-map",
@@ -383,7 +383,7 @@ class MovieConverter:
                     cmd += stream
                     variant_playlist += f"#EXT-X-STREAM-INF:BANDWIDTH={int(v_bitrate[:-1]) * 1000},RESOLUTION={resolution}\n{i}.m3u8\n"
                 self.event_logger.info(
-                    f"[+] {lang.get_translation('get_hls_master', self.locale)} {self.file_handler.join_back(movie_path_set)}"
+                    f"[>] {lang.get_translation('get_hls_master', self.locale)} {self.file_handler.join_back(movie_path_set)}"
                 )
                 master_playlist_path = os.path.join(current_out_dir, "master.m3u8")
 
@@ -402,7 +402,7 @@ class MovieConverter:
                     )
             elif protocol[0] == "dash":
                 self.event_logger.info(
-                    f"[+] {lang.get_translation('create_dash', self.locale)} {self.file_handler.join_back(movie_path_set)}"
+                    f"[>] {lang.get_translation('create_dash', self.locale)} {self.file_handler.join_back(movie_path_set)}"
                 )
                 out_path = os.path.join(current_out_dir, "manifest.mpd")
                 cmd = [

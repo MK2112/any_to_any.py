@@ -82,13 +82,14 @@ This is the most detailed way to use `any_to_any.py`. You can structure a comman
 | Command Argument             | Meaning |
 | ---------------------------- | ------- |
 | `-h` or </br>`--help`        | List all available parameters, their description and default values, then exit. |
-| `-l` or </br>`--language`    | Set the CLI language, currently supported: `zh_CN` (Mandarin, Simplified), `ja_JP` (Japanese), `fr_FR` (French), `es_ES` (Spanish), `it_IT` (Italian), `de_DE` (German), `pt_BR` (Portuguese, Brazilian), `uk_UA` (Ukrainian), `ko_KR` (Korean), `en_US` (American English), `pl_PL` (Polish), `hi_IN` (Hindi), `ru_RU` (Russian), `ar_SA` (Arabic), `id_ID` (Indonesian), `tr_TR` (Turkish), `vi_VN` (Vietnamese), `th_TH` (Thai), `nl_NL` (Dutch), `sv_SE` (Swedish), `da_DK` (Danish), `fi_FI` (Finnish), `no_NO` (Norwegian), `is_IS` (Icelandic), `he_IL` (Hebrew), `cs_CZ` (Czech), `ro_RO` (Romanian), `ms_MY` (Malay). **Default is system locale if supported, fallback is `en_US`.**|
+| `-l` or </br>`--language`    | Set the CLI language, currently supported: `zh_CN` (Mandarin, Simplified), `ja_JP` (Japanese), `fr_FR` (French), `es_ES` (Spanish), `it_IT` (Italian), `de_DE` (German), `pt_BR` (Portuguese, Brazilian), `uk_UA` (Ukrainian), `ko_KR` (Korean), `en_US` (American English), `pl_PL` (Polish), `hi_IN` (Hindi), `ru_RU` (Russian), `ar_SA` (Arabic), `id_ID` (Indonesian), `tr_TR` (Turkish), `vi_VN` (Vietnamese), `th_TH` (Thai), `nl_NL` (Dutch), `sv_SE` (Swedish), `da_DK` (Danish), `fi_FI` (Finnish), `no_NO` (Norwegian), `is_IS` (Icelandic), `he_IL` (Hebrew), `cs_CZ` (Czech), `ro_RO` (Romanian), `ms_MY` (Malay), `bg_BG` (Bulgarian), `hu_HU` (Hungarian), `el_GR` (Greek), `sk_SK` (Slovak). **Default is system locale if supported, fallback is `en_US`.**|
 | `-i` or </br>`--input`       | Path to file itself or directory containing files to be converted. If not provided, the directory from where the script is called will be used. |
 | `-f` or </br>`--format`      | Desired output file format, either `mp2`, `mp3`, `flac`, `wav`, `aac`, `aiff`, `ogg`, `oga`, `m4a`, `ac3`, `dts`, `weba`, `wma`, `mka`, `wv`, `caf`, `tta`, `m4b`, `eac3`, `spx`, `au`, `opus`, `m3u8`, `w64`, `mlp`, `adts`, `sbc`, `thd`, `jpeg`, `png`, `gif`, `bmp`, `pdf`, `docx`, `pptx`, `srt`, `webp`, `tiff`, `tga`, `eps`, `ps`, `ico`, `eps`, `jpeg2000`, `im`, `pcx`, `ppm`, `mp4`, `webm`, `mov`, `mkv`, `avi`, `wmv`, `flv`, `m2ts`, `3gp`, `3g2`, `mjpeg`, `asf`, `vob`, `ts`, `raw`, `mpg`, `mxf`, `drc`, `swf`, `f4v`, `m4v`, `mts`, `m2v`, `yuv`, movie codecs like `h263p`, `h264`, `h265`, `xvid`, `mpeg1`, `mpeg2`, `mpeg4`, `av1`, `avc`, `theora`, `vp8`, `vp9`, `hevc`, `prores`, `huffyuv`, `ffv1`, `ffvhuff`, `v210`, `v410`, `v308`, `v408`, `zlib`, `qtrle`, `snow`, `svq1`, `utvideo`, `cinepak`, `msmpeg4`, `h264_nvenc`, `vpx`, `h264_rgb`, `mpeg2video`, `prores_ks`, `vc2`, `flv1`, or protocols like `hls` and `dash` |
 | `-o` or </br>`--output`      | Directory to save converted files into. Writing to the input file path, if none provided. |
 | `-q` or </br>`--quality`     | Set output file quality, either `low`, `medium`, or `high`; default is same as input. |
 | `-m` or </br>`--merge`       | Merge movie file with equally named audio file to become its audio track. |
 | `-c` or </br>`--concat`      | Concatenate input files of the same type (images, audio, video) into one output file (e.g. `concatenated_video.mp4` for movie files, `concatenated_audio.mp3` for audio files). |
+| `-s` or </br>`--split`       | Split a PDF into multiple files, either by page count or page ranges, e.g. `1-2,3-5` or `10` or `1-3,2-6,8-end` or `1-5,rest`. |
 | `-a` or </br>`--across`      | Merge/Concatenate across directories when multiple directories are provided. |
 | `-w` or </br>`--web`         | Ignores all other arguments, starts browser + a web server at `http://localhost:5000`. |
 | `-d` or </br>`--delete`      | Delete input files after conversion. |
@@ -131,6 +132,11 @@ python any_to_any.py -i /path/to/file.gif -f mp4
 You may also convert the images contained in a DOCX file to an MP4 video:
 ```python
 python any_to_any.py -i /path/to/file.docx -f mp4
+```
+
+Split a PDF into multiple files, either by page count or page ranges, e.g. `1-2,3-5` or `10` or `1-3,2-6,8-end` or `1-5,rest`:
+```python
+python any_to_any.py -i /path/to/file.pdf -s 1-3,2-6,8-end
 ```
 
 ### Directory Processing
