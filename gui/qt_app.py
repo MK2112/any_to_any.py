@@ -207,7 +207,7 @@ class MainWindow(QMainWindow):
 
         self.remove_btn = QPushButton(lang.get_translation("remove", self.locale))
         self.remove_btn.clicked.connect(self.remove_selected)
-        self.remove_btn.setToolTip(lang.get_translation("remove_selected_files", self.locale) if hasattr(lang, 'get_translation') else "Remove selected files")
+        self.remove_btn.setToolTip(lang.get_translation("remove_selected_files", self.locale))
 
         self.settings_btn = QPushButton(lang.get_translation("settings", self.locale))
         self.settings_btn.clicked.connect(self.open_settings_dialog)
@@ -216,7 +216,7 @@ class MainWindow(QMainWindow):
 
         self.help_btn = QPushButton(lang.get_translation("help", self.locale))
         self.help_btn.clicked.connect(self.open_help_dialog)
-        self.help_btn.setToolTip(lang.get_translation("help_about", self.locale) if hasattr(lang, 'get_translation') else "Help/About")
+        self.help_btn.setToolTip(lang.get_translation("help_about", self.locale))
         button_layout.addWidget(self.help_btn)
 
         button_layout.addWidget(self.add_files_btn)
@@ -230,7 +230,7 @@ class MainWindow(QMainWindow):
         format_layout = QHBoxLayout()
 
         # Dynamically populate supported formats
-        format_label = QLabel(lang.get_translation("convert_to", self.locale))
+        format_label = QLabel(lang.get_translation("convert", self.locale))
         self.format_combo = QComboBox()
         self.supported_formats = self.get_supported_formats()
         for fmt, desc in self.supported_formats.items():
@@ -241,15 +241,15 @@ class MainWindow(QMainWindow):
 
         # Output directory
         output_dir_layout = QHBoxLayout()
-        output_dir_label = QLabel(lang.get_translation("output_directory", self.locale))
+        output_dir_label = QLabel(lang.get_translation("output_dir", self.locale))
         self.output_dir_edit = QLineEdit(str(Path.home() / "Downloads"))
         self.output_dir_edit.setStyleSheet("border: 1px solid #ccc; padding: 5px;")
         self.output_dir_edit.setMinimumHeight(30)
-        self.output_dir_edit.setToolTip(lang.get_translation("output_directory", self.locale))
+        self.output_dir_edit.setToolTip(lang.get_translation("output_dir", self.locale))
 
         browse_btn = QPushButton(lang.get_translation("browse", self.locale))
         browse_btn.clicked.connect(self.browse_output_dir)
-        browse_btn.setToolTip(lang.get_translation("browse_output_directory", self.locale) if hasattr(lang, 'get_translation') else "Browse for output directory")
+        browse_btn.setToolTip(lang.get_translation("browse_dir", self.locale))
 
         output_dir_layout.addWidget(output_dir_label)
         output_dir_layout.addWidget(self.output_dir_edit, 1)
@@ -278,7 +278,7 @@ class MainWindow(QMainWindow):
         # Convert button
         self.convert_btn = QPushButton(lang.get_translation("convert", self.locale))
         self.convert_btn.clicked.connect(self.start_conversion)
-        self.convert_btn.setToolTip(lang.get_translation("start_conversion", self.locale) if hasattr(lang, 'get_translation') else "Start conversion")
+        self.convert_btn.setToolTip(lang.get_translation("start_conversion", self.locale))
         self.convert_btn.setStyleSheet("""
             QPushButton {
                 background-color: #4CAF50;
@@ -355,7 +355,7 @@ class MainWindow(QMainWindow):
     def browse_output_dir(self):
         directory = QFileDialog.getExistingDirectory(
             self,
-            lang.get_translation("select_output_directory", self.locale),
+            lang.get_translation("select_output_dir", self.locale),
             self.last_dir,
         )
         if directory:
@@ -441,7 +441,7 @@ class MainWindow(QMainWindow):
 
     def conversion_error(self, error_message):
         self.set_ui_enabled(True)
-        self.status_label.setText(lang.get_translation("error_occurred", self.locale))
+        self.status_label.setText(lang.get_translation("error", self.locale))
         QMessageBox.critical(
             self,
             lang.get_translation("error", self.locale),
@@ -450,7 +450,7 @@ class MainWindow(QMainWindow):
 
     def show_detailed_error(self, error_message):
         self.set_ui_enabled(True)
-        self.status_label.setText(lang.get_translation("error_occurred", self.locale))
+        self.status_label.setText(lang.get_translation("error", self.locale))
         dlg = QMessageBox(self)
         dlg.setWindowTitle(lang.get_translation("error", self.locale))
         dlg.setIcon(QMessageBox.Icon.Critical)
@@ -529,7 +529,7 @@ class SettingsDialog(QDialog):
             if loc == locale:
                 self.locale_combo.setCurrentText(loc)
         layout.addWidget(self.locale_combo)
-        btn = QPushButton(lang.get_translation("ok", locale))
+        btn = QPushButton("OK")
         btn.clicked.connect(self.accept)
         layout.addWidget(btn)
         self.locale_combo.currentTextChanged.connect(self.set_locale)
@@ -540,6 +540,7 @@ class HelpDialog(QDialog):
     def __init__(self, parent, locale):
         super().__init__(parent)
         self.setWindowTitle(lang.get_translation("help", locale))
+        self.setMinimumSize(400, 250)
         layout = QVBoxLayout(self)
         help_text = QTextEdit()
         help_text.setReadOnly(True)
@@ -552,10 +553,10 @@ any_to_any.py GUI
 - Click Convert
 - Drag-and-drop files into the list is supported
 
-For more info, see project README or CLI/web interfaces.
+For more info, see the project README or try the CLI/web interfaces.
 """)
         layout.addWidget(help_text)
-        btn = QPushButton(lang.get_translation("ok", locale))
+        btn = QPushButton("OK")
         btn.clicked.connect(self.accept)
         layout.addWidget(btn)
 
