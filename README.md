@@ -1,4 +1,4 @@
-# any_to_any.py - Universal media converter: audio, video, images, docs - Web UI + CLI
+# any_to_any.py - Universal media converter: audio, video, images, docs - GUI • Web UI • CLI
 
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-red)
@@ -14,7 +14,7 @@
 - **Concatenate** multiple files of the same type (audio, video, images)
 - Process single files, entire directories (recursively if desired), or multiple specified inputs
 - Merge or concatenate files within individual directories or across multiple directories
-- Offering both a **Web Interface** and a flexible **Command Line Interface**
+- Offering a flexible **Command Line Interface**, a **Web Interface**, and a **Graphical User Interface (GUI)**
 - Control output quality and video framerate during conversion
 - Automatically monitor a **"dropzone" directory** for new files and process them as they are dropped
 
@@ -26,17 +26,41 @@
 3. **Install Dependencies**:
    - Open a terminal from inside the repository and run: `pip install -r requirements.txt`
 4. **Running the Script**:
-   Use Any_to_Any.py in either of two ways (click for details):
-   - [*Web Interface*](#web-interface)
+   Use Any_to_Any.py in any of three ways (click for details):
    - [*Command Line Interface*](#command-line-interface)
+   - [*Web Interface*](#web-interface)
+   - [*Graphical User Interface (GUI)*](#graphical-user-interface-gui)
 
 ## Web Interface
 - Start the web interface: `python any_to_any.py -w`
 - Access the web view at `http://localhost:5000` via your browser
 - Stop the web interface by pressing `CTRL+C` in the terminal
 
+## Graphical User Interface (GUI)
+
+The GUI is intended for users who want a great UX for `any_to_any.py` without requiring a browser.
+
+- Drag and drop files or folders for instant batch conversion
+- Select output format, directory, and advanced options with just a few clicks
+- Real-time progress bar and detailed status updates—just like the web interface!
+- Merge, concatenate, or extract as easily as with the CLI/web
+- Multi-language support
+
+**To launch the GUI:**
+```bash
+python gui/qt_app.py
+```
+
+If you want to build a standalone executable for Windows/Linux/macOS:
+```bash
+python gui/build.py
+```
+
+![screenshot](./img/Any-to-Any-GUI.png)
+
 ## Command Line Interface
-You can structure a command in three fundamental ways:
+
+This is the most detailed way to use `any_to_any.py`. You can structure a command in three fundamental ways:
 - [**Single File Processing**](#single-file-processing)
    - You can convert,
    - You can't merge or concatenate with only one file.
