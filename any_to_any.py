@@ -125,6 +125,10 @@ if __name__ == "__main__":
 
     args = vars(parser.parse_args())
 
+    if args["language"] in lang.LANGUAGE_CODES.keys():
+        # Reinitialize controller with new language
+        controller = Controller(locale=lang.LANGUAGE_CODES[args["language"]])
+
     if args["web"]:
         # Check for web frontend request
         if os.name in ["nt"]:
