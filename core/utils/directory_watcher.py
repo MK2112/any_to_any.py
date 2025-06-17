@@ -1,4 +1,5 @@
 import time
+import logging
 from pathlib import Path
 from typing import Callable, Optional
 from watchdog.observers import Observer
@@ -25,7 +26,6 @@ class DirectoryWatcher:
                     callback(*args)
                 except Exception as e:
                     # Log the error but don't let it crash the watcher
-                    import logging
                     logging.error(f"Error in directory watcher callback: {e}", exc_info=True)
             
             def on_created(_, event):

@@ -3,6 +3,7 @@ import re
 import fitz
 import time
 import logging
+import threading
 import utils.language_support as lang
 from pathlib import Path
 from utils.category import Category
@@ -572,8 +573,6 @@ class Controller:
                 hasattr(self.prog_logger, "shared_progress_dict")
                 and self.prog_logger.shared_progress_dict
             ):
-                import threading
-
                 with threading.Lock():
                     if self.prog_logger.job_id in self.prog_logger.shared_progress_dict:
                         self.prog_logger.shared_progress_dict[
@@ -699,8 +698,6 @@ class Controller:
                             hasattr(self.prog_logger, "shared_progress_dict")
                             and self.prog_logger.shared_progress_dict
                         ):
-                            import threading
-
                             with threading.Lock():
                                 if (
                                     self.prog_logger.job_id
@@ -736,8 +733,6 @@ class Controller:
                             hasattr(self.prog_logger, "shared_progress_dict")
                             and self.prog_logger.shared_progress_dict
                         ):
-                            import threading
-
                             with threading.Lock():
                                 if (
                                     self.prog_logger.job_id
@@ -777,8 +772,6 @@ class Controller:
                         hasattr(self.prog_logger, "shared_progress_dict")
                         and self.prog_logger.shared_progress_dict
                     ):
-                        import threading
-
                         with threading.Lock():
                             if (
                                 self.prog_logger.job_id
@@ -821,8 +814,6 @@ class Controller:
                     hasattr(self.prog_logger, "shared_progress_dict")
                     and self.prog_logger.shared_progress_dict
                 ):
-                    import threading
-
                     with threading.Lock():
                         if (
                             self.prog_logger.job_id
@@ -928,8 +919,6 @@ class Controller:
                 hasattr(self.prog_logger, "shared_progress_dict")
                 and self.prog_logger.shared_progress_dict
             ):
-                import threading
-
                 with threading.Lock():
                     if self.prog_logger.job_id in self.prog_logger.shared_progress_dict:
                         self.prog_logger.shared_progress_dict[
