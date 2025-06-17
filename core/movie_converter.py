@@ -128,7 +128,7 @@ class MovieConverter:
                         ),  # 16 black pixels required by moviepy
                         duration=audio.duration,
                     )
-                    clip = clip.set_audio(audio)
+                    clip = clip.with_audio(audio)
                     clip.write_videofile(
                         out_path,
                         codec=codec,
@@ -291,7 +291,7 @@ class MovieConverter:
                     ),  # 16 black pixels at least, required by moviepy
                     duration=audio.duration,
                 )
-                clip = clip.set_audio(audio)
+                clip = clip.with_audio(audio)
                 clip.write_videofile(
                     out_path,
                     codec=codec[0],

@@ -24,6 +24,7 @@ from moviepy import (
 )
 
 
+
 class Controller:
     """
     Taking an input directory of files, convert them to a multitude of formats.
@@ -321,9 +322,9 @@ class Controller:
                     FileNotFoundError,
                     f"[!] {lang.get_translation('error', self.locale)}: {lang.get_translation('no_dir_exist', self.locale).replace('[dir]', f'{input_path}')}",
                 )
-            # Make self.input hold a directory
+            # Make self.input hold the actual file if a file, otherwise the directory
             if os.path.isfile(str(input_path)):
-                self.input = os.path.dirname(input_path)
+                self.input = input_path  # Use the file path directly
             else:
                 self.input = input_path
 
@@ -880,7 +881,7 @@ class Controller:
                 try:
                     video = VideoFileClip(self.file_handler.join_back(movie_path_set))
                     audio = AudioFileClip(self.file_handler.join_back(audio_fit))
-                    video = video.set_audio(audio)
+                    video = video.with_audio(audio)
                     merged_out_path = os.path.join(
                         self.output, f"{movie_path_set[1]}_merged.{movie_path_set[2]}"
                     )
@@ -890,7 +891,7 @@ class Controller:
                         codec=self._supported_formats[Category.MOVIE][
                             movie_path_set[2]
                         ],
-                        logger=self.prog_logger,  # This was already present and correct
+                        logger=self.prog_logger,
                     )
                 except Exception as e:
                     # Handle errors gracefully and update progress logger
