@@ -12,10 +12,10 @@
 - **Merge** video files with separate audio files
 - **Extract** audio tracks from video files
 - **Concatenate** multiple files of the same type (audio, video, images)
-- Process single files, entire directories (recursively if desired), or multiple specified inputs
-- Merge or concatenate files within individual directories or across multiple directories
+- Process **single files, entire directories (recursively if desired), or multiple specified inputs**
+- Merge or concatenate files **within individual directories or across multiple directories**
 - Offering a flexible **Command Line Interface**, a **Web Interface**, and a **Graphical User Interface (GUI)**
-- Control output quality and video framerate during conversion
+- Control output quality and video framerate for the conversion
 - Automatically monitor a **"dropzone" directory** for new files and process them as they are dropped
 
 ## Setup
