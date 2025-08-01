@@ -3305,7 +3305,7 @@ TRANSLATIONS = {
         "merge_concat_error": "無法同時使用 --merge 與 --concat，請擇一使用",
         "split_produced": "已產生分割檔",
     },
-    "Persian": {
+    "Persian (Farsi)": {
         "select_files": "انتخاب فایل‌ها",
         "convert": "تبدیل",
         "download": "دانلود",
