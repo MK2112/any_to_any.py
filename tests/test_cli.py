@@ -48,3 +48,20 @@ def test_blank_start_no_files_in_cli_output(controller_instance, caplog):
             "en_US",
         )
     assert "No convertible media files" in caplog.text
+
+
+def test_cli_workers_flag_recognized(tmp_path):
+    # Run CLI with --workers on an empty directory; should exit cleanly
+    script_path = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "any_to_any.py")
+    )
+    result = subprocess.run(
+        [sys.executable, script_path, "-i", str(tmp_path), "--workers", "2"],
+        capture_output=True,
+        text=True,
+    )
+    # Ensure argparse accepts the flag (no "unrecognized arguments"),
+    # return code may be 0 or 1 depending on no-media condition and locale.
+    combined = (result.stdout + "\n" + result.stderr).lower()
+    assert "unrecognized arguments" not in combined
+    assert result.returncode in (0, 1)
