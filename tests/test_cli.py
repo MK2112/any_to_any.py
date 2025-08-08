@@ -46,6 +46,7 @@ def test_blank_start_no_files_in_cli_output(controller_instance, caplog):
             False,
             False,
             "en_US",
+            1,
         )
     assert "No convertible media files" in caplog.text
 

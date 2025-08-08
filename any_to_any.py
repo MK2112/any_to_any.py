@@ -133,6 +133,7 @@ if __name__ == "__main__":
         "--workers",
         help="Maximum worker threads to use for per-file conversions (default: 1)",
         type=int,
+        default=1,
         required=False,
     )
 

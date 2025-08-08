@@ -23,6 +23,7 @@ def test_empty_directory(controller_instance, tmp_path):
             recursive=False,
             dropzone=False,
             language=None,
+            workers=1,
         )
 
 
@@ -76,6 +77,7 @@ def test_invalid_format_conversion(controller_instance, tmp_path):
             recursive=False,
             dropzone=False,
             language=None,
+            workers=1,
         )
 
 
@@ -99,6 +101,7 @@ def test_invalid_quality_value(controller_instance, tmp_path):
             recursive=False,
             dropzone=False,
             language=None,
+            workers=1,
         )
     except Exception as e:
         pytest.fail(f"run failed: {e}")
@@ -128,6 +131,7 @@ def test_large_file_conversion(controller_instance, tmp_path):
         recursive=False,
         dropzone=False,
         language=None,
+        workers=1,
     )
 
     assert (tmp_path / "large.mp3").exists()
