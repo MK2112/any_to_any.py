@@ -238,10 +238,21 @@ class Controller:
         recursive: bool,
         dropzone: bool,
         language: str,
+        workers: int,
     ) -> None:
         # Main function, convert media files to defined formats
         # or merge or concatenate, according to the arguments
         input_paths = []
+        # Apply worker override via environment for converters
+        try:
+            if workers is not None:
+                # Workers flag was set, do some validation, hand it to env
+                os.environ["A2A_MAX_WORKERS"] = str(max(1, int(workers)))
+        except Exception:
+            # Ignore invalid values; converters will fall back to CPU-based default
+            pass
+
+        # Apply input paths
         input_path_args = (
             input_path_args
             if input_path_args is not None
