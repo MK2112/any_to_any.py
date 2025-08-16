@@ -200,6 +200,7 @@ def send_to_backend(
             recursive=False,
             dropzone=False,
             language="en_US",
+            workers=1,
         )
 
         # Mark as done

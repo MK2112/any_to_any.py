@@ -129,6 +129,13 @@ if __name__ == "__main__":
         type=str,
         required=False,
     )
+    parser.add_argument(
+        "--workers",
+        help="Maximum worker threads to use for per-file conversions (default: 1)",
+        type=int,
+        default=1,
+        required=False,
+    )
 
     args = vars(parser.parse_args())
 
@@ -168,4 +175,5 @@ if __name__ == "__main__":
             recursive=args["recursive"],
             dropzone=args["dropzone"],
             language=args["language"],
+            workers=args["workers"],
         )

@@ -17,6 +17,7 @@
 - Offering a flexible **Command Line Interface**, a **Web Interface**, and a **Graphical User Interface (GUI)**
 - Control output quality and video framerate for the conversion
 - Automatically monitor a **"dropzone" directory** for new files and process them as they are dropped
+- Fast batch conversion with configurable **parallel processing** for audio and video conversions
 
 ## Setup
 1. **Clone/Download**:
@@ -96,6 +97,7 @@ This is the most detailed way to use `any_to_any.py`. You can structure a comman
 | `-r` or </br>`--recursive`   | Recursively process all input files in subdirectories from the input directory. Outputs by default will be placed in their respective subdirectory, unless different output path provided. |
 | `-z` or </br>`--dropzone`    | While running, a specified directory will be monitored for new files. When a file is added, it will be converted to the specified format, saved in the output directory and deleted from the input directory. |
 | `-fps` or</br>`--framerate`  | Set the framerate (fps) when converting to a movie format or codec; default maintains input fps. |
+| `--workers`                   | Set the maximum number of parallel worker threads for per-file conversions (`1` to `cpu_count - 1` are supported). Defaults to `1`. |
 
 ### Single File Processing
 Convert a WEBP file to PNG:
@@ -201,6 +203,23 @@ Concatenating across directories works when adding `-a`/`--across` to the `-c`/`
 python any_to_any.py -i -1 /path/to/folder1 -2 /path/to/folder2 -o /path/to/output-folder -c -a
 ```
 Omitting the `-a`/`--across` parameter will execute merges or concatenations seperately, per each input directory.
+
+#### Parallel Processing
+- Per-file conversions (e.g., audio-to-audio, movie-to-movie, gif-to-video) are processed in parallel.
+- Override default (`1` worker) by setting `--workers N` where `N` can be any integer from `1` to `cpu_count - 1`.
+
+Directory with many audio files:
+```bash
+python any_to_any.py -i /path/to/folder -f mp3 --workers 4
+```
+Explicit multiple files:
+```bash
+python any_to_any.py -i /path/to/a.wav /path/to/b.flac /path/to/c.ogg -f mp3 --workers 4 -o /path/to/output_dir
+```
+Recursive scan (include subdirectories):
+```bash
+python any_to_any.py -i /path/to/input_dir -f mp3 --workers 4 --recursive
+```
 
 ## Supported Formats
 **Audio:** MP2, MP3, FLAC, AAC, AC3, DTS, OGG, OGA, WMA, WAV, M4A, AIFF, WEBA, MKA, WV, CAF, TTA, M4B, EAC3, SPX, AU, OPUS, M3U8, W64, MLP, ADTS, SBC, THD<br><br>

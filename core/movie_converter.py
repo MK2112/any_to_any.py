@@ -16,6 +16,7 @@ from moviepy import (
     VideoClip,
     concatenate_videoclips,
 )
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 class MovieConverter:
@@ -39,10 +40,21 @@ class MovieConverter:
         delete: bool,
     ) -> None:
         # Convert to movie with specified format
+        # Determine worker count
+        try:
+            env_workers = int(os.environ.get("A2A_MAX_WORKERS", "1"))
+            env_workers = 1 if env_workers < 1 else env_workers
+            env_workers = os.cpu_count() - 1 if env_workers >= os.cpu_count() else env_workers
+        except ValueError:
+            # If this variable doesn't exist, flag wasn't invoked: Default to 1
+            env_workers = 1
+
         pngs = bmps = jpgs = []
-        for image_path_set in file_paths[Category.IMAGE]:
-            # Depending on the format, different fragmentation is required
-            if image_path_set[2] == "gif":
+
+        # Helper for per-GIF conversion to video
+        def _gif_to_video(image_path_set: tuple):
+            clip = None
+            try:
                 clip = VideoFileClip(
                     self.file_handler.join_back(image_path_set), audio=False
                 )
@@ -62,8 +74,17 @@ class MovieConverter:
                     audio=False,
                     logger=self.prog_logger,
                 )
-                clip.close()
-                self.file_handler.post_process(image_path_set, out_path, delete)
+                return (image_path_set, out_path)
+            finally:
+                if clip is not None:
+                    clip.close()
+
+        # Collect image items first, dispatch GIFs in parallel
+        gif_items = []
+        for image_path_set in file_paths[Category.IMAGE]:
+            # Depending on the format, different fragmentation is required
+            if image_path_set[2] == "gif":
+                gif_items.append(image_path_set)
             elif image_path_set[2] == "png":
                 pngs.append(
                     ImageClip(
@@ -84,6 +105,21 @@ class MovieConverter:
                 )
             # No post_process here, we just accumulated for processing if not .gif
 
+        if len(gif_items) == 1:
+            res = _gif_to_video(gif_items[0])
+            if res is not None:
+                src, out_path = res
+                self.file_handler.post_process(src, out_path, delete)
+        elif len(gif_items) > 1:
+            with ThreadPoolExecutor(max_workers=env_workers) as ex:
+                futures = [ex.submit(_gif_to_video, g) for g in gif_items]
+                for fut in as_completed(futures):
+                    res = fut.result()
+                    if res is None:
+                        continue
+                    src, out_path = res
+                    self.file_handler.post_process(src, out_path, delete)
+
         # Pics to movie
         for pics in [pngs, jpgs, bmps]:
             if len(pics) > 0:
@@ -98,47 +134,74 @@ class MovieConverter:
                 final_clip.close()
                 self.file_handler.post_process(image_path_set, out_path, delete)
 
-        # Movie to different movie
-        for movie_path_set in file_paths[Category.MOVIE]:
-            if not movie_path_set[2] == format:
-                out_path = os.path.abspath(
-                    os.path.join(output, f"{movie_path_set[1]}.{format}")
-                )
+        # Movie to different movie (parallel per file)
+        def _movie_to_movie(movie_path_set: tuple):
+            if movie_path_set[2] == format:
+                return None
+            out_path_local = os.path.abspath(
+                os.path.join(output, f"{movie_path_set[1]}.{format}")
+            )
+            video = None
+            audio = None
+            try:
                 if self.file_handler.has_visuals(movie_path_set):
                     video = VideoFileClip(
-                        self.file_handler.join_back(movie_path_set),
-                        audio=True,
-                        fps_source="tbr",
+                        self.file_handler.join_back(movie_path_set), audio=True
                     )
+                    audio = video.audio
+                    # Apply conversion with same fps by default
                     video.write_videofile(
-                        out_path,
-                        codec=codec,
+                        out_path_local,
                         fps=video.fps if framerate is None else framerate,
-                        audio=True,
-                        logger=self.prog_logger,
-                    )
-                    video.close()
-                else:
-                    # Audio-only video file
-                    audio = AudioFileClip(self.file_handler.join_back(movie_path_set))
-                    # Create new VideoClip with audio only
-                    clip = VideoClip(
-                        lambda t: np.zeros(
-                            (16, 16, 3), dtype=np.uint8
-                        ),  # 16 black pixels required by moviepy
-                        duration=audio.duration,
-                    )
-                    clip = clip.with_audio(audio)
-                    clip.write_videofile(
-                        out_path,
                         codec=codec,
-                        fps=24 if framerate is None else framerate,
-                        audio=True,
+                        audio=bool(audio),
                         logger=self.prog_logger,
                     )
-                    clip.close()
-                    audio.close()
-                self.file_handler.post_process(movie_path_set, out_path, delete)
+                else:
+                    # Audio-only video
+                    try:
+                        audio = AudioFileClip(self.file_handler.join_back(movie_path_set))
+                        video_clip = VideoClip(lambda t: np.zeros((720, 1280, 3), dtype=np.uint8))
+                        duration = audio.duration
+                        video_clip = video_clip.with_duration(duration)
+                        video_clip = video_clip.with_fps(24 if framerate is None else framerate)
+                        video_clip = video_clip.with_audio(audio)
+                        video_clip.write_videofile(
+                            out_path_local, codec=codec, audio=True, logger=self.prog_logger
+                        )
+                    except Exception as _:
+                        self.event_logger.info(
+                            f"[!] {lang.get_translation('audio_only_video', self.locale)}: {self.file_handler.join_back(movie_path_set)} - {lang.get_translation('skipping', self.locale)}\n"
+                        )
+                        return None
+                return (movie_path_set, out_path_local)
+            finally:
+                try:
+                    if audio is not None:
+                        audio.close()
+                except Exception:
+                    pass
+                try:
+                    if video is not None:
+                        video.close()
+                except Exception:
+                    pass
+
+        movie_items = list(file_paths[Category.MOVIE])
+        if len(movie_items) == 1:
+            res = _movie_to_movie(movie_items[0])
+            if res is not None:
+                src, out_path = res
+                self.file_handler.post_process(src, out_path, delete)
+        elif len(movie_items) > 1:
+            with ThreadPoolExecutor(max_workers=env_workers) as ex:
+                futures = [ex.submit(_movie_to_movie, m) for m in movie_items]
+                for fut in as_completed(futures):
+                    res = fut.result()
+                    if res is None:
+                        continue
+                    src, out_path = res
+                    self.file_handler.post_process(src, out_path, delete)
 
         # Document to movie (because why the hell not)
         for doc_path_set in file_paths[Category.DOCUMENT]:
