@@ -2,6 +2,7 @@ import os
 import utils.language_support as lang
 from utils.category import Category
 from moviepy import AudioFileClip, VideoFileClip
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 class AudioConverter:
@@ -26,87 +27,141 @@ class AudioConverter:
         output: str,
         delete: str,
     ) -> None:
-        # Audio to audio conversion
-        for audio_path_set in file_paths[Category.AUDIO]:
+        try:
+            # Decide worker count with env A2A_MAX_WORKERS if set
+            env_workers = int(os.environ.get("A2A_MAX_WORKERS", "1"))
+            env_workers = 1 if env_workers < 1 else env_workers
+            env_workers = os.cpu_count() - 1 if env_workers >= os.cpu_count() else env_workers
+        except ValueError:
+            # If this variable doesn't exist, flag wasn't invoked: Default to 1
+            env_workers = 1
+
+        # Helper to convert a single audio file
+        def _convert_audio_file(audio_path_set: tuple):
             if audio_path_set[2] == format:
-                continue
-            audio = AudioFileClip(self.file_handler.join_back(audio_path_set))
-            # If recursive, create file outright where its source was found
-            if not recursive or input != output:
-                out_path = os.path.abspath(
-                    os.path.join(output, f"{audio_path_set[1]}.{format}")
-                )
-            else:
-                out_path = os.path.abspath(
-                    os.path.join(audio_path_set[0], f"{audio_path_set[1]}.{format}")
-                )
-            # Write audio to file
+                return None
+            audio = None
+            out_path = None
             try:
-                audio.write_audiofile(
-                    out_path,
-                    codec=codec,
-                    bitrate=bitrate,
-                    fps=audio.fps,
-                    logger=self.prog_logger,
-                )
-            except Exception as _:
-                self.event_logger.info(
-                    f"\n\n[!] {lang.get_translation('error', self.locale)}: {lang.get_translation('source_rate_incompatible', self.locale).replace('[format]', f'{format}')}\n"
-                )
-                audio.write_audiofile(
-                    out_path,
-                    codec=codec,
-                    bitrate=bitrate,
-                    fps=48000,
-                    logger=self.prog_logger,
-                )
-            audio.close()
-            self.file_handler.post_process(audio_path_set, out_path, delete)
-
-        # Movie to audio conversion
-        for movie_path_set in file_paths[Category.MOVIE]:
-            out_path = os.path.abspath(
-                os.path.join(output, f"{movie_path_set[1]}.{format}")
-            )
-
-            if self.file_handler.has_visuals(movie_path_set):
-                video = VideoFileClip(
-                    self.file_handler.join_back(movie_path_set),
-                    audio=True,
-                    fps_source="tbr",
-                )
-                audio = video.audio
-                # Check if audio was found
-                if audio is None:
-                    self.event_logger.info(
-                        f"[!] {lang.get_translation('no_audio', self.locale).replace('[path]', f'"{self.file_handler.join_back(movie_path_set)}"')} - {lang.get_translation('skipping', self.locale)}\n"
+                audio = AudioFileClip(self.file_handler.join_back(audio_path_set))
+                # If recursive, create file outright where its source was found
+                if not recursive or input != output:
+                    out_path = os.path.abspath(
+                        os.path.join(output, f"{audio_path_set[1]}.{format}")
                     )
-                    video.close()
-                    continue
-
-                audio.write_audiofile(
-                    out_path,
-                    codec=codec,
-                    bitrate=bitrate,
-                    logger=self.prog_logger,
-                )
-
-                audio.close()
-                video.close()
-            else:
+                else:
+                    out_path = os.path.abspath(
+                        os.path.join(audio_path_set[0], f"{audio_path_set[1]}.{format}")
+                    )
                 try:
-                    # AudioFileClip works for audio-only video files
-                    audio = AudioFileClip(self.file_handler.join_back(movie_path_set))
                     audio.write_audiofile(
                         out_path,
                         codec=codec,
                         bitrate=bitrate,
+                        fps=audio.fps,
                         logger=self.prog_logger,
                     )
-                    audio.close()
                 except Exception as _:
                     self.event_logger.info(
-                        f"[!] {lang.get_translation('audio_extract_fail', self.locale).replace('[path]', f'"{self.file_handler.join_back(movie_path_set)}"')} - {lang.get_translation('skipping', self.locale)}\n"
+                        f"\n\n[!] {lang.get_translation('error', self.locale)}: {lang.get_translation('source_rate_incompatible', self.locale).replace('[format]', f'{format}')}\n"
                     )
-                    continue
-            self.file_handler.post_process(movie_path_set, out_path, delete)
+                    audio.write_audiofile(
+                        out_path,
+                        codec=codec,
+                        bitrate=bitrate,
+                        fps=48000,
+                        logger=self.prog_logger,
+                    )
+                return (audio_path_set, out_path)
+            finally:
+                if audio is not None:
+                    audio.close()
+
+        audio_items = list(file_paths[Category.AUDIO])
+        if len(audio_items) <= 1:
+            # Fallback to sequential for 0/1 items
+            result = _convert_audio_file(audio_items[0]) if audio_items else None
+            if result is not None:
+                src, out_path = result
+                self.file_handler.post_process(src, out_path, delete)
+        else:
+            max_workers = env_workers if env_workers > 1 else 1
+            with ThreadPoolExecutor(max_workers=max_workers) as ex:
+                futures = [ex.submit(_convert_audio_file, a) for a in audio_items]
+                for fut in as_completed(futures):
+                    res = fut.result()
+                    if res is None:
+                        continue
+                    src, out_path = res
+                    self.file_handler.post_process(src, out_path, delete)
+
+        # Movie to audio conversion
+        def _extract_from_movie(movie_path_set: tuple):
+            out_path_local = os.path.abspath(
+                os.path.join(output, f"{movie_path_set[1]}.{format}")
+            )
+            video = None
+            audio = None
+            try:
+                if self.file_handler.has_visuals(movie_path_set):
+                    video = VideoFileClip(
+                        self.file_handler.join_back(movie_path_set),
+                        audio=True,
+                        fps_source="tbr",
+                    )
+                    audio = video.audio
+                    # Check if audio was found
+                    if audio is None:
+                        self.event_logger.info(
+                            f"[!] {lang.get_translation('no_audio', self.locale).replace('[path]', f'\"{self.file_handler.join_back(movie_path_set)}\"')} - {lang.get_translation('skipping', self.locale)}\n"
+                        )
+                        return None
+                    audio.write_audiofile(
+                        out_path_local,
+                        codec=codec,
+                        bitrate=bitrate,
+                        logger=self.prog_logger,
+                    )
+                else:
+                    try:
+                        # AudioFileClip works for audio-only video files
+                        audio = AudioFileClip(self.file_handler.join_back(movie_path_set))
+                        audio.write_audiofile(
+                            out_path_local,
+                            codec=codec,
+                            bitrate=bitrate,
+                            logger=self.prog_logger,
+                        )
+                    except Exception as _:
+                        self.event_logger.info(
+                            f"[!] {lang.get_translation('audio_extract_fail', self.locale).replace('[path]', f'\"{self.file_handler.join_back(movie_path_set)}\"')} - {lang.get_translation('skipping', self.locale)}\n"
+                        )
+                        return None
+                return (movie_path_set, out_path_local)
+            finally:
+                try:
+                    if audio is not None:
+                        audio.close()
+                except Exception:
+                    pass
+                try:
+                    if video is not None:
+                        video.close()
+                except Exception:
+                    pass
+
+        movie_items = list(file_paths[Category.MOVIE])
+        if len(movie_items) <= 1:
+            res = _extract_from_movie(movie_items[0]) if movie_items else None
+            if res is not None:
+                src, out_path = res
+                self.file_handler.post_process(src, out_path, delete)
+        else:
+            with ThreadPoolExecutor(max_workers=env_workers) as ex:
+                futures = [ex.submit(_extract_from_movie, m) for m in movie_items]
+                for fut in as_completed(futures):
+                    res = fut.result()
+                    if res is None:
+                        continue
+                    src, out_path = res
+                    self.file_handler.post_process(src, out_path, delete)
