@@ -17,7 +17,7 @@
 - Offering a flexible **Command Line Interface**, a **Web Interface**, and a **Graphical User Interface (GUI)**
 - Control output quality and video framerate for the conversion
 - Automatically monitor a **"dropzone" directory** for new files and process them as they are dropped
-- Fast batch conversion with **parallel, multi-threaded processing** and a `--workers` flag to control concurrency
+- Fast batch conversion with configurable **parallel processing** for audio and video conversions
 
 ## Setup
 1. **Clone/Download**:
@@ -206,10 +206,19 @@ Omitting the `-a`/`--across` parameter will execute merges or concatenations sep
 
 #### Parallel Processing
 - Per-file conversions (e.g., audio-to-audio, movie-to-movie, gif-to-video) are processed in parallel.
-- Default workers scale with your CPU. Override with `--workers N` or environment variable `A2A_MAX_WORKERS`.
-- Example:
+- Override default (`1` worker) by setting `--workers N` where `N` can be any integer from `1` to `cpu_count - 1`.
+
+Directory with many audio files:
 ```bash
 python any_to_any.py -i /path/to/folder -f mp3 --workers 4
+```
+Explicit multiple files:
+```bash
+python any_to_any.py -i /path/to/a.wav /path/to/b.flac /path/to/c.ogg -f mp3 --workers 4 -o /path/to/output_dir
+```
+Recursive scan (include subdirectories):
+```bash
+python any_to_any.py -i /path/to/input_dir -f mp3 --workers 4 --recursive
 ```
 
 ## Supported Formats
