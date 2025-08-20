@@ -4,7 +4,6 @@ from utils.category import Category
 from moviepy import AudioFileClip, VideoFileClip
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-
 class AudioConverter:
     def __init__(
         self, file_handler, prog_logger, event_logger, locale: str = "English"
@@ -15,6 +14,7 @@ class AudioConverter:
         self.prog_logger = prog_logger
         self.event_logger = event_logger
         self.locale = locale
+        self.default_audio_fps = 48000
 
     def to_audio(
         self,
@@ -69,7 +69,7 @@ class AudioConverter:
                         out_path,
                         codec=codec,
                         bitrate=bitrate,
-                        fps=48000,
+                        fps=self.default_audio_fps,
                         logger=self.prog_logger,
                     )
                 return (audio_path_set, out_path)
