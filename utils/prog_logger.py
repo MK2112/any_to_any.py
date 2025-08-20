@@ -10,7 +10,7 @@ class ProgLogger(ProgressBarLogger):
     def __init__(self, job_id=None, shared_progress_dict=None):
         super().__init__()
         self.start_time, self.last_print_time = None, None
-        self.print_interval = 0.1  # Frequency of progress updates in seconds
+        self.print_interval = 0.1  # Frequency of progress updates [s]
         self.tqdm_bar = None
         self.job_id = job_id
         self.shared_progress_dict = shared_progress_dict
@@ -39,7 +39,7 @@ class ProgLogger(ProgressBarLogger):
             self.last_print_time = self.start_time
             total = self.bars[bar].get(
                 "total", 100
-            )  # Default to 100 if total not available
+            )  # Default to this if total not available
 
             # Initialize tqdm progress bar
             self.tqdm_bar = tqdm(total=total, unit="chunks")

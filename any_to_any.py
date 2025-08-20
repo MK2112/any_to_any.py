@@ -4,9 +4,17 @@ import subprocess
 import utils.language_support as lang
 from core.controller import Controller
 
+####
+## Any_to_Any.py Entry Script
+## Refer to README.md for more information and usage examples
+####
+
 if __name__ == "__main__":
-    # An object is interacted with through a CLI-interface
-    # Check if required libraries are installed
+    # An object is interacted with through:
+    # - a CLI-interface,
+    # - a web interface, or
+    # - an application using this as its backend.
+    # Ensure most essential required libraries are installed
     for lib in [
         "moviepy",
         "PIL",
