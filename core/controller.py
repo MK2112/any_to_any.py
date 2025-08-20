@@ -195,6 +195,8 @@ class Controller:
         self.web_flag = False
         # Host address for the web interface
         self.web_host = None
+        # Quality step indicators
+        self.high, self.medium, self.low = "high", "medium", "low"
 
     def _audio_bitrate(self, format: str, quality: str) -> str:
         # Return bitrate for audio conversion
@@ -212,15 +214,15 @@ class Controller:
             "mlp",
         ]:
             return {
-                "high": "500k",
-                "medium": "320k",
-                "low": "192k",
+                self.high: "500k",
+                self.medium: "320k",
+                self.low: "192k",
             }.get(quality, None)
         else:
             return {
-                "high": "320k",
-                "medium": "192k",
-                "low": "128k",
+                self.high: "320k",
+                self.medium: "192k",
+                self.low: "128k",
             }.get(quality, None)
 
     def run(
@@ -306,7 +308,7 @@ class Controller:
         self.delete = delete  # Delete mp4 files after conversion
         # Check if quality is set, if not, set it to None
         self.quality = (
-            (quality.lower() if quality.lower() in ["high", "medium", "low"] else None)
+            (quality.lower() if quality.lower() in [self.high, self.medium, self.low] else None)
             if quality is not None
             else None
         )
