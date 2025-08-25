@@ -39,4 +39,6 @@ LANGUAGE_CODES = {
     "sw_KE": "Swahili",
     "pa_IN": "Punjabi",
     "pa_PK": "Punjabi",
+    "tl_PH": "Tagalog",
+    "my_MM": "Burmese",
 }
