@@ -44,7 +44,9 @@ class MovieConverter:
         try:
             env_workers = int(os.environ.get("A2A_MAX_WORKERS", "1"))
             env_workers = 1 if env_workers < 1 else env_workers
-            env_workers = os.cpu_count() - 1 if env_workers >= os.cpu_count() else env_workers
+            env_workers = (
+                os.cpu_count() - 1 if env_workers >= os.cpu_count() else env_workers
+            )
         except ValueError:
             # If this variable doesn't exist, flag wasn't invoked: Default to 1
             env_workers = 1
@@ -58,7 +60,6 @@ class MovieConverter:
                 clip = VideoFileClip(
                     self.file_handler.join_back(image_path_set), audio=False
                 )
-                # If recursive, create file outright where its source was found
                 if not recursive or input != output:
                     out_path = os.path.abspath(
                         os.path.join(output, f"{image_path_set[1]}.{format}")
@@ -76,7 +77,7 @@ class MovieConverter:
                 )
                 return (image_path_set, out_path)
             finally:
-                if clip is not None:
+                if clip:
                     clip.close()
 
         # Collect image items first, dispatch GIFs in parallel
@@ -149,7 +150,6 @@ class MovieConverter:
                         self.file_handler.join_back(movie_path_set), audio=True
                     )
                     audio = video.audio
-                    # Apply conversion with same fps by default
                     video.write_videofile(
                         out_path_local,
                         fps=video.fps if framerate is None else framerate,
@@ -158,16 +158,24 @@ class MovieConverter:
                         logger=self.prog_logger,
                     )
                 else:
-                    # Audio-only video
                     try:
-                        audio = AudioFileClip(self.file_handler.join_back(movie_path_set))
-                        video_clip = VideoClip(lambda t: np.zeros((720, 1280, 3), dtype=np.uint8))
+                        audio = AudioFileClip(
+                            self.file_handler.join_back(movie_path_set)
+                        )
+                        video_clip = VideoClip(
+                            lambda t: np.zeros((720, 1280, 3), dtype=np.uint8)
+                        )
                         duration = audio.duration
                         video_clip = video_clip.with_duration(duration)
-                        video_clip = video_clip.with_fps(24 if framerate is None else framerate)
+                        video_clip = video_clip.with_fps(
+                            24 if framerate is None else framerate
+                        )
                         video_clip = video_clip.with_audio(audio)
                         video_clip.write_videofile(
-                            out_path_local, codec=codec, audio=True, logger=self.prog_logger
+                            out_path_local,
+                            codec=codec,
+                            audio=True,
+                            logger=self.prog_logger,
                         )
                     except Exception as _:
                         self.event_logger.info(
@@ -176,16 +184,10 @@ class MovieConverter:
                         return None
                 return (movie_path_set, out_path_local)
             finally:
-                try:
-                    if audio is not None:
-                        audio.close()
-                except Exception:
-                    pass
-                try:
-                    if video is not None:
-                        video.close()
-                except Exception:
-                    pass
+                if audio:
+                    audio.close()
+                if video:
+                    video.close()
 
         movie_items = list(file_paths[Category.MOVIE])
         if len(movie_items) == 1:
