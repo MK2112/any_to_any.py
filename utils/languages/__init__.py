@@ -38,4 +38,5 @@ from .swahili import SWAHILI
 from .punjabi import PUNJABI
 from .tagalog import TAGALOG
 from .burmese import BURMESE
+from .tamil import TAMIL
 from .language_codes import LANGUAGE_CODES

@@ -41,4 +41,5 @@ LANGUAGE_CODES = {
     "pa_PK": "Punjabi",
     "tl_PH": "Tagalog",
     "my_MM": "Burmese",
+    "ta_IN": "Tamil",
 }
