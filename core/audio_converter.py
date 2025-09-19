@@ -4,6 +4,7 @@ from utils.category import Category
 from moviepy import AudioFileClip, VideoFileClip
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+
 class AudioConverter:
     def __init__(
         self, file_handler, prog_logger, event_logger, locale: str = "English"
@@ -31,7 +32,9 @@ class AudioConverter:
             # Decide worker count with env A2A_MAX_WORKERS if set
             env_workers = int(os.environ.get("A2A_MAX_WORKERS", "1"))
             env_workers = 1 if env_workers < 1 else env_workers
-            env_workers = os.cpu_count() - 1 if env_workers >= os.cpu_count() else env_workers
+            env_workers = (
+                os.cpu_count() - 1 if env_workers >= os.cpu_count() else env_workers
+            )
         except ValueError:
             # If this variable doesn't exist, flag wasn't invoked: Default to 1
             env_workers = 1
@@ -125,7 +128,9 @@ class AudioConverter:
                 else:
                     try:
                         # AudioFileClip works for audio-only video files
-                        audio = AudioFileClip(self.file_handler.join_back(movie_path_set))
+                        audio = AudioFileClip(
+                            self.file_handler.join_back(movie_path_set)
+                        )
                         audio.write_audiofile(
                             out_path_local,
                             codec=codec,
@@ -134,7 +139,7 @@ class AudioConverter:
                         )
                     except Exception as _:
                         self.event_logger.info(
-                            f"[!] {lang.get_translation('audio_extract_fail', self.locale).replace('[path]', f'\"{self.file_handler.join_back(movie_path_set)}\"')} - {lang.get_translation('skipping', self.locale)}\n"
+                            f"[!] {lang.get_translation('audio_extract_fail', self.locale).replace('[path]', f'"{self.file_handler.join_back(movie_path_set)}"')} - {lang.get_translation('skipping', self.locale)}\n"
                         )
                         return None
                 return (movie_path_set, out_path_local)

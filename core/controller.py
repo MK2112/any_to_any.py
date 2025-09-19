@@ -25,7 +25,6 @@ from moviepy import (
 )
 
 
-
 class Controller:
     """
     Taking an input directory of files, convert them to a multitude of formats.
@@ -242,31 +241,53 @@ class Controller:
         language: str,
         workers: int,
     ) -> None:
-        # Main function, convert media files to defined formats
-        # or merge or concatenate, according to the arguments
-        input_paths = []
-        # Apply worker override via environment for converters
-        try:
-            if workers is not None:
-                # Workers flag was set, do some validation, hand it to env
+        # Convert media files to defined formats or 
+        # merge or concatenate, according to the arguments
+        #
+        # Set environment for worker count
+        if workers is not None:
+            try:
                 os.environ["A2A_MAX_WORKERS"] = str(max(1, int(workers)))
-        except Exception:
-            # Ignore invalid values; converters will fall back to CPU-based default
-            pass
+            except Exception:
+                pass
 
-        # Apply input paths
+        # Prepare input paths
         input_path_args = (
             input_path_args
             if input_path_args is not None
             else [os.path.dirname(os.getcwd())]
         )
+        input_paths = []
+        for _, arg in enumerate(input_path_args):
+            if arg.startswith("-") and arg[1:].isdigit():
+                input_paths.append(arg[2:])
+            else:
+                try:
+                    input_paths[-1] = (input_paths[-1] + f" {arg}").strip()
+                except IndexError:
+                    input_paths.append(arg)
 
+        # Set flags and parameters
         self.across = across
         self.recursive = recursive
+        self.merging = merge
+        self.concatenating = concat
+        self.page_ranges = split
+        self.target_format = format.lower() if format is not None else None
+        self.framerate = framerate
+        self.delete = delete
+        self.quality = (
+            (
+                quality.lower()
+                if quality and quality.lower() in [self.high, self.medium, self.low]
+                else None
+            )
+            if quality is not None
+            else None
+        )
 
-        # User-set Language
+        # Language
         if language is not None:
-            # we expect a language code like "en_US" or "pl_PL"
             if re.match(r"^[a-z]{2}_[A-Z]{2}$", language) and language in list(
                 lang.LANGUAGE_CODES.keys()
             ):
@@ -276,54 +297,21 @@ class Controller:
                     f"[!] {lang.get_translation('lang_not_supported', self.locale)}"
                 )
 
-        for _, arg in enumerate(input_path_args):
-            # Custom handling of multiple input paths
-            # (e.g. "-1 path1 -2 path2 -n pathn")
-            if arg.startswith("-") and arg[1:].isdigit():
-                input_paths.append(arg[2:])
-            else:
-                try:
-                    input_paths[-1] = (input_paths[-1] + f" {arg}").strip()
-                except IndexError:
-                    input_paths.append(arg)
-
+        # Output path
         if len(input_paths) == 1:
             self.output = output if output is not None else input_paths[0]
         else:
-            # len(input_paths) > 1
-            if not across:
-                self.output = output if output is not None else None
-            else:
-                self.output = (
-                    output if output is not None else os.path.dirname(os.getcwd())
-                )
+            self.output = (
+                output
+                if output is not None
+                else (os.path.dirname(os.getcwd()) if across else None)
+            )
 
-        # Check if the output dir exists - Create it otherwise
         if self.output is not None and not os.path.exists(self.output):
             os.makedirs(self.output)
 
-        # No format means no conversion (but maybe merge || concat)
-        self.target_format = format.lower() if format is not None else None
-        self.framerate = framerate  # Possibly no framerate means same as input
-        self.delete = delete  # Delete mp4 files after conversion
-        # Check if quality is set, if not, set it to None
-        self.quality = (
-            (quality.lower() if quality.lower() in [self.high, self.medium, self.low] else None)
-            if quality is not None
-            else None
-        )
-
-        # Merge movie files with equally named audio files
-        self.merging = merge
-        # Concatenate files of same type (img/movie/audio) back to back
-        self.concatenating = concat
-        # Split files into smaller parts
-        self.page_ranges = split
-
         file_paths = {}
         was_none, found_files = False, False
-
-        # Check if input paths are given
         for input_path in input_paths:
             input_path = os.path.abspath(input_path)
             try:
@@ -336,28 +324,19 @@ class Controller:
                     FileNotFoundError,
                     f"[!] {lang.get_translation('error', self.locale)}: {lang.get_translation('no_dir_exist', self.locale).replace('[dir]', f'{input_path}')}",
                 )
-            # Make self.input hold the actual file if a file, otherwise the directory
-            if os.path.isfile(str(input_path)):
-                self.input = input_path  # Use the file path directly
-            else:
-                self.input = input_path
+            self.input = Path(input_path)
+            self.output = Path(self.output)
 
-            # If no output path set or derived by the script by now, throw an error
             if not self.output:
                 end_with_msg(
                     self.event_logger,
                     ValueError,
                     f"[!] {lang.get_translation('error', self.locale)}: {lang.get_translation('no_out_multi_in', self.locale)}",
                 )
-
-            # If output is just a file for whatever reason, turn it into directory
             if os.path.isfile(self.output):
                 self.output = os.path.dirname(self.output)
 
-            # Unify path formatting, still works like any other string
-            self.input, self.output = Path(self.input), Path(self.output)
-
-            # Cut setup for media conversion short, begin dropzone mode
+            # Dropzone
             if dropzone:
                 if self.input == self.output or self.input in self.output.parents:
                     end_with_msg(
@@ -371,14 +350,11 @@ class Controller:
                 self.watchdropzone(self.input)
                 return
 
-            # What if that directory contains subdirectories?
+            # Recursion
             if self.recursive:
-                # Check if there is any subdirectory in the input path
                 if any(entry.is_dir() for entry in os.scandir(self.input)):
-                    file_paths = {}  # Reset, we go through everything again to be sure
-                    # If the user set the recursive option, also scan every non-empty subdirectory
+                    file_paths = {}
                     for root, _, files in os.walk(self.input):
-                        # root should be a directory with >=1 file to be considered
                         try:
                             file_paths = self.file_handler.get_file_paths(
                                 root, file_paths, self._supported_formats
@@ -403,7 +379,6 @@ class Controller:
                     )
                 continue
 
-            # If no output given, output is set to the input path
             if not across:
                 if self.output is None or was_none:
                     self.output = os.path.dirname(input_path)
@@ -412,14 +387,12 @@ class Controller:
                 found_files = len(file_paths) > 0 if not found_files else found_files
                 file_paths = {}
 
-        # If multiple input paths are given, yet no output, output is set to the first input path
         if across:
             if self.output is None:
                 self.output = os.path.dirname(input_paths[0])
             self.process_file_paths(file_paths)
 
-        # Check if file_paths is empty
-        if across and len(file_paths) == 0 or not found_files:
+        if (across and len(file_paths) == 0) or not found_files:
             self.event_logger.warning(
                 f"{lang.get_translation('no_media_general', self.locale)}"
             )
