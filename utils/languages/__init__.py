@@ -39,4 +39,6 @@ from .punjabi import PUNJABI
 from .tagalog import TAGALOG
 from .burmese import BURMESE
 from .tamil import TAMIL
+from .telugu import TELUGU
+from .marathi import MARATHI
 from .language_codes import LANGUAGE_CODES

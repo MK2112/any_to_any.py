@@ -42,4 +42,6 @@ LANGUAGE_CODES = {
     "tl_PH": "Tagalog",
     "my_MM": "Burmese",
     "ta_IN": "Tamil",
+    "te_IN": "Telugu",
+    "mr_IN": "Marathi",
 }
