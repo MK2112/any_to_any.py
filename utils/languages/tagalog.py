@@ -94,7 +94,7 @@ TAGALOG = {
     "conversion_failed": "Nabigo ang Conversion",
     "language": "Wika",
     "browse": "Mag-browse",
-    "split_help": "Hatiin ang input file sa maraming bahagi, hal. PDF sa '1-5', '2-4,3-7,8-sunod' o '1-3,6-7,8-huli'",
+    "split_help": "Hatiin ang input file sa maraming bahagi, hal. PDF sa '1-5', '2-4,3-7,8-rest' o '1-3,6-7,8-end'",
     "split_merge_error": "Hindi puwedeng gamitin nang sabay ang --split at --merge. Pumili lang ng isa",
     "merge_concat_error": "Hindi puwedeng gamitin nang sabay ang --merge at --concat. Pumili lang ng isa",
     "split_produced": "Nabuo ang paghahati",

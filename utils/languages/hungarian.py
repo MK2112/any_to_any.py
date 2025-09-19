@@ -94,7 +94,7 @@ HUNGARIAN = {
     "conversion_failed": "Konvertálás sikertelen",
     "language": "Nyelv",
     "browse": "Böngészés",
-    "split_help": "Ossza fel a bemeneti fájlt több részre, pl. PDF oldalak '1–5', '2–4,3–7,8–vég' vagy '1–3,6–7,8–vég'",
+    "split_help": "Ossza fel a bemeneti fájlt több részre, pl. PDF oldalak '1-5', '2-4,3-7,8-rest' vagy '1-3,6-7,8-end'",
     "split_merge_error": "Nem használhatja egyszerre a --split és a --merge kapcsolót. Kérjük, válasszon csak egyet",
     "merge_concat_error": "Nem használhatja egyszerre a --merge és a --concat kapcsolót. Kérjük, válasszon csak egyet",
     "split_produced": "Rész létrehozva",

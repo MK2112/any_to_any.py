@@ -94,7 +94,7 @@ SWAHILI = {
     "conversion_failed": "Kubadilisha Kumeshindwa",
     "language": "Lugha",
     "browse": "Vinjari",
-    "split_help": "Gawanya faili la ingizo katika sehemu nyingi, mfano PDFs kuwa '1-5', '2-4,3-7,8-mwisho' au '1-3,6-7,8-mwisho'",
+    "split_help": "Gawanya faili la ingizo katika sehemu nyingi, mfano PDFs kuwa '1-5', '2-4,3-7,8-rest' au '1-3,6-7,8-end'",
     "split_merge_error": "Huwezi kutumia --split na --merge kwa pamoja. Tafadhali chagua chaguo moja pekee",
     "merge_concat_error": "Huwezi kutumia --merge na --concat kwa pamoja. Tafadhali chagua chaguo moja pekee",
     "split_produced": "Imezalisha mgawanyo",

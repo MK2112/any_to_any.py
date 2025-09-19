@@ -95,7 +95,7 @@ MANDARIN_TRADITIONAL = {
     "language": "語言",
     "browse": "瀏覽",
     "split_help": "將輸入檔案分割成多個部分，例如 PDF 可為 '1-5'、'2-4,3-7,8-rest' 或 '1-3,6-7,8-end'",
-    "split_merge_error": "無法同時使用 --split 與 --merge，請擇一使用",
-    "merge_concat_error": "無法同時使用 --merge 與 --concat，請擇一使用",
+    "split_merge_error": "無法同時使用 --split 與 --merge, 請擇一使用",
+    "merge_concat_error": "無法同時使用 --merge 與 --concat, 請擇一使用",
     "split_produced": "已產生分割檔",
 }

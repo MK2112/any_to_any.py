@@ -94,7 +94,7 @@ SLOVAK = {
     "conversion_failed": "Konverzia zlyhala",
     "language": "Jazyk",
     "browse": "Prehliadať",
-    "split_help": "Rozdeľte vstupný súbor na viaceré časti, napr. PDF na strany '1–5', '2–4,3–7,8‑koniec' alebo '1–3,6–7,8‑koniec'",
+    "split_help": "Rozdeľte vstupný súbor na viaceré časti, napr. PDF na strany '1-5', '2-4,3-7,8-rest' alebo '1-3,6-7,8-end'",
     "split_merge_error": "Nemôžete súčasne použiť --split a --merge. Prosím, vyberte iba jedno",
     "merge_concat_error": "Nemôžete súčasne použiť --merge a --concat. Prosím, vyberte iba jedno",
     "split_produced": "Časť vytvorená",
