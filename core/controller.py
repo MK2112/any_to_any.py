@@ -37,7 +37,7 @@ class Controller:
         self.prog_logger = ProgLogger(
             job_id=job_id, shared_progress_dict=shared_progress_dict
         )
-
+    
         self.locale = lang.get_system_language() if locale is None else locale
         # Setting up event logger and format
         logging.basicConfig(
@@ -286,8 +286,8 @@ class Controller:
             else None
         )
 
-        # Language
-        if language is not None:
+        # Language setting if not set already
+        if language is not None and self.locale is None:
             if re.match(r"^[a-z]{2}_[A-Z]{2}$", language) and language in list(
                 lang.LANGUAGE_CODES.keys()
             ):
