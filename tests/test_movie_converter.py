@@ -176,3 +176,16 @@ def test_to_protocol_dash_fails(mock_run, mock_converter):
             delete=False,
         )
         mock_end.assert_called()
+
+def test_to_movie_no_images_no_movies(mock_converter):
+    # No exceptions when no inputs provided, graceful handling instead
+    mock_converter.to_movie(
+        input="in",
+        output="out",
+        recursive=False,
+        file_paths={Category.IMAGE: [], Category.MOVIE: [], Category.DOCUMENT: []},
+        format="mp4",
+        framerate=24,
+        codec="libx264",
+        delete=False,
+    )
