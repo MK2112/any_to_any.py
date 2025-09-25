@@ -2,7 +2,7 @@ import os
 import docx
 import pptx
 import fitz
-import PyPDF2
+import pypdf
 import utils.language_support as lang
 from PIL import Image
 from tqdm import tqdm
@@ -176,7 +176,7 @@ class ImageConverter:
             if doc_path_set[2] == "pdf":
                 # Per page, convert pdf to image
                 pdf_path = self.file_handler.join_back(doc_path_set)
-                pdf = PyPDF2.PdfReader(pdf_path)
+                pdf = pypdf.PdfReader(pdf_path)
                 img_path = os.path.abspath(
                     os.path.join(
                         os.path.join(output, doc_path_set[1]),

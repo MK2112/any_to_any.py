@@ -54,7 +54,7 @@ def build_executable():
         '--hidden-import=moviepy',
         '--hidden-import=docx',
         '--hidden-import=pptx',
-        '--hidden-import=PyPDF2',
+        '--hidden-import=pypdf',
         '--hidden-import=mammoth',
         '--hidden-import=weasyprint',
         '--hidden-import=markdownify',

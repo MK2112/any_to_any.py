@@ -22,7 +22,7 @@ if __name__ == "__main__":
         "flask_uploads",
         "docx",
         "pptx",
-        "PyPDF2",
+        "pypdf",
         "mammoth",
         "weasyprint",
         "markdownify",
