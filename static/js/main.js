@@ -145,11 +145,24 @@ function pollProgress(jobId) {
                     // Trigger download
                     window.location.href = `/download/${jobId}`;
                     
-                    // Reset UI after a short delay
+                    // Reset UI and file inputs after a short delay
                     setTimeout(() => {
                         progressContainer.style.display = 'none';
                         progressBar.style.width = '0%';
                         progressStatus.textContent = '';
+
+                        // Clear selected files array and visible file list
+                        uploadedFiles = [];
+                        const fileListEl = document.getElementById('file-list');
+                        if (fileListEl) fileListEl.innerHTML = '';
+
+                        // Reset file input element so same files can be reselected
+                        const fileInput = document.getElementById('files');
+                        if (fileInput) fileInput.value = '';
+
+                        // Clear any stored job id
+                        const jobIdInput = document.getElementById('job-id');
+                        if (jobIdInput) jobIdInput.value = '';
                     }, 2000);
                 }
             })
@@ -158,6 +171,15 @@ function pollProgress(jobId) {
                 errorMessage.style.display = 'block';
                 errorMessage.textContent = error.message || 'An error occurred during conversion';
                 progressContainer.style.display = 'none';
+
+                // On error also reset file selection so user can try again
+                uploadedFiles = [];
+                const fileListEl = document.getElementById('file-list');
+                if (fileListEl) fileListEl.innerHTML = '';
+                const fileInput = document.getElementById('files');
+                if (fileInput) fileInput.value = '';
+                const jobIdInput = document.getElementById('job-id');
+                if (jobIdInput) jobIdInput.value = '';
             });
     }, 500); // Poll every 500ms
 }
