@@ -170,8 +170,8 @@ python any_to_any.py -i /path/to/mp4-folder -o /path/to/save/folder -c -d
 ```
 
 ### Dropzone Mode
-You can turn a folder on your system into a "dropzone" for files to be converted.<br>
-Once a file is dropped into the folder, it will be converted to a specified format and saved in an output directory.<br>
+You can turn a folder into a "dropzone".<br>
+Files will be converted when they are added to that folder and the result will be saved in the output directory.<br>
 The dropped, original file will be deleted after conversion.
 
 To set up a dropzone, specify:
@@ -180,7 +180,7 @@ To set up a dropzone, specify:
 - The desired format to convert to with `-f`/`--format`,
 - The `-z`/`--dropzone` parameter.
 
-For example, this sets up a dropzone to convert files to MP3, saving them in the output directory:
+This sets up a dropzone to convert files to MP3, saving them in the output directory:
 ```python
 python any_to_any.py -i /path/to/dropzone -o /path/to/save_folder -f mp3 -z
 ```
@@ -189,7 +189,7 @@ The script will run continuously, monitoring the input directory for new files.
 This runs continuously, halt it by pressing `CTRL+C`.
 
 ### Multi Directory/File Processing
-You can also process multiple individual files or multiple directories at once.<br>
+You may also process multiple individual files or multiple directories at once.<br>
 Note that only one output directory can be specified (omitting the `-o`/`--output` parameter works and will write to the input file paths).
 ```python
 python any_to_any.py -i -1 /path/to/file1.mp4 -2 /path/to/mp4-folder -o /path/to/output-folder -f mp3
@@ -231,9 +231,6 @@ python any_to_any.py -i /path/to/input_dir -f mp3 --workers 4 --recursive
 
 ## License
 MIT.
-
-## Contributions
-Contributions and feedback are welcome. Feel free to open issues or pull requests.
 
 ## Disclaimer
 This script is provided as-is, without any warranties or guarantees.<br>
