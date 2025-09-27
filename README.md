@@ -101,28 +101,28 @@ This is the most detailed way to use `any_to_any.py`. You can structure a comman
 
 ### Single File Processing
 Convert a WEBP file to PNG:
-```python
+```bash
 python any_to_any.py -i /path/to/file.webp -f png
 ```
 
 Convert MP4 to MP3, delete the MP4 source file afterwards:
-```python
+```bash
 python any_to_any.py -i /path/to/file.mp4 -f mp3 -d
 ```
 
 Convert MP3 to M4A, set conversion quality to high, delete the MP3 source file afterwards:
-```python
+```bash
 python any_to_any.py -i /path/to/file.mp3 -f m4a -q high -d
 ```
 
 Convert MP4 to HLS streams:
-```python
+```bash
 python any_to_any.py -i /path/to/file.mp4 -f hls
 ```
 The option for `hls` creates a directory with distinct folders for stream fragments of resolutions `426x240`, `640x360`, `842x480`, `1280x720`, and `1920x1080`.
 
 If you feel like it, you can even convert an MP4 file to a PDF, that PDF to a GIF and the GIF back to MP4:
-```python
+```bash
 # Create the PDF containing the movie's frames [Movie -> Document]
 python any_to_any.py -i /path/to/file.mp4 -f pdf
 # Create the GIF from your PDF [Document -> Image]
@@ -132,12 +132,12 @@ python any_to_any.py -i /path/to/file.gif -f mp4
 ```
 
 You may also convert the images contained in a DOCX file to an MP4 video:
-```python
+```bash
 python any_to_any.py -i /path/to/file.docx -f mp4
 ```
 
 Split a PDF into multiple files, either by page count or page ranges, e.g. `1-2,3-5` or `10` or `1-3,2-6,8-end` or `1-5,rest`:
-```python
+```bash
 python any_to_any.py -i /path/to/file.pdf -s 1-3,2-6,8-end
 ```
 
@@ -145,27 +145,27 @@ python any_to_any.py -i /path/to/file.pdf -s 1-3,2-6,8-end
 Directory Processing is useful when you want to work with multiple files in a directory
 
 Convert all WEBP files in a directory to PNG:
-```python
+```bash
 python any_to_any.py -i /path/to/webp-folder -f png
 ```
 
 Convert all MP4 files to MP3, save to a different directory, set conversion quality to `high`, delete MP4 source files afterwards:
-```python
+```bash
 python any_to_any.py -i /path/to/mp4-folder -o /path/to/save/folder -f mp3 -q high -d
 ```
 
 Convert all MP3 files from any subdirectory **recursively** to M4A, delete MP3 source files afterwards:
-```python
+```bash
 python any_to_any.py -i /path/to/mp3-top-folder -f m4a -d -r
 ```
 
 Merge MP4 files with respective, equally named MP3 files in the same directory, save to a different directory, delete source files afterwards:
-```python
+```bash
 python any_to_any.py -i /path/to/folder -o /path/to/save/folder -m -d
 ```
 
 Concatenate MP4 files, save to a different directory, delete source files afterwards:
-```python
+```bash
 python any_to_any.py -i /path/to/mp4-folder -o /path/to/save/folder -c -d
 ```
 
@@ -181,7 +181,7 @@ To set up a dropzone, specify:
 - The `-z`/`--dropzone` parameter.
 
 This sets up a dropzone to convert files to MP3, saving them in the output directory:
-```python
+```bash
 python any_to_any.py -i /path/to/dropzone -o /path/to/save_folder -f mp3 -z
 ```
 
@@ -191,15 +191,15 @@ This runs continuously, halt it by pressing `CTRL+C`.
 ### Multi Directory/File Processing
 You may also process multiple individual files or multiple directories at once.<br>
 Note that only one output directory can be specified (omitting the `-o`/`--output` parameter works and will write to the input file paths).
-```python
+```bash
 python any_to_any.py -i -1 /path/to/file1.mp4 -2 /path/to/mp4-folder -o /path/to/output-folder -f mp3
 ```
 Merging across directories works when adding `-a`/`--across` to the `-m`/`--merge` parameter:
-```python
+```bash
 python any_to_any.py -i -1 /path/to/folder1 -2 /path/to/folder2 -o /path/to/output-folder -m -a
 ```
 Concatenating across directories works when adding `-a`/`--across` to the `-c`/`--concat` parameter:
-```python
+```bash
 python any_to_any.py -i -1 /path/to/folder1 -2 /path/to/folder2 -o /path/to/output-folder -c -a
 ```
 Omitting the `-a`/`--across` parameter will execute merges or concatenations seperately, per each input directory.
