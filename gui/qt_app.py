@@ -1,5 +1,9 @@
 import os
 import sys
+import copy
+import json
+import time
+import threading
 from pathlib import Path
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtWidgets import (
@@ -21,7 +25,7 @@ from PyQt6.QtWidgets import (
     QDialog,
     QTextEdit,
 )
-import json
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from core.controller import Controller
 import utils.language_support as lang
@@ -53,15 +57,15 @@ class ConversionThread(QThread):
         self.shared_progress = {}
 
     def run(self):
-        import time
-        import copy
         try:
-            self.progress_updated.emit({
-                'progress': None,
-                'message': "Starting conversion...",
-                'status': 'starting',
-                'error': None
-            })
+            self.progress_updated.emit(
+                {
+                    "progress": None,
+                    "message": "Starting conversion...",
+                    "status": "starting",
+                    "error": None,
+                }
+            )
 
             controller = Controller(
                 job_id=self.job_id, shared_progress_dict=self.shared_progress
@@ -77,21 +81,29 @@ class ConversionThread(QThread):
                     Path(self.output_dir) / f"converted.{self.output_format}"
                 )
 
-            import threading
             conversion_done = threading.Event()
             error_holder = {}
 
             def conversion_job():
                 try:
-                    controller.convert_files(
+                    controller.run(
                         input_path_args=self.input_files,
                         format=self.output_format,
                         output=output_path,
+                        framerate=None,
+                        quality=None,
+                        split=None,
                         merge=self.merge,
                         concat=self.concat,
+                        delete=False,
+                        across=False,
+                        recursive=False,
+                        dropzone=False,
+                        language=None,
+                        workers=1,
                     )
                 except Exception as e:
-                    error_holder['error'] = str(e)
+                    error_holder["error"] = str(e)
                 finally:
                     conversion_done.set()
 
@@ -103,22 +115,22 @@ class ConversionThread(QThread):
             while not conversion_done.is_set():
                 prog = copy.deepcopy(self.shared_progress.get(self.job_id, {}))
                 # Compose full progress dict
-                progress = prog.get('progress', None)
-                total = prog.get('total', 100)
+                progress = prog.get("progress", None)
+                total = prog.get("total", 100)
                 percent = None
                 if progress is not None and total:
                     try:
                         percent = int(100 * float(progress) / float(total))
                     except Exception:
                         percent = None
-                message = prog.get('message', prog.get('status', ''))
-                status = prog.get('status', 'running')
-                error = prog.get('error', None)
+                message = prog.get("message", prog.get("status", ""))
+                status = prog.get("status", "running")
+                error = prog.get("error", None)
                 snapshot = {
-                    'progress': percent,
-                    'message': message,
-                    'status': status,
-                    'error': error
+                    "progress": percent,
+                    "message": message,
+                    "status": status,
+                    "error": error,
                 }
                 if snapshot != last_snapshot:
                     self.progress_updated.emit(snapshot)
@@ -128,18 +140,20 @@ class ConversionThread(QThread):
             # Final progress update after completion
             prog = copy.deepcopy(self.shared_progress.get(self.job_id, {}))
             percent = 100
-            message = prog.get('message', prog.get('status', "Done"))
-            status = prog.get('status', 'done')
-            error = prog.get('error', None)
-            self.progress_updated.emit({
-                'progress': percent,
-                'message': message,
-                'status': status,
-                'error': error
-            })
+            message = prog.get("message", prog.get("status", "Done"))
+            status = prog.get("status", "done")
+            error = prog.get("error", None)
+            self.progress_updated.emit(
+                {
+                    "progress": percent,
+                    "message": message,
+                    "status": status,
+                    "error": error,
+                }
+            )
 
-            if 'error' in error_holder:
-                self.error_occurred.emit(error_holder['error'])
+            if "error" in error_holder:
+                self.error_occurred.emit(error_holder["error"])
             else:
                 self.conversion_finished.emit(self.job_id, output_path)
 
@@ -162,7 +176,7 @@ class MainWindow(QMainWindow):
         # Return a dict of {category: [format, ...]}
         formats = {}
         for category, mapping in self.controller._supported_formats.items():
-            cat_name = str(category).split(".")[-1].replace('_', ' ').title()
+            cat_name = str(category).split(".")[-1].replace("_", " ").title()
             formats[cat_name] = sorted(list(mapping.keys()))
         return formats
 
@@ -184,18 +198,24 @@ class MainWindow(QMainWindow):
         event.acceptProposedAction()
 
     def add_file_to_list(self, file):
-        if file not in [self.file_list.item(i).data(Qt.ItemDataRole.UserRole) for i in range(self.file_list.count())]:
+        if not os.path.isfile(file):
+            return
+        if file not in [
+            self.file_list.item(i).data(Qt.ItemDataRole.UserRole)
+            for i in range(self.file_list.count())
+        ]:
             item = QListWidgetItem(Path(file).name)
             item.setData(Qt.ItemDataRole.UserRole, file)
+            item.setToolTip(file)  # Show full path on hover
             self.file_list.addItem(item)
 
     def init_ui(self):
         self.last_dir = str(Path.home())
         self.settings = load_settings()
-        if 'last_dir' in self.settings:
-            self.last_dir = self.settings['last_dir']
-        if 'locale' in self.settings:
-            self.locale = self.settings['locale']
+        if "last_dir" in self.settings:
+            self.last_dir = self.settings["last_dir"]
+        if "locale" in self.settings:
+            self.locale = self.settings["locale"]
         # Main widget and layout
         main_widget = QWidget()
         self.setCentralWidget(main_widget)
@@ -231,7 +251,9 @@ class MainWindow(QMainWindow):
 
         self.remove_btn = QPushButton(lang.get_translation("remove", self.locale))
         self.remove_btn.clicked.connect(self.remove_selected)
-        self.remove_btn.setToolTip(lang.get_translation("remove_selected_files", self.locale))
+        self.remove_btn.setToolTip(
+            lang.get_translation("remove_selected_files", self.locale)
+        )
 
         self.settings_btn = QPushButton(lang.get_translation("settings", self.locale))
         self.settings_btn.clicked.connect(self.open_settings_dialog)
@@ -264,7 +286,9 @@ class MainWindow(QMainWindow):
             for fmt in fmts:
                 self.format_combo.addItem(f"{fmt}", fmt)
                 # Optionally, set tooltip for each format
-                self.format_combo.setItemData(self.format_combo.count() - 1, f"{cat}", Qt.ItemDataRole.ToolTipRole)
+                self.format_combo.setItemData(
+                    self.format_combo.count() - 1, f"{cat}", Qt.ItemDataRole.ToolTipRole
+                )
         format_layout.addWidget(format_label)
         format_layout.addWidget(self.format_combo)
         format_layout.addStretch()
@@ -308,7 +332,9 @@ class MainWindow(QMainWindow):
         # Convert button
         self.convert_btn = QPushButton(lang.get_translation("convert", self.locale))
         self.convert_btn.clicked.connect(self.start_conversion)
-        self.convert_btn.setToolTip(lang.get_translation("start_conversion", self.locale))
+        self.convert_btn.setToolTip(
+            lang.get_translation("start_conversion", self.locale)
+        )
         self.convert_btn.setStyleSheet("""
             QPushButton {
                 background-color: #4CAF50;
@@ -349,14 +375,14 @@ class MainWindow(QMainWindow):
             self.last_dir = str(Path(files[0]).parent)
             save_settings({"last_dir": self.last_dir, "locale": self.locale})
             for file in files:
-                if file not in [
+                if os.path.isfile(file) and file not in [
                     self.file_list.item(i).data(Qt.ItemDataRole.UserRole)
                     for i in range(self.file_list.count())
                 ]:
                     item = QListWidgetItem(Path(file).name)
                     item.setData(Qt.ItemDataRole.UserRole, file)
+                    item.setToolTip(file)  # Full path tooltip
                     self.file_list.addItem(item)
-
 
     def add_folder(self):
         folder = QFileDialog.getExistingDirectory(
@@ -369,14 +395,14 @@ class MainWindow(QMainWindow):
             for root, _, files in os.walk(folder):
                 for file in files:
                     file_path = os.path.join(root, file)
-                    if file_path not in [
+                    if os.path.isfile(file_path) and file_path not in [
                         self.file_list.item(i).data(Qt.ItemDataRole.UserRole)
                         for i in range(self.file_list.count())
                     ]:
                         item = QListWidgetItem(file_path.replace(folder + os.sep, ""))
                         item.setData(Qt.ItemDataRole.UserRole, file_path)
+                        item.setToolTip(file_path)  # Full path tooltip
                         self.file_list.addItem(item)
-
 
     def remove_selected(self):
         for item in self.file_list.selectedItems():
@@ -403,48 +429,59 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(
                 self,
                 lang.get_translation("error", self.locale),
-                lang.get_translation("no_files_selected", self.locale)
+                lang.get_translation("no_files_selected", self.locale),
             )
             return
 
-        output_dir = self.output_dir_edit.text()
+        output_dir = self.output_dir_edit.text().strip()
+        if not output_dir or not os.path.isdir(output_dir):
+            QMessageBox.warning(
+                self,
+                lang.get_translation("error", self.locale),
+                lang.get_translation("invalid_output_dir", self.locale),
+            )
+            return
+
         output_format = self.format_combo.currentData()
+        if not output_format:
+            QMessageBox.warning(
+                self,
+                lang.get_translation("error", self.locale),
+                lang.get_translation("no_format_selected", self.locale),
+            )
+            return
+
         merge = self.merge_check.isChecked()
         concat = self.concat_check.isChecked()
 
-        try:
-            self.controller.run(
-                input_path_args=input_files,
-                format=output_format,
-                output=output_dir,
-                framerate=0,
-                quality=None,
-                merge=merge,
-                concat=concat,
-                delete=False,
-                across=False,
-                recursive=False,
-                dropzone=False,
-                language=list(lang.LANGUAGE_CODES.keys())[list(lang.LANGUAGE_CODES.values()).index(lang.get_system_language())],
-            )
-            QMessageBox.information(
-                self,
-                lang.get_translation("success", self.locale),
-                lang.get_translation("conversion_complete", self.locale)
-            )
-        except Exception as e:
-            QMessageBox.critical(
-                self,
-                lang.get_translation("error", self.locale),
-                str(e)
-            )
+        # Disable UI during conversion
+        self.set_ui_enabled(False)
+        self.status_label.setText(
+            lang.get_translation("starting_conversion", self.locale)
+        )
+        self.progress_bar.setValue(0)
+
+        # Start conversion in a separate thread
+        conversion_thread = ConversionThread(
+            self.controller,
+            input_files,
+            output_format,
+            output_dir,
+            merge=merge,
+            concat=concat,
+        )
+        conversion_thread.progress_updated.connect(self.update_progress)
+        conversion_thread.conversion_finished.connect(self.conversion_completed)
+        conversion_thread.error_occurred.connect(self.conversion_error)
+        self.conversion_threads[conversion_thread.job_id] = conversion_thread
+        conversion_thread.start()
 
     def update_progress(self, progress_info):
         # progress_info: {'progress': int|None, 'message': str, 'status': str, 'error': str|None}
-        value = progress_info.get('progress')
-        message = progress_info.get('message', "")
-        status = progress_info.get('status', "")
-        error = progress_info.get('error')
+        value = progress_info.get("progress")
+        message = progress_info.get("message", "")
+        status = progress_info.get("status", "")
+        error = progress_info.get("error")
 
         # Handle indeterminate state
         if value is None or status in ("starting", "preparing", "waiting"):
@@ -455,9 +492,13 @@ class MainWindow(QMainWindow):
 
         # Color and style cues
         if status == "done":
-            self.progress_bar.setStyleSheet("QProgressBar {background: #e0ffe0;} QProgressBar::chunk {background: #4CAF50;}")
+            self.progress_bar.setStyleSheet(
+                "QProgressBar {background: #e0ffe0;} QProgressBar::chunk {background: #4CAF50;}"
+            )
         elif error or status == "error":
-            self.progress_bar.setStyleSheet("QProgressBar {background: #ffe0e0;} QProgressBar::chunk {background: #e53935;}")
+            self.progress_bar.setStyleSheet(
+                "QProgressBar {background: #ffe0e0;} QProgressBar::chunk {background: #e53935;}"
+            )
         else:
             self.progress_bar.setStyleSheet("")  # Default
 
@@ -471,7 +512,6 @@ class MainWindow(QMainWindow):
         if status == "done" or error:
             self.progress_bar.setValue(100)
             self.progress_bar.setRange(0, 100)
-
 
     def conversion_completed(self, job_id, output_path):
         # Remove thread reference
@@ -565,9 +605,11 @@ def main():
 
     sys.exit(app.exec())
 
+
 # --- Additional methods for new features ---
 
 SETTINGS_FILE = str(Path.home() / ".any_to_any_gui_settings.json")
+
 
 class SettingsDialog(QDialog):
     def __init__(self, parent, locale, supported_locales):
@@ -586,8 +628,10 @@ class SettingsDialog(QDialog):
         btn.clicked.connect(self.accept)
         layout.addWidget(btn)
         self.locale_combo.currentTextChanged.connect(self.set_locale)
+
     def set_locale(self, value):
         self.selected_locale = value
+
 
 class HelpDialog(QDialog):
     def __init__(self, parent, locale):
@@ -620,6 +664,7 @@ def load_settings():
             return json.load(f)
     except Exception:
         return {}
+
 
 def save_settings(data):
     try:
