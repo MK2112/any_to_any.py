@@ -14,25 +14,6 @@ if __name__ == "__main__":
     # - a CLI-interface,
     # - a web interface, or
     # - an application using this as its backend.
-    # Ensure most essential required libraries are installed
-    for lib in [
-        "moviepy",
-        "PIL",
-        "flask",
-        "flask_uploads",
-        "docx",
-        "pptx",
-        "pypdf",
-        "mammoth",
-        "weasyprint",
-        "markdownify",
-    ]:
-        try:
-            __import__(lib)
-        except ImportError as ie:
-            print(f"Please install {lib}: {ie}")
-            exit(1)
-
     controller = Controller()
 
     parser = argparse.ArgumentParser(
