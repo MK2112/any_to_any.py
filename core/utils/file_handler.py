@@ -1,7 +1,8 @@
 import os
 import logging
-from moviepy import VideoFileClip
 import utils.language_support as lang
+
+from moviepy import VideoFileClip
 
 
 class FileHandler:
