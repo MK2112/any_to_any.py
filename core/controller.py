@@ -183,6 +183,14 @@ class Controller:
             },
         }
 
+        # Membership key-sets
+        self._fmt_audio_keys    = set(self._supported_formats[Category.AUDIO].keys())
+        self._fmt_image_keys    = set(self._supported_formats[Category.IMAGE].keys())
+        self._fmt_doc_keys      = set(self._supported_formats[Category.DOCUMENT].keys())
+        self._fmt_movie_keys    = set(self._supported_formats[Category.MOVIE].keys())
+        self._fmt_codec_keys    = set(self._supported_formats[Category.MOVIE_CODECS].keys())
+        self._fmt_protocol_keys = set(self._supported_formats[Category.PROTOCOLS].keys())
+
         # Used in CLI information output
         self.supported_formats = [
             format
@@ -190,9 +198,9 @@ class Controller:
             for format in formats.keys()
         ]
 
-        # Indicates if the script is being run from the web interface
+        # Flags if run triggered within web interface
         self.web_flag = False
-        # Host address for the web interface
+        # Web interface host address
         self.web_host = None
         # Quality step indicators
         self.high, self.medium, self.low = "high", "medium", "low"
@@ -243,7 +251,7 @@ class Controller:
     ) -> None:
         # Convert media files to defined formats or 
         # merge or concatenate, according to the arguments
-        #
+    
         # Set environment for worker count
         if workers is not None:
             try:
@@ -402,7 +410,7 @@ class Controller:
 
     def process_file_paths(self, file_paths: dict) -> None:
         # Check if value associated to format is tuple/string or function to call specific conversion
-        if self.target_format in self._supported_formats[Category.MOVIE].keys():
+        if self.target_format in self._fmt_movie_keys:
             self.movie_converter.to_movie(
                 input=self.input,
                 output=self.output,
@@ -413,7 +421,7 @@ class Controller:
                 codec=self._supported_formats[Category.MOVIE][self.target_format],
                 delete=self.delete,
             )
-        elif self.target_format in self._supported_formats[Category.AUDIO].keys():
+        elif self.target_format in self._fmt_audio_keys:
             self.audio_converter.to_audio(
                 file_paths=file_paths,
                 format=self.target_format,
@@ -424,9 +432,7 @@ class Controller:
                 output=self.output,
                 delete=self.delete,
             )
-        elif (
-            self.target_format in self._supported_formats[Category.MOVIE_CODECS].keys()
-        ):
+        elif self.target_format in self._fmt_codec_keys:
             self.movie_converter.to_codec(
                 input=self.input,
                 output=self.output,
@@ -439,7 +445,7 @@ class Controller:
                 ],
                 delete=self.delete,
             )
-        elif self.target_format in self._supported_formats[Category.IMAGE].keys():
+        elif self.target_format in self._fmt_image_keys:
             self._supported_formats[Category.IMAGE][self.target_format](
                 self.input,
                 self.output,
@@ -449,11 +455,11 @@ class Controller:
                 self.target_format,
                 self.delete,
             )
-        elif self.target_format in self._supported_formats[Category.DOCUMENT].keys():
+        elif self.target_format in self._fmt_doc_keys:
             self._supported_formats[Category.DOCUMENT][self.target_format](
                 self.output, file_paths, self.target_format, self.delete
             )
-        elif self.target_format in self._supported_formats[Category.PROTOCOLS].keys():
+        elif self.target_format in self._fmt_protocol_keys:
             self.movie_converter.to_protocol(
                 output=self.output,
                 file_paths=file_paths,
