@@ -3,7 +3,6 @@
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-red)
 ![Issues](https://img.shields.io/github/issues/MK2112/any_to_any.py)
-![Last Commit](https://img.shields.io/github/last-commit/MK2112/any_to_any.py)
 ![Build](https://github.com/MK2112/any_to_any.py/actions/workflows/test.yml/badge.svg)
 
 ![screenshot](./img/Any-to-Any-Web.png)
