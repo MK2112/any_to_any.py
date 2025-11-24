@@ -29,8 +29,9 @@ class AudioConverter:
         delete: str,
     ) -> None:
         try:
-            # Decide worker count with env A2A_MAX_WORKERS if set
-            env_workers = int(os.environ.get("A2A_MAX_WORKERS", "1"))
+            # Decide worker count with env variable if present
+            # Prob most elegant in this setting
+            env_workers = int(os.environ.get("Any2Any_MAX_WORKERS", "1"))
             env_workers = 1 if env_workers < 1 else env_workers
             env_workers = (
                 os.cpu_count() - 1 if env_workers >= os.cpu_count() else env_workers
