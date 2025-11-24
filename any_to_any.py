@@ -10,7 +10,7 @@ from core.controller import Controller
 ####
 
 if __name__ == "__main__":
-    # An object is interacted with through:
+    # Interactable with through:
     # - a CLI-interface,
     # - a web interface, or
     # - an application using this as its backend.
@@ -143,7 +143,7 @@ if __name__ == "__main__":
         )
     
     if args["web"]:
-        # Check for web frontend request
+        # Windows wants this expressed differently
         if os.name in ["nt"]:
             subprocess.run("python ./web_to_any.py", shell=True)
         else:

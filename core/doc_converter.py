@@ -143,7 +143,7 @@ class DocumentConverter:
         # Convert Documents to PDF
         for doc_path_set in file_paths[Category.DOCUMENT]:
             if doc_path_set[2] == "pdf":
-                # If the document is already a pdf, skip it
+                # If document is already a pdf, skip
                 continue
             if doc_path_set[2] == "srt":
                 # Convert srt to pdf
