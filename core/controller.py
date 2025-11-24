@@ -355,7 +355,7 @@ class Controller:
                 self.event_logger.info(
                     f"[>] {lang.get_translation('dropzone_active', self.locale)} {self.input}"
                 )
-                self.watchdropzone(self.input)
+                self.watch_dropzone(self.input)
                 return
 
             # Recursion
@@ -483,7 +483,7 @@ class Controller:
                 f"[!] {lang.get_translation('error', self.locale)}: {lang.get_translation('output_list', self.locale).replace('[list]', str(list(self.supported_formats)))}",
             )
 
-    def watchdropzone(self, watch_path: str) -> None:
+    def watch_dropzone(self, watch_path: str) -> None:
         # Watch a directory for new files and process them automatically
         def handle_file_event(event_type: str, file_path: str) -> None:
             if event_type == "created":

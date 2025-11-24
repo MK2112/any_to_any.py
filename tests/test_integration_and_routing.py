@@ -71,7 +71,7 @@ def setup_converter(controller_instance, output_dir):
     return controller_instance
 
 
-def test_watchdropzone_nonexistent_dir(controller_instance, caplog):
+def test_watch_dropzone_nonexistent_dir(controller_instance, caplog):
     # Configure converter instance
     converter = setup_converter(controller_instance, "/tmp/output")
 
@@ -79,7 +79,7 @@ def test_watchdropzone_nonexistent_dir(controller_instance, caplog):
     caplog.clear()
 
     # Test with non-existent directory
-    converter.watchdropzone("/nonexistent/directory")
+    converter.watch_dropzone("/nonexistent/directory")
 
     # Verify error was logged
     assert (
@@ -88,7 +88,7 @@ def test_watchdropzone_nonexistent_dir(controller_instance, caplog):
     )
 
 
-def test_watchdropzone_file_instead_of_dir(controller_instance, tmp_path, caplog):
+def test_watch_dropzone_file_instead_of_dir(controller_instance, tmp_path, caplog):
     # Configure converter instance
     converter = setup_converter(controller_instance, "/tmp/output")
 
@@ -100,7 +100,7 @@ def test_watchdropzone_file_instead_of_dir(controller_instance, tmp_path, caplog
     caplog.clear()
 
     # Test with file path instead of directory
-    converter.watchdropzone(str(test_file))
+    converter.watch_dropzone(str(test_file))
 
     # Verify error was logged
     assert (
