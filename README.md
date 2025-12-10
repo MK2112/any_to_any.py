@@ -38,7 +38,7 @@
 
 ## Graphical User Interface (GUI)
 
-The GUI is intended for users who want a great UX for `any_to_any.py` without requiring a browser.
+The GUI is intended for users who want as much ease of use as possible without requiring a browser.
 
 - Drag and drop files or folders for instant batch conversion
 - Select output format, directory, and advanced options
