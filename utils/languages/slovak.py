@@ -2,6 +2,7 @@ from utils.languages.language_codes import LANGUAGE_CODES
 
 SLOVAK = {
     "select_file": "Vybrať súbor",
+    "clear_all": "Vymazať všetko",
     "convert": "Konvertovať",
     "download": "Stiahnuť",
     "error": "Chyba",

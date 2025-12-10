@@ -2,6 +2,7 @@ from utils.languages.language_codes import LANGUAGE_CODES
 
 SWAHILI = {
     "select_files": "Chagua Faili",
+    "clear_all": "Futa yote",
     "convert": "Badilisha",
     "download": "Pakua",
     "error": "Hitilafu",

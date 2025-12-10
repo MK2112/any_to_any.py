@@ -2,6 +2,7 @@ from utils.languages.language_codes import LANGUAGE_CODES
 
 TAGALOG = {
     "select_files": "Pumili ng Mga File",
+    "clear_all": "I-clear lahat",
     "convert": "I-convert",
     "download": "I-download",
     "error": "Error",

@@ -3,6 +3,7 @@ from utils.languages.language_codes import LANGUAGE_CODES
 ENGLISH = {
     "select_files": "Select Files",
     "convert": "Convert",
+    "clear_all": "Clear All",
     "download": "Download",
     "error": "Error",
     "success": "Success",

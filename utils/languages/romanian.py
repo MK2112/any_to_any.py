@@ -2,6 +2,7 @@ from utils.languages.language_codes import LANGUAGE_CODES
 
 ROMANIAN = {
     "select_files": "Selectează fișiere",
+    "clear_all": "Șterge tot",
     "convert": "Convertire",
     "download": "Descarcă",
     "error": "Eroare",

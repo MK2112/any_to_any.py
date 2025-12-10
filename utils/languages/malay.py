@@ -2,6 +2,7 @@ from utils.languages.language_codes import LANGUAGE_CODES
 
 MALAY = {
     "select_files": "Pilih fail",
+    "clear_all": "Kosongkan semua",
     "convert": "Tukar",
     "download": "Muat Turun",
     "error": "Ralat",

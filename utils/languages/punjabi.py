@@ -2,6 +2,7 @@ from utils.languages.language_codes import LANGUAGE_CODES
 
 PUNJABI = {
     "select_files": "ਫਾਇਲਾਂ ਚੁਣੋ",
+    "clear_all": "ਸਭ ਸਾਫ਼ ਕਰੋ",
     "convert": "ਕਨਵਰਟ ਕਰੋ",
     "download": "ਡਾਊਨਲੋਡ",
     "error": "ਗਲਤੀ",

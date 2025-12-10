@@ -2,6 +2,7 @@ from utils.languages.language_codes import LANGUAGE_CODES
 
 SPANISH = {
     "select_files": "Seleccionar archivos",
+    "clear_all": "Borrar todo",
     "convert": "Convertir",
     "download": "Descargar",
     "error": "Error",

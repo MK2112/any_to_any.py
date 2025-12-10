@@ -2,6 +2,7 @@ from utils.languages.language_codes import LANGUAGE_CODES
 
 BULGARIAN = {
     "select_file": "Избор на файл",
+    "clear_all": "Изчисти всичко",
     "convert": "Конвертиране",
     "download": "Изтегляне",
     "error": "Грешка",

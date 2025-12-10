@@ -2,6 +2,7 @@ from utils.languages.language_codes import LANGUAGE_CODES
 
 KOREAN = {
     "select_files": "파일 선택",
+    "clear_all": "모두 지우기",
     "convert": "변환",
     "download": "다운로드",
     "error": "오류",

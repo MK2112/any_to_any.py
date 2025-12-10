@@ -2,6 +2,7 @@ from utils.languages.language_codes import LANGUAGE_CODES
 
 THAI = {
     "select_files": "เลือกไฟล์",
+    "clear_all": "ล้างทั้งหมด",
     "convert": "แปลงไฟล์",
     "download": "ดาวน์โหลด",
     "error": "ข้อผิดพลาด",

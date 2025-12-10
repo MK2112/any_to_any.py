@@ -2,6 +2,7 @@ from utils.languages.language_codes import LANGUAGE_CODES
 
 TELUGU = {
     "select_files": "ఫైల్స్ ఎంచుకోండి",
+    "clear_all": "అన్నీ క్లియర్ చేయి",
     "convert": "మార్చు",
     "download": "డౌన్‌లోడ్",
     "error": "పొరపాటు",

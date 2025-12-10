@@ -2,6 +2,7 @@ from utils.languages.language_codes import LANGUAGE_CODES
 
 MARATHI = {
     "select_files": "फायली निवडा",
+    "clear_all": "सगळं साफ करा",
     "convert": "रूपांतर करा",
     "download": "डाउनलोड करा",
     "error": "त्रुटी",

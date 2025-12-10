@@ -2,6 +2,7 @@ from utils.languages.language_codes import LANGUAGE_CODES
 
 BENGALI = {
     "select_files": "ফাইল নির্বাচন করুন",
+    "clear_all": "সব মুছে ফেলুন",
     "convert": "রূপান্তর",
     "download": "ডাউনলোড",
     "error": "ত্রুটি",

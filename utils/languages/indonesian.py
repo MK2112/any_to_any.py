@@ -2,6 +2,7 @@ from utils.languages.language_codes import LANGUAGE_CODES
 
 INDONESIAN = {
     "select_files": "Pilih file",
+    "clear_all": "Hapus semua",
     "convert": "Konversi",
     "download": "Unduh",
     "error": "Kesalahan",

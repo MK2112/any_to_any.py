@@ -2,6 +2,7 @@ from utils.languages.language_codes import LANGUAGE_CODES
 
 HEBREW = {
     "select_files": "בחר קבצים",
+    "clear_all": "נקה הכל",
     "convert": "המר",
     "download": "הורד",
     "error": "שגיאה",

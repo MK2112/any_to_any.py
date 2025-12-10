@@ -2,6 +2,7 @@ from utils.languages.language_codes import LANGUAGE_CODES
 
 HUNGARIAN = {
     "select_file": "Fájl kiválasztása",
+    "clear_all": "Mindet törölni",
     "convert": "Konvertálás",
     "download": "Letöltés",
     "error": "Hiba",

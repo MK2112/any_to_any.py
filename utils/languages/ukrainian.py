@@ -2,6 +2,7 @@ from utils.languages.language_codes import LANGUAGE_CODES
 
 UKRAINIAN = {
     "select_files": "Вибрати файли",
+    "clear_all": "Очистити все",
     "convert": "Конвертувати",
     "download": "Завантажити",
     "error": "Помилка",

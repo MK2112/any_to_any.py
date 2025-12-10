@@ -2,6 +2,7 @@ from utils.languages.language_codes import LANGUAGE_CODES
 
 FINNISH = {
     "select_files": "Valitse tiedostot",
+    "clear_all": "Tyhjennä kaikki",
     "convert": "Muunna",
     "download": "Lataa",
     "error": "Virhe",

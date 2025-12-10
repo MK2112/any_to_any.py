@@ -2,6 +2,7 @@ from utils.languages.language_codes import LANGUAGE_CODES
 
 POLISH = {
     "select_files": "Wybierz pliki",
+    "clear_all": "Wyczyść wszystko",
     "convert": "Konwertuj",
     "download": "Pobierz",
     "error": "Błąd",

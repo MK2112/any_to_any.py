@@ -2,6 +2,7 @@ from utils.languages.language_codes import LANGUAGE_CODES
 
 NORWEGIAN = {
     "select_files": "Velg filer",
+    "clear_all": "Tøm alt",
     "convert": "Konverter",
     "download": "Last ned",
     "error": "Feil",

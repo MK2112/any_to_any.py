@@ -2,6 +2,7 @@ from utils.languages.language_codes import LANGUAGE_CODES
 
 MANDARIN_TRADITIONAL = {
     "select_files": "選擇檔案",
+    "clear_all": "全部清除",
     "convert": "轉換",
     "download": "下載",
     "error": "錯誤",

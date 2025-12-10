@@ -2,6 +2,7 @@ from utils.languages.language_codes import LANGUAGE_CODES
 
 FARSI = {
     "select_files": "انتخاب فایل‌ها",
+    "clear_all": "پاک کردن همه",
     "convert": "تبدیل",
     "download": "دانلود",
     "error": "خطا",

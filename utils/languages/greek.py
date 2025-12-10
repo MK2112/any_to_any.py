@@ -2,6 +2,7 @@ from utils.languages.language_codes import LANGUAGE_CODES
 
 GREEK = {
     "select_file": "Επιλογή αρχείου",
+    "clear_all": "Εκκαθάριση όλων",
     "convert": "Μετατροπή",
     "download": "Λήψη",
     "error": "Σφάλμα",

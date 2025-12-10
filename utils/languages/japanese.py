@@ -2,6 +2,7 @@ from utils.languages.language_codes import LANGUAGE_CODES
 
 JAPANESE = {
     "select_files": "ファイルを選択",
+    "clear_all": "すべてクリア",
     "convert": "変換",
     "download": "ダウンロード",
     "error": "エラー",

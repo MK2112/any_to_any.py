@@ -2,6 +2,7 @@ from utils.languages.language_codes import LANGUAGE_CODES
 
 ARABIC = {
     "select_files": "اختر ملفات",
+    "clear_all": "مسح الكل",
     "convert": "تحويل",
     "download": "تنزيل",
     "error": "خطأ",

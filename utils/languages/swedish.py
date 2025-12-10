@@ -2,6 +2,7 @@ from utils.languages.language_codes import LANGUAGE_CODES
 
 SWEDISH = {
     "select_files": "Välj filer",
+    "clear_all": "Rensa allt",
     "convert": "Konvertera",
     "download": "Ladda ner",
     "error": "Fel",

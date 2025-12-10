@@ -2,6 +2,7 @@ from utils.languages.language_codes import LANGUAGE_CODES
 
 GERMAN = {
     "select_files": "Dateien auswählen",
+    "clear_all": "Alles löschen",
     "convert": "Konvertieren",
     "download": "Herunterladen",
     "error": "Fehler",

@@ -2,6 +2,7 @@ from utils.languages.language_codes import LANGUAGE_CODES
 
 TAMIL = {
     "select_files": "கோப்புகளை தேர்ந்தெடு",
+    "clear_all": "அனைத்தையும் அழி",
     "convert": "பாதுரு மாற்று",
     "download": "பதிவிறக்கு",
     "error": "பிழை",

@@ -2,6 +2,7 @@ from utils.languages.language_codes import LANGUAGE_CODES
 
 URDU = {
     "select_files": "فائلیں منتخب کریں",
+    "clear_all": "سب صاف کریں",
     "convert": "تبدیل کریں",
     "download": "ڈاؤن لوڈ کریں",
     "error": "خرابی",

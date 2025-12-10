@@ -2,6 +2,7 @@ from utils.languages.language_codes import LANGUAGE_CODES
 
 BURMESE = {
     "select_files": "ဖိုင်များ ရွေးချယ်ပါ",
+    "clear_all": "အားလုံး ရှင်းလင်းပါ",
     "convert": "ပြောင်းလဲရန်",
     "download": "ဒေါင်းလုဒ်",
     "error": "အမှား",

@@ -2,6 +2,7 @@ from utils.languages.language_codes import LANGUAGE_CODES
 
 HINDI = {
     "select_files": "फ़ाइलें चुनें",
+    "clear_all": "सब साफ करें",
     "convert": "कन्वर्ट करें",
     "download": "डाउनलोड करें",
     "error": "त्रुटि",

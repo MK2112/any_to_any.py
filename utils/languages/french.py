@@ -2,6 +2,7 @@ from utils.languages.language_codes import LANGUAGE_CODES
 
 FRENCH = {
     "select_files": "Sélectionner des fichiers",
+    "clear_all": "Tout effacer",
     "convert": "Convertir",
     "download": "Télécharger",
     "error": "Erreur",

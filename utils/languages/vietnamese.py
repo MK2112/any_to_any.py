@@ -2,6 +2,7 @@ from utils.languages.language_codes import LANGUAGE_CODES
 
 VIETNAMESE = {
     "select_files": "Chọn tệp",
+    "clear_all": "Xóa tất cả",
     "convert": "Chuyển đổi",
     "download": "Tải về",
     "error": "Lỗi",

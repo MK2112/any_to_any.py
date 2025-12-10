@@ -2,6 +2,7 @@ from utils.languages.language_codes import LANGUAGE_CODES
 
 DUTCH = {
     "select_files": "Bestanden selecteren",
+    "clear_all": "Alles wissen",
     "convert": "Converteren",
     "download": "Downloaden",
     "error": "Fout",

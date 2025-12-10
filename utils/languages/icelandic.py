@@ -2,6 +2,7 @@ from utils.languages.language_codes import LANGUAGE_CODES
 
 ICELANDIC = {
     "select_files": "Velja skrár",
+    "clear_all": "Hreinsa allt",
     "convert": "Umbreyta",
     "download": "Sækja",
     "error": "Villa",

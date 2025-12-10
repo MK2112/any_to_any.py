@@ -2,6 +2,7 @@ from utils.languages.language_codes import LANGUAGE_CODES
 
 RUSSIAN = {
     "select_files": "Выбрать файлы",
+    "clear_all": "Очистить всё",
     "convert": "Конвертировать",
     "download": "Скачать",
     "error": "Ошибка",

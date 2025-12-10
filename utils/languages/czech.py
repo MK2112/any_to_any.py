@@ -2,6 +2,7 @@ from utils.languages.language_codes import LANGUAGE_CODES
 
 CZECH = {
     "select_files": "Vybrat soubory",
+    "clear_all": "Vymazat vše",
     "convert": "Převést",
     "download": "Stáhnout",
     "error": "Chyba",

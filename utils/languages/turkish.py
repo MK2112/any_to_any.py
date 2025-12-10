@@ -2,6 +2,7 @@ from utils.languages.language_codes import LANGUAGE_CODES
 
 TURKISH = {
     "select_files": "Dosyaları seç",
+    "clear_all": "Tümünü temizle",
     "convert": "Dönüştür",
     "download": "İndir",
     "error": "Hata",

@@ -2,6 +2,7 @@ from utils.languages.language_codes import LANGUAGE_CODES
 
 DANISH = {
     "select_files": "Vælg filer",
+    "clear_all": "Ryd alt",
     "convert": "Konverter",
     "download": "Download",
     "error": "Fejl",
