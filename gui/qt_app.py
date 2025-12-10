@@ -745,7 +745,7 @@ class HelpDialog(QDialog):
         help_text = QTextEdit()
         help_text.setReadOnly(True)
         help_text.setPlainText("""
-any_to_any.py GUI
+any_to_any.py GUI v1.1.0
 
 Features:
 > Drag-and-drop files or folders into the list
