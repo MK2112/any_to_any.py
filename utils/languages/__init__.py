@@ -41,4 +41,6 @@ from .burmese import BURMESE
 from .tamil import TAMIL
 from .telugu import TELUGU
 from .marathi import MARATHI
+from .catalan import CATALAN
+from .croatian import CROATIAN
 from .language_codes import LANGUAGE_CODES

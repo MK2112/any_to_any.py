@@ -44,4 +44,6 @@ LANGUAGE_CODES = {
     "ta_IN": "Tamil",
     "te_IN": "Telugu",
     "mr_IN": "Marathi",
+    "ca_ES": "Catalan",
+    "hr_HR": "Croatian",
 }
