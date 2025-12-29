@@ -135,3 +135,6 @@ def test_large_file_conversion(controller_instance, tmp_path):
     )
 
     assert (tmp_path / "large.mp3").exists()
+
+    # Delete the large file to save space
+    large_file.unlink()

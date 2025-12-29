@@ -67,7 +67,7 @@ def setup_converter(controller_instance, output_dir):
     controller_instance.file_handler = type(
         "FileHandler", (), {"get_file_paths": lambda self, paths: {}}
     )()
-    controller_instance.process_files = mock.MagicMock()
+    controller_instance.process_file_paths = mock.MagicMock()
     return controller_instance
 
 
