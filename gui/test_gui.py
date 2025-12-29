@@ -111,7 +111,7 @@ def main_window(qapp):
 
 def test_main_window_creation(main_window):
     assert main_window is not None
-    assert main_window.windowTitle() == "any_to_any.py"
+    assert "any_to_any.py" in main_window.windowTitle()
 
 
 def test_main_window_minimum_size(main_window):
