@@ -99,4 +99,11 @@ ICELANDIC = {
     "split_merge_error": "Ekki er hægt að nota --split og --merge saman. Veldu aðeins einn valkost",
     "merge_concat_error": "Ekki er hægt að nota --merge og --concat saman. Veldu aðeins einn valkost",
     "split_produced": "Skrá skipt upp",
+    "recursive": "Endurtekið",
+    "delete source files": "Eyða upphafs skráum",
+    "cancel": "Hætta við",
+    "file(s)": "Skrá(ir)",
+    "framerate": "Rammahraði",
+    "workers": "Vinnufólk",
+    "quality": "Gæði",
 }

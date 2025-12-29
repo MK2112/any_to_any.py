@@ -99,4 +99,11 @@ FINNISH = {
     "split_merge_error": "--split ja --merge eivät voi olla käytössä samanaikaisesti. Valitse vain yksi vaihtoehto",
     "merge_concat_error": "--merge ja --concat eivät voi olla käytössä samanaikaisesti. Valitse vain yksi vaihtoehto",
     "split_produced": "Jako luotu",
+    "recursive": "Rekursiivinen",
+    "delete source files": "Poista lähdetiedostot",
+    "cancel": "Peruuta",
+    "file(s)": "Tiedosto(t)",
+    "framerate": "Kehyksen nopeus",
+    "workers": "Työntekijät",
+    "quality": "Laatu",
 }

@@ -99,4 +99,11 @@ CZECH = {
     "split_merge_error": "Nelze použít --split a --merge současně. Vyberte prosím pouze jednu možnost",
     "merge_concat_error": "Nelze použít --merge a --concat současně. Vyberte prosím pouze jednu možnost",
     "split_produced": "Rozdělení bylo vytvořeno",
+    "recursive": "Rekurzivní",
+    "delete source files": "Smazat zdrojové soubory",
+    "cancel": "Zrušit",
+    "file(s)": "Soubor(y)",
+    "framerate": "Snímkova frekvence",
+    "workers": "Pracovníci",
+    "quality": "Kvalita",
 }

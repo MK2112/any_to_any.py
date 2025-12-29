@@ -99,4 +99,11 @@ MANDARIN_TRADITIONAL = {
     "split_merge_error": "無法同時使用 --split 與 --merge, 請擇一使用",
     "merge_concat_error": "無法同時使用 --merge 與 --concat, 請擇一使用",
     "split_produced": "已產生分割檔",
+    "recursive": "遞迴",
+    "delete source files": "刪除原始檔案",
+    "cancel": "取消",
+    "file(s)": "檔案",
+    "framerate": "幀率",
+    "workers": "工作人員",
+    "quality": "質量",
 }

@@ -99,4 +99,11 @@ CROATIAN = {
     "split_merge_error": "Ne može se koristiti --split i --merge zajedno. Odaberite isključivo jednu opciju",
     "merge_concat_error": "Ne može se koristiti --merge i --concat zajedno. Odaberite isključivo jednu opciju",
     "split_produced": "Proizvedena podjela",
+    "recursive": "Rekurzivno",
+    "delete source files": "Izbriši izvorne datoteke",
+    "cancel": "Odustani",
+    "file(s)": "Datoteka(e)",
+    "framerate": "Stopa kadrova",
+    "workers": "Radnici",
+    "quality": "Kvaliteta",
 }

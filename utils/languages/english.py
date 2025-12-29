@@ -99,4 +99,11 @@ ENGLISH = {
     "split_merge_error": "Cannot use --split and --merge together. Please choose exclusively one option",
     "merge_concat_error": "Cannot use --merge and --concat together. Please choose exclusively one option",
     "split_produced": "Produced split",
+    "recursive": "Recursive",
+    "delete source files": "Delete Source Files",
+    "cancel": "Cancel",
+    "file(s)": "File(s)",
+    "framerate": "Framerate",
+    "workers": "Workers",
+    "quality": "Quality",
 }

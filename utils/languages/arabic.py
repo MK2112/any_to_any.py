@@ -99,4 +99,11 @@ ARABIC = {
     "split_merge_error": "لا يمكن استخدام --split و --merge معًا. الرجاء اختيار خيار واحد فقط",
     "merge_concat_error": "لا يمكن استخدام --merge و --concat معًا. الرجاء اختيار خيار واحد فقط",
     "split_produced": "تم إنشاء التقسيم",
+    "recursive": "تكراري",
+    "delete source files": "حذف الملفات المصدر",
+    "cancel": "إلغاء",
+    "file(s)": "ملف(ات)",
+    "framerate": "معدل الإطارات",
+    "workers": "العمال",
+    "quality": "الجودة",
 }

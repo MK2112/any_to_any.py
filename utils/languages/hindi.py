@@ -99,4 +99,11 @@ HINDI = {
     "split_merge_error": "--split और --merge को एक साथ उपयोग नहीं किया जा सकता। कृपया केवल एक विकल्प चुनें",
     "merge_concat_error": "--merge और --concat को एक साथ उपयोग नहीं किया जा सकता। कृपया केवल एक विकल्प चुनें",
     "split_produced": "विभाजन तैयार किया गया",
+    "recursive": "पुनरावृत्तिमूलक",
+    "delete source files": "स्रोत फ़ाइलें हटाएं",
+    "cancel": "रद्द करें",
+    "file(s)": "फ़ाइल(ें)",
+    "framerate": "फ्रेम दर",
+    "workers": "कामकाजी",
+    "quality": "गुणवत्ता",
 }

@@ -99,4 +99,11 @@ CATALAN = {
     "split_merge_error": "No es poden utilitzar --split i --merge junts. Trieu exclusivament una opció",
     "merge_concat_error": "No es poden utilitzar --merge i --concat junts. Trieu exclusivament una opció",
     "split_produced": "Divisió produïda",
+    "recursive": "Recursiu",
+    "delete source files": "Eliminar fitxers font",
+    "cancel": "Cancel·lar",
+    "file(s)": "Fitxer(s)",
+    "framerate": "Taxa de fotogrames",
+    "workers": "Treballadors",
+    "quality": "Qualitat",
 }

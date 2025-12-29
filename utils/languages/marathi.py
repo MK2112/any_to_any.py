@@ -99,4 +99,11 @@ MARATHI = {
     "split_merge_error": "आपण --split आणि --merge एकाचवेळी वापरू शकत नाही. कृपया एकच पर्याय निवडा",
     "merge_concat_error": "आपण --merge आणि --concat एकाचवेळी वापरू शकत नाही. कृपया एकच पर्याय निवडा",
     "split_produced": "विभाजन पूर्ण झाले",
+    "recursive": "पुनरावृत्ती",
+    "delete source files": "स्त्रोत फाइल्स काढा",
+    "cancel": "रद्द करा",
+    "file(s)": "फाइल(स)",
+    "framerate": "फ्रेम दर",
+    "workers": "कामगार",
+    "quality": "गुणवत्ता",
 }

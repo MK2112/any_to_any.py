@@ -5,7 +5,8 @@ LANGUAGE_CODES = {
     "es_ES": "Spanish",
     "it_IT": "Italian",
     "de_DE": "German",
-    "pt_BR": "Portuguese",
+    "pt_BR": "Portuguese (Brazil)",
+    "pt_PT": "Portuguese (Portugal)",
     "ru_RU": "Russian",
     "ko_KR": "Korean",
     "en_US": "English",  # Default
@@ -37,8 +38,8 @@ LANGUAGE_CODES = {
     "ur_PK": "Urdu",
     "sw_TZ": "Swahili",
     "sw_KE": "Swahili",
-    "pa_IN": "Punjabi",
-    "pa_PK": "Punjabi",
+    "pa_IN": "Punjabi (India)",
+    "pa_PK": "Punjabi (Pakistan)",
     "tl_PH": "Tagalog",
     "my_MM": "Burmese",
     "ta_IN": "Tamil",
@@ -46,4 +47,5 @@ LANGUAGE_CODES = {
     "mr_IN": "Marathi",
     "ca_ES": "Catalan",
     "hr_HR": "Croatian",
+    "es_MX": "Spanish",
 }

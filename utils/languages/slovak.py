@@ -1,7 +1,7 @@
 from utils.languages.language_codes import LANGUAGE_CODES
 
 SLOVAK = {
-    "select_file": "Vybrať súbor",
+    "select_files": "Vybrať súbory",
     "clear_all": "Vymazať všetko",
     "convert": "Konvertovať",
     "download": "Stiahnuť",
@@ -99,4 +99,11 @@ SLOVAK = {
     "split_merge_error": "Nemôžete súčasne použiť --split a --merge. Prosím, vyberte iba jedno",
     "merge_concat_error": "Nemôžete súčasne použiť --merge a --concat. Prosím, vyberte iba jedno",
     "split_produced": "Časť vytvorená",
+    "recursive": "Rekurzívny",
+    "delete source files": "Odstrániť zdrojové súbory",
+    "cancel": "Zrušiť",
+    "file(s)": "Súbor(y)",
+    "framerate": "Rýchlosť snímok",
+    "workers": "Pracovníci",
+    "quality": "Kvalita",
 }

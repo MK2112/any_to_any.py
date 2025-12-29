@@ -99,4 +99,11 @@ MANDARIN_SIMPLIFIED = {
     "split_merge_error": "无法同时使用 --split 和 --merge。请只选择一个选项",
     "merge_concat_error": "无法同时使用 --merge 和 --concat。请只选择一个选项",
     "split_produced": "已生成拆分文件",
+    "recursive": "递归",
+    "delete source files": "删除源文件",
+    "cancel": "取消",
+    "file(s)": "文件",
+    "framerate": "帧率",
+    "workers": "工作者",
+    "quality": "质量",
 }

@@ -99,4 +99,11 @@ KOREAN = {
     "split_merge_error": "--split과 --merge는 동시에 사용할 수 없습니다. 하나만 선택하세요",
     "merge_concat_error": "--merge와 --concat은 동시에 사용할 수 없습니다. 하나만 선택하세요",
     "split_produced": "분할 생성됨",
+    "recursive": "재귀",
+    "delete source files": "원본 파일 삭제",
+    "cancel": "취소",
+    "file(s)": "파일",
+    "framerate": "프레임 속도",
+    "workers": "작업자",
+    "quality": "품질",
 }

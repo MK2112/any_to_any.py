@@ -99,4 +99,11 @@ MALAY = {
     "split_merge_error": "Tidak boleh menggunakan --split dan --merge serentak. Sila pilih satu sahaja",
     "merge_concat_error": "Tidak boleh menggunakan --merge dan --concat serentak. Sila pilih satu sahaja",
     "split_produced": "Bahagian telah dihasilkan",
+    "recursive": "Kebiasaan",
+    "delete source files": "Padam fail sumber",
+    "cancel": "Batal",
+    "file(s)": "Fail",
+    "framerate": "Kadar bingkai",
+    "workers": "Pekerja",
+    "quality": "Kualiti",
 }

@@ -99,4 +99,11 @@ SWAHILI = {
     "split_merge_error": "Huwezi kutumia --split na --merge kwa pamoja. Tafadhali chagua chaguo moja pekee",
     "merge_concat_error": "Huwezi kutumia --merge na --concat kwa pamoja. Tafadhali chagua chaguo moja pekee",
     "split_produced": "Imezalisha mgawanyo",
+    "recursive": "Kurudia",
+    "delete source files": "Futa faili za chanzo",
+    "cancel": "Ghairi",
+    "file(s)": "Faili",
+    "framerate": "Kiwango cha picha",
+    "workers": "Wafanyakazi",
+    "quality": "Ubora",
 }

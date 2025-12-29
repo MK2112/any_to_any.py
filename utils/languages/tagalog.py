@@ -99,4 +99,11 @@ TAGALOG = {
     "split_merge_error": "Hindi puwedeng gamitin nang sabay ang --split at --merge. Pumili lang ng isa",
     "merge_concat_error": "Hindi puwedeng gamitin nang sabay ang --merge at --concat. Pumili lang ng isa",
     "split_produced": "Nabuo ang paghahati",
+    "recursive": "Pabalik-balik",
+    "delete source files": "Tanggalin ang mga file ng pinagmulan",
+    "cancel": "Kanselahin",
+    "file(s)": "File",
+    "framerate": "Rate ng frame",
+    "workers": "Mga manggagawa",
+    "quality": "Kalidad",
 }

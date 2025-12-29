@@ -99,4 +99,11 @@ TURKISH = {
     "split_merge_error": "--split ve --merge birlikte kullanılamaz. Lütfen yalnızca birini seçin",
     "merge_concat_error": "--merge ve --concat birlikte kullanılamaz. Lütfen yalnızca birini seçin",
     "split_produced": "Bölme işlemi tamamlandı",
+    "recursive": "Yinelemeli",
+    "delete source files": "Kaynak dosyaları sil",
+    "cancel": "İptal",
+    "file(s)": "Dosya(lar)",
+    "framerate": "Kare hızı",
+    "workers": "Çalışanlar",
+    "quality": "Kalite",
 }

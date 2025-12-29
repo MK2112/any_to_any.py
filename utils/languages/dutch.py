@@ -99,4 +99,11 @@ DUTCH = {
     "split_merge_error": "--split en --merge kunnen niet samen worden gebruikt. Kies alstublieft slechts één optie",
     "merge_concat_error": "--merge en --concat kunnen niet samen worden gebruikt. Kies alstublieft slechts één optie",
     "split_produced": "Splitsing aangemaakt",
+    "recursive": "Recursief",
+    "delete source files": "Verwijder bronbestanden",
+    "cancel": "Annuleren",
+    "file(s)": "Bestand(en)",
+    "framerate": "Beeldsnelheid",
+    "workers": "Werknemers",
+    "quality": "Kwaliteit",
 }

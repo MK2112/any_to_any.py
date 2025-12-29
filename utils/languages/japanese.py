@@ -99,4 +99,11 @@ JAPANESE = {
     "split_merge_error": "--split と --merge を同時に使用することはできません。どちらか一方を選択してください",
     "merge_concat_error": "--merge と --concat を同時に使用することはできません。どちらか一方を選択してください",
     "split_produced": "分割ファイルが作成されました",
+    "recursive": "再帰的",
+    "delete source files": "ソースファイルを削除",
+    "cancel": "キャンセル",
+    "file(s)": "ファイル",
+    "framerate": "フレームレート",
+    "workers": "ワーカー",
+    "quality": "品質",
 }

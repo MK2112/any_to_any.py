@@ -99,4 +99,11 @@ VIETNAMESE = {
     "split_merge_error": "Không thể sử dụng --split và --merge cùng lúc. Vui lòng chỉ chọn một tùy chọn",
     "merge_concat_error": "Không thể sử dụng --merge và --concat cùng lúc. Vui lòng chỉ chọn một tùy chọn",
     "split_produced": "Đã tạo tệp đã chia",
+    "recursive": "Đệ quy",
+    "delete source files": "Xóa tệp nguồn",
+    "cancel": "Hủy bỏ",
+    "file(s)": "Tệp tin",
+    "framerate": "Tốc độ khung hình",
+    "workers": "Công nhân",
+    "quality": "Chất lượng",
 }

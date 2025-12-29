@@ -99,4 +99,11 @@ SWEDISH = {
     "split_merge_error": "Du kan inte använda --split och --merge samtidigt. Välj endast ett alternativ",
     "merge_concat_error": "Du kan inte använda --merge och --concat samtidigt. Välj endast ett alternativ",
     "split_produced": "Delning skapad",
+    "recursive": "Rekursiv",
+    "delete source files": "Ta bort källfiler",
+    "cancel": "Avbryt",
+    "file(s)": "Fil(er)",
+    "framerate": "Bilder per sekund",
+    "workers": "Arbetare",
+    "quality": "Kvalitet",
 }

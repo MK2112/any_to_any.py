@@ -1,7 +1,7 @@
 from utils.languages.language_codes import LANGUAGE_CODES
 
 HUNGARIAN = {
-    "select_file": "Fájl kiválasztása",
+    "select_files": "Fájlok kiválasztása",
     "clear_all": "Mindet törölni",
     "convert": "Konvertálás",
     "download": "Letöltés",
@@ -99,4 +99,11 @@ HUNGARIAN = {
     "split_merge_error": "Nem használhatja egyszerre a --split és a --merge kapcsolót. Kérjük, válasszon csak egyet",
     "merge_concat_error": "Nem használhatja egyszerre a --merge és a --concat kapcsolót. Kérjük, válasszon csak egyet",
     "split_produced": "Rész létrehozva",
+    "recursive": "Rekurzív",
+    "delete source files": "Forrásfájlok törlése",
+    "cancel": "Mégsem",
+    "file(s)": "Fájl(ok)",
+    "framerate": "Képsebesség",
+    "workers": "Munkások",
+    "quality": "Minőség",
 }

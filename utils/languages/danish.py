@@ -99,4 +99,11 @@ DANISH = {
     "split_merge_error": "Du kan ikke bruge --split og --merge samtidigt. Vælg venligst kun én mulighed",
     "merge_concat_error": "Du kan ikke bruge --merge og --concat samtidigt. Vælg venligst kun én mulighed",
     "split_produced": "Opdeling oprettet",
+    "recursive": "Rekursiv",
+    "delete source files": "Slet kildefiler",
+    "cancel": "Annuller",
+    "file(s)": "Fil(er)",
+    "framerate": "Billedhastighed",
+    "workers": "Arbejderne",
+    "quality": "Kvalitet",
 }

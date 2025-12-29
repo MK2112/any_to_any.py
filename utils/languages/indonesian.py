@@ -99,4 +99,11 @@ INDONESIAN = {
     "split_merge_error": "Tidak dapat menggunakan --split dan --merge bersamaan. Harap pilih satu opsi saja",
     "merge_concat_error": "Tidak dapat menggunakan --merge dan --concat bersamaan. Harap pilih satu opsi saja",
     "split_produced": "Pembagian telah dibuat",
+    "recursive": "Rekursif",
+    "delete source files": "Hapus file sumber",
+    "cancel": "Batal",
+    "file(s)": "File",
+    "framerate": "Kecepatan frame",
+    "workers": "Pekerja",
+    "quality": "Kualitas",
 }

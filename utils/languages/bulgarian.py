@@ -1,7 +1,7 @@
 from utils.languages.language_codes import LANGUAGE_CODES
 
 BULGARIAN = {
-    "select_file": "Избор на файл",
+    "select_files": "Изберете файлове",
     "clear_all": "Изчисти всичко",
     "convert": "Конвертиране",
     "download": "Изтегляне",
@@ -99,4 +99,11 @@ BULGARIAN = {
     "split_merge_error": "Не можете да използвате --split и --merge едновременно. Моля, изберете само едно",
     "merge_concat_error": "Не можете да използвате --merge и --concat едновременно. Моля, изберете само едно",
     "split_produced": "Частта е създадена",
+    "recursive": "Рекурсивен",
+    "delete source files": "Изтрийте изходните файлове",
+    "cancel": "Отказ",
+    "file(s)": "Файл(ове)",
+    "framerate": "Честота на кадрите",
+    "workers": "Работници",
+    "quality": "Качество",
 }

@@ -99,4 +99,11 @@ ITALIAN = {
     "split_merge_error": "Non è possibile usare --split e --merge insieme. Si prega di scegliere solo un'opzione",
     "merge_concat_error": "Non è possibile usare --merge e --concat insieme. Si prega di scegliere solo un'opzione",
     "split_produced": "Divisione prodotta",
+    "recursive": "Ricorsivo",
+    "delete source files": "Elimina i file di origine",
+    "cancel": "Annulla",
+    "file(s)": "File",
+    "framerate": "Frequenza dei fotogrammi",
+    "workers": "Lavoratori",
+    "quality": "Qualità",
 }

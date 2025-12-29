@@ -1,7 +1,7 @@
 from utils.languages.language_codes import LANGUAGE_CODES
 
 GREEK = {
-    "select_file": "Επιλογή αρχείου",
+    "select_files": "Επιλογή αρχείων",
     "clear_all": "Εκκαθάριση όλων",
     "convert": "Μετατροπή",
     "download": "Λήψη",
@@ -99,4 +99,11 @@ GREEK = {
     "split_merge_error": "Δεν μπορείτε να χρησιμοποιήσετε ταυτόχρονα --split και --merge. Επιλέξτε μόνο ένα",
     "merge_concat_error": "Δεν μπορείτε να χρησιμοποιήσετε ταυτόχρονα --merge και --concat. Επιλέξτε μόνο ένα",
     "split_produced": "Παράχθηκε τμήμα",
+    "recursive": "Αναδρομικός",
+    "delete source files": "Διαγραφή αρχείων πηγής",
+    "cancel": "Ακύρωση",
+    "file(s)": "Αρχείο(α)",
+    "framerate": "Ρυθμός καρέ",
+    "workers": "Εργάτες",
+    "quality": "Ποιότητα",
 }

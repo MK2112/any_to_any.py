@@ -99,4 +99,11 @@ GERMAN = {
     "split_merge_error": "--split und --merge können nicht gleichzeitig verwendet werden. Bitte nur eine Option wählen",
     "merge_concat_error": "--merge und --concat können nicht gleichzeitig verwendet werden. Bitte nur eine Option wählen",
     "split_produced": "Aufteilung erzeugt",
+    "recursive": "Rekursiv",
+    "delete source files": "Quell-Dateien löschen",
+    "cancel": "Abbrechen",
+    "file(s)": "Datei(en)",
+    "framerate": "Bildrate",
+    "workers": "Threads",
+    "quality": "Qualität",
 }

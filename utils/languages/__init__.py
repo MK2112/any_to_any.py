@@ -35,7 +35,8 @@ from .farsi import FARSI
 from .bengali import BENGALI
 from .urdu import URDU
 from .swahili import SWAHILI
-from .punjabi import PUNJABI
+from .punjabi_india import PUNJABI_INDIAN
+from .punjabi_pakistan import PUNJABI_PAKISTAN
 from .tagalog import TAGALOG
 from .burmese import BURMESE
 from .tamil import TAMIL

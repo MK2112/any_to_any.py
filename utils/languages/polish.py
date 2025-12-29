@@ -99,4 +99,11 @@ POLISH = {
     "split_merge_error": "Nie można używać --split i --merge jednocześnie. Wybierz tylko jedną opcję",
     "merge_concat_error": "Nie można używać --merge i --concat jednocześnie. Wybierz tylko jedną opcję",
     "split_produced": "Podział utworzony",
+    "recursive": "Rekurencyjny",
+    "delete source files": "Usuń pliki źródłowe",
+    "cancel": "Anuluj",
+    "file(s)": "Plik(i)",
+    "framerate": "Częstotliwość klatek",
+    "workers": "Pracownicy",
+    "quality": "Jakość",
 }

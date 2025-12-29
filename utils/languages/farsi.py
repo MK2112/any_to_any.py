@@ -99,4 +99,11 @@ FARSI = {
     "split_merge_error": "نمی‌توان --split و --merge را همزمان استفاده کرد. لطفاً فقط یکی را انتخاب کنید",
     "merge_concat_error": "نمی‌توان --merge و --concat را همزمان استفاده کرد. لطفاً فقط یکی را انتخاب کنید",
     "split_produced": "تقسیم تولید شد",
+    "recursive": "بازگشتی",
+    "delete source files": "حذف فایل‌های منبع",
+    "cancel": "لغو",
+    "file(s)": "فایل(ها)",
+    "framerate": "نرخ فریم",
+    "workers": "کارگران",
+    "quality": "کیفیت",
 }

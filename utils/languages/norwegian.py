@@ -99,4 +99,11 @@ NORWEGIAN = {
     "split_merge_error": "Kan ikke bruke --split og --merge samtidig. Velg bare ett alternativ",
     "merge_concat_error": "Kan ikke bruke --merge og --concat samtidig. Velg bare ett alternativ",
     "split_produced": "Oppdeling produsert",
+    "recursive": "Rekursiv",
+    "delete source files": "Slett kildefiler",
+    "cancel": "Avbryt",
+    "file(s)": "Fil(er)",
+    "framerate": "Bildehastighet",
+    "workers": "Arbeidere",
+    "quality": "Kvalitet",
 }

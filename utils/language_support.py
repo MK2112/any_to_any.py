@@ -4,7 +4,7 @@ from utils.languages import LANGUAGE_CODES as CODES
 from utils.languages import MANDARIN_SIMPLIFIED, JAPANESE, FRENCH, SPANISH, ITALIAN, GERMAN, PORTUGUESE, RUSSIAN, KOREAN, ENGLISH
 from utils.languages import POLISH, HINDI, UKRAINIAN, ARABIC, INDONESIAN, TURKISH, VIETNAMESE, THAI, DUTCH, SWEDISH, DANISH
 from utils.languages import FINNISH, NORWEGIAN, ICELANDIC, HEBREW, CZECH, ROMANIAN, MALAY, BULGARIAN, HUNGARIAN, GREEK, SLOVAK
-from utils.languages import MANDARIN_TRADITIONAL, FARSI, BENGALI, URDU, SWAHILI, PUNJABI, TAGALOG, BURMESE, TAMIL, TELUGU, MARATHI
+from utils.languages import MANDARIN_TRADITIONAL, FARSI, BENGALI, URDU, SWAHILI, PUNJABI_INDIAN, PUNJABI_PAKISTAN, TAGALOG, BURMESE, TAMIL, TELUGU, MARATHI
 
 LANGUAGE_CODES = CODES
 
@@ -13,9 +13,11 @@ TRANSLATIONS = {
     "Japanese": JAPANESE,
     "French": FRENCH,
     "Spanish": SPANISH,
+    "Mexican Spanish": SPANISH,
     "Italian": ITALIAN,
     "German": GERMAN,
-    "Portuguese": PORTUGUESE,
+    "Portuguese (Brazil)": PORTUGUESE,
+    "Portuguese (Portugal)": PORTUGUESE,
     "Russian": RUSSIAN,
     "Korean": KOREAN,
     "English": ENGLISH,
@@ -46,7 +48,8 @@ TRANSLATIONS = {
     "Bengali": BENGALI,
     "Urdu": URDU,
     "Swahili": SWAHILI,
-    "Punjabi": PUNJABI,
+    "Punjabi (Indian)": PUNJABI_INDIAN,
+    "Punjabi (Pakistan)": PUNJABI_PAKISTAN,
     "Tagalog": TAGALOG,
     "Burmese": BURMESE,
     "Tamil": TAMIL,

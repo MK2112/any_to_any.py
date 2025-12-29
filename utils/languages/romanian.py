@@ -99,4 +99,11 @@ ROMANIAN = {
     "split_merge_error": "Nu se pot folosi --split și --merge împreună. Vă rugăm să alegeți doar o opțiune",
     "merge_concat_error": "Nu se pot folosi --merge și --concat împreună. Vă rugăm să alegeți doar o opțiune",
     "split_produced": "Împărțirea a fost creată",
+    "recursive": "Recursiv",
+    "delete source files": "Șterge fișierele sursă",
+    "cancel": "Anulare",
+    "file(s)": "Fișier(e)",
+    "framerate": "Rata cadrelor",
+    "workers": "Lucrători",
+    "quality": "Calitate",
 }

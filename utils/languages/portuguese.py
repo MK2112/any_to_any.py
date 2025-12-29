@@ -99,4 +99,11 @@ PORTUGUESE = {
     "split_merge_error": "Não é possível usar --split e --merge ao mesmo tempo. Escolha apenas uma opção",
     "merge_concat_error": "Não é possível usar --merge e --concat ao mesmo tempo. Escolha apenas uma opção",
     "split_produced": "Divisão produzida",
+    "recursive": "Recursivo",
+    "delete source files": "Excluir arquivos de origem",
+    "cancel": "Cancelar",
+    "file(s)": "Arquivo(s)",
+    "framerate": "Taxa de quadros",
+    "workers": "Trabalhadores",
+    "quality": "Qualidade",
 }

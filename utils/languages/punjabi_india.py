@@ -1,6 +1,6 @@
 from utils.languages.language_codes import LANGUAGE_CODES
 
-PUNJABI = {
+PUNJABI_INDIAN = {
     "select_files": "ਫਾਇਲਾਂ ਚੁਣੋ",
     "clear_all": "ਸਭ ਸਾਫ਼ ਕਰੋ",
     "convert": "ਕਨਵਰਟ ਕਰੋ",
@@ -99,4 +99,11 @@ PUNJABI = {
     "split_merge_error": "--split ਅਤੇ --merge ਇਕੱਠੇ ਵਰਤੇ ਨਹੀਂ ਜਾ ਸਕਦੇ। ਕਿਰਪਾ ਕਰਕੇ ਇਕੋ ਵਿਕਲਪ ਚੁਣੋ",
     "merge_concat_error": "--merge ਅਤੇ --concat ਇਕੱਠੇ ਵਰਤੇ ਨਹੀਂ ਜਾ ਸਕਦੇ। ਕਿਰਪਾ ਕਰਕੇ ਇਕੋ ਵਿਕਲਪ ਚੁਣੋ",
     "split_produced": "ਵੰਡਿਆ ਉਤਪਾਦਨ",
+    "recursive": "ਪੁਨਰਾਵਰਤਨ",
+    "delete source files": "ਸਰੋਤ ਫਾਈਲਾਂ ਹਟਾਓ",
+    "cancel": "ਰੱਦ ਕਰੋ",
+    "file(s)": "ਫਾਈਲ(ਾਂ)",
+    "framerate": "ਫਰੇਮ ਦਰ",
+    "workers": "ਮਜ਼ਦੂਰ",
+    "quality": "ਗੁਣਵੱਤਾ",
 }

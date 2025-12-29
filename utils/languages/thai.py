@@ -99,4 +99,11 @@ THAI = {
     "split_merge_error": "ไม่สามารถใช้ --split และ --merge พร้อมกันได้ โปรดเลือกเพียงหนึ่งตัวเลือก",
     "merge_concat_error": "ไม่สามารถใช้ --merge และ --concat พร้อมกันได้ โปรดเลือกเพียงหนึ่งตัวเลือก",
     "split_produced": "สร้างไฟล์ที่แบ่งแล้ว",
+    "recursive": "การทำซ้ำ",
+    "delete source files": "ลบไฟล์ต้นฉบับ",
+    "cancel": "ยกเลิก",
+    "file(s)": "ไฟล์",
+    "framerate": "อัตราเฟรม",
+    "workers": "คนงาน",
+    "quality": "คุณภาพ",
 }

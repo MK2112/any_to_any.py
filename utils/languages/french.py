@@ -99,4 +99,11 @@ FRENCH = {
     "split_merge_error": "Impossible d'utiliser --split et --merge en même temps. Veuillez choisir une seule option",
     "merge_concat_error": "Impossible d'utiliser --merge et --concat en même temps. Veuillez choisir une seule option",
     "split_produced": "Fichier divisé généré",
+    "recursive": "Récursif",
+    "delete source files": "Supprimer les fichiers sources",
+    "cancel": "Annuler",
+    "file(s)": "Fichier(s)",
+    "framerate": "Fréquence d'images",
+    "workers": "Travailleurs",
+    "quality": "Qualité",
 }

@@ -99,4 +99,11 @@ URDU = {
     "split_merge_error": "--split اور --merge اکٹھے استعمال نہیں کیے جا سکتے۔ براہ کرم صرف ایک منتخب کریں",
     "merge_concat_error": "--merge اور --concat اکٹھے استعمال نہیں کیے جا سکتے۔ براہ کرم صرف ایک منتخب کریں",
     "split_produced": "تقسیم تیار ہوئی",
+    "recursive": "تکراری",
+    "delete source files": "ماخذ فائلیں حذف کریں",
+    "cancel": "منسوخ کریں",
+    "file(s)": "فائل(یں)",
+    "framerate": "فریم ریٹ",
+    "workers": "ملازمین",
+    "quality": "معیاری",
 }

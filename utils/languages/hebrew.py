@@ -99,4 +99,11 @@ HEBREW = {
     "split_merge_error": "לא ניתן להשתמש ב--split וב--merge יחד. אנא בחר אפשרות אחת בלבד",
     "merge_concat_error": "לא ניתן להשתמש ב--merge וב--concat יחד. אנא בחר אפשרות אחת בלבד",
     "split_produced": "הפיצול נוצר",
+    "recursive": "חוזר",
+    "delete source files": "מחק קבצים מקוריים",
+    "cancel": "ביטול",
+    "file(s)": "קובץ(ים)",
+    "framerate": "קצב פריימים",
+    "workers": "עובדים",
+    "quality": "איכות",
 }
