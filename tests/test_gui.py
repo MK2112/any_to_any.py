@@ -1,7 +1,6 @@
 import os
 import sys
 import pytest
-import platform
 from unittest.mock import patch
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -128,6 +127,7 @@ def test_main_window_has_file_set(main_window):
 
 def test_format_combo_populated(main_window):
     assert main_window.format_combo.count() > 0
+
 
 def test_framerate_spin_range(main_window):
     assert main_window.framerate_spin.minimum() == 0
