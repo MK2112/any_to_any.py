@@ -26,7 +26,7 @@ class AudioConverter:
         bitrate: str,  # self._audio_bitrate(format, self.quality),
         input: str,
         output: str,
-        delete: str,
+        delete: bool,
     ) -> None:
         try:
             # Decide worker count with env variable if present

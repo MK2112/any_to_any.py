@@ -217,7 +217,7 @@ class DocumentConverter:
                     )
                     if os.path.exists(out_path) and os.path.getsize(out_path) > 0:
                         self.event_logger.info(
-                            f"[>] {lang.get_translation('embed_subtitles_success')} '{out_path}'"
+                            f"[>] {lang.get_translation('embed_subtitles_success', self.locale)} '{out_path}'"
                         )
                         self.file_handler.post_process(
                             movie_path_set, out_path, delete, show_status=False

@@ -6,6 +6,7 @@ import pypdf
 import utils.language_support as lang
 from PIL import Image
 from tqdm import tqdm
+from io import BytesIO
 from moviepy import VideoFileClip
 from utils.category import Category
 
@@ -528,7 +529,7 @@ class ImageConverter:
                 progress_bar.close()
 
             if images:
-                output_path = os.path.join(output, f"{output}_merged.{format}")
+                output_path = os.path.join(output, f"merged.{format}")
                 try:
                     images[0].save(
                         output_path,
@@ -638,7 +639,7 @@ class ImageConverter:
                             if shape.shape_type == 13:  # Picture
                                 image = shape.image
                                 img_bytes = image.blob
-                                img = Image.open(img_bytes)
+                                img = Image.open(BytesIO(img_bytes))
                                 images.append(img.convert("RGB"))
                     frame_count = len(prs.slides) or 1
                 if images:

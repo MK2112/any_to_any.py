@@ -263,7 +263,7 @@ class Controller:
         input_path_args = (
             input_path_args
             if input_path_args is not None
-            else [os.path.dirname(os.getcwd())]
+            else [os.getcwd()]
         )
         input_paths = []
         for _, arg in enumerate(input_path_args):
@@ -342,7 +342,7 @@ class Controller:
                     f"[!] {lang.get_translation('error', self.locale)}: {lang.get_translation('no_out_multi_in', self.locale)}",
                 )
             if os.path.isfile(self.output):
-                self.output = os.path.dirname(self.output)
+                self.output = Path(os.path.dirname(str(self.output)))
 
             # Dropzone
             if dropzone:
@@ -507,6 +507,7 @@ class Controller:
                         dropzone_controller.recursive = True
                         dropzone_controller.event_logger = self.event_logger
                         dropzone_controller.file_handler = self.file_handler
+                        dropzone_controller.target_format = self.target_format
 
                         # Process the file
                         file_paths = dropzone_controller.file_handler.get_file_paths(
@@ -514,7 +515,7 @@ class Controller:
                         )
                         if file_paths:
                             try:
-                                dropzone_controller.process_files(file_paths)
+                                dropzone_controller.process_file_paths(file_paths)
                             except Exception as e:
                                 self.event_logger.error(
                                     f"{lang.get_translation('error', self.locale)}: {file_path} - {str(e)}"

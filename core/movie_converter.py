@@ -223,12 +223,12 @@ class MovieConverter:
                 # Now we can convert that to a movie
                 pics = [
                     image
-                    for image in os.listdir(doc_path_set[1])
+                    for image in os.listdir(os.path.join(output, doc_path_set[1]))
                     if image.endswith(".jpeg")
                 ]
                 if len(pics) > 0:
                     final_clip = concatenate_videoclips(pics, method="compose")
-                    out_path = os.path.abspath(os.path.join(output, f".{format}"))
+                    out_path = os.path.abspath(os.path.join(output, f"{doc_path_set[1]}.{format}"))
                     final_clip.write_videofile(
                         out_path,
                         fps=24 if framerate is None else framerate,
@@ -353,7 +353,7 @@ class MovieConverter:
                 clip = VideoClip(
                     lambda t: np.zeros(
                         (16, 16, 3), dtype=np.uint8
-                    ),  # 16 black pixels at least, required by moviepy
+                    ),  # 16x16 black pixels at least, required by moviepy
                     duration=audio.duration,
                 )
                 clip = clip.with_audio(audio)
