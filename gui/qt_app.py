@@ -3,9 +3,12 @@ import sys
 import copy
 import json
 import time
+import platform
 import threading
+import subprocess
 from pathlib import Path
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
+from PyQt6.QtGui import QShortcut, QKeySequence
 from PyQt6.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -27,12 +30,14 @@ from PyQt6.QtWidgets import (
     QSpinBox,
     QGroupBox,
     QGridLayout,
+    QMenu,
 )
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from core.controller import Controller
 import utils.language_support as lang
 
+VERSION = "1.0.7"
 
 class ConversionThread(QThread):
     progress_updated = pyqtSignal(dict)
@@ -125,7 +130,7 @@ class ConversionThread(QThread):
             t.start()
 
             last_snapshot = None
-            # Poll progress every 100ms for smoother updates
+            # Poll progress every 100ms
             while not conversion_done.is_set() and not self._cancelled:
                 prog = copy.deepcopy(self.shared_progress.get(self.job_id, {}))
                 progress = prog.get("progress", None)
@@ -148,7 +153,7 @@ class ConversionThread(QThread):
                 if snapshot != last_snapshot:
                     self.progress_updated.emit(snapshot)
                     last_snapshot = snapshot
-                time.sleep(0.1)  # Reduced from 0.25s for smoother UI
+                time.sleep(0.1)
 
             if self._cancelled:
                 self.progress_updated.emit(
@@ -196,9 +201,20 @@ class MainWindow(QMainWindow):
         self._file_paths_set = set()  # Performance: O(1) duplicate checking
         self.conversion_threads = {}
         self.current_thread = None
+        self._conversion_start_time = None
         self.init_ui()
-        self.setWindowTitle("any_to_any.py")
+        self._setup_shortcuts()
+        self.setWindowTitle(f"any_to_any.py v{VERSION}")
         self.setMinimumSize(850, 650)
+        self.setAcceptDrops(True)  # Enable drag-drop on main window
+
+    def _setup_shortcuts(self):
+        # Keyboard shortcuts, will expand this in the future
+        QShortcut(QKeySequence("Ctrl+O"), self, self.add_files)
+        QShortcut(QKeySequence("Delete"), self, self.remove_selected)
+        QShortcut(QKeySequence("Ctrl+Return"), self, self.start_conversion)
+        QShortcut(QKeySequence("Escape"), self, self.cancel_conversion)
+        QShortcut(QKeySequence("Ctrl+Shift+A"), self, self.add_folder)
 
     def get_supported_formats(self):
         formats = {}
@@ -209,20 +225,46 @@ class MainWindow(QMainWindow):
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
+            self.file_list.setStyleSheet(
+                "QListWidget { border: 2px dashed #4CAF50; background-color: #f0fff0; }"
+            )
             event.acceptProposedAction()
         else:
             event.ignore()
 
+    def dragLeaveEvent(self, event):
+        self.file_list.setStyleSheet("")
+        event.accept()
+
     def dropEvent(self, event):
+        self.file_list.setStyleSheet("")
+        files_to_add = []
         for url in event.mimeData().urls():
             path = url.toLocalFile()
             if os.path.isfile(path):
-                self.add_file_to_list(path)
+                files_to_add.append(path)
             elif os.path.isdir(path):
                 for root, _, files in os.walk(path):
                     for file in files:
-                        self.add_file_to_list(os.path.join(root, file))
+                        files_to_add.append(os.path.join(root, file))
+        # Use batch addition for better performance
+        self.add_files_batch(files_to_add)
         event.acceptProposedAction()
+
+    def add_files_batch(self, files):
+        # Aggregator, adds multiple files with single UI update
+        self.file_list.setUpdatesEnabled(False)
+        try:
+            for file in files:
+                if file not in self._file_paths_set and os.path.isfile(file):
+                    self._file_paths_set.add(file)
+                    item = QListWidgetItem(Path(file).name)
+                    item.setData(Qt.ItemDataRole.UserRole, file)
+                    item.setToolTip(file)
+                    self.file_list.addItem(item)
+        finally:
+            self.file_list.setUpdatesEnabled(True)
+            self._update_file_count()
 
     def add_file_to_list(self, file):
         if not os.path.isfile(file):
@@ -238,7 +280,7 @@ class MainWindow(QMainWindow):
 
     def _update_file_count(self):
         count = self.file_list.count()
-        self.file_count_label.setText(f"{count} file(s)")
+        self.file_count_label.setText(f"{count} {lang.get_translation("file(s)", self.locale)}")
 
     def init_ui(self):
         self.last_dir = str(Path.home())
@@ -264,13 +306,16 @@ class MainWindow(QMainWindow):
         self.file_list.viewport().setAcceptDrops(True)
         self.file_list.setDragDropMode(QListWidget.DragDropMode.DropOnly)
         self.file_list.dragEnterEvent = self.dragEnterEvent
+        self.file_list.dragLeaveEvent = self.dragLeaveEvent
         self.file_list.dropEvent = self.dropEvent
         self.file_list.setMinimumHeight(150)
+        self.file_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.file_list.customContextMenuRequested.connect(self.show_file_context_menu)
         input_layout.addWidget(self.file_list)
 
         # File count and buttons
         file_button_layout = QHBoxLayout()
-        self.file_count_label = QLabel("0 file(s)")
+        self.file_count_label = QLabel(f"0 {lang.get_translation("file(s)", self.locale)}")
         file_button_layout.addWidget(self.file_count_label)
         file_button_layout.addStretch()
 
@@ -328,12 +373,7 @@ class MainWindow(QMainWindow):
         settings_layout.addWidget(self.output_dir_edit, 0, 3)
         settings_layout.addWidget(browse_btn, 0, 4)
 
-        # Row 1: Framerate and Quality
-        framerate_label = QLabel(
-            lang.get_translation("framerate", self.locale)
-            if "framerate" in lang.get_all_translations(self.locale)
-            else "Framerate:"
-        )
+        framerate_label = QLabel(f"{lang.get_translation("framerate", self.locale)}:")
         self.framerate_spin = QSpinBox()
         self.framerate_spin.setRange(0, 120)
         self.framerate_spin.setValue(0)
@@ -342,18 +382,13 @@ class MainWindow(QMainWindow):
         settings_layout.addWidget(framerate_label, 1, 0)
         settings_layout.addWidget(self.framerate_spin, 1, 1)
 
-        quality_label = QLabel(
-            lang.get_translation("quality", self.locale)
-            if "quality" in lang.get_all_translations(self.locale)
-            else "Quality:"
-        )
+        quality_label = QLabel(f"{lang.get_translation("quality", self.locale)}:")
         self.quality_combo = QComboBox()
         self.quality_combo.addItems(["Default", "High", "Medium", "Low"])
         settings_layout.addWidget(quality_label, 1, 2)
         settings_layout.addWidget(self.quality_combo, 1, 3)
 
-        # Row 2: Workers
-        workers_label = QLabel("Workers:")
+        workers_label = QLabel(f"{lang.get_translation("workers", self.locale)}:")
         self.workers_spin = QSpinBox()
         self.workers_spin.setRange(1, 8)
         self.workers_spin.setValue(1)
@@ -367,16 +402,8 @@ class MainWindow(QMainWindow):
         options_layout = QHBoxLayout()
         self.merge_check = QCheckBox(lang.get_translation("merge", self.locale))
         self.concat_check = QCheckBox(lang.get_translation("concatenate", self.locale))
-        self.recursive_check = QCheckBox(
-            lang.get_translation("recursive", self.locale)
-            if "recursive" in lang.get_all_translations(self.locale)
-            else "Recursive"
-        )
-        self.delete_check = QCheckBox(
-            lang.get_translation("delete", self.locale)
-            if "delete" in lang.get_all_translations(self.locale)
-            else "Delete originals"
-        )
+        self.recursive_check = QCheckBox(lang.get_translation("recursive", self.locale))
+        self.delete_check = QCheckBox(lang.get_translation("delete source files", self.locale))
 
         options_layout.addWidget(self.merge_check)
         options_layout.addWidget(self.concat_check)
@@ -401,10 +428,8 @@ class MainWindow(QMainWindow):
 
         # Action buttons
         action_layout = QHBoxLayout()
-
         self.settings_btn = QPushButton(lang.get_translation("settings", self.locale))
         self.settings_btn.clicked.connect(self.open_settings_dialog)
-
         self.help_btn = QPushButton(lang.get_translation("help", self.locale))
         self.help_btn.clicked.connect(self.open_help_dialog)
 
@@ -412,11 +437,7 @@ class MainWindow(QMainWindow):
         action_layout.addWidget(self.help_btn)
         action_layout.addStretch()
 
-        self.cancel_btn = QPushButton(
-            lang.get_translation("cancel", self.locale)
-            if "cancel" in lang.get_all_translations(self.locale)
-            else "Cancel"
-        )
+        self.cancel_btn = QPushButton(lang.get_translation("cancel", self.locale))
         self.cancel_btn.clicked.connect(self.cancel_conversion)
         self.cancel_btn.setEnabled(False)
         self.cancel_btn.setStyleSheet("""
@@ -429,7 +450,7 @@ class MainWindow(QMainWindow):
                 border-radius: 4px;
             }
             QPushButton:disabled {
-                background-color: #cccccc;
+                background-color: #777777;
             }
         """)
 
@@ -445,7 +466,7 @@ class MainWindow(QMainWindow):
                 border-radius: 4px;
             }
             QPushButton:disabled {
-                background-color: #cccccc;
+                background-color: #777777;
             }
         """)
 
@@ -495,11 +516,56 @@ class MainWindow(QMainWindow):
             self.file_list.takeItem(self.file_list.row(item))
         self._update_file_count()
 
+    def show_file_context_menu(self, pos):
+        # Right-click context menu for file list
+        menu = QMenu(self)
+        selected = self.file_list.selectedItems()
+
+        if selected:
+            remove_action = menu.addAction("Remove Selected")
+            remove_action.triggered.connect(self.remove_selected)
+            if len(selected) == 1:
+                file_path = selected[0].data(Qt.ItemDataRole.UserRole)
+                open_folder_action = menu.addAction("Open Containing Folder")
+                open_folder_action.triggered.connect(
+                    lambda: self._open_file_location(file_path)
+                )
+
+        menu.addSeparator()
+
+        clear_action = menu.addAction("Clear All")
+        clear_action.triggered.connect(self.clear_all_files)
+        add_files_action = menu.addAction("Add Files...")
+        add_files_action.triggered.connect(self.add_files)
+        add_folder_action = menu.addAction("Add Folder...")
+        add_folder_action.triggered.connect(self.add_folder)
+
+        menu.exec(self.file_list.mapToGlobal(pos))
+
+    def _open_file_location(self, file_path):
+        # Open folder containing file in system file manager
+        folder = os.path.dirname(file_path)
+        system = platform.system()
+        try:
+            if system == "Linux":
+                subprocess.Popen(["xdg-open", folder])
+            elif system == "Darwin":
+                subprocess.Popen(["open", folder])
+            elif system == "Windows":
+                subprocess.Popen(["explorer", folder])
+        except Exception as e:
+            self.status_label.setText(f"Could not open folder: {e}")
+
     def browse_output_dir(self):
+        # Start from current output dir if set, otherwise last used dir
+        start_dir = self.output_dir_edit.text().strip()
+        if not start_dir or not os.path.isdir(start_dir):
+            start_dir = self.last_dir
+
         directory = QFileDialog.getExistingDirectory(
             self,
             lang.get_translation("select_output_dir", self.locale),
-            self.last_dir,
+            start_dir,
         )
         if directory:
             self.last_dir = directory
@@ -563,6 +629,7 @@ class MainWindow(QMainWindow):
         self.progress_bar.setStyleSheet("")
 
         # Start conversion thread
+        self._conversion_start_time = time.time()  # For ETA
         self.current_thread = ConversionThread(
             input_files,
             output_format,
@@ -615,11 +682,38 @@ class MainWindow(QMainWindow):
         if error:
             self.status_label.setText(f"Error: {error}")
         else:
-            self.status_label.setText(str(message))
+            display_msg = str(message) if message else status
+
+            # Calculate, show ETA given progress and start time
+            if (
+                value is not None
+                and value > 0
+                and value < 100
+                and self._conversion_start_time is not None
+            ):
+                elapsed = time.time() - self._conversion_start_time
+                if elapsed > 0.5:
+                    try:
+                        estimated_total = elapsed / (value / 100.0)
+                        eta_seconds = max(0, estimated_total - elapsed)
+                        if eta_seconds < 60:
+                            eta_str = f"{int(eta_seconds)}s"
+                        elif eta_seconds < 3600:
+                            eta_str = (
+                                f"{int(eta_seconds // 60)}m {int(eta_seconds % 60)}s"
+                            )
+                        else:
+                            eta_str = f"{int(eta_seconds // 3600)}h {int((eta_seconds % 3600) // 60)}m"
+                        display_msg = f"{display_msg} — ETA: {eta_str}"
+                    except (ValueError, ZeroDivisionError):
+                        pass
+
+            self.status_label.setText(display_msg)
 
         if status in ("done", "cancelled") or error:
             self.progress_bar.setValue(100 if status == "done" else 0)
             self.progress_bar.setRange(0, 100)
+            self._conversion_start_time = None
 
     def conversion_completed(self, job_id, output_path):
         if job_id in self.conversion_threads:
@@ -627,6 +721,8 @@ class MainWindow(QMainWindow):
         self.current_thread = None
 
         self.set_ui_enabled(True)
+
+        # Reset progress bar after a brief delay showing 100%
         self.progress_bar.setValue(100)
         self.status_label.setText(
             lang.get_translation("conversion_complete", self.locale)
@@ -637,6 +733,17 @@ class MainWindow(QMainWindow):
             lang.get_translation("success", self.locale),
             f"{lang.get_translation('conversion_successful', self.locale)}: {output_path}",
         )
+
+        # Reset progress bar after user acknowledges success
+        self.progress_bar.setValue(0)
+        self.progress_bar.setStyleSheet("")
+        self.status_label.setText("Ready")
+
+        # Auto-open output directory for single file conversions
+        if self.file_list.count() == 1 and output_path:
+            output_dir = os.path.dirname(output_path)
+            if os.path.isdir(output_dir):
+                self._open_file_location(output_path)
 
     def conversion_error(self, error_message):
         self.current_thread = None
@@ -649,19 +756,25 @@ class MainWindow(QMainWindow):
         )
 
     def set_ui_enabled(self, enabled):
-        self.add_files_btn.setEnabled(enabled)
-        self.add_folder_btn.setEnabled(enabled)
-        self.remove_btn.setEnabled(enabled)
-        self.clear_btn.setEnabled(enabled)
-        self.format_combo.setEnabled(enabled)
-        self.merge_check.setEnabled(enabled)
-        self.concat_check.setEnabled(enabled)
-        self.recursive_check.setEnabled(enabled)
-        self.delete_check.setEnabled(enabled)
-        self.framerate_spin.setEnabled(enabled)
-        self.quality_combo.setEnabled(enabled)
-        self.workers_spin.setEnabled(enabled)
-        self.convert_btn.setEnabled(enabled)
+        widgets = [
+            self.add_files_btn,
+            self.add_folder_btn,
+            self.remove_btn,
+            self.clear_btn,
+            self.format_combo,
+            self.merge_check,
+            self.concat_check,
+            self.recursive_check,
+            self.delete_check,
+            self.framerate_spin,
+            self.quality_combo,
+            self.workers_spin,
+            self.convert_btn,
+        ]
+
+        for w in widgets:
+            w.setEnabled(enabled)
+
         self.cancel_btn.setEnabled(not enabled)
 
         if not enabled:
@@ -709,8 +822,6 @@ def main():
     sys.exit(app.exec())
 
 
-# --- Settings and Dialogs ---
-
 SETTINGS_FILE = str(Path.home() / ".any_to_any_gui_settings.json")
 
 
@@ -744,8 +855,8 @@ class HelpDialog(QDialog):
         layout = QVBoxLayout(self)
         help_text = QTextEdit()
         help_text.setReadOnly(True)
-        help_text.setPlainText("""
-any_to_any.py GUI v1.1.0
+        help_text.setPlainText(f"""
+any_to_any.py GUI v{VERSION}
 
 Features:
 > Drag-and-drop files or folders into the list
@@ -762,9 +873,11 @@ Options:
 > Delete: Remove original files after conversion
 
 For more info, see the project README.
+
+https://github.com/MK2112/any_to_any.py
 """)
         layout.addWidget(help_text)
-        btn = QPushButton("Ok")
+        btn = QPushButton("OK")
         btn.clicked.connect(self.accept)
         layout.addWidget(btn)
 
