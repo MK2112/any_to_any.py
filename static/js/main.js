@@ -2,7 +2,7 @@
 document.addEventListener('DOMContentLoaded', function() {
     // Only send if not already set in session (could check via a cookie or a hidden field)
     if (!window.sessionStorage.getItem('languageSet')) {
-        var lang = navigator.language || navigator.userLanguage;
+        var lang = navigator.language || navigator.userLanguage || 'en_US';
         fetch('/language', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
