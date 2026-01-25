@@ -266,14 +266,26 @@ class Controller:
             else [os.getcwd()]
         )
         input_paths = []
-        for _, arg in enumerate(input_path_args):
+        for arg in input_path_args:
+            if not input_paths:
+                input_paths.append(arg)
+                continue
+
             if arg.startswith("-") and arg[1:].isdigit():
                 input_paths.append(arg[2:])
+                continue
+
+            previous = input_paths[-1]
+            joined = f"{previous} {arg}".strip()
+
+            if os.path.isabs(arg):
+                input_paths.append(arg)
+            elif os.path.exists(joined) and not os.path.exists(previous):
+                input_paths[-1] = joined
+            elif os.path.exists(previous):
+                input_paths.append(arg)
             else:
-                try:
-                    input_paths[-1] = (input_paths[-1] + f" {arg}").strip()
-                except IndexError:
-                    input_paths.append(arg)
+                input_paths[-1] = joined
 
         # Set flags and parameters
         self.across = across

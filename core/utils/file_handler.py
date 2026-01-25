@@ -69,9 +69,9 @@ class FileHandler:
         # Get media files from input directory
         def process_file(file_path: str) -> tuple:
             # Dissect "path/to/file.txt" into [path/to, file, txt]
-            file_type = file_path.split(".")[-1].lower()
-            file_name = os.path.basename(file_path)
-            file_name = file_name[: file_name.rfind(".")]
+            base_name, file_type = os.path.splitext(file_path)
+            file_type = file_type[1:].lower()
+            file_name = os.path.basename(base_name)
             path_to_file = os.path.dirname(file_path) + os.sep
             return path_to_file, file_name, file_type
 
