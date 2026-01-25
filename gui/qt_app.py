@@ -7,7 +7,7 @@ import platform
 import threading
 import subprocess
 from pathlib import Path
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
 from PyQt6.QtGui import QShortcut, QKeySequence
 from PyQt6.QtWidgets import (
     QApplication,
@@ -721,23 +721,18 @@ class MainWindow(QMainWindow):
         self.current_thread = None
 
         self.set_ui_enabled(True)
-
-        # Reset progress bar after a brief delay showing 100%
         self.progress_bar.setValue(100)
         self.status_label.setText(
             lang.get_translation("conversion_complete", self.locale)
         )
+
+        QTimer.singleShot(2000, self._reset_progress)
 
         QMessageBox.information(
             self,
             lang.get_translation("success", self.locale),
             f"{lang.get_translation('conversion_successful', self.locale)}: {output_path}",
         )
-
-        # Reset progress bar after user acknowledges success
-        self.progress_bar.setValue(0)
-        self.progress_bar.setStyleSheet("")
-        self.status_label.setText("Ready")
 
         # Auto-open output directory for single file conversions
         if self.file_list.count() == 1 and output_path:
@@ -748,12 +743,21 @@ class MainWindow(QMainWindow):
     def conversion_error(self, error_message):
         self.current_thread = None
         self.set_ui_enabled(True)
+        self.progress_bar.setValue(0)
         self.status_label.setText(lang.get_translation("error", self.locale))
+
+        QTimer.singleShot(3000, self._reset_progress)
+
         QMessageBox.critical(
             self,
             lang.get_translation("error", self.locale),
             f"{lang.get_translation('conversion_failed', self.locale)}: {error_message}",
         )
+
+    def _reset_progress(self):
+        self.progress_bar.setValue(0)
+        self.progress_bar.setRange(0, 100)
+        self.progress_bar.setStyleSheet("")
 
     def set_ui_enabled(self, enabled):
         widgets = [
