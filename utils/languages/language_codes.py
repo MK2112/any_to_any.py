@@ -33,6 +33,7 @@ LANGUAGE_CODES = {
     "sk_SK": "Slovak",
     "el_GR": "Greek",
     "zh_TW": "Mandarin (Traditional)",
+    "zh_HK": "Cantonese",
     "fa_IR": "Persian (Farsi)",
     "bn_IN": "Bengali",
     "ur_PK": "Urdu",
