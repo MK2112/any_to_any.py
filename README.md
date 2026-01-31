@@ -11,6 +11,7 @@
 - **Merge** video files with separate audio files
 - **Extract** audio tracks from video files
 - **Concatenate** multiple files of the same type (audio, video, images)
+- **Preserve, tag, and manage metadata** (ID3 tags, EXIF data, document properties)
 - Process **single files, entire directories (recursively if desired), or multiple specified inputs**
 - Merge or concatenate files **within individual directories or across multiple directories**
 - Offering a flexible **Command Line Interface**, a **Web Interface**, and a **Graphical User Interface (GUI)**
@@ -225,6 +226,9 @@ python any_to_any.py -i /path/to/input_dir -f mp3 --workers 4 --recursive
 | `-z` or </br>`--dropzone`    | While running, a specified directory will be monitored for new files. When a file is added, it will be converted to the specified format, saved in the output directory and deleted from the input directory. |
 | `-fps` or</br>`--framerate`  | Set the framerate (fps) when converting to a movie format or codec; default maintains input fps. |
 | `--workers`                   | Set the maximum number of parallel worker threads for per-file conversions (`1` to `cpu_count - 1` are supported). Defaults to `1`. |
+| `--preserve-meta`             | Preserve metadata (ID3 tags for audio, EXIF for images, properties for documents) in output files and save metadata as JSON for archival purposes. |
+| `--add-tag`                   | Add custom tags to files during conversion (format: `key:value key2:value2`). Tags are stored in metadata JSON files. |
+| `--strip-meta`                | Remove all metadata from output files for privacy (removes ID3 tags, EXIF data, document properties). |
 | `-l` or </br>`--language`    | Set the CLI language, currently supported: `zh_CN` (Mandarin, Simplified), `ja_JP` (Japanese), `fr_FR` (French), `es_ES` (Spanish), `es_MX` (Spanish, Mexican), `it_IT` (Italian), `de_DE` (German), `pt_BR` (Portuguese, Brazilian), `uk_UA` (Ukrainian), `ko_KR` (Korean), `en_US` (American English), `pl_PL` (Polish), `hi_IN` (Hindi), `ru_RU` (Russian), `ar_SA` (Arabic), `id_ID` (Indonesian), `tr_TR` (Turkish), `vi_VN` (Vietnamese), `th_TH` (Thai), `nl_NL` (Dutch), `sv_SE` (Swedish), `da_DK` (Danish), `fi_FI` (Finnish), `no_NO` (Norwegian), `is_IS` (Icelandic), `he_IL` (Hebrew), `cs_CZ` (Czech), `ro_RO` (Romanian), `ms_MY` (Malay), `bg_BG` (Bulgarian), `hu_HU` (Hungarian), `el_GR` (Greek), `sk_SK` (Slovak), `zh_TW` (Mandarin, Traditional), `fa_IR` (Persian, Farsi), `ur_PK` (Urdu), `sw_TZ` and `sw_KE` (Swahili), `pa_IN` and `pa_PK` (Punjabi), `tl_PH` (Tagalog), `my_MM` (Burmese), `ta_IN` (Tamil), `te_IN` (Telugu), `mr_IN` (Marathi), `ca_ES` (Catalan), `hr_HR` (Croatian), `zh_HK` (Cantonese). **Fallback is `en_US`.** |
 
 ## Supported Formats
