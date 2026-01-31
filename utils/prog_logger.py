@@ -20,7 +20,24 @@ class ProgLogger(ProgressBarLogger):
                 "total": 1,
                 "status": "starting",
                 "error": None,
+                "eta_seconds": None,
+                "time_remaining": None,
             }
+    
+    def _format_time(self, seconds):
+        # Converting seconds to more readable format (e.g., '2 min 30s')
+        if seconds is None or seconds < 0:
+            return None
+        hours = int(seconds // 3600)
+        minutes = int((seconds % 3600) // 60)
+        secs = int(seconds % 60)
+        
+        if hours > 0:
+            return f"{hours}h {minutes}m {secs}s"
+        elif minutes > 0:
+            return f"{minutes}m {secs}s"
+        else:
+            return f"{secs}s"
 
     def bars_callback(self, bar, attr, value, old_value=None):
         current_time = time.time()
@@ -69,6 +86,18 @@ class ProgLogger(ProgressBarLogger):
         else:
             progress_percent = 0
 
+        # Calculate ETA
+        eta_seconds = None
+        time_remaining = None
+        if value > 0 and total > 0 and self.start_time is not None:
+            elapsed = current_time - self.start_time
+            progress_ratio = value / total
+            if progress_ratio > 0:
+                total_time_estimate = elapsed / progress_ratio
+                eta_seconds = total_time_estimate - elapsed
+                if eta_seconds > 0:
+                    time_remaining = self._format_time(eta_seconds)
+
         # Update tqdm progress bar
         if value > (old_value or 0):
             if self.tqdm_bar:
@@ -90,6 +119,8 @@ class ProgLogger(ProgressBarLogger):
                                     "last_updated": current_time,
                                     "current_bar": bar,
                                     "progress_percent": progress_percent,
+                                    "eta_seconds": eta_seconds,
+                                    "time_remaining": time_remaining,
                                 }
                             )
 
@@ -105,6 +136,10 @@ class ProgLogger(ProgressBarLogger):
             if self.job_id and self.shared_progress_dict is not None:
                 with threading.Lock():
                     if self.job_id in self.shared_progress_dict:
+                        total_elapsed = None
+                        if self.start_time is not None:
+                            total_elapsed = current_time - self.start_time
+                        
                         self.shared_progress_dict[self.job_id].update(
                             {
                                 "progress": value,
@@ -113,6 +148,10 @@ class ProgLogger(ProgressBarLogger):
                                 "completed_at": current_time,
                                 "last_updated": current_time,
                                 "progress_percent": 100,
+                                "eta_seconds": 0,
+                                "time_remaining": None,
+                                "total_elapsed": total_elapsed,
+                                "total_elapsed_formatted": self._format_time(total_elapsed) if total_elapsed else None,
                             }
                         )
 
