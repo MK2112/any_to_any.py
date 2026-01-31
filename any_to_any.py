@@ -125,6 +125,25 @@ if __name__ == "__main__":
         default=1,
         required=False,
     )
+    parser.add_argument(
+        "--preserve-meta",
+        help="Preserve metadata (ID3 tags, EXIF, document properties) in output files",
+        action="store_true",
+        required=False,
+    )
+    parser.add_argument(
+        "--add-tag",
+        nargs="*",
+        help="Add custom tags to files (format: key:value key2:value2)",
+        default=[],
+        required=False,
+    )
+    parser.add_argument(
+        "--strip-meta",
+        help="Remove all metadata from output files (for privacy)",
+        action="store_true",
+        required=False,
+    )
 
     args = vars(parser.parse_args())
 
@@ -165,4 +184,7 @@ if __name__ == "__main__":
             dropzone=args["dropzone"],
             language=args["language"],
             workers=args["workers"],
+            preserve_meta=args["preserve_meta"],
+            add_tag=args["add_tag"],
+            strip_meta=args["strip_meta"],
         )

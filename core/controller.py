@@ -15,6 +15,7 @@ from core.utils.file_handler import FileHandler
 from core.image_converter import ImageConverter
 from core.doc_converter import DocumentConverter
 from core.utils.directory_watcher import DirectoryWatcher
+from core.utils.metadata_handler import MetadataHandler
 from moviepy import (
     AudioFileClip,
     VideoFileClip,
@@ -26,12 +27,9 @@ from moviepy import (
 
 
 class Controller:
-    """
-    Taking an input directory of files, convert them to a multitude of formats.
-    Interact with the script using the command line arguments or the web interface.
-    Run via any_to_any.py script.
-    """
-
+    # Taking an input directory of files, convert them to a multitude of formats.
+    # Interact with the script using the command line arguments or the web interface.
+    # Run via any_to_any.py script.
     def __init__(self, job_id=None, shared_progress_dict=None, locale=None):
         # Setting up progress logger with optional web progress tracking
         self.prog_logger = ProgLogger(
@@ -45,6 +43,7 @@ class Controller:
         )
         self.event_logger = logging.getLogger(__name__)
         self.file_handler = FileHandler(self.event_logger, self.locale)
+        self.metadata_handler = MetadataHandler(self.event_logger, self.locale)
         # Setup distinct converters
         self.audio_converter = AudioConverter(
             self.file_handler, self.prog_logger, self.event_logger, self.locale
@@ -204,6 +203,11 @@ class Controller:
         self.web_host = None
         # Quality step indicators
         self.high, self.medium, self.low = "high", "medium", "low"
+        
+        # Metadata handling flags
+        self.preserve_meta = False
+        self.custom_tags = {}
+        self.strip_meta = False
 
     def _audio_bitrate(self, format: str, quality: str) -> str:
         # Return bitrate for audio conversion
@@ -248,6 +252,9 @@ class Controller:
         dropzone: bool,
         language: str,
         workers: int,
+        preserve_meta: bool = False,
+        add_tag: list = None,
+        strip_meta: bool = False,
     ) -> None:
         # Convert media files to defined formats or 
         # merge or concatenate, according to the arguments
@@ -305,6 +312,11 @@ class Controller:
             if quality is not None
             else None
         )
+        
+        # Set metadata handling options
+        self.preserve_meta = preserve_meta
+        self.strip_meta = strip_meta
+        self.custom_tags = self.metadata_handler.parse_custom_tags(add_tag or [])
 
         # Language setting if not set already
         if language is not None and self.locale is None:
@@ -418,6 +430,9 @@ class Controller:
                 if self.output is None or was_none:
                     self.output = os.path.dirname(input_path)
                     was_none = True
+                # Initialize metadata directory if preservation is enabled
+                if self.preserve_meta or self.custom_tags:
+                    self.metadata_handler.set_metadata_dir(str(self.output))
                 self.process_file_paths(file_paths)
                 found_files = len(file_paths) > 0 if not found_files else found_files
                 file_paths = {}
@@ -425,6 +440,11 @@ class Controller:
         if across:
             if self.output is None:
                 self.output = os.path.dirname(input_paths[0])
+            
+            # Initialize metadata directory if preservation is enabled
+            if self.preserve_meta or self.custom_tags:
+                self.metadata_handler.set_metadata_dir(str(self.output))
+            
             self.process_file_paths(file_paths)
 
         if (across and len(file_paths) == 0) or not found_files:
@@ -586,6 +606,38 @@ class Controller:
                 f"{lang.get_translation('error', self.locale)}: {str(e)}"
             )
             raise
+
+    def _handle_metadata(self, input_file_path: str, output_file_path: str, file_type: str) -> None:
+       # Handle metadata extraction and preservation for converted files.
+       # Extracts metadata from input file and optionally applies to output file.
+       if not self.preserve_meta and not self.custom_tags and not self.strip_meta:
+           return
+       
+       try:
+           # Extract metadata from original file
+           if self.preserve_meta or self.custom_tags:
+               metadata = self.metadata_handler.extract_metadata(input_file_path, file_type)
+               
+               # Add custom tags if provided
+               if self.custom_tags:
+                   metadata = self.metadata_handler.add_custom_tags(metadata, self.custom_tags)
+               
+               # Save metadata to JSON file
+               self.metadata_handler.save_metadata(
+                   input_file_path, metadata, output_file_path
+               )
+               
+               # Try to apply tags back to output file (if supported)
+               self.metadata_handler.apply_metadata_to_file(output_file_path, metadata)
+           
+           # Strip metadata if requested
+           if self.strip_meta:
+               self.metadata_handler.strip_metadata(output_file_path, file_type)
+               
+       except Exception as e:
+           self.event_logger.debug(
+               f"Metadata handling skipped for {output_file_path}: {e}"
+           )
 
     def split(self, file_paths: dict, page_ranges) -> None:
         for doc_path_set in file_paths[Category.DOCUMENT]:
