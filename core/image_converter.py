@@ -119,9 +119,8 @@ class ImageConverter:
                     self.file_handler.post_process(image_path_set, output, delete)
                     continue
 
-                # Ensure output directory exists
-                output_dir = os.path.dirname(os.path.join(output, image_path_set[1]))
-                os.makedirs(output_dir, exist_ok=True)
+                # Ensure output directory exists (single images are placed directly in output)
+                os.makedirs(output, exist_ok=True)
 
                 # Construct full output path
                 img_path = os.path.abspath(

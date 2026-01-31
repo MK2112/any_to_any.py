@@ -327,6 +327,23 @@ class Controller:
                 else (os.path.dirname(os.getcwd()) if across else None)
             )
 
+        # Handle single file output path (could be a file path like /path/to/output.jpg)
+        # Check if output looks like a file path and convert to directory
+        if self.output is not None:
+            # If it's an existing file, extract directory
+            if os.path.isfile(self.output):
+                self.output = os.path.dirname(self.output)
+            # If it looks like a file path (has a recognized extension), extract directory
+            elif format and "." in self.output:
+                _, ext = os.path.splitext(self.output)
+                ext_clean = ext.lstrip(".").lower()
+                fmt_clean = format.lower()
+                # Handle jpg/jpeg equivalence
+                ext_normalized = "jpeg" if ext_clean == "jpg" else ext_clean
+                fmt_normalized = "jpeg" if fmt_clean == "jpg" else fmt_clean
+                if ext_normalized == fmt_normalized:
+                    self.output = os.path.dirname(self.output)
+        
         if self.output is not None and not os.path.exists(self.output):
             os.makedirs(self.output)
 
@@ -353,8 +370,6 @@ class Controller:
                     ValueError,
                     f"[!] {lang.get_translation('error', self.locale)}: {lang.get_translation('no_out_multi_in', self.locale)}",
                 )
-            if os.path.isfile(self.output):
-                self.output = Path(os.path.dirname(str(self.output)))
 
             # Dropzone
             if dropzone:

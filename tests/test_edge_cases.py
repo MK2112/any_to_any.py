@@ -138,3 +138,54 @@ def test_large_file_conversion(controller_instance, tmp_path):
 
     # Delete the large file to save space
     large_file.unlink()
+
+
+def test_single_image_conversion_no_subfolder(controller_instance, tmp_path):
+    # Test for bugfix: single PNG to JPEG should not create unnecessary subfolder
+    # This simulates the GUI behavior where output is a file path like /path/output.jpg
+    from PIL import Image
+    import os
+    
+    # Create input PNG file
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
+    input_file = input_dir / "test.png"
+    
+    # Create a real 1x1 PNG image
+    img = Image.new('RGB', (1, 1), color='red')
+    img.save(str(input_file), 'PNG')
+    
+    # Simulate GUI behavior: output is a file path, not a directory
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+    output_file_path = str(output_dir / "test.jpeg")
+    
+    # Run conversion with output as file path (like GUI does for single files)
+    controller_instance.run(
+        [str(input_file)],
+        format="jpeg",
+        output=output_file_path,  # Full file path, not directory
+        framerate=None,
+        quality=None,
+        split=None,
+        merge=False,
+        concat=False,
+        delete=False,
+        across=False,
+        recursive=False,
+        dropzone=False,
+        language=None,
+        workers=1,
+    )
+    
+    # Verify output directory structure is correct
+    # Should have: /output/test.jpeg
+    # Should NOT have: /output/test.jpeg/test.jpeg or any subfolder
+    
+    assert output_dir.exists(), "Output directory should exist"
+    assert (output_dir / "test.jpeg").exists(), "Output file should exist"
+    assert not (output_dir / "test.jpeg").is_dir(), "Output should be a file, not a directory"
+    
+    # Verify no unnecessary subfolder was created
+    subdirs = [d for d in output_dir.iterdir() if d.is_dir()]
+    assert len(subdirs) == 0, f"No subdirectories should exist, but found: {subdirs}"
