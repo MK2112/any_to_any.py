@@ -135,13 +135,13 @@ def test_framerate_spin_range(main_window):
 
 
 def test_workers_spin_range(main_window):
-    """Test workers spinbox has correct range."""
+    # Test workers spinbox has correct range
     assert main_window.workers_spin.minimum() == 1
     assert main_window.workers_spin.maximum() == 8
 
 
 def test_quality_combo_options(main_window):
-    """Test quality combo has correct options."""
+    # Test quality combo has correct options
     options = [main_window.quality_combo.itemText(i) for i in range(main_window.quality_combo.count())]
     assert "Default" in options
     assert "High" in options

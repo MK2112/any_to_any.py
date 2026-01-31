@@ -443,12 +443,10 @@ class DocumentConverter:
             self.file_handler.post_process(doc_path_set, out_path, delete)
 
     def _parse_page_ranges(self, page_ranges: str, total_pages: int) -> list[tuple[int, int]] | None:
-        """
-        Parse page_ranges string into list of (start, end) tuples.
-        Handles: None, '1-5', '2-5,3-4', '3-6, 8-20, 23-45, rest', 'all', 'rest', 
-        '3-6;15-22', '1-7;8-15;20-22;rest', '3', '35', '12-end', '2-end',
-        '2-5, 3-6, 12-end', '2-end, 3-6, 12-end', '2-end, 3-6'
-        """
+        # Parse page_ranges string into list of (start, end) tuples.
+        # Handles: None, '1-5', '2-5,3-4', '3-6, 8-20, 23-45, rest', 'all', 'rest', 
+        #   '3-6;15-22', '1-7;8-15;20-22;rest', '3', '35', '12-end', '2-end',
+        #   '2-5, 3-6, 12-end', '2-end, 3-6, 12-end', '2-end, 3-6'
         if not page_ranges or page_ranges.strip() == "":
             # Default to all pages
             return None #[(1, total_pages)], we don't need that, skip that

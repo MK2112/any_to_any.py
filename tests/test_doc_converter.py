@@ -433,7 +433,7 @@ class TestDocumentConverterEdgeCases:
 
 class TestDocumentConverterPdfSplitting:
     def test_split_pdf_with_real_file(self, document_converter, temp_output_dir):
-        """Test PDF splitting with a real PDF file."""
+        # Test PDF splitting with a real PDF file
         # Create a simple PDF with 5 pages
         pdf_path = os.path.join(temp_output_dir, "test.pdf")
         doc = fitz.open()
