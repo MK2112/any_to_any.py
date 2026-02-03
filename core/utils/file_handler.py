@@ -67,10 +67,7 @@ class FileHandler:
     ) -> str:
         try:
             source_path = self.join_back(file_path_set)
-            
-            # Resolve filename conflicts
             resolved_out_path = self._resolve_output_file_conflict(out_path)
-
             # Only log if the conversion was successful and output exists
             if show_status and os.path.exists(resolved_out_path):
                 self.event_logger.info(
