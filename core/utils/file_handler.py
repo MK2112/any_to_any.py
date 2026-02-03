@@ -25,6 +25,8 @@ class FileHandler:
         # Strategy:
         #  1. Try numeric suffixes (file_1.mp3, file_2.mp3, etc.) for up to 2 seconds
         #  2. If timeout exceeded, fallback to random alphanumeric string (5 chars)
+        output_path = os.path.abspath(output_path)
+        
         if not os.path.exists(output_path):
             return output_path
         
@@ -40,23 +42,14 @@ class FileHandler:
         while time.time() - start_time < self.CONFLICT_RESOLUTION_TIMEOUT:
             candidate_name = f"{name}_{suffix_counter}{ext}"
             candidate_path = os.path.join(directory, candidate_name)
-            
             if not os.path.exists(candidate_path):
-                self.event_logger.info(
-                    f"[>] {lang.get_translation('output_exists', self.locale) if hasattr(lang, 'get_translation') and 'output_exists' in dir(lang) else '[>] Output file exists, auto-renaming to'}: {candidate_name}"
-                )
                 return candidate_path
-            
             suffix_counter += 1
         
         # Fallback: Use random alphanumeric string (5 characters seems more than enough)
         random_suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=5))
         fallback_name = f"{name}_{random_suffix}{ext}"
-        fallback_path = os.path.join(directory, fallback_name)
-        self.event_logger.info(
-            f"[>] {lang.get_translation('output_exists', self.locale) if hasattr(lang, 'get_translation') and 'output_exists' in dir(lang) else '[>] Numeric suffix timeout, using random string'}: {fallback_name}"
-        )
-        return fallback_path
+        return os.path.join(directory, fallback_name)
 
     def post_process(
         self,
@@ -72,7 +65,7 @@ class FileHandler:
             if show_status and os.path.exists(resolved_out_path):
                 self.event_logger.info(
                     f"[>] {lang.get_translation('converted', self.locale)} "
-                    f'"{source_path}" 🡢 "{resolved_out_path}"'
+                    f'"{source_path}" -> "{resolved_out_path}"'
                 )
 
             # Only delete source file if requested, output exists, and source exists
