@@ -1,17 +1,19 @@
 import os
-import pytest
-import tempfile
-import shutil
-import subprocess
-import numpy as np
-from unittest.mock import Mock, patch, mock_open, MagicMock, call
-from PIL import Image
 import fitz
 import docx
 import pptx
+import shutil
+import pytest
 import mammoth
-from core.doc_converter import DocumentConverter
+import tempfile
+import subprocess
+import numpy as np
+
+from PIL import Image
 from utils.category import Category
+from core.doc_converter import DocumentConverter
+from tests.test_fixtures import setup_file_handler_mock
+from unittest.mock import Mock, patch, mock_open, MagicMock, call
 
 
 @pytest.fixture
@@ -21,6 +23,7 @@ def mock_file_handler():
     handler.join_back.return_value = "/mock/path/file.ext"
     handler.post_process.return_value = None
     handler.has_visuals.return_value = True
+    setup_file_handler_mock(handler)
     return handler
 
 
@@ -105,7 +108,6 @@ class TestDocumentConverterInit:
 
 
 class TestDocumentConverterToMarkdown:
-    # Test the to_markdown conversion method
 
     @patch("core.doc_converter.markdownify")
     def test_to_markdown_docx_conversion(
@@ -176,7 +178,6 @@ class TestDocumentConverterToMarkdown:
 
 
 class TestDocumentConverterToPdf:
-    # Test the to_pdf conversion method
 
     @patch("core.doc_converter.fitz.open")
     @patch("core.doc_converter.fitz.Pixmap")
@@ -189,7 +190,6 @@ class TestDocumentConverterToPdf:
         sample_file_paths,
     ):
         # Test image to PDF conversion
-        # Setup
         mock_doc = MagicMock()
         mock_page = MagicMock()
         mock_pix = MagicMock(width=100, height=100)
@@ -311,7 +311,6 @@ class TestDocumentConverterToPdf:
         frame = np.zeros((100, 100, 3), dtype=np.uint8)
         mock_video.iter_frames.return_value = [frame, frame]  # Two frames
         mock_video_clip.return_value.__enter__.return_value = mock_video
-
         # Mock PIL Image
         mock_img = MagicMock()
         mock_image_fromarray.return_value = mock_img
@@ -398,7 +397,6 @@ class TestDocumentConverterToSubtitles:
         }
 
         document_converter.to_subtitles(temp_output_dir, movie_files, "srt", False)
-
         assert mock_subprocess.call_count == 2  # Both attempts called
 
 

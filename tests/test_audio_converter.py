@@ -6,6 +6,7 @@ from utils.category import Category
 from core.audio_converter import AudioConverter
 from moviepy import AudioFileClip, VideoFileClip
 from unittest.mock import Mock, MagicMock, patch, call
+from tests.test_fixtures import setup_file_handler_mock
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -17,6 +18,7 @@ class TestAudioConverter:
         file_handler = Mock()
         prog_logger = Mock()
         event_logger = Mock()
+        setup_file_handler_mock(file_handler)
         return file_handler, prog_logger, event_logger
 
     @pytest.fixture
@@ -163,7 +165,7 @@ class TestAudioConverter:
         mock_dependencies,
     ):
         # Test video to audio conversion for files with visuals
-        file_handler, prog_logger, event_logger = mock_dependencies
+        file_handler, prog_logger, _ = mock_dependencies
 
         mock_video = Mock()
         mock_audio = Mock()
@@ -209,7 +211,7 @@ class TestAudioConverter:
         mock_dependencies,
     ):
         # Test handling of video files with no audio track
-        file_handler, prog_logger, event_logger = mock_dependencies
+        file_handler, _, event_logger = mock_dependencies
 
         mock_video = Mock()
         mock_video.fps = 30
@@ -375,9 +377,6 @@ class TestAudioConverter:
         assert converter.locale == locale
 
     def test_parameter_passing_integrity(self, audio_converter, mock_dependencies):
-        # Test that all parameters are passed correctly through the chain
-        file_handler, prog_logger, event_logger = mock_dependencies
-
         # Test with specific parameter values
         test_params = {
             "format": "ogg",
@@ -390,12 +389,10 @@ class TestAudioConverter:
         }
 
         empty_paths = {Category.AUDIO: [], Category.MOVIE: []}
-
         # Should not raise exceptions with custom parameters
         audio_converter.to_audio(empty_paths, **test_params)
 
 
-# --- Additional audio converter tests ---
 def test_to_audio_single_file_triggers_post_process(monkeypatch, tmp_path):
     # Create local mock dependencies to avoid relying on test class fixtures
     file_handler = Mock()
@@ -428,7 +425,6 @@ def test_to_audio_single_file_triggers_post_process(monkeypatch, tmp_path):
 
 
 def test_to_audio_skips_if_same_format(monkeypatch, tmp_path):
-    # local mocks
     file_handler = Mock()
     prog_logger = Mock()
     event_logger = Mock()
@@ -460,10 +456,7 @@ def test_to_audio_skips_if_same_format(monkeypatch, tmp_path):
     assert called["count"] == 0
 
 
-# Integration-style tests
 class TestAudioConverterIntegration:
-    # Integration tests that test broader functionality
-
     @patch("core.audio_converter.AudioFileClip")
     @patch("core.audio_converter.VideoFileClip")
     @patch("utils.language_support.get_translation")
@@ -472,7 +465,6 @@ class TestAudioConverterIntegration:
         self, mock_exists, mock_get_translation, mock_video_clip, mock_audio_clip
     ):
         # Test scenario with mix of successful and failed conversions
-        # Setup
         file_handler = Mock()
         prog_logger = Mock()
         event_logger = Mock()
@@ -512,7 +504,6 @@ class TestAudioConverterIntegration:
             Category.MOVIE: [("/path", "video1", "mp4")],
         }
 
-        # Execute
         converter.to_audio(
             file_paths, "mp3", "mp3", False, "128k", "/input", "/output", "no"
         )

@@ -1,7 +1,9 @@
 import pytest
+
 from utils.category import Category
 from core.movie_converter import MovieConverter
 from unittest.mock import MagicMock, patch, call
+from tests.test_fixtures import setup_file_handler_mock
 
 
 @pytest.fixture
@@ -9,6 +11,7 @@ def mock_converter():
     file_handler = MagicMock()
     prog_logger = MagicMock()
     event_logger = MagicMock()
+    setup_file_handler_mock(file_handler)
     return MovieConverter(file_handler, prog_logger, event_logger, locale="English")
 
 
