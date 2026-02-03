@@ -1,4 +1,7 @@
 import os
+import time
+import string
+import random
 import logging
 import utils.language_support as lang
 
@@ -9,6 +12,7 @@ class FileHandler:
     def __init__(self, event_logger: logging.Logger, locale: str = "English"):
         self.event_logger = event_logger
         self.locale = locale
+        self.CONFLICT_RESOLUTION_TIMEOUT = 2.0  # numeric suffix loop attempt time in s
 
     def join_back(self, file_path_set: tuple) -> str:
         # Join back the file path set to a concurrent path
@@ -16,25 +20,66 @@ class FileHandler:
             f"{file_path_set[0]}{file_path_set[1]}.{file_path_set[2]}"
         )
 
+    def _resolve_output_file_conflict(self, output_path: str) -> str:
+        # Resolve filename conflicts when output file already exists.
+        # Strategy:
+        #  1. Try numeric suffixes (file_1.mp3, file_2.mp3, etc.) for up to 2 seconds
+        #  2. If timeout exceeded, fallback to random alphanumeric string (5 chars)
+        if not os.path.exists(output_path):
+            return output_path
+        
+        # Split the output path into directory, name, and extension
+        directory = os.path.dirname(output_path)
+        filename = os.path.basename(output_path)
+        name, ext = os.path.splitext(filename)
+        
+        start_time = time.time()
+        suffix_counter = 1
+        
+        # Try numeric suffixes with timeout
+        while time.time() - start_time < self.CONFLICT_RESOLUTION_TIMEOUT:
+            candidate_name = f"{name}_{suffix_counter}{ext}"
+            candidate_path = os.path.join(directory, candidate_name)
+            
+            if not os.path.exists(candidate_path):
+                self.event_logger.info(
+                    f"[>] {lang.get_translation('output_exists', self.locale) if hasattr(lang, 'get_translation') and 'output_exists' in dir(lang) else '[>] Output file exists, auto-renaming to'}: {candidate_name}"
+                )
+                return candidate_path
+            
+            suffix_counter += 1
+        
+        # Fallback: Use random alphanumeric string (5 characters seems more than enough)
+        random_suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=5))
+        fallback_name = f"{name}_{random_suffix}{ext}"
+        fallback_path = os.path.join(directory, fallback_name)
+        self.event_logger.info(
+            f"[>] {lang.get_translation('output_exists', self.locale) if hasattr(lang, 'get_translation') and 'output_exists' in dir(lang) else '[>] Numeric suffix timeout, using random string'}: {fallback_name}"
+        )
+        return fallback_path
+
     def post_process(
         self,
         file_path_set: tuple,
         out_path: str,
         delete: bool,
         show_status: bool = True,
-    ) -> None:
+    ) -> str:
         try:
             source_path = self.join_back(file_path_set)
+            
+            # Resolve filename conflicts
+            resolved_out_path = self._resolve_output_file_conflict(out_path)
 
             # Only log if the conversion was successful and output exists
-            if show_status and os.path.exists(out_path):
+            if show_status and os.path.exists(resolved_out_path):
                 self.event_logger.info(
                     f"[>] {lang.get_translation('converted', self.locale)} "
-                    f'"{source_path}" 🡢 "{out_path}"'
+                    f'"{source_path}" 🡢 "{resolved_out_path}"'
                 )
 
             # Only delete source file if requested, output exists, and source exists
-            if delete and os.path.exists(out_path) and os.path.exists(source_path):
+            if delete and os.path.exists(resolved_out_path) and os.path.exists(source_path):
                 try:
                     os.remove(source_path)
                     self.event_logger.info(
@@ -45,6 +90,8 @@ class FileHandler:
                         f"[!] {lang.get_translation('error', self.locale)}: "
                         f'{lang.get_translation("could_not_remove", self.locale)} "{source_path}": {str(e)}'
                     )
+            
+            return resolved_out_path
 
         except Exception as e:
             self.event_logger.error(
