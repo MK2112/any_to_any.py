@@ -6,6 +6,7 @@ import shutil
 import mammoth
 import subprocess
 import utils.language_support as lang
+
 from PIL import Image
 from tqdm import tqdm
 from weasyprint import HTML
@@ -35,10 +36,10 @@ class DocumentConverter:
                 md_path = os.path.abspath(
                     os.path.join(output, f"{output_basename}.{format}")
                 )
-                
+
                 # Resolve any filename conflicts before conversion
                 md_path = self.file_handler._resolve_output_file_conflict(md_path)
-                
+
                 image_md_dir = os.path.join(output, f"{output_basename}_images")
                 os.makedirs(image_md_dir, exist_ok=True)
                 image_index = 0
@@ -90,10 +91,10 @@ class DocumentConverter:
                 pdf_path = os.path.abspath(
                     os.path.join(output, f"{image_path_set[1]}.{format}")
                 )
-                
+
                 # Resolve any filename conflicts before conversion
                 pdf_path = self.file_handler._resolve_output_file_conflict(pdf_path)
-                
+
                 doc.save(pdf_path)
                 doc.close()
                 self.file_handler.post_process(image_path_set, pdf_path, delete)
@@ -104,10 +105,10 @@ class DocumentConverter:
                 pdf_path = os.path.abspath(
                     os.path.join(output, f"{image_path_set[1]}.{format}")
                 )
-                
+
                 # Resolve any filename conflicts before conversion
                 pdf_path = self.file_handler._resolve_output_file_conflict(pdf_path)
-                
+
                 doc = fitz.open()
                 for frame in sorted(os.listdir(gif_frame_path)):
                     if frame.endswith(".png"):
@@ -131,10 +132,10 @@ class DocumentConverter:
                 pdf_path = os.path.abspath(
                     os.path.join(output, f"{movie_path_set[1]}.{format}")
                 )
-                
+
                 # Resolve any filename conflicts before conversion
                 pdf_path = self.file_handler._resolve_output_file_conflict(pdf_path)
-                
+
                 num_digits = len(str(int(clip.duration * clip.fps)))
                 doc = fitz.open()
                 for i, frame in tqdm(
@@ -166,10 +167,10 @@ class DocumentConverter:
                 pdf_path = os.path.abspath(
                     os.path.join(output, f"{doc_path_set[1]}.{format}")
                 )
-                
+
                 # Resolve any filename conflicts before conversion
                 pdf_path = self.file_handler._resolve_output_file_conflict(pdf_path)
-                
+
                 with open(self.file_handler.join_back(doc_path_set), "r") as srt_file:
                     srt_content = srt_file.read()
                 # Insert the SRT content into the PDF
@@ -183,10 +184,10 @@ class DocumentConverter:
                 pdf_path = os.path.abspath(
                     os.path.join(output, f"{doc_path_set[1]}.{format}")
                 )
-                
+
                 # Resolve any filename conflicts before conversion
                 pdf_path = self.file_handler._resolve_output_file_conflict(pdf_path)
-                
+
                 docx_doc = open(self.file_handler.join_back(doc_path_set), "rb")
                 # Convert docx to HTML as intermediary
                 document = mammoth.convert_to_html(docx_doc)
@@ -202,10 +203,10 @@ class DocumentConverter:
         for movie_path_set in file_paths[Category.MOVIE]:
             input_path = self.file_handler.join_back(movie_path_set)
             out_path = os.path.abspath(os.path.join(output, f"{movie_path_set[1]}.srt"))
-            
+
             # Resolve any filename conflicts before conversion
             out_path = self.file_handler._resolve_output_file_conflict(out_path)
-            
+
             self.event_logger.info(
                 f"[>] {lang.get_translation('extract_subtitles', self.locale)} '{input_path}'"
             )
@@ -307,10 +308,10 @@ class DocumentConverter:
             out_path = os.path.abspath(
                 os.path.join(output, f"{image_path_set[1]}.{format}")
             )
-            
+
             # Resolve any filename conflicts before conversion
             out_path = self.file_handler._resolve_output_file_conflict(out_path)
-            
+
             container = _new_container()
             if image_path_set[2] == "gif":
                 frame_dir = os.path.join(output, image_path_set[1])
@@ -340,10 +341,10 @@ class DocumentConverter:
             out_path = os.path.abspath(
                 os.path.join(output, f"{movie_path_set[1]}.{format}")
             )
-            
+
             # Resolve any filename conflicts before conversion
             out_path = self.file_handler._resolve_output_file_conflict(out_path)
-            
+
             container = _new_container()
             clip = VideoFileClip(
                 self.file_handler.join_back(movie_path_set),
@@ -378,10 +379,10 @@ class DocumentConverter:
                 out_path = os.path.abspath(
                     os.path.join(output, f"{document_path_set[1]}.docx")
                 )
-                
+
                 # Resolve any filename conflicts before conversion
                 out_path = self.file_handler._resolve_output_file_conflict(out_path)
-                
+
                 doc = docx.Document()
 
                 if document_path_set[2] == "pptx":
@@ -441,7 +442,14 @@ class DocumentConverter:
                 doc.save(out_path)
                 self.file_handler.post_process(document_path_set, out_path, delete)
 
-    def split_pdf(self, output: str, doc_path_set: tuple, page_ranges: str, delete: bool, format: str = "pdf"):
+    def split_pdf(
+        self,
+        output: str,
+        doc_path_set: tuple,
+        page_ranges: str,
+        delete: bool,
+        format: str = "pdf",
+    ):
         # output: str - output directory
         # doc_path_set: tuple - (path, name, format)
         # page_ranges: str - page ranges to split the document into
@@ -467,39 +475,45 @@ class DocumentConverter:
             os.makedirs(output, exist_ok=True)
             for i, (start, end) in enumerate(parsed_ranges):
                 new_pdf = fitz.open()
-                new_pdf.insert_pdf(pdf, from_page=start-1, to_page=end-1)
+                new_pdf.insert_pdf(pdf, from_page=start - 1, to_page=end - 1)
                 # Generate output filename
                 if len(parsed_ranges) == 1:
                     out_filename = f"{doc_path_set[1]}_{start}-{end}.{format}"
                 else:
-                    out_filename = f"{doc_path_set[1]}_split_{i+1}_{start}-{end}.{format}"
+                    out_filename = (
+                        f"{doc_path_set[1]}_split_{i + 1}_{start}-{end}.{format}"
+                    )
                 out_path = os.path.abspath(os.path.join(output, out_filename))
-                
+
                 # Resolve any filename conflicts before conversion
                 out_path = self.file_handler._resolve_output_file_conflict(out_path)
-                
+
                 # Save new PDF
                 new_pdf.save(out_path)
                 new_pdf.close()
-                self.event_logger.info(f"[>] {lang.get_translation('split_produced', self.locale)}: {out_path}")
+                self.event_logger.info(
+                    f"[>] {lang.get_translation('split_produced', self.locale)}: {out_path}"
+                )
             # Close source PDF
             pdf.close()
             self.file_handler.post_process(doc_path_set, out_path, delete)
 
-    def _parse_page_ranges(self, page_ranges: str, total_pages: int) -> list[tuple[int, int]] | None:
+    def _parse_page_ranges(
+        self, page_ranges: str, total_pages: int
+    ) -> list[tuple[int, int]] | None:
         # Parse page_ranges string into list of (start, end) tuples.
-        # Handles: None, '1-5', '2-5,3-4', '3-6, 8-20, 23-45, rest', 'all', 'rest', 
+        # Handles: None, '1-5', '2-5,3-4', '3-6, 8-20, 23-45, rest', 'all', 'rest',
         #   '3-6;15-22', '1-7;8-15;20-22;rest', '3', '35', '12-end', '2-end',
         #   '2-5, 3-6, 12-end', '2-end, 3-6, 12-end', '2-end, 3-6'
         if not page_ranges or page_ranges.strip() == "":
             # Default to all pages
-            return None #[(1, total_pages)], we don't need that, skip that
+            return None  # [(1, total_pages)], we don't need that, skip that
         page_ranges = page_ranges.strip()
         if page_ranges.lower() in ["all", "rest"]:
-            return None #[(1, total_pages)], we don't need that, skip that
+            return None  # [(1, total_pages)], we don't need that, skip that
 
         ranges = []
-        for delim in [',', ';']:
+        for delim in [",", ";"]:
             # Split by comma or semicolon
             if delim in page_ranges:
                 ranges = [r.strip() for r in page_ranges.split(delim)]
@@ -507,11 +521,11 @@ class DocumentConverter:
         if not ranges:
             # No delimiters found
             ranges = [page_ranges.strip()]
-        
+
         parsed_ranges = []
         # Track where 'rest' should start
         rest_start = 1
-        
+
         for range_str in ranges:
             range_str = range_str.strip()
             if range_str.lower() == "rest":
@@ -522,7 +536,7 @@ class DocumentConverter:
                     rest_start = max_end + 1
                 parsed_ranges.append((rest_start, total_pages))
                 continue
-            
+
             # Handle single page numbers
             if range_str.isdigit():
                 page_num = int(range_str)
@@ -530,19 +544,19 @@ class DocumentConverter:
                     parsed_ranges.append((page_num, page_num))
                     rest_start = max(rest_start, page_num + 1)
                 continue
-            
+
             # Handle ranges like "1-5", "12-end", "2-end"
-            if '-' in range_str:
-                parts = range_str.split('-', 1)
+            if "-" in range_str:
+                parts = range_str.split("-", 1)
                 if len(parts) == 2:
                     start_str, end_str = parts[0].strip(), parts[1].strip()
-                    
+
                     # Parse start
                     try:
                         start = int(start_str)
                     except ValueError:
-                        continue # Some invalid range
-                    
+                        continue  # Some invalid range
+
                     # Parse end
                     if end_str.lower() == "end":
                         end = total_pages
@@ -550,13 +564,17 @@ class DocumentConverter:
                         try:
                             end = int(end_str)
                         except ValueError:
-                            continue # Some invalid range
-                    
+                            continue  # Some invalid range
+
                     # Validate, add range
-                    if 1 <= start <= total_pages and 1 <= end <= total_pages and start <= end:
+                    if (
+                        1 <= start <= total_pages
+                        and 1 <= end <= total_pages
+                        and start <= end
+                    ):
                         parsed_ranges.append((start, end))
                         rest_start = max(rest_start, end + 1)
-        
+
         # Remove duplicate range tuples, preserve order
         # Ranges still are allowed to overlap, must each be unique though
         seen = set()
@@ -565,9 +583,9 @@ class DocumentConverter:
             if range_tuple not in seen:
                 seen.add(range_tuple)
                 unique_ranges.append(range_tuple)
-        
+
         if not unique_ranges:
             # If no valid ranges parsed, default to all pages, which is None
             unique_ranges = None
-        
+
         return unique_ranges

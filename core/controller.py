@@ -35,7 +35,7 @@ class Controller:
         self.prog_logger = ProgLogger(
             job_id=job_id, shared_progress_dict=shared_progress_dict
         )
-    
+
         self.locale = lang.get_system_language() if locale is None else locale
         # Setting up event logger and format
         logging.basicConfig(
@@ -183,12 +183,16 @@ class Controller:
         }
 
         # Membership key-sets
-        self._fmt_audio_keys    = set(self._supported_formats[Category.AUDIO].keys())
-        self._fmt_image_keys    = set(self._supported_formats[Category.IMAGE].keys())
-        self._fmt_doc_keys      = set(self._supported_formats[Category.DOCUMENT].keys())
-        self._fmt_movie_keys    = set(self._supported_formats[Category.MOVIE].keys())
-        self._fmt_codec_keys    = set(self._supported_formats[Category.MOVIE_CODECS].keys())
-        self._fmt_protocol_keys = set(self._supported_formats[Category.PROTOCOLS].keys())
+        self._fmt_audio_keys = set(self._supported_formats[Category.AUDIO].keys())
+        self._fmt_image_keys = set(self._supported_formats[Category.IMAGE].keys())
+        self._fmt_doc_keys = set(self._supported_formats[Category.DOCUMENT].keys())
+        self._fmt_movie_keys = set(self._supported_formats[Category.MOVIE].keys())
+        self._fmt_codec_keys = set(
+            self._supported_formats[Category.MOVIE_CODECS].keys()
+        )
+        self._fmt_protocol_keys = set(
+            self._supported_formats[Category.PROTOCOLS].keys()
+        )
 
         # Used in CLI information output
         self.supported_formats = [
@@ -203,7 +207,7 @@ class Controller:
         self.web_host = None
         # Quality step indicators
         self.high, self.medium, self.low = "high", "medium", "low"
-        
+
         # Metadata handling flags
         self.preserve_meta = False
         self.custom_tags = {}
@@ -256,9 +260,9 @@ class Controller:
         add_tag: list = None,
         strip_meta: bool = False,
     ) -> None:
-        # Convert media files to defined formats or 
+        # Convert media files to defined formats or
         # merge or concatenate, according to the arguments
-    
+
         # Set environment for worker count
         if workers is not None:
             try:
@@ -275,13 +279,11 @@ class Controller:
             formats = []
 
         input_path_args = (
-            input_path_args
-            if input_path_args is not None
-            else [os.getcwd()]
+            input_path_args if input_path_args is not None else [os.getcwd()]
         )
 
         input_paths = []
-        
+
         for arg in input_path_args:
             if not input_paths:
                 input_paths.append(arg)
@@ -320,7 +322,7 @@ class Controller:
             if quality is not None
             else None
         )
-        
+
         # Set metadata handling options
         self.preserve_meta = preserve_meta
         self.strip_meta = strip_meta
@@ -359,10 +361,12 @@ class Controller:
                 ext_clean = ext.lstrip(".").lower()
                 ext_normalized = "jpeg" if ext_clean == "jpg" else ext_clean
                 # Check if extension matches any of the target formats
-                fmt_normalized = [("jpeg" if f.lower() == "jpg" else f.lower()) for f in formats]
+                fmt_normalized = [
+                    ("jpeg" if f.lower() == "jpg" else f.lower()) for f in formats
+                ]
                 if ext_normalized in fmt_normalized:
                     self.output = os.path.dirname(self.output)
-        
+
         if self.output is not None and not os.path.exists(self.output):
             os.makedirs(self.output)
 
@@ -450,11 +454,11 @@ class Controller:
         if across:
             if self.output is None:
                 self.output = os.path.dirname(input_paths[0])
-            
+
             # Initialize metadata directory if preservation is enabled
             if self.preserve_meta or self.custom_tags:
                 self.metadata_handler.set_metadata_dir(str(self.output))
-            
+
             # Process each format sequentially
             for fmt in formats:
                 self.target_format = fmt.lower() if fmt else None
@@ -620,37 +624,43 @@ class Controller:
             )
             raise
 
-    def _handle_metadata(self, input_file_path: str, output_file_path: str, file_type: str) -> None:
-       # Handle metadata extraction and preservation for converted files.
-       # Extracts metadata from input file and optionally applies to output file.
-       if not self.preserve_meta and not self.custom_tags and not self.strip_meta:
-           return
-       
-       try:
-           # Extract metadata from original file
-           if self.preserve_meta or self.custom_tags:
-               metadata = self.metadata_handler.extract_metadata(input_file_path, file_type)
-               
-               # Add custom tags if provided
-               if self.custom_tags:
-                   metadata = self.metadata_handler.add_custom_tags(metadata, self.custom_tags)
-               
-               # Save metadata to JSON file
-               self.metadata_handler.save_metadata(
-                   input_file_path, metadata, output_file_path
-               )
-               
-               # Try to apply tags back to output file (if supported)
-               self.metadata_handler.apply_metadata_to_file(output_file_path, metadata)
-           
-           # Strip metadata if requested
-           if self.strip_meta:
-               self.metadata_handler.strip_metadata(output_file_path, file_type)
-               
-       except Exception as e:
-           self.event_logger.debug(
-               f"Metadata handling skipped for {output_file_path}: {e}"
-           )
+    def _handle_metadata(
+        self, input_file_path: str, output_file_path: str, file_type: str
+    ) -> None:
+        # Handle metadata extraction and preservation for converted files.
+        # Extracts metadata from input file and optionally applies to output file.
+        if not self.preserve_meta and not self.custom_tags and not self.strip_meta:
+            return
+
+        try:
+            # Extract metadata from original file
+            if self.preserve_meta or self.custom_tags:
+                metadata = self.metadata_handler.extract_metadata(
+                    input_file_path, file_type
+                )
+
+                # Add custom tags if provided
+                if self.custom_tags:
+                    metadata = self.metadata_handler.add_custom_tags(
+                        metadata, self.custom_tags
+                    )
+
+                # Save metadata to JSON file
+                self.metadata_handler.save_metadata(
+                    input_file_path, metadata, output_file_path
+                )
+
+                # Try to apply tags back to output file (if supported)
+                self.metadata_handler.apply_metadata_to_file(output_file_path, metadata)
+
+            # Strip metadata if requested
+            if self.strip_meta:
+                self.metadata_handler.strip_metadata(output_file_path, file_type)
+
+        except Exception as e:
+            self.event_logger.debug(
+                f"Metadata handling skipped for {output_file_path}: {e}"
+            )
 
     def split(self, file_paths: dict, page_ranges) -> None:
         for doc_path_set in file_paths[Category.DOCUMENT]:
@@ -760,7 +770,7 @@ class Controller:
                 ],
                 key=lambda x: x[1] if x else "",  # Handle None values
             )
-            pdfs = [pdf for pdf in pdfs if pdf is not None]  # Filter out None values
+            pdfs = [pdf for pdf in pdfs if pdf is not None]
 
             srt_out_path = os.path.join(self.output, "concatenated_subtitles.srt")
             srts = sorted(
@@ -768,7 +778,7 @@ class Controller:
                     doc_path_set if doc_path_set[2] == "srt" else None
                     for doc_path_set in file_paths[Category.DOCUMENT]
                 ],
-                key=lambda x: x[1] if x else "",  # Handle None values
+                key=lambda x: x[1] if x else "",
             )
             srts = [srt for srt in srts if srt is not None]  # Filter out None values
 

@@ -39,6 +39,7 @@ import utils.language_support as lang
 
 VERSION = "1.0.8"
 
+
 class ConversionThread(QThread):
     progress_updated = pyqtSignal(dict)
     conversion_finished = pyqtSignal(str, str)  # job_id, output_path
@@ -242,7 +243,7 @@ class MainWindow(QMainWindow):
         if not event.mimeData().hasUrls():
             event.ignore()
             return
-        
+
         files_to_add = []
         for url in event.mimeData().urls():
             path = url.toLocalFile()
@@ -308,7 +309,9 @@ class MainWindow(QMainWindow):
 
     def _update_file_count(self):
         count = self.file_list.count()
-        self.file_count_label.setText(f"{count} {lang.get_translation("file(s)", self.locale)}")
+        self.file_count_label.setText(
+            f"{count} {lang.get_translation('file(s)', self.locale)}"
+        )
 
     def init_ui(self):
         self.last_dir = str(Path.home())
@@ -332,19 +335,15 @@ class MainWindow(QMainWindow):
         self.file_list.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
         self.file_list.setAcceptDrops(True)
         self.file_list.setDragDropMode(QListWidget.DragDropMode.InternalMove)
-        
-        # Assign custom drag/drop handlers
-        original_drag_enter = self.file_list.dragEnterEvent
-        original_drag_leave = self.file_list.dragLeaveEvent
-        original_drop = self.file_list.dropEvent
-        
         self.file_list.dragEnterEvent = lambda evt: (
-            self.file_list.setStyleSheet("QListWidget { border: None; background-color: #606060; }"),
-            evt.acceptProposedAction()
+            self.file_list.setStyleSheet(
+                "QListWidget { border: None; background-color: #606060; }"
+            ),
+            evt.acceptProposedAction(),
         )[1]
         self.file_list.dragLeaveEvent = lambda evt: (
             self.file_list.setStyleSheet(""),
-            evt.accept()
+            evt.accept(),
         )[1]
         self.file_list.dropEvent = self._handle_file_list_drop
         self.file_list.setMinimumHeight(150)
@@ -354,7 +353,9 @@ class MainWindow(QMainWindow):
 
         # File count and buttons
         file_button_layout = QHBoxLayout()
-        self.file_count_label = QLabel(f"0 {lang.get_translation("file(s)", self.locale)}")
+        self.file_count_label = QLabel(
+            f"0 {lang.get_translation('file(s)', self.locale)}"
+        )
         file_button_layout.addWidget(self.file_count_label)
         file_button_layout.addStretch()
 
@@ -412,7 +413,7 @@ class MainWindow(QMainWindow):
         settings_layout.addWidget(self.output_dir_edit, 0, 3)
         settings_layout.addWidget(browse_btn, 0, 4)
 
-        framerate_label = QLabel(f"{lang.get_translation("framerate", self.locale)}:")
+        framerate_label = QLabel(f"{lang.get_translation('framerate', self.locale)}:")
         self.framerate_spin = QSpinBox()
         self.framerate_spin.setRange(0, 120)
         self.framerate_spin.setValue(0)
@@ -421,13 +422,13 @@ class MainWindow(QMainWindow):
         settings_layout.addWidget(framerate_label, 1, 0)
         settings_layout.addWidget(self.framerate_spin, 1, 1)
 
-        quality_label = QLabel(f"{lang.get_translation("quality", self.locale)}:")
+        quality_label = QLabel(f"{lang.get_translation('quality', self.locale)}:")
         self.quality_combo = QComboBox()
         self.quality_combo.addItems(["Default", "High", "Medium", "Low"])
         settings_layout.addWidget(quality_label, 1, 2)
         settings_layout.addWidget(self.quality_combo, 1, 3)
 
-        workers_label = QLabel(f"{lang.get_translation("workers", self.locale)}:")
+        workers_label = QLabel(f"{lang.get_translation('workers', self.locale)}:")
         self.workers_spin = QSpinBox()
         self.workers_spin.setRange(1, 8)
         self.workers_spin.setValue(1)
@@ -442,7 +443,9 @@ class MainWindow(QMainWindow):
         self.merge_check = QCheckBox(lang.get_translation("merge", self.locale))
         self.concat_check = QCheckBox(lang.get_translation("concatenate", self.locale))
         self.recursive_check = QCheckBox(lang.get_translation("recursive", self.locale))
-        self.delete_check = QCheckBox(lang.get_translation("delete source files", self.locale))
+        self.delete_check = QCheckBox(
+            lang.get_translation("delete source files", self.locale)
+        )
 
         options_layout.addWidget(self.merge_check)
         options_layout.addWidget(self.concat_check)

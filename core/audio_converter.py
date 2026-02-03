@@ -57,10 +57,10 @@ class AudioConverter:
                     out_path = os.path.abspath(
                         os.path.join(audio_path_set[0], f"{audio_path_set[1]}.{format}")
                     )
-                
+
                 # Resolve any filename conflicts before conversion
                 out_path = self.file_handler._resolve_output_file_conflict(out_path)
-                
+
                 try:
                     audio.write_audiofile(
                         out_path,
@@ -108,10 +108,12 @@ class AudioConverter:
             out_path_local = os.path.abspath(
                 os.path.join(output, f"{movie_path_set[1]}.{format}")
             )
-            
+
             # Resolve any filename conflicts before conversion
-            out_path_local = self.file_handler._resolve_output_file_conflict(out_path_local)
-            
+            out_path_local = self.file_handler._resolve_output_file_conflict(
+                out_path_local
+            )
+
             video = None
             audio = None
             try:
@@ -125,7 +127,7 @@ class AudioConverter:
                     # Check if audio was found
                     if audio is None:
                         self.event_logger.info(
-                            f"[!] {lang.get_translation('no_audio', self.locale).replace('[path]', f'\"{self.file_handler.join_back(movie_path_set)}\"')} - {lang.get_translation('skipping', self.locale)}\n"
+                            f"[!] {lang.get_translation('no_audio', self.locale).replace('[path]', f'"{self.file_handler.join_back(movie_path_set)}"')} - {lang.get_translation('skipping', self.locale)}\n"
                         )
                         return None
                     audio.write_audiofile(
