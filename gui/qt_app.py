@@ -226,7 +226,7 @@ class MainWindow(QMainWindow):
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
             self.file_list.setStyleSheet(
-                "QListWidget { border: 2px dashed #4CAF50; background-color: #f0fff0; }"
+                "QListWidget { border: None; background-color: #404040; }"
             )
             event.acceptProposedAction()
         else:
@@ -236,20 +236,48 @@ class MainWindow(QMainWindow):
         self.file_list.setStyleSheet("")
         event.accept()
 
-    def dropEvent(self, event):
+    def _handle_file_list_drop(self, event):
+        # Handle files/folders dropped onto file list
         self.file_list.setStyleSheet("")
+        if not event.mimeData().hasUrls():
+            event.ignore()
+            return
+        
         files_to_add = []
         for url in event.mimeData().urls():
             path = url.toLocalFile()
+            if not path:
+                continue
             if os.path.isfile(path):
                 files_to_add.append(path)
             elif os.path.isdir(path):
                 for root, _, files in os.walk(path):
                     for file in files:
                         files_to_add.append(os.path.join(root, file))
-        # Use batch addition for better performance
-        self.add_files_batch(files_to_add)
-        event.acceptProposedAction()
+        if files_to_add:
+            self.add_files_batch(files_to_add)
+        event.accept()
+
+    def dropEvent(self, event):
+        # Handle files/folders dropped onto main window
+        self.file_list.setStyleSheet("")
+        if not event.mimeData().hasUrls():
+            event.ignore()
+            return
+        files_to_add = []
+        for url in event.mimeData().urls():
+            path = url.toLocalFile()
+            if not path:
+                continue
+            if os.path.isfile(path):
+                files_to_add.append(path)
+            elif os.path.isdir(path):
+                for root, _, files in os.walk(path):
+                    for file in files:
+                        files_to_add.append(os.path.join(root, file))
+        if files_to_add:
+            self.add_files_batch(files_to_add)
+        event.accept()
 
     def add_files_batch(self, files):
         # Aggregator, adds multiple files with single UI update
@@ -303,11 +331,22 @@ class MainWindow(QMainWindow):
         self.file_list = QListWidget()
         self.file_list.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
         self.file_list.setAcceptDrops(True)
-        self.file_list.viewport().setAcceptDrops(True)
-        self.file_list.setDragDropMode(QListWidget.DragDropMode.DropOnly)
-        self.file_list.dragEnterEvent = self.dragEnterEvent
-        self.file_list.dragLeaveEvent = self.dragLeaveEvent
-        self.file_list.dropEvent = self.dropEvent
+        self.file_list.setDragDropMode(QListWidget.DragDropMode.InternalMove)
+        
+        # Assign custom drag/drop handlers
+        original_drag_enter = self.file_list.dragEnterEvent
+        original_drag_leave = self.file_list.dragLeaveEvent
+        original_drop = self.file_list.dropEvent
+        
+        self.file_list.dragEnterEvent = lambda evt: (
+            self.file_list.setStyleSheet("QListWidget { border: None; background-color: #606060; }"),
+            evt.acceptProposedAction()
+        )[1]
+        self.file_list.dragLeaveEvent = lambda evt: (
+            self.file_list.setStyleSheet(""),
+            evt.accept()
+        )[1]
+        self.file_list.dropEvent = self._handle_file_list_drop
         self.file_list.setMinimumHeight(150)
         self.file_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.file_list.customContextMenuRequested.connect(self.show_file_context_menu)
