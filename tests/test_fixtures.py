@@ -3,7 +3,14 @@ import sys
 import pytest
 import shutil
 import tempfile
+from unittest.mock import Mock
 from core.controller import Controller
+
+
+def setup_file_handler_mock(mock_obj):
+    # Make _resolve_output_file_conflict return the input path by default (identity function)
+    mock_obj._resolve_output_file_conflict = Mock(side_effect=lambda x: x)
+    return mock_obj
 
 
 @pytest.fixture
