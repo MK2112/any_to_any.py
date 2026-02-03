@@ -168,10 +168,15 @@ if __name__ == "__main__":
         else:
             subprocess.run("python3 ./web_to_any.py", shell=True)
     else:
+        # Parse multiple formats if comma-separated
+        formats = []
+        if args["format"]:
+            formats = [fmt.strip() for fmt in args["format"].split(",")]
+        
         # Run main function with parsed arguments
         controller.run(
             input_path_args=args["input"],
-            format=args["format"],
+            format=formats,
             output=args["output"],
             framerate=args["framerate"],
             quality=args["quality"],

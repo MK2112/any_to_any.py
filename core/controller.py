@@ -239,7 +239,7 @@ class Controller:
     def run(
         self,
         input_path_args: list,
-        format: str,
+        format: str | list,
         output: str,
         framerate: int,
         quality: str,
@@ -266,13 +266,22 @@ class Controller:
             except Exception:
                 pass
 
-        # Prepare input paths
+        # Derive list structure from comma-separated formats in string, proceed with list only
+        if isinstance(format, str):
+            formats = [fmt.strip() for fmt in format.split(",")] if format else []
+        elif isinstance(format, list):
+            formats = format
+        else:
+            formats = []
+
         input_path_args = (
             input_path_args
             if input_path_args is not None
             else [os.getcwd()]
         )
+
         input_paths = []
+        
         for arg in input_path_args:
             if not input_paths:
                 input_paths.append(arg)
@@ -300,7 +309,6 @@ class Controller:
         self.merging = merge
         self.concatenating = concat
         self.page_ranges = split
-        self.target_format = format.lower() if format is not None else None
         self.framerate = framerate
         self.delete = delete
         self.quality = (
@@ -346,14 +354,13 @@ class Controller:
             if os.path.isfile(self.output):
                 self.output = os.path.dirname(self.output)
             # If it looks like a file path (has a recognized extension), extract directory
-            elif format and "." in self.output:
+            elif formats and "." in self.output:
                 _, ext = os.path.splitext(self.output)
                 ext_clean = ext.lstrip(".").lower()
-                fmt_clean = format.lower()
-                # Handle jpg/jpeg equivalence
                 ext_normalized = "jpeg" if ext_clean == "jpg" else ext_clean
-                fmt_normalized = "jpeg" if fmt_clean == "jpg" else fmt_clean
-                if ext_normalized == fmt_normalized:
+                # Check if extension matches any of the target formats
+                fmt_normalized = [("jpeg" if f.lower() == "jpg" else f.lower()) for f in formats]
+                if ext_normalized in fmt_normalized:
                     self.output = os.path.dirname(self.output)
         
         if self.output is not None and not os.path.exists(self.output):
@@ -433,7 +440,10 @@ class Controller:
                 # Initialize metadata directory if preservation is enabled
                 if self.preserve_meta or self.custom_tags:
                     self.metadata_handler.set_metadata_dir(str(self.output))
-                self.process_file_paths(file_paths)
+                # Process each format sequentially
+                for fmt in formats:
+                    self.target_format = fmt.lower() if fmt else None
+                    self.process_file_paths(file_paths)
                 found_files = len(file_paths) > 0 if not found_files else found_files
                 file_paths = {}
 
@@ -445,7 +455,10 @@ class Controller:
             if self.preserve_meta or self.custom_tags:
                 self.metadata_handler.set_metadata_dir(str(self.output))
             
-            self.process_file_paths(file_paths)
+            # Process each format sequentially
+            for fmt in formats:
+                self.target_format = fmt.lower() if fmt else None
+                self.process_file_paths(file_paths)
 
         if (across and len(file_paths) == 0) or not found_files:
             self.event_logger.warning(
