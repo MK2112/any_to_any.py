@@ -37,7 +37,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from core.controller import Controller
 import utils.language_support as lang
 
-VERSION = "1.0.7"
+VERSION = "1.0.8"
 
 class ConversionThread(QThread):
     progress_updated = pyqtSignal(dict)
@@ -204,7 +204,7 @@ class MainWindow(QMainWindow):
         self._conversion_start_time = None
         self.init_ui()
         self._setup_shortcuts()
-        self.setWindowTitle(f"any_to_any.py v{VERSION}")
+        self.setWindowTitle(f"any_to_any.py\tv{VERSION}")
         self.setMinimumSize(850, 650)
         self.setAcceptDrops(True)  # Enable drag-drop on main window
 
