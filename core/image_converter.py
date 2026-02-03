@@ -126,6 +126,9 @@ class ImageConverter:
                 img_path = os.path.abspath(
                     os.path.join(output, f"{image_path_set[1]}.{format}")
                 )
+                
+                # Resolve any filename conflicts before conversion
+                img_path = self.file_handler._resolve_output_file_conflict(img_path)
 
                 # Convert and save the image
                 with Image.open(self.file_handler.join_back(image_path_set)) as img:
@@ -283,7 +286,11 @@ class ImageConverter:
             if image_path_set[2] == format:
                 continue
             if image_path_set[2] in ["png", "jpeg", "jpg", "tiff", "tga", "eps"]:
-                bmp_path = os.path.join(output, f"{image_path_set[1]}.{format}")
+                bmp_path = os.path.abspath(os.path.join(output, f"{image_path_set[1]}.{format}"))
+                
+                # Resolve any filename conflicts before conversion
+                bmp_path = self.file_handler._resolve_output_file_conflict(bmp_path)
+                
                 with Image.open(self.file_handler.join_back(image_path_set)) as img:
                     img.convert("RGB").save(bmp_path, format=format)
                 self.file_handler.post_process(image_path_set, bmp_path, delete)
@@ -396,7 +403,11 @@ class ImageConverter:
             if image_path_set[2] == format:
                 continue
             if image_path_set[2] in ["png", "jpeg", "jpg", "tiff", "tga", "eps"]:
-                webp_path = os.path.join(output, f"{image_path_set[1]}.{format}")
+                webp_path = os.path.abspath(os.path.join(output, f"{image_path_set[1]}.{format}"))
+                
+                # Resolve any filename conflicts before conversion
+                webp_path = self.file_handler._resolve_output_file_conflict(webp_path)
+                
                 with Image.open(self.file_handler.join_back(image_path_set)) as img:
                     img.convert("RGB").save(webp_path, format=format)
                 self.file_handler.post_process(image_path_set, webp_path, delete)
@@ -528,7 +539,11 @@ class ImageConverter:
                 progress_bar.close()
 
             if images:
-                output_path = os.path.join(output, f"merged.{format}")
+                output_path = os.path.abspath(os.path.join(output, f"merged.{format}"))
+                
+                # Resolve any filename conflicts before conversion
+                output_path = self.file_handler._resolve_output_file_conflict(output_path)
+                
                 try:
                     images[0].save(
                         output_path,
@@ -536,9 +551,7 @@ class ImageConverter:
                         append_images=images[1:],
                     )
                     # Log completion
-                    if hasattr(self, "prog_logger") and hasattr(
-                        self.prog_logger, "bars_callback"
-                    ):
+                    if hasattr(self, "prog_logger") and hasattr(self.prog_logger, "bars_callback"):
                         self.prog_logger.bars_callback(
                             "gif", "index", total_images, total_images - 1
                         )
@@ -563,9 +576,12 @@ class ImageConverter:
                         audio=False,
                         fps_source="tbr",
                     )
-                    gif_path = os.path.join(output, f"{movie_path_set[1]}.{format}")
+                    gif_path = os.path.abspath(os.path.join(output, f"{movie_path_set[1]}.{format}"))
+                    
+                    # Resolve any filename conflicts before conversion
+                    gif_path = self.file_handler._resolve_output_file_conflict(gif_path)
 
-                    # Calculate target fps, ensuring it's at least 1
+                     # Calculate target fps, ensuring it's at least 1
                     target_fps = max(1, int(video.fps // 3))
 
                     # Write GIF with progress logging
@@ -601,6 +617,10 @@ class ImageConverter:
                 gif_path = os.path.abspath(
                     os.path.join(output, f"{doc_path_set[1]}.{format}")
                 )
+                
+                # Resolve any filename conflicts before conversion
+                gif_path = self.file_handler._resolve_output_file_conflict(gif_path)
+                
                 doc = fitz.open(pdf_path)
                 images = []
                 for page_num in range(len(doc)):
@@ -623,6 +643,10 @@ class ImageConverter:
                 gif_path = os.path.abspath(
                     os.path.join(output, f"{doc_path_set[1]}.{format}")
                 )
+                
+                # Resolve any filename conflicts before conversion
+                gif_path = self.file_handler._resolve_output_file_conflict(gif_path)
+                
                 images = []
                 if doc_path_set[2] == "docx":
                     doc = docx.Document(input_path)

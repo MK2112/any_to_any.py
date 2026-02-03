@@ -68,6 +68,10 @@ class MovieConverter:
                     out_path = os.path.abspath(
                         os.path.join(image_path_set[0], f"{image_path_set[1]}.{format}")
                     )
+                
+                # Resolve any filename conflicts before conversion
+                out_path = self.file_handler._resolve_output_file_conflict(out_path)
+                
                 clip.write_videofile(
                     out_path,
                     codec=codec,
@@ -126,6 +130,10 @@ class MovieConverter:
             if len(pics) > 0:
                 final_clip = concatenate_videoclips(pics, method="compose")
                 out_path = os.path.abspath(os.path.join(output, f"merged.{format}"))
+                
+                # Resolve any filename conflicts before conversion
+                out_path = self.file_handler._resolve_output_file_conflict(out_path)
+                
                 final_clip.write_videofile(
                     out_path,
                     fps=24 if framerate is None else framerate,
@@ -142,6 +150,10 @@ class MovieConverter:
             out_path_local = os.path.abspath(
                 os.path.join(output, f"{movie_path_set[1]}.{format}")
             )
+            
+            # Resolve any filename conflicts before conversion
+            out_path_local = self.file_handler._resolve_output_file_conflict(out_path_local)
+            
             video = None
             audio = None
             try:
@@ -229,6 +241,10 @@ class MovieConverter:
                 if len(pics) > 0:
                     final_clip = concatenate_videoclips(pics, method="compose")
                     out_path = os.path.abspath(os.path.join(output, f"{doc_path_set[1]}.{format}"))
+                    
+                    # Resolve any filename conflicts before conversion
+                    out_path = self.file_handler._resolve_output_file_conflict(out_path)
+                    
                     final_clip.write_videofile(
                         out_path,
                         fps=24 if framerate is None else framerate,
@@ -242,6 +258,10 @@ class MovieConverter:
                 movie_path = os.path.abspath(
                     os.path.join(output, f"{doc_path_set[1]}.{format}")
                 )
+                
+                # Resolve any filename conflicts before conversion
+                movie_path = self.file_handler._resolve_output_file_conflict(movie_path)
+                
                 doc = fitz.open(pdf_path)
                 image_files = []
                 if not os.path.exists(os.path.join(output, doc_path_set[1])):
@@ -317,6 +337,10 @@ class MovieConverter:
                 out_path = os.path.abspath(
                     os.path.join(codec_path_set[0], f"{codec_path_set[1]}.{format}")
                 )
+            
+            # Resolve any filename conflicts before conversion
+            out_path = self.file_handler._resolve_output_file_conflict(out_path)
+            
             if self.file_handler.has_visuals(codec_path_set):
                 video = VideoFileClip(
                     self.file_handler.join_back(codec_path_set),

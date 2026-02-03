@@ -57,6 +57,10 @@ class AudioConverter:
                     out_path = os.path.abspath(
                         os.path.join(audio_path_set[0], f"{audio_path_set[1]}.{format}")
                     )
+                
+                # Resolve any filename conflicts before conversion
+                out_path = self.file_handler._resolve_output_file_conflict(out_path)
+                
                 try:
                     audio.write_audiofile(
                         out_path,
@@ -104,6 +108,10 @@ class AudioConverter:
             out_path_local = os.path.abspath(
                 os.path.join(output, f"{movie_path_set[1]}.{format}")
             )
+            
+            # Resolve any filename conflicts before conversion
+            out_path_local = self.file_handler._resolve_output_file_conflict(out_path_local)
+            
             video = None
             audio = None
             try:
