@@ -1,4 +1,5 @@
 import os
+import re
 import time
 import shutil
 import logging
@@ -7,24 +8,51 @@ import threading
 import webbrowser
 import utils.language_support as lang
 
+from functools import wraps
 from utils.version import VERSION
 from core.controller import Controller
+from datetime import datetime, timedelta
 from flask_uploads import UploadSet, configure_uploads, ALL
 from flask import Flask, render_template, request, send_file, jsonify, abort, session
 
-# Web server providing a web interface as extension to the CLI-based any_to_any.py
+# Web server providing a web interface
+# Extension to the CLI-based any_to_any.py
 app = Flask(__name__, template_folder=os.path.abspath("templates"))
-app.secret_key = os.urandom(32)  # Distinguish session
+app.secret_key = os.urandom(32)
+app.config["MAX_CONTENT_LENGTH"] = 1000 * 1024 * 1024  # 1GB effective limit
+
+# Security headers
+@app.after_request
+def headers(response):
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    return response
 
 # Disable Flask's default access logging
 log = logging.getLogger("werkzeug")
 log.setLevel(logging.ERROR)
-
-# Optional: Keep our own logs at ERROR level to still see important errors
 app.logger.setLevel(logging.ERROR)
 
 host = "127.0.0.1"
 port = 5000
+
+# Rate limiting: {ip: [timestamps]}
+_rate_limit = {}
+def _rate_check(max_req=30, window=3600):
+    # Rate limit as max_req per window seconds per IP.
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            ip = request.remote_addr
+            now = datetime.now()
+            cutoff = now - timedelta(seconds=window)
+            _rate_limit[ip] = [t for t in _rate_limit.get(ip, []) if t > cutoff]
+            if len(_rate_limit[ip]) >= max_req:
+                abort(429)
+            _rate_limit[ip].append(now)
+            return f(*args, **kwargs)
+        return wrapper
+    return decorator
 
 # Initialize a default controller for the app
 controller = None
@@ -126,22 +154,24 @@ def push_zip(source_path: str):
 
 def process_params() -> tuple:
     uploaded_files = request.files.getlist("files")
-    format = request.form.get("conversionType")
-    # Achieve some convert-session specificity; 4 Bytes = 8 chars (collision within 26^8 is unlikely)
-    conv_key: str = os.urandom(4).hex()
-    # These are necessary because uploaded files are 'dumped' in there; Names may collide because of this, so we separate them from beginning
-    up_dir: str = f"{app.config['UPLOADED_FILES_DEST']}_{conv_key}"  # separate upload directories for each conversion session
-    cv_dir: str = f"{app.config['CONVERTED_FILES_DEST']}_{conv_key}"  # separate converted directories for each conversion session
-    # Create directories for uploaded and converted files
+    fmt = request.form.get("conversionType")
+    
+    if not fmt or fmt not in controller.supported_formats:
+        abort(400, "Invalid format")
+    if not uploaded_files or len(uploaded_files) > 50:
+        abort(400, "No files or too many files")
+    
+    conv_key = os.urandom(4).hex()
+    up_dir = f"{app.config['UPLOADED_FILES_DEST']}_{conv_key}"
+    cv_dir = f"{app.config['CONVERTED_FILES_DEST']}_{conv_key}"
     os.makedirs(up_dir, exist_ok=True)
     os.makedirs(cv_dir, exist_ok=True)
-    # Save uploaded files to the upload directory
+    
     for file in uploaded_files:
-        if file:
-            filename = os.path.join(up_dir, file.filename)
-            file.save(filename)
-    # File format to convert to
-    return format, up_dir, cv_dir, conv_key
+        if file and file.filename:
+            safe_name = re.sub(r'[^\w\.\-]', '_', file.filename)
+            file.save(os.path.join(up_dir, safe_name))
+    return fmt, up_dir, cv_dir, conv_key
 
 
 @app.route("/")
@@ -151,7 +181,7 @@ def index():
     translations = lang.get_all_translations(lang.LANGUAGE_CODES[lang_code])
     return render_template(
         "index.html",
-        title=f"any_to_any.py v{VERSION}",
+        title=f"any_to_any.py v{VERSION}",
         options=controller.supported_formats,
         translations=translations,
         lang_code=lang_code,
@@ -244,10 +274,9 @@ def send_to_backend(
 
 
 def create_conversion_endpoint(merge=False, concat=False):
-    # Factory function to create conversion endpoints with minimal duplication.
-    # I'm using the function parameters like binary flags to distinguish between /convert, /merge, and /concat endpoints.
+    @_rate_check(max_req=30, window=3600)
     def endpoint():
-        format, up_dir, cv_dir, job_id = process_params()
+        fmt, up_dir, cv_dir, job_id = process_params()
         # New controller instance for this job
         job_controller = create_controller(
             job_id=job_id, shared_progress_dict=shared_progress_dict
@@ -258,7 +287,7 @@ def create_conversion_endpoint(merge=False, concat=False):
             args=(
                 job_controller,
                 [up_dir],
-                format,
+                fmt,
                 cv_dir,
                 0,
                 "high",
@@ -280,7 +309,10 @@ app.add_url_rule("/concat", "concat", create_conversion_endpoint(merge=False, co
 
 @app.route("/progress/<job_id>", methods=["GET"])
 def get_progress(job_id):
-    # Get the current progress of a conversion job
+    # Validate job_id
+    if not re.match(r'^[a-f0-9]{8}$', job_id):
+        return jsonify({"error": "Invalid job ID"}), 400
+    
     with progress_lock:
         # Get the current progress, or default values if job not found
         progress = shared_progress_dict.get(
@@ -327,11 +359,11 @@ def get_progress(job_id):
 
 @app.route("/download/<job_id>", methods=["GET"])
 def download_zip(job_id):
-    # Download the converted files as a .zip archive
-    # Handles both single files and directories of files
+    # Validate job_id (prevent path traversal)
+    if not re.match(r'^[a-f0-9]{8}$', job_id):
+        abort(400)
+    
     base_path = f"{app.config['CONVERTED_FILES_DEST']}_{job_id}"
-
-    # Check if the path exists
     if not os.path.exists(base_path):
         abort(404, "Output not found")
 
