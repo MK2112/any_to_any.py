@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  any-to-any:
+    build: .
+    container_name: any-to-any
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./uploads:/app/uploads
+      - ./converted:/app/converted
+      - ./out:/app/out
+    environment:
+      - FLASK_APP=web_to_any.py
+      - PYTHONUNBUFFERED=1
+    stdin_open: true
+    tty: true
+    # Override to run CLI instead of web interface
+    # command: python any_to_any.py -i /path/to/input -f mp3

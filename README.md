@@ -236,6 +236,18 @@ python any_to_any.py -i /path/to/input_dir -f mp3 --workers 4 --recursive
 | `--strip-meta`                | Remove all metadata from output files for privacy (removes ID3 tags, EXIF data, document properties). |
 | `-l` or </br>`--language`    | Set the CLI language, currently supported: `zh_CN` (Mandarin, Simplified), `ja_JP` (Japanese), `fr_FR` (French), `es_ES` (Spanish), `es_MX` (Spanish, Mexican), `it_IT` (Italian), `de_DE` (German), `pt_BR` (Portuguese, Brazilian), `uk_UA` (Ukrainian), `ko_KR` (Korean), `en_US` (American English), `pl_PL` (Polish), `hi_IN` (Hindi), `ru_RU` (Russian), `ar_SA` (Arabic), `id_ID` (Indonesian), `tr_TR` (Turkish), `vi_VN` (Vietnamese), `th_TH` (Thai), `nl_NL` (Dutch), `sv_SE` (Swedish), `da_DK` (Danish), `fi_FI` (Finnish), `no_NO` (Norwegian), `is_IS` (Icelandic), `he_IL` (Hebrew), `cs_CZ` (Czech), `ro_RO` (Romanian), `ms_MY` (Malay), `bg_BG` (Bulgarian), `hu_HU` (Hungarian), `el_GR` (Greek), `sk_SK` (Slovak), `zh_TW` (Mandarin, Traditional), `fa_IR` (Persian, Farsi), `ur_PK` (Urdu), `sw_TZ` and `sw_KE` (Swahili), `pa_IN` and `pa_PK` (Punjabi), `tl_PH` (Tagalog), `my_MM` (Burmese), `ta_IN` (Tamil), `te_IN` (Telugu), `mr_IN` (Marathi), `ca_ES` (Catalan), `hr_HR` (Croatian), `zh_HK` (Cantonese). **Fallback is `en_US`.** |
 
+## Using Docker Compose (Quickstart)
+
+1. Navigate to the project directory: `cd any_to_any.py`
+2. Start the web interface: `docker-compose up`
+3. Open your browser and visit: `http://localhost:5000`
+4. To stop the container, press `CTRL+C`
+
+To run subsequent times without rebuilding:
+```bash
+docker-compose up
+```
+
 ## Supported Formats
 
 **Audio:** MP2, MP3, FLAC, AAC, AC3, DTS, OGG, OGA, WMA, WAV, M4A, AIFF, WEBA, MKA, WV, CAF, TTA, M4B, EAC3, SPX, AU, OPUS, M3U8, W64, MLP, ADTS, SBC, THD<br><br>
