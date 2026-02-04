@@ -36,9 +36,7 @@ from PyQt6.QtWidgets import (
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from core.controller import Controller
 import utils.language_support as lang
-
-VERSION = "1.0.8"
-
+from utils.version import VERSION
 
 class ConversionThread(QThread):
     progress_updated = pyqtSignal(dict)

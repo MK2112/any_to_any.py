@@ -2,6 +2,8 @@ import os
 import argparse
 import subprocess
 import utils.language_support as lang
+
+from utils.version import VERSION
 from core.controller import Controller
 
 ####
@@ -17,7 +19,7 @@ if __name__ == "__main__":
     controller = Controller()
 
     parser = argparse.ArgumentParser(
-        description=f"{lang.get_translation('description', controller.locale)}",
+        description=f"{'=' * 20} any_to_any.py v{VERSION} - {lang.get_translation('description', controller.locale)} {'=' * 20}",
     )
     parser.add_argument(
         "-i",
