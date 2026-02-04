@@ -85,7 +85,7 @@ function pollProgress(jobId) {
     // Show progress UI
     progressContainer.style.display = 'block';
     progressBar.style.width = '0%';
-    progressStatus.textContent = 'Starting conversion...';
+    progressStatus.textContent = '';
     errorMessage.style.display = 'none';
     errorMessage.textContent = '';
 
@@ -129,8 +129,6 @@ function pollProgress(jobId) {
                     statusText += ` (${data.current_bar})`;
                 }
                 progressStatus.textContent = statusText; 
-                
-                // Add a visual indicator when progress is stuck
                 if (percent > 0 && percent < 100) {
                     progressBar.classList.add('active');
                 } else {
@@ -140,9 +138,7 @@ function pollProgress(jobId) {
                 // Handle completion
                 if (data.status === 'done') {
                     clearInterval(pollInterval);
-                    progressStatus.textContent = 'Starting Download...';
-                    
-                    // Trigger download
+                    progressStatus.textContent = '';
                     window.location.href = `/download/${jobId}`;
                     
                     // Reset UI and file inputs after a short delay
@@ -150,16 +146,13 @@ function pollProgress(jobId) {
                         progressContainer.style.display = 'none';
                         progressBar.style.width = '0%';
                         progressStatus.textContent = '';
-
                         // Clear selected files array and visible file list
                         uploadedFiles = [];
                         const fileListEl = document.getElementById('file-list');
                         if (fileListEl) fileListEl.innerHTML = '';
-
                         // Reset file input element so same files can be reselected
                         const fileInput = document.getElementById('files');
                         if (fileInput) fileInput.value = '';
-
                         // Clear any stored job id
                         const jobIdInput = document.getElementById('job-id');
                         if (jobIdInput) jobIdInput.value = '';
@@ -171,7 +164,6 @@ function pollProgress(jobId) {
                 errorMessage.style.display = 'block';
                 errorMessage.textContent = error.message || 'An error occurred during conversion';
                 progressContainer.style.display = 'none';
-
                 // On error also reset file selection so user can try again
                 uploadedFiles = [];
                 const fileListEl = document.getElementById('file-list');
