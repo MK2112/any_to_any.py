@@ -1,14 +1,16 @@
 import os
+import time
 import shutil
+import logging
 import tempfile
 import threading
-import time
 import webbrowser
 import utils.language_support as lang
+
+from utils.version import VERSION
 from core.controller import Controller
 from flask_uploads import UploadSet, configure_uploads, ALL
 from flask import Flask, render_template, request, send_file, jsonify, abort, session
-import logging
 
 # Web server providing a web interface as extension to the CLI-based any_to_any.py
 app = Flask(__name__, template_folder=os.path.abspath("templates"))
@@ -149,7 +151,7 @@ def index():
     translations = lang.get_all_translations(lang.LANGUAGE_CODES[lang_code])
     return render_template(
         "index.html",
-        title="any_to_any.py",
+        title=f"any_to_any.py v{VERSION}",
         options=controller.supported_formats,
         translations=translations,
         lang_code=lang_code,
@@ -241,88 +243,39 @@ def send_to_backend(
             shutil.rmtree(input_path_args[0], ignore_errors=True)
 
 
-@app.route("/convert", methods=["POST"])
-def convert():
-    format, up_dir, cv_dir, job_id = process_params()
-    # Create a new controller instance for this job
-    job_controller = create_controller(
-        job_id=job_id, shared_progress_dict=shared_progress_dict
-    )
-
-    # Start conversion in background thread
-    thread = threading.Thread(
-        target=send_to_backend,
-        args=(
-            job_controller,
-            [up_dir],
-            format,
-            cv_dir,
-            0,
-            "high",
-            None,
-            False,
-            False,
-        ),
-    )
-    thread.start()
-    # Return job_id so frontend can poll progress
-    return jsonify({"job_id": job_id}), 202
-
-
-@app.route("/merge", methods=["POST"])
-def merge():
-    format, up_dir, cv_dir, job_id = process_params()
-    # Create a new controller instance for this job
-    job_controller = create_controller(
-        job_id=job_id, shared_progress_dict=shared_progress_dict
-    )
-
-    # Start conversion in background thread
-    thread = threading.Thread(
-        target=send_to_backend,
-        args=(
-            job_controller,
-            [up_dir],
-            format,
-            cv_dir,
-            0,
-            "high",
-            None,
-            True,
-            False,
-        ),
-    )
-    thread.start()
-    # Return job_id so frontend can poll progress
-    return jsonify({"job_id": job_id}), 202
+def create_conversion_endpoint(merge=False, concat=False):
+    # Factory function to create conversion endpoints with minimal duplication.
+    # I'm using the function parameters like binary flags to distinguish between /convert, /merge, and /concat endpoints.
+    def endpoint():
+        format, up_dir, cv_dir, job_id = process_params()
+        # New controller instance for this job
+        job_controller = create_controller(
+            job_id=job_id, shared_progress_dict=shared_progress_dict
+        )
+        # Start conversion in background thread
+        thread = threading.Thread(
+            target=send_to_backend,
+            args=(
+                job_controller,
+                [up_dir],
+                format,
+                cv_dir,
+                0,
+                "high",
+                None,
+                merge,
+                concat,
+            ),
+        )
+        thread.start()
+        # Return job_id so frontend can poll progress
+        return jsonify({"job_id": job_id}), 202
+    return endpoint
 
 
-@app.route("/concat", methods=["POST"])
-def concat():
-    format, up_dir, cv_dir, job_id = process_params()
-    # Create a new controller instance for this job
-    job_controller = create_controller(
-        job_id=job_id, shared_progress_dict=shared_progress_dict
-    )
-
-    # Start conversion in background thread
-    thread = threading.Thread(
-        target=send_to_backend,
-        args=(
-            job_controller,
-            [up_dir],
-            format,
-            cv_dir,
-            0,
-            "high",
-            None,
-            False,
-            True,
-        ),
-    )
-    thread.start()
-    # Return job_id so frontend can poll progress
-    return jsonify({"job_id": job_id}), 202
+app.add_url_rule("/convert", "convert", create_conversion_endpoint(merge=False, concat=False), methods=["POST"])
+app.add_url_rule("/merge", "merge", create_conversion_endpoint(merge=True, concat=False), methods=["POST"])
+app.add_url_rule("/concat", "concat", create_conversion_endpoint(merge=False, concat=True), methods=["POST"])
 
 
 @app.route("/progress/<job_id>", methods=["GET"])
