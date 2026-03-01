@@ -30,6 +30,7 @@
                 </div>
             </noscript>
             <form id="conversion-form" method="post" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <div id="drop-area" ondrop="drop(event)" ondragover="allowDrop(event)" onclick="triggerUploadDialogue(event)">
                     <p>{{ translations['drag_drop_hint'] }}</p>
                     <input type="file" name="files" id="files" multiple onchange="handleFiles(this.files, true)">

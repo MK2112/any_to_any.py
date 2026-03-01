@@ -6,6 +6,7 @@ import logging
 import tempfile
 import threading
 import webbrowser
+import secrets
 import utils.language_support as lang
 
 from functools import wraps
@@ -19,13 +20,42 @@ from flask import Flask, render_template, request, send_file, jsonify, abort, se
 # Extension to the CLI-based any_to_any.py
 app = Flask(__name__, template_folder=os.path.abspath("templates"))
 app.secret_key = os.urandom(32)
-app.config["MAX_CONTENT_LENGTH"] = 1000 * 1024 * 1024  # 1GB effective limit
+app.config["MAX_CONTENT_LENGTH"] = 1024 * 1024 * 1024 * 16  # 16 GiB effective limit
+
+# Session cookie to be secure, SameSite policy against CSRF
+app.config["SESSION_COOKIE_SECURE"] = True
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+
+# CSRF token storage: {session_id: csrf_token}
+_csrf_tokens = {}
+_csrf_lock = threading.Lock()
+
+def generate_csrf_token():
+    session_id = session.sid if hasattr(session, 'sid') else request.remote_addr
+    with _csrf_lock:
+        token = secrets.token_hex(32)
+        _csrf_tokens[session_id] = token
+        return token
+
+def validate_csrf_token(token):
+    session_id = session.sid if hasattr(session, 'sid') else request.remote_addr
+    with _csrf_lock:
+        stored_token = _csrf_tokens.get(session_id)
+        if stored_token and secrets.compare_digest(stored_token, token):
+            return True
+    return False
+
+@app.context_processor
+def inject_csrf_token():
+    return {"csrf_token": generate_csrf_token()}
 
 # Security headers
 @app.after_request
 def headers(response):
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
     return response
 
 # Disable Flask's default access logging
@@ -283,6 +313,11 @@ def send_to_backend(
 def create_conversion_endpoint(merge=False, concat=False):
     @_rate_check(max_req=30, window=3600)
     def endpoint():
+        csrf_token = request.form.get("csrf_token") or request.headers.get("X-CSRF-Token")
+        # Validating the CSRF token for all POST requests
+        if not csrf_token or not validate_csrf_token(csrf_token):
+            abort(403, "Invalid CSRF token")
+        
         fmt, up_dir, cv_dir, job_id = process_params()
         # New controller instance for this job
         job_controller = create_controller(

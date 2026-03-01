@@ -24,6 +24,7 @@ function submitForm(endpoint) {
     const conversionType = document.getElementById('conversion-type').value;
     const progressContainer = document.getElementById('progress-container');
     const errorMessage = document.getElementById('error-message');
+    const csrfInput = document.querySelector('input[name="csrf_token"]');
 
     if (uploadedFiles.length === 0) {
         errorMessage.style.display = 'block';
@@ -38,6 +39,7 @@ function submitForm(endpoint) {
 
     // Prepare form data
     const formData = new FormData();
+    if (csrfInput) formData.append('csrf_token', csrfInput.value);
     uploadedFiles.forEach(file => formData.append('files', file));
     formData.append('conversionType', conversionType);
 
