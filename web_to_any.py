@@ -200,24 +200,28 @@ def send_to_backend(
     merge: bool,
     concat: bool,
 ):
-    # Process files in the background and update progress
     job_id = getattr(controller_instance.prog_logger, "job_id", None)
     shared_dict = getattr(controller_instance.prog_logger, "shared_progress_dict", None)
 
+    input_dir = input_path_args[0] if input_path_args else None
+    total_files = 0
+    if input_dir and os.path.isdir(input_dir):
+        total_files = len([f for f in os.listdir(input_dir) if os.path.isfile(os.path.join(input_dir, f))])
+
     try:
-        # Set initial progress
         if job_id and shared_dict is not None:
             with progress_lock:
                 shared_dict[job_id] = {
                     "progress": 0,
-                    "total": 100,
+                    "total": total_files * 100,
+                    "total_files": total_files,
+                    "completed_files": 0,
                     "status": "processing",
                     "error": None,
                     "started_at": time.time(),
                     "last_updated": time.time(),
                 }
 
-        # Run the conversion
         controller_instance.run(
             input_path_args=input_path_args,
             format=format,
@@ -240,7 +244,10 @@ def send_to_backend(
             with progress_lock:
                 shared_dict[job_id].update(
                     {
-                        "progress": 100,
+                        "progress": total_files * 100,
+                        "total": total_files * 100,
+                        "completed_files": total_files,
+                        "progress_percent": 100,
                         "status": "done",
                         "completed_at": time.time(),
                         "last_updated": time.time(),
@@ -307,35 +314,47 @@ app.add_url_rule("/merge", "merge", create_conversion_endpoint(merge=True, conca
 app.add_url_rule("/concat", "concat", create_conversion_endpoint(merge=False, concat=True), methods=["POST"])
 
 
+_last_progress_cache = {}
+
 @app.route("/progress/<job_id>", methods=["GET"])
 def get_progress(job_id):
-    # Validate job_id
     if not re.match(r'^[a-f0-9]{8}$', job_id):
         return jsonify({"error": "Invalid job ID"}), 400
     
     with progress_lock:
-        # Get the current progress, or default values if job not found
-        progress = shared_progress_dict.get(
+        prog = shared_progress_dict.get(
             job_id,
             {
                 "progress": 0,
                 "total": 100,
-                "status": "waiting",  # Indicate job hasn't started yet
+                "status": "waiting",
                 "error": None,
                 "progress_percent": 0,
             },
         )
 
-        # Ensure we have a progress percentage
-        if "progress_percent" not in progress:
-            if progress.get("total", 0) > 0:
-                progress["progress_percent"] = int(
-                    (progress.get("progress", 0) / progress["total"]) * 100
-                )
-            else:
-                progress["progress_percent"] = 0
+        total_n_files = prog.get("total_files", 1)
+        current_prog = prog.get("progress", 0)
+        last_prog = _last_progress_cache.get(job_id, 0)
+        
+        if current_prog < last_prog and last_prog > 0:
+            completed_files = prog.get("completed_files", 0) + 1
+            prog["completed_files"] = completed_files
+        else:
+            completed_files = prog.get("completed_files", 0)
+        
+        _last_progress_cache[job_id] = current_prog
+        
+        if total_n_files > 1 and completed_files > 0:
+            cumulative = completed_files * 100 + current_prog
+            progress_percent = int((cumulative / (total_n_files * 100)) * 100)
+        elif prog.get("progress_percent") is not None:
+            progress_percent = prog.get("progress_percent")
+            cumulative = current_prog
+        else:
+            progress_percent = int((current_prog / prog.get("total", 100)) * 100) if prog.get("total", 0) > 0 else 0
+            cumulative = current_prog
 
-        # Clean up completed or errored jobs that are older than 5 minutes
         current_time = time.time()
         for jid in list(shared_progress_dict.keys()):
             job = shared_progress_dict[jid]
@@ -344,14 +363,16 @@ def get_progress(job_id):
                 and (current_time - job.get("completed_at", 0)) > 300
             ):
                 del shared_progress_dict[jid]
+                _last_progress_cache.pop(jid, None)
 
-        # Create a new dict to avoid thread-safety issues
         response = {
-            "progress": progress.get("progress", 0),
-            "total": progress.get("total", 100),
-            "status": progress.get("status", "waiting"),
-            "error": progress.get("error"),
-            "progress_percent": progress.get("progress_percent", 0),
+            "progress": cumulative if total_n_files > 1 else current_prog,
+            "total": total_n_files * 100,
+            "status": prog.get("status", "waiting"),
+            "error": prog.get("error"),
+            "progress_percent": progress_percent,
+            "total_files": total_n_files,
+            "completed_files": completed_files,
         }
 
         return jsonify(response)
@@ -371,7 +392,7 @@ def download_zip(job_id):
     if os.path.isdir(base_path):
         # Check for any files or directories
         has_content = False
-        for root, dirs, files in os.walk(base_path):
+        for _, dirs, files in os.walk(base_path):
             if files or dirs:
                 has_content = True
                 break
