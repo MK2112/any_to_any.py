@@ -68,7 +68,7 @@ port = 5000
 
 # Rate limiting: {ip: [timestamps]}
 _rate_limit = {}
-def _rate_check(max_req=30, window=3600):
+def _rate_check(max_req: int=30, window: int=3600):
     # Rate limit as max_req per window seconds per IP.
     def decorator(f):
         @wraps(f)
@@ -89,7 +89,7 @@ controller = None
 
 
 # This function creates a new controller instance with the given job_id
-def create_controller(job_id=None, shared_progress_dict=None):
+def create_controller(job_id: str = None, shared_progress_dict: dict = None) -> Controller:
     controller = Controller(job_id=job_id, shared_progress_dict=shared_progress_dict)
     controller.web_flag = True
     controller.web_host = f"{'http' if host.lower() in ['127.0.0.1', 'localhost'] else 'https'}://{host}:{port}"
@@ -220,7 +220,7 @@ def index():
 
 
 def send_to_backend(
-    controller_instance,
+    controller_instance: Controller,
     input_path_args: list,
     format: str,
     output: str,
@@ -310,7 +310,7 @@ def send_to_backend(
             shutil.rmtree(input_path_args[0], ignore_errors=True)
 
 
-def create_conversion_endpoint(merge=False, concat=False):
+def create_conversion_endpoint(merge: bool=False, concat: bool=False):
     @_rate_check(max_req=30, window=3600)
     def endpoint():
         csrf_token = request.form.get("csrf_token") or request.headers.get("X-CSRF-Token")
@@ -352,7 +352,7 @@ app.add_url_rule("/concat", "concat", create_conversion_endpoint(merge=False, co
 _last_progress_cache = {}
 
 @app.route("/progress/<job_id>", methods=["GET"])
-def get_progress(job_id):
+def get_progress(job_id: str):
     if not re.match(r'^[a-f0-9]{8}$', job_id):
         return jsonify({"error": "Invalid job ID"}), 400
     
@@ -414,7 +414,7 @@ def get_progress(job_id):
 
 
 @app.route("/download/<job_id>", methods=["GET"])
-def download_zip(job_id):
+def download_zip(job_id: str):
     # Validate job_id (prevent path traversal)
     if not re.match(r'^[a-f0-9]{8}$', job_id):
         abort(400)
