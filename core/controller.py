@@ -427,13 +427,13 @@ class Controller:
             if not any(file_paths.values()):
                 if len(input_paths) > 1:
                     self.event_logger.info(
-                        f"[!] {lang.get_translation('no_media_found', self.locale).replace('[path]', f"'{str(input_path)}'")} - {lang.get_translation('skipping', self.locale)}"
+                        f"[!] {lang.get_translation('no_media_found', self.locale).replace('[path]', f"'{input_path}'")} - {lang.get_translation('skipping', self.locale)}"
                     )
                 else:
                     end_with_msg(
                         self.event_logger,
                         None,
-                        f"[!] {lang.get_translation('no_media_found', self.locale).replace('[path]', f"'{str(input_path)}'")}",
+                        f"[!] {lang.get_translation('no_media_found', self.locale).replace('[path]', f"'{input_path}'")}",
                     )
                 continue
 
