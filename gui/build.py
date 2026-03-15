@@ -67,6 +67,8 @@ def build_executable():
             "--hidden-import=PyQt6",
             "--hidden-import=PIL",
             "--hidden-import=moviepy",
+            "--collect-all=imageio",
+            "--collect-all=imageio_ffmpeg",
             "--hidden-import=docx",
             "--hidden-import=pptx",
             "--hidden-import=pypdf",
