@@ -51,6 +51,8 @@ def build_executable():
     if not upx_path:
         raise RuntimeError("UPX not found on PATH. Install UPX before building.")
     common_args.extend(["--upx-dir", os.path.dirname(upx_path)])
+    if platform.system() == "Windows":
+        common_args.extend(["--upx-exclude", "python312.dll"])
 
     # Add data files when present
     data_dirs = ["assets", "templates", "utils", "core"]
