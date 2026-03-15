@@ -44,9 +44,9 @@ def build_executable():
         "--exclude-module=PIL._tkinter_finder",
     ]
 
-    # Use a more reliable layout on Windows
+    # Use onefile everywhere; avoid Windows-only UPX/strip issues
     if platform.system() == "Windows":
-        common_args.append("--onedir")
+        common_args.extend(["--onefile", "--noupx"])
     else:
         common_args.extend(["--onefile", "--strip"])
 
