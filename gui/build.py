@@ -13,6 +13,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 # Windows: choco install upx
 ##
 
+
 def clean_build():
     for dir_name in ["build", "dist"]:
         if os.path.exists(dir_name):
@@ -22,6 +23,8 @@ def clean_build():
 
 def build_executable():
     print("Building executable with PyInstaller...")
+    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    os.chdir(repo_root)
     path_sep = os.pathsep
     common_args = [
         "--name=AnyToAnyConverter",
@@ -49,15 +52,14 @@ def build_executable():
         raise RuntimeError("UPX not found on PATH. Install UPX before building.")
     common_args.extend(["--upx-dir", os.path.dirname(upx_path)])
 
-    # Add data files
-    common_args.extend(
-        [
-            f"--add-data=assets{path_sep}assets",
-            f"--add-data=templates{path_sep}templates",
-            f"--add-data=utils{path_sep}utils",
-            f"--add-data=core{path_sep}core",
-        ]
-    )
+    # Add data files when present
+    data_dirs = ["assets", "templates", "utils", "core"]
+    for data_dir in data_dirs:
+        data_path = os.path.join(repo_root, data_dir)
+        if os.path.exists(data_path):
+            common_args.append(f"--add-data={data_path}{path_sep}{data_dir}")
+        else:
+            print(f"Warning: Data directory not found, skipping: {data_path}")
 
     # Add hidden imports
     common_args.extend(
@@ -106,7 +108,6 @@ def build_executable():
         print("The application might not work correctly without the plugins.")
 
     common_args.append("gui/qt_app.py")
-    os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     common_args.extend(
         [
             "--hidden-import=PyQt6.QtCore",
