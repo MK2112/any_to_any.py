@@ -13,9 +13,11 @@ jobs:
         include:
           - os: windows-latest
             artifact_name: AnyToAnyConverter.exe
+            artifact_path: dist/AnyToAnyConverter/AnyToAnyConverter.exe
             asset_name: AnyToAnyConverter-windows.exe
           - os: ubuntu-latest
             artifact_name: AnyToAnyConverter
+            artifact_path: dist/AnyToAnyConverter
             asset_name: AnyToAnyConverter-linux
 
     steps:
@@ -55,16 +57,16 @@ jobs:
       - name: Validate artifact (Linux)
         if: runner.os == 'Linux'
         run: |
-          test -f "dist/${{ matrix.artifact_name }}"
-          test -s "dist/${{ matrix.artifact_name }}"
-          ls -lh "dist/${{ matrix.artifact_name }}"
-          sha256sum "dist/${{ matrix.artifact_name }}"
+          test -f "${{ matrix.artifact_path }}"
+          test -s "${{ matrix.artifact_path }}"
+          ls -lh "${{ matrix.artifact_path }}"
+          sha256sum "${{ matrix.artifact_path }}"
 
       - name: Validate artifact (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $path = "dist/${{ matrix.artifact_name }}"
+          $path = "${{ matrix.artifact_path }}"
           if (-not (Test-Path $path)) { throw "Missing artifact: $path" }
           $item = Get-Item $path
           if ($item.Length -le 0) { throw "Artifact is empty: $path" }
@@ -75,5 +77,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.asset_name }}
-          path: dist/${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_path }}
           retention-days: 30

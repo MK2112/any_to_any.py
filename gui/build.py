@@ -28,7 +28,6 @@ def build_executable():
     path_sep = os.pathsep
     common_args = [
         "--name=AnyToAnyConverter",
-        "--onefile",
         "--windowed",  # Don't show console for GUI app
         "--noconfirm",  # Overwrite output directory without confirmation
         "--clean",  # Clean PyInstaller cache
@@ -43,8 +42,13 @@ def build_executable():
         "--exclude-module=sklearn",  # Exclude scikit-learn if not needed
         "--exclude-module=skimage",  # Exclude scikit-image if not needed
         "--exclude-module=PIL._tkinter_finder",
-        "--strip",  # Strip debug symbols
     ]
+
+    # Use a more reliable layout on Windows
+    if platform.system() == "Windows":
+        common_args.append("--onedir")
+    else:
+        common_args.extend(["--onefile", "--strip"])
 
     # Enable UPX compression (skip on Windows due to DLL load issues)
     if platform.system() == "Windows":
