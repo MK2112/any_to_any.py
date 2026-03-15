@@ -46,26 +46,14 @@ def build_executable():
         "--strip",  # Strip debug symbols
     ]
 
-    # Enable UPX compression (required for this build)
-    upx_path = shutil.which("upx")
-    if not upx_path:
-        raise RuntimeError("UPX not found on PATH. Install UPX before building.")
-    common_args.extend(["--upx-dir", os.path.dirname(upx_path)])
+    # Enable UPX compression (skip on Windows due to DLL load issues)
     if platform.system() == "Windows":
-        common_args.extend(
-            [
-                "--upx-exclude",
-                "python*.dll",
-                "--upx-exclude",
-                "vcruntime*.dll",
-                "--upx-exclude",
-                "msvcp*.dll",
-                "--upx-exclude",
-                "ucrtbase.dll",
-                "--upx-exclude",
-                "api-ms-win-*.dll",
-            ]
-        )
+        print("UPX disabled on Windows to avoid python DLL load failures.")
+    else:
+        upx_path = shutil.which("upx")
+        if not upx_path:
+            raise RuntimeError("UPX not found on PATH. Install UPX before building.")
+        common_args.extend(["--upx-dir", os.path.dirname(upx_path)])
 
     # Add data files when present
     data_dirs = ["assets", "templates", "utils", "core"]
