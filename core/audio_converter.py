@@ -126,8 +126,9 @@ class AudioConverter:
                     audio = video.audio
                     # Check if audio was found
                     if audio is None:
+                        movie_path_str = f"\"{self.file_handler.join_back(movie_path_set)}\""
                         self.event_logger.info(
-                            f"[!] {lang.get_translation('no_audio', self.locale).replace('[path]', f'"{self.file_handler.join_back(movie_path_set)}"')} - {lang.get_translation('skipping', self.locale)}\n"
+                            f"[!] {lang.get_translation('no_audio', self.locale).replace('[path]', movie_path_str)} - {lang.get_translation('skipping', self.locale)}\n"
                         )
                         return None
                     audio.write_audiofile(
@@ -149,8 +150,9 @@ class AudioConverter:
                             logger=self.prog_logger,
                         )
                     except Exception as _:
+                        movie_path_str = f"\"{self.file_handler.join_back(movie_path_set)}\""
                         self.event_logger.info(
-                            f"[!] {lang.get_translation('audio_extract_fail', self.locale).replace('[path]', f'"{self.file_handler.join_back(movie_path_set)}"')} - {lang.get_translation('skipping', self.locale)}\n"
+                            f"[!] {lang.get_translation('audio_extract_fail', self.locale).replace('[path]', movie_path_str)} - {lang.get_translation('skipping', self.locale)}\n"
                         )
                         return None
                 return (movie_path_set, out_path_local)
