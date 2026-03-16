@@ -38,6 +38,10 @@ from core.controller import Controller
 import utils.language_support as lang
 from utils.version import VERSION
 
+if "--version" in sys.argv or "--self-test" in sys.argv:
+    print(VERSION)
+    sys.exit(0)
+
 class ConversionThread(QThread):
     progress_updated = pyqtSignal(dict)
     conversion_finished = pyqtSignal(str, str)  # job_id, output_path

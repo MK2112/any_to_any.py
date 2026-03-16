@@ -82,11 +82,61 @@ def build_executable():
             "--hidden-import=pypdf",
             "--hidden-import=mammoth",
             "--hidden-import=weasyprint",
+            "--collect-all=weasyprint",
+            "--collect-all=cffi",
             "--hidden-import=markdownify",
             "--hidden-import=fitz",
             "--hidden-import=PyMuPDF",
         ]
     )
+
+    runtime_hook = os.path.join(repo_root, "build", "pyinstaller_runtime_hook.py")
+    os.makedirs(os.path.dirname(runtime_hook), exist_ok=True)
+    hook_contents = "\n".join(
+        [
+            "import os",
+            "import sys",
+            "",
+            "",
+            "def _prepend_env_path(var_name: str, value: str) -> None:",
+            "    current = os.environ.get(var_name, \"\")",
+            "    if current:",
+            "        os.environ[var_name] = value + os.pathsep + current",
+            "    else:",
+            "        os.environ[var_name] = value",
+            "",
+            "",
+            "if hasattr(sys, \"_MEIPASS\"):",
+            "    meipass = sys._MEIPASS",
+            "    _prepend_env_path(\"PATH\", meipass)",
+            "    if os.name == \"nt\":",
+            "        _prepend_env_path(\"WEASYPRINT_DLL_DIRECTORIES\", meipass)",
+            "",
+        ]
+    )
+    with open(runtime_hook, "w", encoding="utf-8") as hook_file:
+        hook_file.write(hook_contents)
+    common_args.append(f"--runtime-hook={runtime_hook}")
+
+    # Bundle GTK runtime for WeasyPrint on Windows
+    if platform.system() == "Windows":
+        gtk_candidates = [
+            os.environ.get("GTK_DIR"),
+            r"C:\\Program Files\\GTK3-Runtime Win64",
+            r"C:\\Program Files (x86)\\GTK3-Runtime Win64",
+            r"C:\\msys64\\mingw64",
+        ]
+        gtk_found = False
+        for gtk_root in filter(None, gtk_candidates):
+            gtk_bin = os.path.join(gtk_root, "bin")
+            if os.path.isdir(gtk_bin):
+                common_args.append(f"--add-binary={gtk_bin}\\*.dll{path_sep}.")
+                gtk_found = True
+                break
+        if not gtk_found:
+            raise RuntimeError(
+                "GTK runtime not found. Install GTK on the build machine to bundle DLLs."
+            )
 
     try:
         from pathlib import Path
