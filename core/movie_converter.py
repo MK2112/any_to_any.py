@@ -363,8 +363,9 @@ class MovieConverter:
                     if os.path.exists(out_path):
                         # There might be some residue left, remove it
                         os.remove(out_path)
+                    codec_path_str = f"\"{codec_path_set[2]}\""
                     self.event_logger.info(
-                        f"\n\n[!] {lang.get_translation('codec_fallback', self.locale).replace('[path]', f'"{codec_path_set[2]}"').replace('[format]', f'{codec[1]}')}\n"
+                        f"\n\n[!] {lang.get_translation('codec_fallback', self.locale).replace('[path]', codec_path_str).replace('[format]', f'{codec[1]}')}\n"
                     )
                     video.write_videofile(
                         out_path,
