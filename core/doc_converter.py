@@ -5,15 +5,26 @@ import pptx
 import shutil
 import mammoth
 import subprocess
+import platform
 import utils.language_support as lang
 
 from PIL import Image
 from tqdm import tqdm
-from weasyprint import HTML
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.units import inch
 from moviepy import VideoFileClip
 from markdownify import markdownify
 from utils.category import Category
 from core.image_converter import gif_to_frames
+
+try:
+    if platform.system() != "Windows":
+        from weasyprint import HTML
+    else:
+        HTML = None
+except Exception:
+    HTML = None
 
 
 class DocumentConverter:
@@ -188,13 +199,68 @@ class DocumentConverter:
                 # Resolve any filename conflicts before conversion
                 pdf_path = self.file_handler._resolve_output_file_conflict(pdf_path)
 
-                docx_doc = open(self.file_handler.join_back(doc_path_set), "rb")
-                # Convert docx to HTML as intermediary
-                document = mammoth.convert_to_html(docx_doc)
-                docx_doc.close()
-                # Convert html to PDF, save that
-                HTML(string=document.value.encode("utf-8")).write_pdf(pdf_path)
+                docx_path = self.file_handler.join_back(doc_path_set)
+                if platform.system() == "Windows" or HTML is None:
+                    self._docx_to_pdf_reportlab(docx_path, pdf_path)
+                else:
+                    docx_doc = open(docx_path, "rb")
+                    # Convert docx to HTML as intermediary
+                    document = mammoth.convert_to_html(docx_doc)
+                    docx_doc.close()
+                    # Convert html to PDF, save that
+                    HTML(string=document.value.encode("utf-8")).write_pdf(pdf_path)
                 self.file_handler.post_process(doc_path_set, pdf_path, delete)
+
+    def _docx_to_pdf_reportlab(self, docx_path: str, pdf_path: str) -> None:
+        doc = docx.Document(docx_path)
+        page_width, page_height = A4
+        left_margin = 0.75 * inch
+        right_margin = 0.75 * inch
+        top_margin = page_height - (0.75 * inch)
+        bottom_margin = 0.75 * inch
+        line_height = 12
+
+        c = canvas.Canvas(pdf_path, pagesize=A4)
+        c.setFont("Helvetica", 10)
+        y = top_margin
+
+        for paragraph in doc.paragraphs:
+            text = paragraph.text
+            if not text:
+                y -= line_height
+                if y < bottom_margin:
+                    c.showPage()
+                    c.setFont("Helvetica", 10)
+                    y = top_margin
+                continue
+
+            words = text.split()
+            line = ""
+            for word in words:
+                candidate = f"{line} {word}".strip()
+                if (
+                    c.stringWidth(candidate, "Helvetica", 10)
+                    <= page_width - left_margin - right_margin
+                ):
+                    line = candidate
+                else:
+                    c.drawString(left_margin, y, line)
+                    y -= line_height
+                    if y < bottom_margin:
+                        c.showPage()
+                        c.setFont("Helvetica", 10)
+                        y = top_margin
+                    line = word
+
+            if line:
+                c.drawString(left_margin, y, line)
+                y -= line_height
+                if y < bottom_margin:
+                    c.showPage()
+                    c.setFont("Helvetica", 10)
+                    y = top_margin
+
+        c.save()
 
     def to_subtitles(
         self, output: str, file_paths: dict, format: str, delete: bool

@@ -147,6 +147,65 @@ class TestDocumentConverterToMarkdown:
         # Verify post_process was called
         document_converter.file_handler.post_process.assert_called_once()
 
+    @patch("core.doc_converter.platform.system", return_value="Windows")
+    def test_docx_pdf_uses_reportlab_on_windows(
+        self,
+        _mock_platform,
+        document_converter,
+        temp_output_dir,
+    ):
+        docx_path = os.path.join(temp_output_dir, "test_doc.docx")
+        doc = docx.Document()
+        doc.add_paragraph("Test content")
+        doc.save(docx_path)
+
+        document_converter.file_handler.join_back.return_value = docx_path
+        with patch.object(
+            document_converter, "_docx_to_pdf_reportlab"
+        ) as reportlab_mock:
+            document_converter.to_pdf(
+                output=temp_output_dir,
+                file_paths={
+                    Category.DOCUMENT: [("/path", "test_doc", "docx")],
+                    Category.IMAGE: [],
+                    Category.MOVIE: [],
+                },
+                format="pdf",
+                delete=False,
+            )
+
+        reportlab_mock.assert_called_once()
+
+    @patch("core.doc_converter.platform.system", return_value="Linux")
+    def test_docx_pdf_falls_back_when_weasyprint_missing(
+        self,
+        _mock_platform,
+        document_converter,
+        temp_output_dir,
+    ):
+        docx_path = os.path.join(temp_output_dir, "test_doc.docx")
+        doc = docx.Document()
+        doc.add_paragraph("Test content")
+        doc.save(docx_path)
+
+        document_converter.file_handler.join_back.return_value = docx_path
+        with patch("core.doc_converter.HTML", None):
+            with patch.object(
+                document_converter, "_docx_to_pdf_reportlab"
+            ) as reportlab_mock:
+                document_converter.to_pdf(
+                    output=temp_output_dir,
+                    file_paths={
+                        Category.DOCUMENT: [("/path", "test_doc", "docx")],
+                        Category.IMAGE: [],
+                        Category.MOVIE: [],
+                    },
+                    format="pdf",
+                    delete=False,
+                )
+
+        reportlab_mock.assert_called_once()
+
     @patch("mammoth.convert_to_html")
     @patch("os.makedirs")
     def test_to_markdown_with_images(
