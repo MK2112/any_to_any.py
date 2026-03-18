@@ -749,7 +749,7 @@ class MainWindow(QMainWindow):
                             )
                         else:
                             eta_str = f"{int(eta_seconds // 3600)}h {int((eta_seconds % 3600) // 60)}m"
-                        display_msg = f"{display_msg} — ETA: {eta_str}"
+                        display_msg = f"{display_msg}: {eta_str}"
                     except (ValueError, ZeroDivisionError):
                         pass
 
