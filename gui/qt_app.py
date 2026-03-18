@@ -42,6 +42,7 @@ if "--version" in sys.argv or "--self-test" in sys.argv:
     print(VERSION)
     sys.exit(0)
 
+
 class ConversionThread(QThread):
     progress_updated = pyqtSignal(dict)
     conversion_finished = pyqtSignal(str, str)  # job_id, output_path
@@ -207,7 +208,7 @@ class MainWindow(QMainWindow):
         self._conversion_start_time = None
         self.init_ui()
         self._setup_shortcuts()
-        self.setWindowTitle(f"any_to_any.py\tv{VERSION}")
+        self.setWindowTitle(f"any_to_any.py v{VERSION}")
         self.setMinimumSize(850, 650)
         self.setAcceptDrops(True)  # Enable drag-drop on main window
 
