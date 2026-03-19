@@ -184,12 +184,16 @@ class DocumentConverter:
 
                 with open(self.file_handler.join_back(doc_path_set), "r") as srt_file:
                     srt_content = srt_file.read()
+
                 # Insert the SRT content into the PDF
                 doc = fitz.open()
+
                 page = doc.new_page()
                 page.insert_text((50, 50), srt_content, fontsize=12)
+
                 doc.save(pdf_path)
                 doc.close()
+
                 self.file_handler.post_process(doc_path_set, pdf_path, delete)
             elif doc_path_set[2] == "docx":
                 pdf_path = os.path.abspath(
