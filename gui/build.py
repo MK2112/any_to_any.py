@@ -2,6 +2,7 @@ import os
 import sys
 import shutil
 import platform
+import tempfile
 import PyInstaller.__main__
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -21,54 +22,87 @@ def clean_build():
             shutil.rmtree(dir_name)
 
 
+def _prepare_windows_icon(repo_root: str) -> str | None:
+    # Find icon image for pyinstaller
+    candidates = [
+        os.path.join(repo_root, "img", "app_icon.ico"),
+        os.path.join(repo_root, "img", "app_icon.png"),
+        os.path.join(repo_root, "img", "icon.ico"),
+        os.path.join(repo_root, "img", "icon.png"),
+        os.path.join(repo_root, "app_icon.ico"),
+        os.path.join(repo_root, "app_icon.png"),
+    ]
+
+    source_icon = next((p for p in candidates if os.path.exists(p)), None)
+    if not source_icon:
+        print("No app icon provided. Using default executable icon.")
+        return None
+
+    if source_icon.lower().endswith(".ico"):
+        print(f"Using Windows .ico icon: {source_icon}")
+        return source_icon
+
+    # PNG -> ICO for Windows
+    try:
+        from PIL import Image
+
+        tmp_dir = os.path.join(tempfile.gettempdir(), "any_to_any_build")
+        os.makedirs(tmp_dir, exist_ok=True)
+        out_ico = os.path.join(tmp_dir, "app_icon.ico")
+
+        with Image.open(source_icon) as img:
+            if img.mode != "RGBA":
+                img = img.convert("RGBA")
+            img.save(
+                out_ico,
+                format="ICO",
+                sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)],
+            )
+
+        print(f"Converted icon for Windows executable: {source_icon} -> {out_ico}")
+        return out_ico
+    except Exception as e:
+        print(f"Warning: Could not prepare Windows icon from '{source_icon}': {e}")
+        return None
+
+
 def build_executable():
     print("Building executable with PyInstaller...")
     repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     os.chdir(repo_root)
     path_sep = os.pathsep
     common_args = [
-        "--name=AnyToAnyConverter",
-        "--windowed",  # Don't show console for GUI app
-        "--noconfirm",  # Overwrite output directory without confirmation
-        "--clean",  # Clean PyInstaller cache
-        "--exclude-module=_tkinter",  # Exclude tkinter
+        "--name=AnyToAny",
+        "--windowed",
+        "--noconfirm",
+        "--clean",
+        "--exclude-module=_tkinter",
         "--exclude-module=matplotlib.tests",
         "--exclude-module=numpy.random._examples",
-        "--exclude-module=scipy",  # Exclude scipy if not needed
-        "--exclude-module=torch.distributed",  # Exclude distributed training
-        "--exclude-module=torch.testing",
-        "--exclude-module=torchvision.models",  # Exclude pre-trained models
-        "--exclude-module=torchaudio",  # Exclude audio processing if not needed
-        "--exclude-module=sklearn",  # Exclude scikit-learn if not needed
-        "--exclude-module=skimage",  # Exclude scikit-image if not needed
+        "--exclude-module=scipy",
         "--exclude-module=PIL._tkinter_finder",
     ]
 
-    # Use onefile everywhere; avoid Windows-only UPX/strip issues
     if platform.system() == "Windows":
         common_args.extend(["--onefile", "--noupx"])
-    else:
-        common_args.extend(["--onefile", "--strip"])
-
-    # Enable UPX compression (skip on Windows due to DLL load issues)
-    if platform.system() == "Windows":
+        icon_path = _prepare_windows_icon(repo_root)
+        if icon_path:
+            common_args.append(f"--icon={icon_path}")
         print("UPX disabled on Windows to avoid python DLL load failures.")
     else:
+        common_args.extend(["--onefile", "--strip"])
         upx_path = shutil.which("upx")
         if not upx_path:
             raise RuntimeError("UPX not found on PATH. Install UPX before building.")
         common_args.extend(["--upx-dir", os.path.dirname(upx_path)])
 
-    # Add data files when present
-    data_dirs = ["assets", "templates", "utils", "core"]
-    for data_dir in data_dirs:
+    for data_dir in ["assets", "templates", "utils", "core"]:
         data_path = os.path.join(repo_root, data_dir)
         if os.path.exists(data_path):
             common_args.append(f"--add-data={data_path}{path_sep}{data_dir}")
         else:
             print(f"Warning: Data directory not found, skipping: {data_path}")
 
-    # Add hidden imports
     common_args.extend(
         [
             "--hidden-import=PyQt6",
@@ -87,6 +121,7 @@ def build_executable():
             "--hidden-import=PyMuPDF",
         ]
     )
+
     if platform.system() != "Windows":
         common_args.extend(
             [
@@ -102,19 +137,13 @@ def build_executable():
 
         plugins_path = Path(QLibraryInfo.path(QLibraryInfo.LibraryPath.PluginsPath))
         plugin_dirs = ["platforms", "imageformats"]
+
         if platform.system() == "Windows":
             for plugin_dir in plugin_dirs:
                 if (plugins_path / plugin_dir).exists():
                     common_args.append(
                         f"--add-binary={plugins_path / plugin_dir}/*{path_sep}{plugin_dir}/"
                     )
-        elif platform.system() == "Darwin":
-            for plugin_dir in plugin_dirs:
-                if (plugins_path / plugin_dir).exists():
-                    common_args.append(
-                        f"--add-binary={plugins_path / plugin_dir}/*{path_sep}Contents/MacOS/{plugin_dir}/"
-                    )
-            common_args.append("--osx-bundle-identifier=com.anytoany.converter")
         else:
             for plugin_dir in plugin_dirs:
                 if (plugins_path / plugin_dir).exists():
@@ -139,7 +168,6 @@ def build_executable():
 
 
 def main():
-    # Make sure PyInstaller is available
     clean_build()
     build_executable()
     print("\n[>] Build completed successfully!")
@@ -147,6 +175,4 @@ def main():
 
 
 if __name__ == "__main__":
-    import sys
-
     sys.exit(main())
