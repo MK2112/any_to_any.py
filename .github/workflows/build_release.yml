@@ -66,6 +66,28 @@ jobs:
       - name: Build executable
         run: python gui/build.py
 
+      - name: Integration conversion test (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p ci_tmp/in ci_tmp/out
+          ffmpeg -y -f lavfi -i sine=frequency=1000:duration=1 -c:a pcm_s16le ci_tmp/in/test_input.wav
+          python any_to_any.py -i ci_tmp/in/test_input.wav -f mp3 -o ci_tmp/out
+          test -f ci_tmp/out/test_input.mp3
+          test -s ci_tmp/out/test_input.mp3
+
+      - name: Integration conversion test (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path ci_tmp/in | Out-Null
+          New-Item -ItemType Directory -Force -Path ci_tmp/out | Out-Null
+          ffmpeg -y -f lavfi -i sine=frequency=1000:duration=1 -c:a pcm_s16le ci_tmp/in/test_input.wav
+          python any_to_any.py -i ci_tmp/in/test_input.wav -f mp3 -o ci_tmp/out
+          $outPath = "ci_tmp/out/test_input.mp3"
+          if (-not (Test-Path $outPath)) { throw "Missing converted file: $outPath" }
+          $item = Get-Item $outPath
+          if ($item.Length -le 0) { throw "Converted file is empty: $outPath" }
+
       - name: Smoke test executable (Linux)
         if: runner.os == 'Linux'
         run: |
