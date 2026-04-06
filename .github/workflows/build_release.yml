@@ -1,7 +1,7 @@
 name: Build Executables
 
 on:
-  workflow_dispatch:  # We go manual only
+  workflow_dispatch:
 
 jobs:
   build:
@@ -12,16 +12,16 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            artifact_name: AnyToAnyConverter.exe
-            artifact_path: dist/AnyToAnyConverter.exe
-            artifact_upload_path: dist/AnyToAnyConverter.exe
-            asset_name: AnyToAnyConverter-windows.exe
+            artifact_name: AnyToAny.exe
+            artifact_path: dist/AnyToAny.exe
+            artifact_upload_path: dist/AnyToAny.exe
+            asset_name: AnyToAny-windows.exe
             python_version: '3.11'
           - os: ubuntu-latest
-            artifact_name: AnyToAnyConverter
-            artifact_path: dist/AnyToAnyConverter
-            artifact_upload_path: dist/AnyToAnyConverter
-            asset_name: AnyToAnyConverter-linux
+            artifact_name: AnyToAny
+            artifact_path: dist/AnyToAny
+            artifact_upload_path: dist/AnyToAny
+            asset_name: AnyToAny-linux
             python_version: '3.12'
 
     steps:
@@ -65,6 +65,27 @@ jobs:
 
       - name: Build executable
         run: python gui/build.py
+
+      - name: Assert no bundled ffmpeg binary (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          if find dist -type f -iname 'ffmpeg*' | grep -q .; then
+            echo 'Unexpected bundled ffmpeg binary found in dist/'
+            find dist -type f -iname 'ffmpeg*'
+            exit 1
+          fi
+
+      - name: Assert no bundled ffmpeg binary (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $matches = Get-ChildItem -Path dist -Recurse -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -match '^ffmpeg' }
+          if ($matches) {
+            Write-Host 'Unexpected bundled ffmpeg binary found in dist/'
+            $matches | Select-Object -ExpandProperty FullName
+            throw 'Bundled ffmpeg detected in artifact payload.'
+          }
 
       - name: Integration conversion test (Linux)
         if: runner.os == 'Linux'
