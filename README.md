@@ -63,6 +63,13 @@ If you want to build a standalone executable for Windows/Linux/macOS, ideally in
 python gui/build.py
 ```
 
+### Runtime requirements for binaries
+
+The standalone binaries do not bundle `ffmpeg`.<br>
+Instead, they are configured to use a system-installed `ffmpeg`:
+- Linux (Debian/Ubuntu): `sudo apt-get install ffmpeg`
+- Windows: Download and install `ffmpeg` from the [official website](https://www.ffmpeg.org/download.html). Make sure it gets added to `PATH`.
+
 <p align="center">
    <img src="./img/Any-to-Any-GUI.png" width="625" height="auto">
 </p>
