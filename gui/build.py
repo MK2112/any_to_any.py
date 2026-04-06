@@ -14,7 +14,6 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 # Windows: choco install upx
 ##
 
-
 def clean_build():
     for dir_name in ["build", "dist"]:
         if os.path.exists(dir_name):
@@ -76,11 +75,13 @@ def build_executable():
         "--windowed",
         "--noconfirm",
         "--clean",
+        "--additional-hooks-dir=gui/pyinstaller_hooks",
         "--exclude-module=_tkinter",
         "--exclude-module=matplotlib.tests",
         "--exclude-module=numpy.random._examples",
         "--exclude-module=scipy",
         "--exclude-module=PIL._tkinter_finder",
+        "--exclude-module=imageio_ffmpeg.binaries",
     ]
 
     if platform.system() == "Windows":
@@ -110,7 +111,7 @@ def build_executable():
             "--hidden-import=moviepy",
             "--collect-all=numpy",
             "--collect-all=imageio",
-            "--collect-all=imageio_ffmpeg",
+            "--hidden-import=imageio_ffmpeg",
             "--hidden-import=docx",
             "--hidden-import=pptx",
             "--hidden-import=pypdf",
@@ -155,6 +156,7 @@ def build_executable():
         print("The application might not work correctly without the plugins.")
 
     common_args.append("gui/qt_app.py")
+    common_args.append("--runtime-hook=gui/force_system_ffmpeg.py")
     common_args.extend(
         [
             "--hidden-import=PyQt6.QtCore",
