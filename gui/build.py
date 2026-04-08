@@ -70,6 +70,8 @@ def build_executable():
     repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     os.chdir(repo_root)
     path_sep = os.pathsep
+    # Not bundling ffmpeg to avoid a truckload of platform-specific issues
+    # Using system ffmpeg is more reliable and allows users to easily update ffmpeg separately if needed
     common_args = [
         "--name=AnyToAny",
         "--windowed",

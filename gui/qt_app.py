@@ -700,7 +700,6 @@ class MainWindow(QMainWindow):
 
     def update_progress(self, progress_info):
         value = progress_info.get("progress")
-        message = progress_info.get("message", "")
         status = progress_info.get("status", "")
         error = progress_info.get("error")
 
@@ -904,7 +903,7 @@ class HelpDialog(QDialog):
         help_text = QTextEdit()
         help_text.setReadOnly(True)
         help_text.setPlainText(f"""
-any_to_any.py GUI v{VERSION}
+any_to_any.py {VERSION}
 
 Features:
 > Drag-and-drop files or folders into the list
