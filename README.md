@@ -66,9 +66,19 @@ python gui/build.py
 ### Runtime requirements for binaries
 
 The standalone binaries do not bundle `ffmpeg`.<br>
-Instead, they are configured to use a system-installed `ffmpeg`:
+They are configured to use a system-installed `ffmpeg`.<br>
+On Windows, this installation of `ffmpeg` additionally has to be made available in the `PATH`.
+
 - Linux (Debian/Ubuntu): `sudo apt-get install ffmpeg`
-- Windows: Download and install `ffmpeg` from the [official website](https://www.ffmpeg.org/download.html). Make sure it gets added to `PATH`.
+- Windows (recommended flow, tested for `ffmpeg` 8.0.1 on Windows 10):
+  1. Download a Windows build from [ffmpeg.org/download.html](https://www.ffmpeg.org/download.html) (for example from `gyan.dev`).
+     - Specifically, download `ffmpeg-release-full.7z` for the broadest codec coverage.
+  3. Extract the archive to a permanent location, e.g. `C:\ffmpeg`.
+  4. Add `C:\ffmpeg\bin` to the system `Path`:
+     - Open Start, search for `Environment Variables`, open `Edit the system environment variables`.
+     - Click `Environment Variables...`.
+     - Under `System variables`, select `Path` -> `Edit` -> `New`.
+     - Add `C:\ffmpeg\bin` and confirm with `OK`.
 
 <p align="center">
    <img src="./img/Any-to-Any-GUI.png" width="625" height="auto">
