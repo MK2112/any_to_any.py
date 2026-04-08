@@ -727,9 +727,9 @@ class MainWindow(QMainWindow):
         if error:
             self.status_label.setText(f"Error: {error}")
         else:
-            display_msg = str(message) if message else status
+            eta_str = None
 
-            # Calculate, show ETA given progress and start time
+            # Show ETA
             if (
                 value is not None
                 and value > 0
@@ -749,11 +749,10 @@ class MainWindow(QMainWindow):
                             )
                         else:
                             eta_str = f"{int(eta_seconds // 3600)}h {int((eta_seconds % 3600) // 60)}m"
-                        display_msg = f"{display_msg}: {eta_str}"
                     except (ValueError, ZeroDivisionError):
                         pass
 
-            self.status_label.setText(display_msg)
+            self.status_label.setText(eta_str)
 
         if status in ("done", "cancelled") or error:
             self.progress_bar.setValue(100 if status == "done" else 0)
