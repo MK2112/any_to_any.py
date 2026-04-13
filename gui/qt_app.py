@@ -8,7 +8,7 @@ import threading
 import subprocess
 from pathlib import Path
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
-from PyQt6.QtGui import QShortcut, QKeySequence
+from PyQt6.QtGui import QShortcut, QKeySequence, QIcon, QPixmap, QPainter, QColor
 from PyQt6.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -317,6 +317,48 @@ class MainWindow(QMainWindow):
             f"{count} {lang.get_translation('file(s)', self.locale)}"
         )
 
+    def _create_folder_icon(self):
+        svg = """
+                <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'>
+                    <path d='M3 7h6l2 2h10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2z' fill='#F4C542' stroke='#8A6A1D' stroke-width='1.2'/>
+                    <path d='M3 9h18' stroke='#8A6A1D' stroke-width='1.2'/>
+                </svg>
+              """.strip()
+
+        icon = QIcon()
+        for size in (16, 20, 24, 32):
+            pixmap = QPixmap(size, size)
+            pixmap.fill(Qt.GlobalColor.transparent)
+            painter = QPainter(pixmap)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            renderer = None
+            try:
+                from PyQt6.QtSvg import QSvgRenderer
+
+                renderer = QSvgRenderer(bytearray(svg, encoding="utf-8"))
+                renderer.render(painter)
+            except Exception:
+                # Fallback simple folder glyph if QtSvg is unavailable.
+                painter.setPen(QColor("#8A6A1D"))
+                painter.setBrush(QColor("#F4C542"))
+                painter.drawRoundedRect(2, 7, size - 4, size - 9, 2, 2)
+                painter.drawRect(2, 5, int(size * 0.45), 4)
+            finally:
+                painter.end()
+            icon.addPixmap(pixmap)
+        return icon
+
+    def open_current_output_dir(self):
+        output_dir = self.output_dir_edit.text().strip()
+        if not output_dir or not os.path.isdir(output_dir):
+            QMessageBox.warning(
+                self,
+                lang.get_translation("error", self.locale),
+                lang.get_translation("invalid_output_dir", self.locale),
+            )
+            return
+        self._open_file_location(output_dir)
+
     def init_ui(self):
         self.last_dir = str(Path.home())
         self.settings = load_settings()
@@ -417,9 +459,15 @@ class MainWindow(QMainWindow):
         self.output_dir_edit.setMinimumWidth(200)
         browse_btn = QPushButton(lang.get_translation("browse", self.locale))
         browse_btn.clicked.connect(self.browse_output_dir)
+        self.open_output_btn = QPushButton()
+        self.open_output_btn.setIcon(self._create_folder_icon())
+        self.open_output_btn.setToolTip("Open target folder")
+        self.open_output_btn.setFixedWidth(34)
+        self.open_output_btn.clicked.connect(self.open_current_output_dir)
         settings_layout.addWidget(output_dir_label, 0, 2)
         settings_layout.addWidget(self.output_dir_edit, 0, 3)
         settings_layout.addWidget(browse_btn, 0, 4)
+        settings_layout.addWidget(self.open_output_btn, 0, 5)
 
         framerate_label = QLabel(f"{lang.get_translation('framerate', self.locale)}:")
         self.framerate_spin = QSpinBox()
