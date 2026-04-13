@@ -106,4 +106,5 @@ MARATHI = {
     "framerate": "फ्रेम दर",
     "workers": "कामगार",
     "quality": "गुणवत्ता",
+    "show_folder_on_completion": "पूर्ण झाल्यावर फोल्डर दाखवा",
 }

@@ -106,4 +106,5 @@ ITALIAN = {
     "framerate": "Frequenza dei fotogrammi",
     "workers": "Lavoratori",
     "quality": "Qualità",
+    "show_folder_on_completion": "Mostra cartella al termine",
 }

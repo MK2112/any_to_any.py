@@ -106,4 +106,5 @@ TAMIL = {
     "framerate": "ஃபிரேம் விகிதம்",
     "workers": "தொழிலாளர்கள்",
     "quality": "திறமை",
+    "show_folder_on_completion": "முடிந்ததும் கோப்புறையை காட்டு",
 }

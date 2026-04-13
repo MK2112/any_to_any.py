@@ -106,4 +106,5 @@ GREEK = {
     "framerate": "Ρυθμός καρέ",
     "workers": "Εργάτες",
     "quality": "Ποιότητα",
+    "show_folder_on_completion": "Εμφάνιση φακέλου όταν ολοκληρωθεί",
 }

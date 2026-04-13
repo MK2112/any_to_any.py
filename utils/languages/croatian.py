@@ -106,4 +106,5 @@ CROATIAN = {
     "framerate": "Stopa kadrova",
     "workers": "Radnici",
     "quality": "Kvaliteta",
+    "show_folder_on_completion": "Prikaži mapu po završetku",
 }

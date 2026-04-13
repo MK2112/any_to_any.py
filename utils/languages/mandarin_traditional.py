@@ -106,4 +106,5 @@ MANDARIN_TRADITIONAL = {
     "framerate": "幀率",
     "workers": "工作人員",
     "quality": "質量",
+    "show_folder_on_completion": "完成後顯示資料夾",
 }

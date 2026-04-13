@@ -454,12 +454,16 @@ class MainWindow(QMainWindow):
         self.delete_check = QCheckBox(
             lang.get_translation("delete source files", self.locale)
         )
+        self.open_target_folder_check = QCheckBox(
+            lang.get_translation("show_folder_on_completion", self.locale)
+        )
 
         for widget in [
             self.merge_check,
             self.concat_check,
             self.recursive_check,
             self.delete_check,
+            self.open_target_folder_check,
         ]:
             options_layout.addWidget(widget)
 
@@ -778,8 +782,7 @@ class MainWindow(QMainWindow):
             f"{lang.get_translation('conversion_successful', self.locale)}: {output_path}",
         )
 
-        # Auto-open output directory for single file conversions
-        if self.file_list.count() == 1 and output_path:
+        if self.open_target_folder_check.isChecked() and output_path:
             output_dir = os.path.dirname(output_path)
             if os.path.isdir(output_dir):
                 self._open_file_location(output_path)
@@ -814,6 +817,7 @@ class MainWindow(QMainWindow):
             self.concat_check,
             self.recursive_check,
             self.delete_check,
+            self.open_target_folder_check,
             self.framerate_spin,
             self.quality_combo,
             self.workers_spin,

@@ -106,4 +106,5 @@ SWEDISH = {
     "framerate": "Bilder per sekund",
     "workers": "Arbetare",
     "quality": "Kvalitet",
+    "show_folder_on_completion": "Visa mapp när klart",
 }

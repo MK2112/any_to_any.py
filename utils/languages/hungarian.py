@@ -106,4 +106,5 @@ HUNGARIAN = {
     "framerate": "Képsebesség",
     "workers": "Munkások",
     "quality": "Minőség",
+    "show_folder_on_completion": "Mappa megjelenítése befejezéskor",
 }

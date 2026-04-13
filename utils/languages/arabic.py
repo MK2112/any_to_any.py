@@ -106,4 +106,5 @@ ARABIC = {
     "framerate": "معدل الإطارات",
     "workers": "العمال",
     "quality": "الجودة",
+    "show_folder_on_completion": "إظهار المجلد عند الانتهاء",
 }

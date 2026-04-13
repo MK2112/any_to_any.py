@@ -106,4 +106,5 @@ BURMESE = {
     "framerate": "ဖရိမ်နှုန်း",
     "workers": "အလုပ်သမားများ",
     "quality": "အရည်အသွေး",
+    "show_folder_on_completion": "ပြီးသွားသောအခါ ဖိုလ်ဒါကို ပြပါ",
 }

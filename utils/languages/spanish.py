@@ -106,4 +106,5 @@ SPANISH = {
     "framerate": "Tasa de fotogramas",
     "workers": "Trabajadores",
     "quality": "Calidad",
+    "show_folder_on_completion": "Mostrar carpeta al finalizar",
 }

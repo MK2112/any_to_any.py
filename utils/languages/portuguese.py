@@ -106,4 +106,5 @@ PORTUGUESE = {
     "framerate": "Taxa de quadros",
     "workers": "Trabalhadores",
     "quality": "Qualidade",
+    "show_folder_on_completion": "Mostrar pasta ao concluir",
 }

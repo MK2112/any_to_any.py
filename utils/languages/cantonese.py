@@ -106,4 +106,5 @@ CANTONESE = {
     "framerate": "幀率",
     "workers": "工作執行緒",
     "quality": "品質",
+    "show_folder_on_completion": "完成後顯示資料夾",
 }

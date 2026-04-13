@@ -106,4 +106,5 @@ TELUGU = {
     "framerate": "ఫ్రేమ్ రేట్",
     "workers": "కార్మికులు",
     "quality": "నాణ్యత",
+    "show_folder_on_completion": "పూర్తయ్యాక ఫోల్డర్ చూపించు",
 }

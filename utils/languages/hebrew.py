@@ -106,4 +106,5 @@ HEBREW = {
     "framerate": "קצב פריימים",
     "workers": "עובדים",
     "quality": "איכות",
+    "show_folder_on_completion": "הצג תיקייה בסיום",
 }

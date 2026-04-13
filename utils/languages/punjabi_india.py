@@ -106,4 +106,5 @@ PUNJABI_INDIAN = {
     "framerate": "ਫਰੇਮ ਦਰ",
     "workers": "ਮਜ਼ਦੂਰ",
     "quality": "ਗੁਣਵੱਤਾ",
+    "show_folder_on_completion": "ਮੁਕੰਮਲ ਹੋਣ 'ਤੇ ਫੋਲਡਰ ਵੇਖਾਓ",
 }

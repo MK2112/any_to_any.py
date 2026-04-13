@@ -106,4 +106,5 @@ MALAY = {
     "framerate": "Kadar bingkai",
     "workers": "Pekerja",
     "quality": "Kualiti",
+    "show_folder_on_completion": "Tunjukkan folder apabila selesai",
 }

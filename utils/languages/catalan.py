@@ -106,4 +106,5 @@ CATALAN = {
     "framerate": "Taxa de fotogrames",
     "workers": "Treballadors",
     "quality": "Qualitat",
+    "show_folder_on_completion": "Mostra la carpeta en acabar",
 }

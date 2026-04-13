@@ -106,4 +106,5 @@ PUNJABI_PAKISTAN = {
     "framerate": "فریم کی شرح",
     "workers": "مزدور",
     "quality": "معیاری",
+    "show_folder_on_completion": "مکمل ہونے پر فولڈر دکھائیں",
 }

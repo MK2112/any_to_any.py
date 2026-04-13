@@ -106,4 +106,5 @@ VIETNAMESE = {
     "framerate": "Tốc độ khung hình",
     "workers": "Công nhân",
     "quality": "Chất lượng",
+    "show_folder_on_completion": "Hiển thị thư mục khi hoàn tất",
 }

@@ -106,4 +106,5 @@ SLOVAK = {
     "framerate": "Rýchlosť snímok",
     "workers": "Pracovníci",
     "quality": "Kvalita",
+    "show_folder_on_completion": "Po dokončení zobraziť priečinok",
 }

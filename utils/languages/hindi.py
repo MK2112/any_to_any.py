@@ -106,4 +106,5 @@ HINDI = {
     "framerate": "फ्रेम दर",
     "workers": "कामकाजी",
     "quality": "गुणवत्ता",
+    "show_folder_on_completion": "पूरा होने पर फ़ोल्डर दिखाएँ",
 }

@@ -106,4 +106,5 @@ URDU = {
     "framerate": "فریم ریٹ",
     "workers": "ملازمین",
     "quality": "معیاری",
+    "show_folder_on_completion": "مکمل ہونے پر فولڈر دکھائیں",
 }

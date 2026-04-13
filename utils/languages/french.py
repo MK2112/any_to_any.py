@@ -106,4 +106,5 @@ FRENCH = {
     "framerate": "Fréquence d'images",
     "workers": "Travailleurs",
     "quality": "Qualité",
+    "show_folder_on_completion": "Afficher le dossier une fois terminé",
 }
