@@ -7,7 +7,8 @@ from utils.version import VERSION
 from core.controller import Controller
 
 ####
-## Any_to_Any.py Entry Script
+## any_to_any.py (https://github.com/MK2112/any_to_any.py)
+####
 ## Refer to README.md for more information and usage examples
 ####
 
@@ -19,7 +20,7 @@ if __name__ == "__main__":
     controller = Controller()
 
     parser = argparse.ArgumentParser(
-        description=f"{'=' * 20} any_to_any.py v{VERSION} - {lang.get_translation('description', controller.locale)} {'=' * 20}",
+        description=f"{'=' * 20} any_to_any.py {VERSION} - {lang.get_translation('description', controller.locale)} {'=' * 20}",
     )
     parser.add_argument(
         "-i",

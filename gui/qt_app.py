@@ -34,8 +34,9 @@ from PyQt6.QtWidgets import (
 )
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from core.controller import Controller
+
 import utils.language_support as lang
+from core.controller import Controller
 from utils.version import VERSION
 
 if "--version" in sys.argv or "--self-test" in sys.argv:
@@ -208,7 +209,7 @@ class MainWindow(QMainWindow):
         self._conversion_start_time = None
         self.init_ui()
         self._setup_shortcuts()
-        self.setWindowTitle(f"any_to_any.py v{VERSION}")
+        self.setWindowTitle(f"any_to_any.py {VERSION}")
         self.setMinimumSize(850, 650)
         self.setAcceptDrops(True)  # Enable drag-drop on main window
 
@@ -355,12 +356,12 @@ class MainWindow(QMainWindow):
         input_layout.addWidget(self.file_list)
 
         # File count and buttons
-        file_button_layout = QHBoxLayout()
+        file_btn_layout = QHBoxLayout()
         self.file_count_label = QLabel(
             f"0 {lang.get_translation('file(s)', self.locale)}"
         )
-        file_button_layout.addWidget(self.file_count_label)
-        file_button_layout.addStretch()
+        file_btn_layout.addWidget(self.file_count_label)
+        file_btn_layout.addStretch()
 
         self.add_files_btn = QPushButton(lang.get_translation("add_files", self.locale))
         self.add_files_btn.clicked.connect(self.add_files)
@@ -380,11 +381,15 @@ class MainWindow(QMainWindow):
         )
         self.clear_btn.clicked.connect(self.clear_all_files)
 
-        file_button_layout.addWidget(self.add_files_btn)
-        file_button_layout.addWidget(self.add_folder_btn)
-        file_button_layout.addWidget(self.remove_btn)
-        file_button_layout.addWidget(self.clear_btn)
-        input_layout.addLayout(file_button_layout)
+        for file_btn_widget in [
+            self.add_files_btn,
+            self.add_folder_btn,
+            self.remove_btn,
+            self.clear_btn,
+        ]:
+            file_btn_layout.addWidget(file_btn_widget)
+
+        input_layout.addLayout(file_btn_layout)
         layout.addWidget(input_group)
 
         # Conversion settings group
@@ -450,10 +455,14 @@ class MainWindow(QMainWindow):
             lang.get_translation("delete source files", self.locale)
         )
 
-        options_layout.addWidget(self.merge_check)
-        options_layout.addWidget(self.concat_check)
-        options_layout.addWidget(self.recursive_check)
-        options_layout.addWidget(self.delete_check)
+        for widget in [
+            self.merge_check,
+            self.concat_check,
+            self.recursive_check,
+            self.delete_check,
+        ]:
+            options_layout.addWidget(widget)
+
         options_layout.addStretch()
         layout.addLayout(options_layout)
 
@@ -648,22 +657,12 @@ class MainWindow(QMainWindow):
             )
             return
 
-        # Get options
-        merge = self.merge_check.isChecked()
-        concat = self.concat_check.isChecked()
-        framerate = (
-            self.framerate_spin.value() if self.framerate_spin.value() > 0 else None
-        )
         quality_map = {
             "Default": None,
             "High": "high",
             "Medium": "medium",
             "Low": "low",
         }
-        quality = quality_map.get(self.quality_combo.currentText())
-        recursive = self.recursive_check.isChecked()
-        delete = self.delete_check.isChecked()
-        workers = self.workers_spin.value()
 
         # Disable UI during conversion
         self.set_ui_enabled(False)
@@ -679,13 +678,15 @@ class MainWindow(QMainWindow):
             input_files,
             output_format,
             output_dir,
-            merge=merge,
-            concat=concat,
-            framerate=framerate,
-            quality=quality,
-            recursive=recursive,
-            delete=delete,
-            workers=workers,
+            merge=self.merge_check.isChecked(),
+            concat=self.concat_check.isChecked(),
+            framerate=self.framerate_spin.value()
+            if self.framerate_spin.value() > 0
+            else None,
+            quality=quality_map.get(self.quality_combo.currentText()),
+            recursive=self.recursive_check.isChecked(),
+            delete=self.delete_check.isChecked(),
+            workers=self.workers_spin.value(),
         )
         self.current_thread.progress_updated.connect(self.update_progress)
         self.current_thread.conversion_finished.connect(self.conversion_completed)
@@ -803,7 +804,7 @@ class MainWindow(QMainWindow):
         self.progress_bar.setStyleSheet("")
 
     def set_ui_enabled(self, enabled):
-        widgets = [
+        for widget in [
             self.add_files_btn,
             self.add_folder_btn,
             self.remove_btn,
@@ -817,10 +818,8 @@ class MainWindow(QMainWindow):
             self.quality_combo,
             self.workers_spin,
             self.convert_btn,
-        ]
-
-        for w in widgets:
-            w.setEnabled(enabled)
+        ]:
+            widget.setEnabled(enabled)
 
         self.cancel_btn.setEnabled(not enabled)
 
@@ -838,8 +837,7 @@ class MainWindow(QMainWindow):
         event.accept()
 
     def open_settings_dialog(self):
-        supported_locales = list(lang.TRANSLATIONS.keys())
-        dlg = SettingsDialog(self, self.locale, supported_locales)
+        dlg = SettingsDialog(self, self.locale, list(lang.TRANSLATIONS.keys()))
         if dlg.exec():
             self.locale = dlg.selected_locale
             save_settings({"last_dir": self.last_dir, "locale": self.locale})
@@ -852,8 +850,7 @@ class MainWindow(QMainWindow):
             self.init_ui()
 
     def open_help_dialog(self):
-        dlg = HelpDialog(self, self.locale)
-        dlg.exec()
+        HelpDialog(self, self.locale).exec()
 
 
 def main():

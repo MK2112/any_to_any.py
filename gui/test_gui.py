@@ -200,11 +200,11 @@ def test_file_count_label_update(main_window, tmp_path):
     assert "1" in main_window.file_count_label.text()
 
 
-def test_cancel_button_initially_disabled(main_window):
+def test_cancel_btn_initially_disabled(main_window):
     assert not main_window.cancel_btn.isEnabled()
 
 
-def test_convert_button_initially_enabled(main_window):
+def test_convert_btn_initially_enabled(main_window):
     assert main_window.convert_btn.isEnabled()
 
 
