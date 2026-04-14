@@ -106,5 +106,5 @@ KOREAN = {
     "framerate": "프레임 속도",
     "workers": "작업자",
     "quality": "품질",
-    "show_folder_on_completion": "완료 시 폴더 표시",
+    "show_folder_on_completion": "완료 시 출력 폴더 표시",
 }

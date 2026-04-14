@@ -106,5 +106,5 @@ JAPANESE = {
     "framerate": "フレームレート",
     "workers": "ワーカー",
     "quality": "品質",
-    "show_folder_on_completion": "完了時にフォルダーを表示",
+    "show_folder_on_completion": "完了時に出力フォルダーを表示",
 }

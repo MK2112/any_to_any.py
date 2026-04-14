@@ -106,5 +106,5 @@ RUSSIAN = {
     "framerate": "Частота кадров",
     "workers": "Рабочие",
     "quality": "Качество",
-    "show_folder_on_completion": "Показывать папку после завершения",
+    "show_folder_on_completion": "Показать папку вывода после завершения",
 }

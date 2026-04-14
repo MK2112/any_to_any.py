@@ -106,5 +106,5 @@ TELUGU = {
     "framerate": "ఫ్రేమ్ రేట్",
     "workers": "కార్మికులు",
     "quality": "నాణ్యత",
-    "show_folder_on_completion": "పూర్తయ్యాక ఫోల్డర్ చూపించు",
+    "show_folder_on_completion": "పూర్తయిన తర్వాత అవుట్‌పుట్ ఫోల్డర్‌ను చూపించు",
 }

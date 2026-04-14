@@ -106,5 +106,5 @@ NORWEGIAN = {
     "framerate": "Bildehastighet",
     "workers": "Arbeidere",
     "quality": "Kvalitet",
-    "show_folder_on_completion": "Vis mappe når ferdig",
+    "show_folder_on_completion": "Vis utdatamappen når ferdig",
 }

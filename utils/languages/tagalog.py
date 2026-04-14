@@ -106,5 +106,5 @@ TAGALOG = {
     "framerate": "Rate ng frame",
     "workers": "Mga manggagawa",
     "quality": "Kalidad",
-    "show_folder_on_completion": "Ipakita ang folder kapag tapos na",
+    "show_folder_on_completion": "Ipakita ang output folder kapag tapos na",
 }

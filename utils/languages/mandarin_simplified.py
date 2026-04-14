@@ -106,5 +106,5 @@ MANDARIN_SIMPLIFIED = {
     "framerate": "帧率",
     "workers": "工作者",
     "quality": "质量",
-    "show_folder_on_completion": "完成后显示文件夹",
+    "show_folder_on_completion": "完成时显示输出文件夹",
 }

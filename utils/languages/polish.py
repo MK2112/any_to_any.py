@@ -106,5 +106,5 @@ POLISH = {
     "framerate": "Częstotliwość klatek",
     "workers": "Pracownicy",
     "quality": "Jakość",
-    "show_folder_on_completion": "Pokaż folder po zakończeniu",
+    "show_folder_on_completion": "Pokaż folder wyjściowy po zakończeniu",
 }

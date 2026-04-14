@@ -106,5 +106,5 @@ DANISH = {
     "framerate": "Billedhastighed",
     "workers": "Arbejderne",
     "quality": "Kvalitet",
-    "show_folder_on_completion": "Vis mappe, når færdig",
+    "show_folder_on_completion": "Vis outputmappen når færdig",
 }

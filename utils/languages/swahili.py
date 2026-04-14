@@ -106,5 +106,5 @@ SWAHILI = {
     "framerate": "Kiwango cha picha",
     "workers": "Wafanyakazi",
     "quality": "Ubora",
-    "show_folder_on_completion": "Onyesha folda ukimaliza",
+    "show_folder_on_completion": "Onyesha folda ya matokeo ikikamilika",
 }

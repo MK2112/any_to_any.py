@@ -106,5 +106,5 @@ THAI = {
     "framerate": "อัตราเฟรม",
     "workers": "คนงาน",
     "quality": "คุณภาพ",
-    "show_folder_on_completion": "แสดงโฟลเดอร์เมื่อเสร็จสิ้น",
+    "show_folder_on_completion": "แสดงโฟลเดอร์เอาต์พุตเมื่อเสร็จสิ้น",
 }

@@ -106,5 +106,5 @@ ENGLISH = {
     "framerate": "Framerate",
     "workers": "Workers",
     "quality": "Quality",
-    "show_folder_on_completion": "Show folder when done",
+    "show_folder_on_completion": "Show Output Folder When Done",
 }

@@ -106,5 +106,5 @@ BULGARIAN = {
     "framerate": "Честота на кадрите",
     "workers": "Работници",
     "quality": "Качество",
-    "show_folder_on_completion": "Покажи папката при завършване",
+    "show_folder_on_completion": "Показване на изходната папка при завършване",
 }

@@ -106,5 +106,5 @@ TURKISH = {
     "framerate": "Kare hızı",
     "workers": "Çalışanlar",
     "quality": "Kalite",
-    "show_folder_on_completion": "İşlem tamamlandığında klasörü göster",
+    "show_folder_on_completion": "Tamamlandığında çıktı klasörünü göster",
 }

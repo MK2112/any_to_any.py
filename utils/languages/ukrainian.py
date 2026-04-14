@@ -106,5 +106,5 @@ UKRAINIAN = {
     "framerate": "Частота кадрів",
     "workers": "Працівники",
     "quality": "Якість",
-    "show_folder_on_completion": "Показувати теку після завершення",
+    "show_folder_on_completion": "Показати папку виводу після завершення",
 }

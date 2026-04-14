@@ -106,5 +106,5 @@ FINNISH = {
     "framerate": "Kehyksen nopeus",
     "workers": "Työntekijät",
     "quality": "Laatu",
-    "show_folder_on_completion": "Näytä kansio valmistuttua",
+    "show_folder_on_completion": "Näytä tulostuskansio valmistumisen jälkeen",
 }

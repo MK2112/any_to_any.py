@@ -106,5 +106,5 @@ FARSI = {
     "framerate": "نرخ فریم",
     "workers": "کارگران",
     "quality": "کیفیت",
-    "show_folder_on_completion": "نمایش پوشه پس از اتمام",
+    "show_folder_on_completion": "نمایش پوشه خروجی پس از اتمام",
 }

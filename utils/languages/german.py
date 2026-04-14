@@ -106,5 +106,5 @@ GERMAN = {
     "framerate": "Bildrate",
     "workers": "Threads",
     "quality": "Qualität",
-    "show_folder_on_completion": "Ordner nach Abschluss anzeigen",
+    "show_folder_on_completion": "Ausgabeordner nach Abschluss anzeigen",
 }

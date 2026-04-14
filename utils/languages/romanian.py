@@ -106,5 +106,5 @@ ROMANIAN = {
     "framerate": "Rata cadrelor",
     "workers": "Lucrători",
     "quality": "Calitate",
-    "show_folder_on_completion": "Afișează folderul la finalizare",
+    "show_folder_on_completion": "Afișează folderul de ieșire la finalizare",
 }

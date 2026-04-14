@@ -106,5 +106,5 @@ CZECH = {
     "framerate": "Snímkova frekvence",
     "workers": "Pracovníci",
     "quality": "Kvalita",
-    "show_folder_on_completion": "Po dokončení zobrazit složku",
+    "show_folder_on_completion": "Zobrazit výstupní složku po dokončení",
 }

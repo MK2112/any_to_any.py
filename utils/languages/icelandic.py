@@ -106,5 +106,5 @@ ICELANDIC = {
     "framerate": "Rammahraði",
     "workers": "Vinnufólk",
     "quality": "Gæði",
-    "show_folder_on_completion": "Sýna möppu þegar lokið er",
+    "show_folder_on_completion": "Sýna úttaksmöppu þegar lokið er",
 }

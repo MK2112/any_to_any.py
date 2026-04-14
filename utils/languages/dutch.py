@@ -106,5 +106,5 @@ DUTCH = {
     "framerate": "Beeldsnelheid",
     "workers": "Werknemers",
     "quality": "Kwaliteit",
-    "show_folder_on_completion": "Map tonen wanneer klaar",
+    "show_folder_on_completion": "Toon de uitvoermap wanneer gereed",
 }

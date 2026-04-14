@@ -106,5 +106,5 @@ INDONESIAN = {
     "framerate": "Kecepatan frame",
     "workers": "Pekerja",
     "quality": "Kualitas",
-    "show_folder_on_completion": "Tampilkan folder saat selesai",
+    "show_folder_on_completion": "Tampilkan folder output setelah selesai",
 }

@@ -106,5 +106,5 @@ BENGALI = {
     "framerate": "ফ্রেম রেট",
     "workers": "কর্মী",
     "quality": "গুণমান",
-    "show_folder_on_completion": "শেষ হলে ফোল্ডার দেখান",
+    "show_folder_on_completion": "সমাপ্তির পরে আউটপুট ফোল্ডার দেখান",
 }
