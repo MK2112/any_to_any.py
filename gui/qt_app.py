@@ -953,23 +953,24 @@ class HelpDialog(QDialog):
         help_text.setPlainText(f"""
 any_to_any.py {VERSION}
 
+https://github.com/MK2112/any_to_any.py
+
 Features:
-> Drag-and-drop files or folders into the list
-> Select output format and destination directory
-> Set framerate (0 = auto), quality, and worker threads
-> Check merge/concatenate/recursive/delete options
-> Click Convert to start, Cancel to stop
+- Drag-and-drop files or folders into the list
+- Select output format and destination directory
+- Set framerate (0 = auto), quality, and worker threads
+- Check merge/concatenate/recursive/delete options
+- Click Convert to start, Cancel to stop
 
 Options:
-> Framerate: Set target framerate (0 = keep original)
-> Quality: High/Medium/Low for audio bitrate
-> Workers: Parallel conversion threads (1-8)
-> Recursive: Include files from subfolders
-> Delete: Remove original files after conversion
+- Framerate: Set target framerate (0 = keep original)
+- Quality: High/Medium/Low for audio bitrate
+- Workers: Parallel conversion threads (1-8)
+- Recursive: Include files from subfolders
+- Delete: Remove original files after conversion
 
-For more info, see the project README.
-
-https://github.com/MK2112/any_to_any.py
+For more info, see the project README on GitHub:
+https://github.com/MK2112/any_to_any.py/blob/main/README.md
 """)
         layout.addWidget(help_text)
         btn = QPushButton("OK")
