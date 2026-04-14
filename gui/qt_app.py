@@ -649,8 +649,7 @@ class MainWindow(QMainWindow):
         menu.exec(self.file_list.mapToGlobal(pos))
 
     def _open_file_location(self, file_path):
-        # Open folder containing file in system file manager
-        folder = os.path.dirname(file_path)
+        folder = file_path if os.path.isdir(file_path) else os.path.dirname(file_path)
         system = platform.system()
         try:
             if system == "Linux":
