@@ -276,7 +276,7 @@ docker-compose up
 
 ## License
 
-MIT.
+AGPLv3.
 
 ## Disclaimer
 
