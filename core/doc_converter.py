@@ -10,12 +10,12 @@ import utils.language_support as lang
 
 from PIL import Image
 from tqdm import tqdm
-from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.units import inch
 from moviepy import VideoFileClip
 from markdownify import markdownify
 from utils.category import Category
+from reportlab.pdfgen import canvas
+from reportlab.lib.units import inch
+from reportlab.lib.pagesizes import A4
 from core.image_converter import gif_to_frames
 
 try:
@@ -91,7 +91,6 @@ class DocumentConverter:
         gif_to_frames(output, file_paths, self.file_handler)
         # Convert Images to PDF
         for image_path_set in file_paths[Category.IMAGE]:
-            # Convert image to pdf
             pdf_path = ""
             if image_path_set[2] != "gif":
                 doc = fitz.open()
@@ -105,7 +104,6 @@ class DocumentConverter:
 
                 # Resolve any filename conflicts before conversion
                 pdf_path = self.file_handler._resolve_output_file_conflict(pdf_path)
-
                 doc.save(pdf_path)
                 doc.close()
                 self.file_handler.post_process(image_path_set, pdf_path, delete)
@@ -288,7 +286,7 @@ class DocumentConverter:
                         "-i",
                         input_path,
                         "-map",
-                        "0:s:0",  # Selects first subtitle stream
+                        "0:s:0", # Selects first subtitle stream
                         "-c:s",
                         "srt",
                         out_path,

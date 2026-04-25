@@ -9,8 +9,6 @@ class AudioConverter:
     def __init__(
         self, file_handler, prog_logger, event_logger, locale: str = "English"
     ):
-        # These aren't supposed to be copies, but, like here, references
-        # to the original objects that got passed
         self.file_handler = file_handler
         self.prog_logger = prog_logger
         self.event_logger = event_logger
@@ -40,7 +38,7 @@ class AudioConverter:
             # If this variable doesn't exist, flag wasn't invoked: Default to 1
             env_workers = 1
 
-        # Helper to convert a single audio file
+        # Helper, converts a single audio file
         def _convert_audio_file(audio_path_set: tuple):
             if audio_path_set[2] == format:
                 return None
@@ -114,8 +112,7 @@ class AudioConverter:
                 out_path_local
             )
 
-            video = None
-            audio = None
+            video, audio = None, None
             try:
                 if self.file_handler.has_visuals(movie_path_set):
                     video = VideoFileClip(

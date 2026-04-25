@@ -590,8 +590,6 @@ class ImageConverter:
 
                     # Resolve any filename conflicts before conversion
                     gif_path = self.file_handler._resolve_output_file_conflict(gif_path)
-
-                    # Calculate target fps, ensuring it's at least 1
                     target_fps = max(1, int(video.fps // 3))
 
                     # Write GIF with progress logging
@@ -599,7 +597,7 @@ class ImageConverter:
                         gif_path,
                         fps=target_fps,
                         logger=self.prog_logger,
-                        verbose=False,  # Disable moviepy's default progress bar
+                        verbose=False,
                     )
 
                     # Log completion of this video
@@ -613,7 +611,7 @@ class ImageConverter:
                         self.prog_logger.log(
                             f"Error converting video {movie_path_set} to GIF: {str(e)}"
                         )
-                    raise  # Re-raise to maintain original error handling
+                    raise  # Maintain original error handling
                 video.close()
                 self.file_handler.post_process(movie_path_set, gif_path, delete)
             else:

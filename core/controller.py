@@ -29,22 +29,21 @@ from moviepy import (
 class Controller:
     # Taking an input directory of files, convert them to a multitude of formats.
     # Interact with the script using the command line arguments or the web interface.
-    # Run via any_to_any.py script.
+    # Run via any_to_any.py script (see README.md).
     def __init__(self, job_id=None, shared_progress_dict=None, locale=None):
-        # Setting up progress logger with optional web progress tracking
         self.prog_logger = ProgLogger(
             job_id=job_id, shared_progress_dict=shared_progress_dict
         )
 
         self.locale = lang.get_system_language() if locale is None else locale
-        # Setting up event logger and format
+
         logging.basicConfig(
             level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
         )
         self.event_logger = logging.getLogger(__name__)
         self.file_handler = FileHandler(self.event_logger, self.locale)
         self.metadata_handler = MetadataHandler(self.event_logger, self.locale)
-        # Setup distinct converters
+
         self.audio_converter = AudioConverter(
             self.file_handler, self.prog_logger, self.event_logger, self.locale
         )
@@ -57,7 +56,8 @@ class Controller:
         self.image_converter = ImageConverter(
             self.file_handler, self.prog_logger, self.event_logger, self.locale
         )
-        # Setting up a dictionary of supported formats and respective information
+
+        # Dictionary of supported formats and respective information
         self._supported_formats = {
             Category.AUDIO: {
                 "mp3": "libmp3lame",
@@ -182,7 +182,7 @@ class Controller:
             },
         }
 
-        # Membership key-sets
+        # KV-sets for format lookups
         self._fmt_audio_keys = set(self._supported_formats[Category.AUDIO].keys())
         self._fmt_image_keys = set(self._supported_formats[Category.IMAGE].keys())
         self._fmt_doc_keys = set(self._supported_formats[Category.DOCUMENT].keys())
@@ -201,7 +201,7 @@ class Controller:
             for format in formats.keys()
         ]
 
-        # Flags if run triggered within web interface
+        # Flags if run triggered in web interface
         self.web_flag = False
         # Web interface host address
         self.web_host = None
@@ -305,7 +305,6 @@ class Controller:
             else:
                 input_paths[-1] = joined
 
-        # Set flags and parameters
         self.across = across
         self.recursive = recursive
         self.merging = merge
@@ -611,7 +610,7 @@ class Controller:
                 f"[>] {lang.get_translation('watch_stop', self.locale)}"
             )
 
-            # Start the directory watcher with error handling
+            # Start directory watcher with error handling
             with DirectoryWatcher(watch_path, handle_file_event) as watcher:
                 watcher.watch()
 
@@ -654,7 +653,6 @@ class Controller:
                 # Try to apply tags back to output file (if supported)
                 self.metadata_handler.apply_metadata_to_file(output_file_path, metadata)
 
-            # Strip metadata if requested
             if self.strip_meta:
                 self.metadata_handler.strip_metadata(output_file_path, file_type)
 
@@ -689,8 +687,8 @@ class Controller:
                 )
 
     def concat(self, file_paths: dict, format: str) -> None:
-        # Concatenate files of same type (img/movie/audio) back to back
-        # Concatenate audio files
+        # Concat files of same type (img/movie/audio) back to back
+        # Concat audio files
         if file_paths[Category.AUDIO] and (
             format is None or format in self._supported_formats[Category.AUDIO]
         ):
@@ -712,7 +710,7 @@ class Controller:
             )
             concat_audio.close()
 
-        # Concatenate movie files
+        # Concat movie files
         if file_paths[Category.MOVIE] and (
             format is None or format in self._supported_formats[Category.MOVIE]
         ):
@@ -737,7 +735,7 @@ class Controller:
             )
             concat_vid.close()
 
-        # Concatenate image files (make a gif out of them)
+        # Concat image files (make a gif out of them)
         if file_paths[Category.IMAGE] and (
             format is None or format in self._supported_formats[Category.IMAGE]
         ):
@@ -759,7 +757,7 @@ class Controller:
             )
             concatenated_image.close()  # Added for consistency
 
-        # Concatenate document files (keep respective document format)
+        # Concat document files (keep respective document format)
         if file_paths[Category.DOCUMENT] and (
             format is None or format in self._supported_formats[Category.DOCUMENT]
         ):
