@@ -20,7 +20,7 @@ from flask import Flask, render_template, request, send_file, jsonify, abort, se
 # Extension to the CLI-based any_to_any.py
 app = Flask(__name__, template_folder=os.path.abspath("templates"))
 app.secret_key = os.urandom(32)
-app.config["MAX_CONTENT_LENGTH"] = 1024 * 1024 * 1024 * 16  # 16 GiB effective limit
+app.config["MAX_CONTENT_LENGTH"] = 16 * 1024**3  # 16 GiB effective upload limit, adjust as needed
 
 # Session cookie to be secure, SameSite policy against CSRF
 app.config["SESSION_COOKIE_SECURE"] = True
