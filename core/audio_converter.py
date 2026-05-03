@@ -41,7 +41,7 @@ class AudioConverter:
         # Helper, converts a single audio file
         def _convert_audio_file(audio_path_set: tuple):
             if audio_path_set[2] == format:
-                return None
+                return None # Skip conversion from target format
             audio = None
             out_path = None
             try:
@@ -64,7 +64,7 @@ class AudioConverter:
                         out_path,
                         codec=codec,
                         bitrate=bitrate,
-                        fps=audio.fps,
+                        fps=audio.fps if format != "g722" else 16000, # g722 clamps to 16kHz
                         logger=self.prog_logger,
                     )
                 except Exception as _:
@@ -75,7 +75,7 @@ class AudioConverter:
                         out_path,
                         codec=codec,
                         bitrate=bitrate,
-                        fps=self.default_audio_fps,
+                        fps=self.default_audio_fps if format != "g722" else 16000,
                         logger=self.prog_logger,
                     )
                 return (audio_path_set, out_path)

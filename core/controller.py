@@ -88,6 +88,7 @@ class Controller:
                 "adts": "aac",
                 "sbc": "sbc",
                 "thd": "truehd",
+                "g722": "g722",
             },
             Category.IMAGE: {
                 "gif": self.image_converter.to_gif,
@@ -182,7 +183,7 @@ class Controller:
             },
         }
 
-        # KV-sets for format lookups
+        # Keysets for speedy format lookups
         self._fmt_audio_keys = set(self._supported_formats[Category.AUDIO].keys())
         self._fmt_image_keys = set(self._supported_formats[Category.IMAGE].keys())
         self._fmt_doc_keys = set(self._supported_formats[Category.DOCUMENT].keys())
