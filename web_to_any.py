@@ -209,10 +209,19 @@ def index():
     # Retrieve language from session (from browser), default to 'en_US'
     lang_code = session.get("language", "en_US")
     translations = lang.get_all_translations(lang.LANGUAGE_CODES[lang_code])
+    grouped_options = []
+    for category, mapping in controller._supported_formats.items():
+        cat_name = str(category).split(".")[-1].replace("_", " ").title()
+        grouped_options.append(
+            {
+                "label": cat_name,
+                "formats": sorted(mapping.keys(), key=str.lower),
+            }
+        )
     return render_template(
         "index.html",
-        title=f"any_to_any.py {VERSION}",
-        options=controller.supported_formats,
+        title=f"any_to_any.py {VERSION}",
+        options=grouped_options,
         translations=translations,
         lang_code=lang_code,
         supported_languages=lang.LANGUAGE_CODES,
