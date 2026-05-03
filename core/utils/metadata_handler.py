@@ -233,6 +233,8 @@ class MetadataHandler:
                         audio_tags = FLAC(output_file)
                     elif file_ext in ["m4a", "ogg", "wma"]:
                         audio_tags = EasyID3(output_file)
+                    elif file_ext == "wav":
+                        audio_tags = WAVE(output_file)
                     else:
                         return False
 
