@@ -15,7 +15,7 @@ def mock_converter():
     return MovieConverter(file_handler, prog_logger, event_logger, locale="English")
 
 
-@patch("core.movie_converter.VideoFileClip")
+@patch("core.converter.movie_converter.VideoFileClip")
 def test_to_movie_converts_gif(mock_vfc, mock_converter):
     gif_clip = MagicMock()
     mock_vfc.return_value = gif_clip
@@ -43,8 +43,8 @@ def test_to_movie_converts_gif(mock_vfc, mock_converter):
     gif_clip.close.assert_called_once()
 
 
-@patch("core.movie_converter.ImageClip")
-@patch("core.movie_converter.concatenate_videoclips")
+@patch("core.converter.movie_converter.ImageClip")
+@patch("core.converter.movie_converter.concatenate_videoclips")
 def test_to_movie_from_jpgs(mock_concat, mock_imageclip, mock_converter):
     img_clip = MagicMock()
     mock_imageclip.return_value.with_duration.return_value = img_clip
@@ -75,10 +75,10 @@ def test_to_movie_from_jpgs(mock_concat, mock_imageclip, mock_converter):
     assert final_clip.close.call_count == 3
 
 
-@patch("core.movie_converter.ImageClip")
-@patch("core.movie_converter.concatenate_videoclips")
-@patch("core.movie_converter.fitz.open")
-@patch("core.movie_converter.Image.frombytes")
+@patch("core.converter.movie_converter.ImageClip")
+@patch("core.converter.movie_converter.concatenate_videoclips")
+@patch("core.converter.movie_converter.fitz.open")
+@patch("core.converter.movie_converter.Image.frombytes")
 @patch("os.listdir")
 @patch("os.makedirs")
 @patch("shutil.rmtree")
@@ -124,7 +124,7 @@ def test_to_movie_pdf_to_video(
     mock_rmtree.assert_called_once()
 
 
-@patch("core.movie_converter.VideoFileClip")
+@patch("core.converter.movie_converter.VideoFileClip")
 def test_to_codec_fallback_on_error(mock_vfc, mock_converter):
     mock_clip = MagicMock()
     mock_clip.write_videofile.side_effect = [Exception("fail"), None]
@@ -146,7 +146,7 @@ def test_to_codec_fallback_on_error(mock_vfc, mock_converter):
     assert mock_clip.write_videofile.call_count == 2
 
 
-@patch("core.movie_converter.subprocess.run")
+@patch("core.converter.movie_converter.subprocess.run")
 def test_to_protocol_hls(mock_run, mock_converter):
     movie = ("dir", "sample", "mp4")
     mock_converter.file_handler.join_back.return_value = "dir/sample.mp4"
@@ -165,12 +165,12 @@ def test_to_protocol_hls(mock_run, mock_converter):
     mock_converter.file_handler.post_process.assert_called()
 
 
-@patch("core.movie_converter.subprocess.run", side_effect=Exception("fail"))
+@patch("core.converter.movie_converter.subprocess.run", side_effect=Exception("fail"))
 def test_to_protocol_dash_fails(mock_run, mock_converter):
     movie = ("dir", "video", "mp4")
     mock_converter.file_handler.join_back.return_value = "dir/video.mp4"
 
-    with patch("core.movie_converter.end_with_msg") as mock_end:
+    with patch("core.converter.movie_converter.end_with_msg") as mock_end:
         mock_converter.to_protocol(
             output="out",
             file_paths={Category.MOVIE: [movie]},

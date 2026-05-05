@@ -98,7 +98,7 @@ class TestDocumentConverterInit:
 
 
 class TestDocumentConverterToMarkdown:
-    @patch("core.doc_converter.markdownify")
+    @patch("core.converter.doc_converter.markdownify")
     def test_to_markdown_docx_conversion(
         self, mock_markdownify, document_converter, temp_output_dir, sample_file_paths
     ):
@@ -128,7 +128,7 @@ class TestDocumentConverterToMarkdown:
 
         document_converter.file_handler.post_process.assert_called_once()
 
-    @patch("core.doc_converter.platform.system", return_value="Windows")
+    @patch("core.converter.doc_converter.platform.system", return_value="Windows")
     def test_docx_pdf_uses_reportlab_on_windows(
         self,
         _mock_platform,
@@ -157,7 +157,7 @@ class TestDocumentConverterToMarkdown:
 
         reportlab_mock.assert_called_once()
 
-    @patch("core.doc_converter.platform.system", return_value="Linux")
+    @patch("core.converter.doc_converter.platform.system", return_value="Linux")
     def test_docx_pdf_falls_back_when_weasyprint_missing(
         self,
         _mock_platform,
@@ -170,7 +170,7 @@ class TestDocumentConverterToMarkdown:
         doc.save(docx_path)
 
         document_converter.file_handler.join_back.return_value = docx_path
-        with patch("core.doc_converter.HTML", None):
+        with patch("core.converter.doc_converter.HTML", None):
             with patch.object(
                 document_converter, "_docx_to_pdf_reportlab"
             ) as reportlab_mock:
@@ -218,8 +218,8 @@ class TestDocumentConverterToMarkdown:
 
 
 class TestDocumentConverterToPdf:
-    @patch("core.doc_converter.fitz.open")
-    @patch("core.doc_converter.fitz.Pixmap")
+    @patch("core.converter.doc_converter.fitz.open")
+    @patch("core.converter.doc_converter.fitz.Pixmap")
     def test_to_pdf_image_conversion(
         self,
         mock_pixmap,
@@ -253,11 +253,11 @@ class TestDocumentConverterToPdf:
         mock_doc.save.assert_called_once()
         mock_doc.close.assert_called()
 
-    @patch("core.doc_converter.gif_to_frames")
-    @patch("core.doc_converter.fitz.open")
+    @patch("core.converter.doc_converter.gif_to_frames")
+    @patch("core.converter.doc_converter.fitz.open")
     @patch("os.listdir")
     @patch("os.path.join")
-    @patch("core.doc_converter.fitz.Pixmap")
+    @patch("core.converter.doc_converter.fitz.Pixmap")
     @patch("shutil.rmtree")
     def test_to_pdf_gif_conversion(
         self,
@@ -310,9 +310,9 @@ class TestDocumentConverterToPdf:
 
     @patch("PIL.Image.fromarray")
     @patch("os.remove")
-    @patch("core.doc_converter.VideoFileClip")
-    @patch("core.doc_converter.fitz.open")
-    @patch("core.doc_converter.fitz.Pixmap")
+    @patch("core.converter.doc_converter.VideoFileClip")
+    @patch("core.converter.doc_converter.fitz.open")
+    @patch("core.converter.doc_converter.fitz.Pixmap")
     @patch("os.path.join")
     def test_to_pdf_movie_conversion(
         self,
@@ -438,7 +438,7 @@ class TestDocumentConverterEdgeCases:
             Category.IMAGE: [],
             Category.MOVIE: [],
         }
-        with patch("core.image_converter.gif_to_frames"):
+        with patch("core.converter.image_converter.gif_to_frames"):
             document_converter.to_pdf(temp_output_dir, pdf_files, "pdf", False)
         mock_fitz_open.assert_not_called()
 
@@ -499,7 +499,7 @@ class TestDocumentConverterPdfSplitting:
 
 class TestDocumentConverterIntegration:
     # Integration tests that test multiple components together
-    @patch("core.image_converter.gif_to_frames")
+    @patch("core.converter.image_converter.gif_to_frames")
     @patch("fitz.open")
     @patch("mammoth.convert_to_html")
     @patch("weasyprint.HTML")

@@ -60,7 +60,7 @@ class TestAudioConverter:
 
         assert converter.locale == "English"
 
-    @patch("core.audio_converter.AudioFileClip")
+    @patch("core.converter.audio_converter.AudioFileClip")
     def test_audio_conversion_skips_same_format(
         self, mock_audio_clip, audio_converter, mock_dependencies
     ):
@@ -76,7 +76,7 @@ class TestAudioConverter:
         # Should not create AudioFileClip for same format
         mock_audio_clip.assert_not_called()
 
-    @patch("core.audio_converter.AudioFileClip")
+    @patch("core.converter.audio_converter.AudioFileClip")
     @patch("os.path.abspath")
     @patch("os.path.join")
     def test_audio_conversion_recursive_mode(
@@ -108,7 +108,7 @@ class TestAudioConverter:
         # Should use source directory for output in recursive mode
         mock_join.assert_called_with("/path/to", "audio1.mp3")
 
-    @patch("core.audio_converter.AudioFileClip")
+    @patch("core.converter.audio_converter.AudioFileClip")
     @patch("utils.language_support.get_translation")
     @patch("os.path.exists")
     def test_audio_conversion_fps_fallback(
@@ -151,7 +151,7 @@ class TestAudioConverter:
         assert second_call[1]["fps"] == 48000
         event_logger.info.assert_called_once()
 
-    @patch("core.audio_converter.VideoFileClip")
+    @patch("core.converter.audio_converter.VideoFileClip")
     @patch("os.path.abspath")
     @patch("os.path.join")
     @patch("os.path.exists")
@@ -199,7 +199,7 @@ class TestAudioConverter:
         mock_audio.close.assert_called()
         mock_video.close.assert_called()
 
-    @patch("core.audio_converter.VideoFileClip")
+    @patch("core.converter.audio_converter.VideoFileClip")
     @patch("utils.language_support.get_translation")
     @patch("os.path.exists")
     def test_video_to_audio_no_audio_track(
@@ -237,8 +237,8 @@ class TestAudioConverter:
         mock_video.close.assert_called()
         file_handler.post_process.assert_not_called()
 
-    @patch("core.audio_converter.AudioFileClip")
-    @patch("core.audio_converter.VideoFileClip")
+    @patch("core.converter.audio_converter.AudioFileClip")
+    @patch("core.converter.audio_converter.VideoFileClip")
     @patch("os.path.exists")
     def test_video_to_audio_audio_only_file(
         self,
@@ -274,7 +274,7 @@ class TestAudioConverter:
         mock_audio.write_audiofile.assert_called()
         mock_audio.close.assert_called()
 
-    @patch("core.audio_converter.AudioFileClip")
+    @patch("core.converter.audio_converter.AudioFileClip")
     @patch("utils.language_support.get_translation")
     @patch("os.path.exists")
     def test_video_to_audio_extraction_failure(
@@ -316,8 +316,8 @@ class TestAudioConverter:
             empty_paths, "mp3", "mp3", False, "128k", "/input", "/output", "no"
         )
 
-    @patch("core.audio_converter.AudioFileClip")
-    @patch("core.audio_converter.VideoFileClip")
+    @patch("core.converter.audio_converter.AudioFileClip")
+    @patch("core.converter.audio_converter.VideoFileClip")
     @patch("os.path.exists")
     def test_multiple_files_processing(
         self,
@@ -408,7 +408,7 @@ def test_to_audio_single_file_triggers_post_process(monkeypatch, tmp_path):
     mock_clip = MagicMock()
     mock_clip.fps = 44100
     mock_clip.write_audiofile = MagicMock()
-    monkeypatch.setattr("core.audio_converter.AudioFileClip", lambda path: mock_clip)
+    monkeypatch.setattr("core.converter.audio_converter.AudioFileClip", lambda path: mock_clip)
 
     conv.to_audio(
         file_paths,
@@ -439,7 +439,7 @@ def test_to_audio_skips_if_same_format(monkeypatch, tmp_path):
         called["count"] += 1
         return MagicMock()
 
-    monkeypatch.setattr("core.audio_converter.AudioFileClip", fake_clip)
+    monkeypatch.setattr("core.converter.audio_converter.AudioFileClip", fake_clip)
 
     conv.to_audio(
         file_paths,
@@ -457,8 +457,8 @@ def test_to_audio_skips_if_same_format(monkeypatch, tmp_path):
 
 
 class TestAudioConverterIntegration:
-    @patch("core.audio_converter.AudioFileClip")
-    @patch("core.audio_converter.VideoFileClip")
+    @patch("core.converter.audio_converter.AudioFileClip")
+    @patch("core.converter.audio_converter.VideoFileClip")
     @patch("utils.language_support.get_translation")
     @patch("os.path.exists")
     def test_mixed_success_and_failure_scenario(

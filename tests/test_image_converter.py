@@ -24,9 +24,9 @@ class TestOfficeToFrames:
         return file_handler, event_logger
 
     # Note: docx is mocked using new_callable=MagicMock, so no need to import it
-    @patch("core.image_converter.tqdm")
-    @patch("core.image_converter.os")
-    @patch("core.image_converter.docx", new_callable=MagicMock)
+    @patch("core.converter.image_converter.tqdm")
+    @patch("core.converter.image_converter.os")
+    @patch("core.converter.image_converter.docx", new_callable=MagicMock)
     def test_office_to_frames_docx_success(
         self, mock_docx, mock_os, mock_tqdm, mock_dependencies
     ):
@@ -61,9 +61,9 @@ class TestOfficeToFrames:
         file_handler.post_process.assert_called_once()
         event_logger.error.assert_not_called()
 
-    @patch("core.image_converter.tqdm")
-    @patch("core.image_converter.os")
-    @patch("core.image_converter.pptx")
+    @patch("core.converter.image_converter.tqdm")
+    @patch("core.converter.image_converter.os")
+    @patch("core.converter.image_converter.pptx")
     def test_office_to_frames_pptx_success(
         self, mock_pptx, mock_os, mock_tqdm, mock_dependencies
     ):
@@ -97,9 +97,9 @@ class TestOfficeToFrames:
         mock_file.assert_called_once()
         file_handler.post_process.assert_called_once()
 
-    @patch("core.image_converter.tqdm")
-    @patch("core.image_converter.os")
-    @patch("core.image_converter.docx", new_callable=MagicMock)
+    @patch("core.converter.image_converter.tqdm")
+    @patch("core.converter.image_converter.os")
+    @patch("core.converter.image_converter.docx", new_callable=MagicMock)
     def test_office_to_frames_exception_handling(
         self, mock_docx, mock_os, mock_tqdm, mock_dependencies
     ):
@@ -166,9 +166,9 @@ class TestImageConverter:
     class TestToGif:
         # Test to_gif method
 
-        @patch("core.image_converter.VideoFileClip")
-        @patch("core.image_converter.Image.open")
-        @patch("core.image_converter.os")
+        @patch("core.converter.image_converter.VideoFileClip")
+        @patch("core.converter.image_converter.Image.open")
+        @patch("core.converter.image_converter.os")
         def test_to_gif_image_conversion(
             self, mock_os, mock_image_open, mock_video_clip, converter
         ):
@@ -208,8 +208,8 @@ class TestImageConverter:
     class TestErrorHandling:
         # Test error handling
 
-        @patch("core.image_converter.VideoFileClip")
-        @patch("core.image_converter.os")
+        @patch("core.converter.image_converter.VideoFileClip")
+        @patch("core.converter.image_converter.os")
         def test_unsupported_movie_format(self, mock_os, mock_video_clip, converter):
             # Test handling of unsupported movie formats
             # Setup mocks
@@ -240,8 +240,8 @@ class TestImageConverter:
     class TestEdgeCases:
         # Test edge cases
 
-        @patch("core.image_converter.VideoFileClip")
-        @patch("core.image_converter.os")
+        @patch("core.converter.image_converter.VideoFileClip")
+        @patch("core.converter.image_converter.os")
         def test_empty_file_paths(self, mock_os, mock_video_clip, converter):
             # Test with empty file paths
             # Setup mocks
@@ -269,8 +269,8 @@ class TestImageConverter:
             converter.event_logger.error.assert_not_called()
             converter.event_logger.info.assert_not_called()
 
-        @patch("core.image_converter.VideoFileClip")
-        @patch("core.image_converter.os")
+        @patch("core.converter.image_converter.VideoFileClip")
+        @patch("core.converter.image_converter.os")
         def test_format_already_matches_target(
             self, mock_os, mock_video_clip, converter
         ):
@@ -299,8 +299,8 @@ class TestImageConverter:
             # Verify no conversion was done
             converter.file_handler.post_process.assert_not_called()
 
-        @patch("core.image_converter.VideoFileClip")
-        @patch("core.image_converter.os")
+        @patch("core.converter.image_converter.VideoFileClip")
+        @patch("core.converter.image_converter.os")
         def test_localization(self, mock_os, mock_video_clip, converter):
             mock_os.path.exists.return_value = True
             mock_os.makedirs = Mock()
@@ -356,7 +356,7 @@ def test_gif_to_frames_creates_folder_and_files(
 ):
     fh = MagicMock()
     fh.join_back.return_value = str(tmp_path / "file.gif")
-    monkeypatch.setattr("core.image_converter.os", __import__("os"))
+    monkeypatch.setattr("core.converter.image_converter.os", __import__("os"))
     # Call gif_to_frames with no gifs - should be no-op / not raise
     from core.converter.image_converter import gif_to_frames
 
