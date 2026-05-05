@@ -1,4 +1,5 @@
 import os
+import sys
 import fitz
 import shutil
 import subprocess
@@ -8,7 +9,7 @@ from PIL import Image
 from tqdm import tqdm
 from utils.category import Category
 from core.utils.exit import end_with_msg
-from core.image_converter import office_to_frames
+from core.converter.image_converter import office_to_frames
 from moviepy import (
     VideoFileClip,
     ImageClip,
@@ -18,6 +19,7 @@ from moviepy import (
 )
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 class MovieConverter:
     def __init__(

@@ -3,10 +3,10 @@ import sys
 import pytest
 from pathlib import Path
 from utils.category import Category
-from core.audio_converter import AudioConverter
 from moviepy import AudioFileClip, VideoFileClip
 from unittest.mock import Mock, MagicMock, patch, call
 from tests.test_fixtures import setup_file_handler_mock
+from core.converter.audio_converter import AudioConverter
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 

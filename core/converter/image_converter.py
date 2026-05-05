@@ -1,15 +1,18 @@
 import os
+import sys
 import docx
 import pptx
 import fitz
 import pypdf
 import utils.language_support as lang
+
 from PIL import Image
 from tqdm import tqdm
 from io import BytesIO
 from moviepy import VideoFileClip
 from utils.category import Category
 
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 def office_to_frames(
     doc_path_set: tuple,

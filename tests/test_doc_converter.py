@@ -7,7 +7,7 @@ import tempfile
 import numpy as np
 
 from utils.category import Category
-from core.doc_converter import DocumentConverter
+from core.converter.doc_converter import DocumentConverter
 from tests.test_fixtures import setup_file_handler_mock
 from unittest.mock import Mock, patch, mock_open, MagicMock
 

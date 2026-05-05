@@ -9,11 +9,11 @@ from pathlib import Path
 from utils.category import Category
 from utils.prog_logger import ProgLogger
 from core.utils.exit import end_with_msg
-from core.audio_converter import AudioConverter
-from core.movie_converter import MovieConverter
+from core.converter.audio_converter import AudioConverter
+from core.converter.movie_converter import MovieConverter
 from core.utils.file_handler import FileHandler
-from core.image_converter import ImageConverter
-from core.doc_converter import DocumentConverter
+from core.converter.image_converter import ImageConverter
+from core.converter.doc_converter import DocumentConverter
 from core.utils.directory_watcher import DirectoryWatcher
 from core.utils.metadata_handler import MetadataHandler
 from moviepy import (

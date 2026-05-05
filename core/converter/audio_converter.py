@@ -1,9 +1,12 @@
 import os
+import sys
 import utils.language_support as lang
+
 from utils.category import Category
 from moviepy import AudioFileClip, VideoFileClip
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 class AudioConverter:
     def __init__(

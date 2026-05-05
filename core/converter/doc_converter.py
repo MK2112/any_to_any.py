@@ -1,4 +1,5 @@
 import os
+import sys
 import fitz
 import docx
 import pptx
@@ -16,7 +17,9 @@ from utils.category import Category
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import inch
 from reportlab.lib.pagesizes import A4
-from core.image_converter import gif_to_frames
+from core.converter.image_converter import gif_to_frames
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 try:
     if platform.system() != "Windows":

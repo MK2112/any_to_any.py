@@ -9,7 +9,7 @@ from unittest.mock import Mock, patch, mock_open, MagicMock
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from utils.category import Category
-from core.image_converter import ImageConverter, office_to_frames
+from core.converter.image_converter import ImageConverter, office_to_frames
 
 
 class TestOfficeToFrames:
@@ -358,7 +358,7 @@ def test_gif_to_frames_creates_folder_and_files(
     fh.join_back.return_value = str(tmp_path / "file.gif")
     monkeypatch.setattr("core.image_converter.os", __import__("os"))
     # Call gif_to_frames with no gifs - should be no-op / not raise
-    from core.image_converter import gif_to_frames
+    from core.converter.image_converter import gif_to_frames
 
     gif_files = {Category.IMAGE: []}
     gif_to_frames(str(tmp_path), gif_files, fh)
