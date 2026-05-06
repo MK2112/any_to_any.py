@@ -409,7 +409,7 @@ def get_progress(job_id: str):
                 del shared_progress_dict[jid]
                 _last_progress_cache.pop(jid, None)
 
-        response = {
+        return jsonify({
             "progress": cumulative_prog if total_n_files > 1 else current_prog,
             "total": total_n_files * 100,
             "status": prog.get("status", "waiting"),
@@ -417,9 +417,7 @@ def get_progress(job_id: str):
             "progress_percent": progress_percent,
             "total_files": total_n_files,
             "completed_files": completed_files,
-        }
-
-        return jsonify(response)
+        })
 
 
 @app.route("/download/<job_id>", methods=["GET"])
