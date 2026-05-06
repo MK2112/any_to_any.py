@@ -81,8 +81,10 @@ class DocumentConverter:
                         convert_image=mammoth.images.img_element(convert_image),
                     )
                 html_content = document.value  # Already a str, no need to encode
+                
                 # Convert HTML to Markdown
                 markdown_text = markdownify(html_content)
+                
                 # Write Markdown file
                 with open(md_path, "w", encoding="utf-8") as md_file:
                     md_file.write(markdown_text)
@@ -92,6 +94,7 @@ class DocumentConverter:
         # Convert GIFs to Frames using to_frames
         # Produces a folder with gif frame for each gif
         gif_to_frames(output, file_paths, self.file_handler)
+        
         # Convert Images to PDF
         for image_path_set in file_paths[Category.IMAGE]:
             pdf_path = ""

@@ -358,7 +358,7 @@ app.add_url_rule("/merge", "merge", create_conversion_endpoint(merge=True, conca
 app.add_url_rule("/concat", "concat", create_conversion_endpoint(merge=False, concat=True), methods=["POST"])
 
 
-_last_progress_cache = {}
+_last_progress_cache = {} # Tracks the last prog value per job_id for prog estimation
 
 @app.route("/progress/<job_id>", methods=["GET"])
 def get_progress(job_id: str):
@@ -390,14 +390,14 @@ def get_progress(job_id: str):
         _last_progress_cache[job_id] = current_prog
         
         if total_n_files > 1 and completed_files > 0:
-            cumulative = completed_files * 100 + current_prog
-            progress_percent = int((cumulative / (total_n_files * 100)) * 100)
+            cumulative_prog = completed_files * 100 + current_prog
+            progress_percent = int((cumulative_prog / (total_n_files * 100)) * 100)
         elif prog.get("progress_percent") is not None:
             progress_percent = prog.get("progress_percent")
-            cumulative = current_prog
+            cumulative_prog = current_prog
         else:
             progress_percent = int((current_prog / prog.get("total", 100)) * 100) if prog.get("total", 0) > 0 else 0
-            cumulative = current_prog
+            cumulative_prog = current_prog
 
         current_time = time.time()
         for jid in list(shared_progress_dict.keys()):
@@ -410,7 +410,7 @@ def get_progress(job_id: str):
                 _last_progress_cache.pop(jid, None)
 
         response = {
-            "progress": cumulative if total_n_files > 1 else current_prog,
+            "progress": cumulative_prog if total_n_files > 1 else current_prog,
             "total": total_n_files * 100,
             "status": prog.get("status", "waiting"),
             "error": prog.get("error"),
