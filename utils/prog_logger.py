@@ -12,6 +12,7 @@ class ProgLogger(ProgressBarLogger):
         self.start_time, self.last_print_time = None, None
         self.print_interval = 0.1  # Frequency of progress updates [s]
         self.tqdm_bar = None
+        self.current_bar = None
         self.job_id = job_id
         self.shared_progress_dict = shared_progress_dict
         if self.job_id and self.shared_progress_dict is not None:
@@ -23,7 +24,7 @@ class ProgLogger(ProgressBarLogger):
                 "eta_seconds": None,
                 "time_remaining": None,
             }
-    
+
     def _format_time(self, seconds):
         # Converting seconds to more readable format (e.g., '2 min 30s')
         if seconds is None or seconds < 0:
@@ -31,7 +32,7 @@ class ProgLogger(ProgressBarLogger):
         hours = int(seconds // 3600)
         minutes = int((seconds % 3600) // 60)
         secs = int(seconds % 60)
-        
+
         if hours > 0:
             return f"{hours}h {minutes}m {secs}s"
         elif minutes > 0:
@@ -50,6 +51,15 @@ class ProgLogger(ProgressBarLogger):
         if attr != "index":
             return
 
+        # Reset per new bar to ensure progress shows across multiple conversions
+        if self.current_bar != bar:
+            if self.tqdm_bar is not None:
+                self.tqdm_bar.close()
+            self.tqdm_bar = None
+            self.start_time = None
+            self.last_print_time = None
+            self.current_bar = bar
+
         # Initialize progress tracking if this is the first update
         if self.start_time is None:
             self.start_time = current_time
@@ -60,10 +70,7 @@ class ProgLogger(ProgressBarLogger):
 
             # Initialize tqdm progress bar
             self.tqdm_bar = tqdm(
-                total=total,
-                unit="chunks",
-                dynamic_ncols=True,
-                leave=False
+                total=total, unit="chunks", dynamic_ncols=True, leave=False
             )
 
             # Initialize web progress info
@@ -133,13 +140,17 @@ class ProgLogger(ProgressBarLogger):
         # Handle bar completion
         if value >= total and self.tqdm_bar:
             self.tqdm_bar.close()
+            # Reset state so the next conversion initializes a fresh bar
+            self.tqdm_bar = None
+            self.start_time = None
+            self.last_print_time = None
             if self.job_id and self.shared_progress_dict is not None:
                 with threading.Lock():
                     if self.job_id in self.shared_progress_dict:
                         total_elapsed = None
                         if self.start_time is not None:
                             total_elapsed = current_time - self.start_time
-                        
+
                         self.shared_progress_dict[self.job_id].update(
                             {
                                 "progress": value,
@@ -151,7 +162,11 @@ class ProgLogger(ProgressBarLogger):
                                 "eta_seconds": 0,
                                 "time_remaining": None,
                                 "total_elapsed": total_elapsed,
-                                "total_elapsed_formatted": self._format_time(total_elapsed) if total_elapsed else None,
+                                "total_elapsed_formatted": self._format_time(
+                                    total_elapsed
+                                )
+                                if total_elapsed
+                                else None,
                             }
                         )
 
