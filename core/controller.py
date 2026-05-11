@@ -30,9 +30,11 @@ class Controller:
     # Taking an input directory of files, convert them to a multitude of formats.
     # Interact with the script using the command line arguments or the web interface.
     # Run via any_to_any.py script (see README.md).
-    def __init__(self, job_id=None, shared_progress_dict=None, locale=None):
+    def __init__(
+        self, job_id=None, shared_progress_dict=None, locale=None, is_web: bool = False
+    ):
         self.prog_logger = ProgLogger(
-            job_id=job_id, shared_progress_dict=shared_progress_dict
+            job_id=job_id, shared_progress_dict=shared_progress_dict, is_web=is_web
         )
 
         self.locale = lang.get_system_language() if locale is None else locale

@@ -90,7 +90,7 @@ controller = None
 
 # This function creates a new controller instance with the given job_id
 def create_controller(job_id: str = None, shared_progress_dict: dict = None) -> Controller:
-    controller = Controller(job_id=job_id, shared_progress_dict=shared_progress_dict)
+    controller = Controller(job_id=job_id, shared_progress_dict=shared_progress_dict, is_web=True)
     controller.web_flag = True
     controller.web_host = f"{'http' if host.lower() in ['127.0.0.1', 'localhost'] else 'https'}://{host}:{port}"
     return controller
@@ -353,9 +353,24 @@ def create_conversion_endpoint(merge: bool=False, concat: bool=False):
     return endpoint
 
 
-app.add_url_rule("/convert", "convert", create_conversion_endpoint(merge=False, concat=False), methods=["POST"])
-app.add_url_rule("/merge", "merge", create_conversion_endpoint(merge=True, concat=False), methods=["POST"])
-app.add_url_rule("/concat", "concat", create_conversion_endpoint(merge=False, concat=True), methods=["POST"])
+app.add_url_rule(
+    "/convert",
+    "convert",
+    create_conversion_endpoint(merge=False, concat=False),
+    methods=["POST"],
+)
+app.add_url_rule(
+    "/merge",
+    "merge",
+    create_conversion_endpoint(merge=True, concat=False),
+    methods=["POST"],
+)
+app.add_url_rule(
+    "/concat",
+    "concat",
+    create_conversion_endpoint(merge=False, concat=True),
+    methods=["POST"],
+)
 
 
 _last_progress_cache = {} # Tracks the last prog value per job_id for prog estimation

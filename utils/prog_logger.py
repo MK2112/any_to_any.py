@@ -7,7 +7,7 @@ from proglog import ProgressBarLogger
 class ProgLogger(ProgressBarLogger):
     # Custom logger extracting progress info from moviepy video processing operations.
     # Optionally writes progress to a shared dict for web reporting
-    def __init__(self, job_id=None, shared_progress_dict=None):
+    def __init__(self, job_id=None, shared_progress_dict=None, is_web: bool = False):
         super().__init__()
         self.start_time, self.last_print_time = None, None
         self.print_interval = 0.1  # Frequency of progress updates [s]
@@ -15,6 +15,8 @@ class ProgLogger(ProgressBarLogger):
         self.current_bar = None
         self.job_id = job_id
         self.shared_progress_dict = shared_progress_dict
+        self.is_web = is_web
+        self.completed_files = 0
         if self.job_id and self.shared_progress_dict is not None:
             self.shared_progress_dict[self.job_id] = {
                 "progress": 0,
@@ -49,6 +51,10 @@ class ProgLogger(ProgressBarLogger):
 
         # Only process index updates for progress tracking
         if attr != "index":
+            return
+
+        if self.is_web:
+            self._update_web_progress(bar, value, current_time)
             return
 
         # Reset per new bar to ensure progress shows across multiple conversions
@@ -175,3 +181,42 @@ class ProgLogger(ProgressBarLogger):
             self.shared_progress_dict[self.job_id].update(
                 {"status": "error", "error": error_msg}
             )
+
+    def _update_web_progress(self, bar, value, current_time):
+        if self.job_id is None or self.shared_progress_dict is None:
+            return
+
+        total = self.bars.get(bar, {}).get("total", 100)
+        progress_percent = int((value / total) * 100) if total > 0 else 0
+
+        total_files = self.shared_progress_dict.get(self.job_id, {}).get(
+            "total_files", 1
+        )
+        total_units = max(total_files, 1) * 100
+        cumulative_progress = min(
+            self.completed_files * 100 + progress_percent, total_units
+        )
+        overall_percent = int((cumulative_progress / total_units) * 100)
+
+        with threading.Lock():
+            if self.job_id in self.shared_progress_dict:
+                self.shared_progress_dict[self.job_id].update(
+                    {
+                        "progress": cumulative_progress,
+                        "total": total_units,
+                        "completed_files": self.completed_files,
+                        "status": "processing",
+                        "last_updated": current_time,
+                        "progress_percent": overall_percent,
+                        "current_bar": bar,
+                        "aggregate_progress": True,
+                    }
+                )
+
+        if value >= total:
+            self.completed_files = min(self.completed_files + 1, total_files)
+            with threading.Lock():
+                if self.job_id in self.shared_progress_dict:
+                    self.shared_progress_dict[self.job_id].update(
+                        {"completed_files": self.completed_files}
+                    )

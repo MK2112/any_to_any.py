@@ -92,7 +92,7 @@ class ConversionThread(QThread):
             )
 
             controller = Controller(
-                job_id=self.job_id, shared_progress_dict=self.shared_progress
+                job_id=self.job_id, shared_progress_dict=self.shared_progress, is_web=True
             )
 
             if len(self.input_files) == 1:
@@ -201,7 +201,7 @@ class ConversionThread(QThread):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.controller = Controller(locale=lang.get_system_language())
+        self.controller = Controller(locale=lang.get_system_language(), is_web=True)
         self.locale = self.controller.locale
         self._file_paths_set = set()  # Performance: O(1) duplicate checking
         self.conversion_threads = {}
