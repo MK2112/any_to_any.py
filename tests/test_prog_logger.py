@@ -5,6 +5,7 @@ from utils.prog_logger import ProgLogger
 # ProgLogger tests for bars_callback
 # without invoking the actual tqdm bars or time delays
 
+
 class MockTqdm:
     def __init__(self, total=None, unit=None, dynamic_ncols=None, leave=None):
         self.total = total
@@ -111,7 +112,7 @@ def test_bars_callback_completion_marks_done(monkeypatch):
     logger.bars_callback("encode", "index", 2, old_value=0)
     logger.bars_callback("encode", "index", 10, old_value=2)
 
-    assert logger.tqdm_bar.closed is True
+    assert logger.tqdm_bar is None
     assert shared["job-3"]["status"] == "done"
     assert shared["job-3"]["progress_percent"] == 100
     assert shared["job-3"]["eta_seconds"] == 0
@@ -128,8 +129,7 @@ def test_bars_callback_zero_total_avoids_division_by_zero(monkeypatch):
 
     logger.bars_callback("encode", "index", 0, old_value=0)
 
-    assert logger.tqdm_bar is not None
-    assert logger.tqdm_bar.total == 0
+    assert logger.tqdm_bar is None
 
 
 def test_set_error_sets_error_state():
@@ -142,4 +142,4 @@ def test_set_error_sets_error_state():
 
 def test_set_error_without_job_does_nothing():
     logger = ProgLogger(job_id=None, shared_progress_dict={})
-    logger.set_error("irrelevant") # Must not raise
+    logger.set_error("irrelevant")  # Must not raise
