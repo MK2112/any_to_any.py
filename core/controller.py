@@ -65,6 +65,7 @@ class Controller:
                 "mp3": "libmp3lame",
                 "flac": "flac",
                 "aac": "aac",
+                "ra": "aac",
                 "ac3": "ac3",
                 "dts": "dts",
                 "ogg": "libvorbis",
@@ -91,6 +92,7 @@ class Controller:
                 "sbc": "sbc",
                 "thd": "truehd",
                 "g722": "g722",
+                "voc": "pcm_u8",
             },
             Category.IMAGE: {
                 "gif": self.image_converter.to_gif,
