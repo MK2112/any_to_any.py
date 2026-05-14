@@ -67,6 +67,7 @@ class Controller:
                 "aac": "aac",
                 "ra": "aac",
                 "ac3": "ac3",
+                "dfpwm": "dfpwm",
                 "dts": "dts",
                 "ogg": "libvorbis",
                 "wma": "wmav2",
