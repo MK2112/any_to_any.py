@@ -67,6 +67,8 @@ class Controller:
                 "aac": "aac",
                 "ra": "aac",
                 "ac3": "ac3",
+                "apm": "adpcm_ima_apm",
+                "ircam": "pcm_s16le",
                 "dfpwm": "dfpwm",
                 "dts": "dts",
                 "ogg": "libvorbis",
@@ -474,13 +476,21 @@ class Controller:
             self.event_logger.warning(
                 f"{lang.get_translation('no_media_general', self.locale)}"
             )
+
+        if self.merging:
+            self.process_file_paths(file_paths)
+
         self.event_logger.info(
             f"[+] {lang.get_translation('job_finished', self.locale)}"
         )
 
     def process_file_paths(self, file_paths: dict) -> None:
         # Check if value associated to format is tuple/string or function to call specific conversion
-        if self.target_format in self._fmt_movie_keys:
+        if self.merging:
+            self.merge(file_paths, getattr(self, "across", False))
+        elif self.concatenating:
+            self.concat(file_paths, self.target_format)
+        elif self.target_format in self._fmt_movie_keys:
             self.movie_converter.to_movie(
                 input=self.input,
                 output=self.output,
@@ -539,10 +549,6 @@ class Controller:
                 ],
                 delete=self.delete,
             )
-        elif self.merging:
-            self.merge(file_paths, getattr(self, "across", False))
-        elif self.concatenating:
-            self.concat(file_paths, self.target_format)
         elif self.page_ranges is not None:
             self.split(file_paths, self.page_ranges)
         else:
