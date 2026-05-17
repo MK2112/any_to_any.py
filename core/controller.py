@@ -909,8 +909,12 @@ class Controller:
         # If only a video file is provided, look for a matching audio file in the same directory
         found_audio = False
         audio_exts = list(self._supported_formats[Category.AUDIO].keys())
+        
+        try:
+            total_movies = len(file_paths[Category.MOVIE])
+        except KeyError:
+            end_with_msg(event_logger=self.event_logger, exception=None, msg="[!] Error: Merging only works with movie files and audio files.")
 
-        total_movies = len(file_paths[Category.MOVIE])
         processed_movies = 0
 
         for movie_path_set in file_paths[Category.MOVIE]:
