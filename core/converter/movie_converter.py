@@ -53,7 +53,7 @@ class MovieConverter:
             # If this variable doesn't exist, flag wasn't invoked: Default to 1
             env_workers = 1
 
-        pngs = bmps = jpgs = []
+        pngs, bmps, jpgs = [], [], []
 
         # Helper for per-GIF conversion to video
         def _gif_to_video(image_path_set: tuple):
@@ -158,8 +158,7 @@ class MovieConverter:
                 out_path_local
             )
 
-            video = None
-            audio = None
+            video, audio = None, None
             try:
                 if self.file_handler.has_visuals(movie_path_set):
                     video = VideoFileClip(
