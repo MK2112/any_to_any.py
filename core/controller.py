@@ -123,6 +123,9 @@ class Controller:
             },
             Category.MOVIE: {
                 "webm": "libvpx",
+                "wtv": "mpeg2video",
+                "apng": "apng",
+                "ivf": "libaom-av1",
                 "mov": "libx264",
                 "mkv": "libx264",
                 "avi": "libx264",
