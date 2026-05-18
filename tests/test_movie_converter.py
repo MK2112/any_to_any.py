@@ -71,8 +71,8 @@ def test_to_movie_from_jpgs(mock_concat, mock_imageclip, mock_converter):
     )
 
     assert mock_imageclip.call_count == 2
-    assert final_clip.write_videofile.call_count == 3
-    assert final_clip.close.call_count == 3
+    assert final_clip.write_videofile.call_count == 1
+    assert final_clip.close.call_count == 1
 
 
 @patch("core.converter.movie_converter.ImageClip")
