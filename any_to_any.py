@@ -7,9 +7,9 @@ from utils.version import VERSION
 from core.controller import Controller
 
 ####
-## any_to_any.py (https://github.com/MK2112/any_to_any.py)
+# any_to_any.py - https://github.com/MK2112/any_to_any.py
 ####
-## Refer to README.md for more information and usage examples
+# Refer to README.md for more information and usage examples
 ####
 
 if __name__ == "__main__":

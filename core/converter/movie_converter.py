@@ -71,7 +71,6 @@ class MovieConverter:
                         os.path.join(image_path_set[0], f"{image_path_set[1]}.{format}")
                     )
 
-                # Resolve any filename conflicts before conversion
                 out_path = self.file_handler._resolve_output_file_conflict(out_path)
 
                 clip.write_videofile(
@@ -131,10 +130,7 @@ class MovieConverter:
         for pics in [pngs, jpgs, bmps]:
             if len(pics) > 0:
                 final_clip = concatenate_videoclips(pics, method="compose")
-                out_path = os.path.abspath(os.path.join(output, f"merged.{format}"))
-
-                # Resolve any filename conflicts before conversion
-                out_path = self.file_handler._resolve_output_file_conflict(out_path)
+                out_path = self.file_handler._resolve_output_file_conflict(os.path.abspath(os.path.join(output, f"merged.{format}")))
 
                 final_clip.write_videofile(
                     out_path,
@@ -149,13 +145,11 @@ class MovieConverter:
         def _movie_to_movie(movie_path_set: tuple):
             if movie_path_set[2] == format:
                 return None
-            out_path_local = os.path.abspath(
+
+            out_path_local = self.file_handler._resolve_output_file_conflict(
+                os.path.abspath(
                 os.path.join(output, f"{movie_path_set[1]}.{format}")
             )
-
-            # Resolve any filename conflicts before conversion
-            out_path_local = self.file_handler._resolve_output_file_conflict(
-                out_path_local
             )
 
             video, audio = None, None
@@ -243,12 +237,9 @@ class MovieConverter:
                 ]
                 if len(pics) > 0:
                     final_clip = concatenate_videoclips(pics, method="compose")
-                    out_path = os.path.abspath(
+                    out_path = self.file_handler._resolve_output_file_conflict(os.path.abspath(
                         os.path.join(output, f"{doc_path_set[1]}.{format}")
-                    )
-
-                    # Resolve any filename conflicts before conversion
-                    out_path = self.file_handler._resolve_output_file_conflict(out_path)
+                    ))
 
                     final_clip.write_videofile(
                         out_path,
@@ -260,12 +251,9 @@ class MovieConverter:
                     self.file_handler.post_process(doc_path_set, out_path, delete)
             elif doc_path_set[2] == "pdf":
                 pdf_path = self.file_handler.join_back(doc_path_set)
-                movie_path = os.path.abspath(
+                movie_path = self.file_handler._resolve_output_file_conflict(os.path.abspath(
                     os.path.join(output, f"{doc_path_set[1]}.{format}")
-                )
-
-                # Resolve any filename conflicts before conversion
-                movie_path = self.file_handler._resolve_output_file_conflict(movie_path)
+                ))
 
                 doc = fitz.open(pdf_path)
                 image_files = []
@@ -343,7 +331,6 @@ class MovieConverter:
                     os.path.join(codec_path_set[0], f"{codec_path_set[1]}.{format}")
                 )
 
-            # Resolve any filename conflicts before conversion
             out_path = self.file_handler._resolve_output_file_conflict(out_path)
 
             if self.file_handler.has_visuals(codec_path_set):

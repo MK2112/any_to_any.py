@@ -32,11 +32,7 @@ class AudioConverter:
         try:
             # Decide worker count with env variable if present
             # Prob most elegant in this setting
-            env_workers = int(os.environ.get("Any2Any_MAX_WORKERS", "1"))
-            env_workers = 1 if env_workers < 1 else env_workers
-            env_workers = (
-                os.cpu_count() - 1 if env_workers >= os.cpu_count() else env_workers
-            )
+            env_workers = max(1, min(int(os.environ.get("Any2Any_MAX_WORKERS", "1")), os.cpu_count() - 1,))
         except ValueError:
             # If this variable doesn't exist, flag wasn't invoked: Default to 1
             env_workers = 1
@@ -59,7 +55,6 @@ class AudioConverter:
                         os.path.join(audio_path_set[0], f"{audio_path_set[1]}.{format}")
                     )
 
-                # Resolve any filename conflicts before conversion
                 out_path = self.file_handler._resolve_output_file_conflict(out_path)
 
                 try:
@@ -106,14 +101,9 @@ class AudioConverter:
 
         # Movie to audio conversion
         def _extract_from_movie(movie_path_set: tuple):
-            out_path_local = os.path.abspath(
+            out_path_local = self.file_handler._resolve_output_file_conflict(os.path.abspath(
                 os.path.join(output, f"{movie_path_set[1]}.{format}")
-            )
-
-            # Resolve any filename conflicts before conversion
-            out_path_local = self.file_handler._resolve_output_file_conflict(
-                out_path_local
-            )
+            ))
 
             video, audio = None, None
             try:

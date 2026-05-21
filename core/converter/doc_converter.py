@@ -47,22 +47,19 @@ class DocumentConverter:
             if doc_path_set[2] == "docx":
                 docx_path = self.file_handler.join_back(doc_path_set)
                 output_basename = doc_path_set[1]
-                md_path = os.path.abspath(
+                md_path = self.file_handler._resolve_output_file_conflict(os.path.abspath(
                     os.path.join(output, f"{output_basename}.{format}")
-                )
-
-                # Resolve any filename conflicts before conversion
-                md_path = self.file_handler._resolve_output_file_conflict(md_path)
+                ))
 
                 image_md_dir = os.path.join(output, f"{output_basename}_images")
                 os.makedirs(image_md_dir, exist_ok=True)
-                image_index = 0
+                image_idx = 0
 
                 # Custom image converter for mammoth
                 def convert_image(image):
-                    nonlocal image_index
+                    nonlocal image_idx
                     extension = image.content_type.split("/")[-1]
-                    image_filename = f"{output_basename}_{image_index}.{extension}"
+                    image_filename = f"{output_basename}_{image_idx}.{extension}"
                     image_path = os.path.join(image_md_dir, image_filename)
                     with image.open() as image_bytes:
                         buf = image_bytes.read()
@@ -70,7 +67,7 @@ class DocumentConverter:
                         # Write the image to the file byte by byte
                         # image is of type Image
                         img_file.write(buf)
-                    image_index += 1
+                    image_idx += 1
                     # Return src attribute that points to the relative image path
                     rel_image_path = os.path.abspath(image_path)
                     return {"src": rel_image_path}
@@ -104,12 +101,9 @@ class DocumentConverter:
                 rect = fitz.Rect(0, 0, img.width, img.height)
                 page = doc.new_page(width=rect.width, height=rect.height)
                 page.insert_image(rect, pixmap=img)
-                pdf_path = os.path.abspath(
+                pdf_path = self.file_handler._resolve_output_file_conflict(os.path.abspath(
                     os.path.join(output, f"{image_path_set[1]}.{format}")
-                )
-
-                # Resolve any filename conflicts before conversion
-                pdf_path = self.file_handler._resolve_output_file_conflict(pdf_path)
+                ))
                 doc.save(pdf_path)
                 doc.close()
                 self.file_handler.post_process(image_path_set, pdf_path, delete)
@@ -117,12 +111,9 @@ class DocumentConverter:
                 # We suppose the gif was converted to frames and we have a folder of pngs
                 # All pngs shall be merged into one pdf
                 gif_frame_path = os.path.join(output, image_path_set[1])
-                pdf_path = os.path.abspath(
+                pdf_path = self.file_handler._resolve_output_file_conflict(os.path.abspath(
                     os.path.join(output, f"{image_path_set[1]}.{format}")
-                )
-
-                # Resolve any filename conflicts before conversion
-                pdf_path = self.file_handler._resolve_output_file_conflict(pdf_path)
+                ))
 
                 doc = fitz.open()
                 for frame in sorted(os.listdir(gif_frame_path)):
@@ -144,12 +135,9 @@ class DocumentConverter:
                     audio=False,
                     fps_source="tbr",
                 )
-                pdf_path = os.path.abspath(
+                pdf_path = self.file_handler._resolve_output_file_conflict(os.path.abspath(
                     os.path.join(output, f"{movie_path_set[1]}.{format}")
-                )
-
-                # Resolve any filename conflicts before conversion
-                pdf_path = self.file_handler._resolve_output_file_conflict(pdf_path)
+                ))
 
                 num_digits = len(str(int(clip.duration * clip.fps)))
                 doc = fitz.open()
@@ -178,13 +166,9 @@ class DocumentConverter:
                 # If document is already a pdf, skip
                 continue
             if doc_path_set[2] == "srt":
-                # Convert srt to pdf
-                pdf_path = os.path.abspath(
+                pdf_path = self.file_handler._resolve_output_file_conflict(os.path.abspath(
                     os.path.join(output, f"{doc_path_set[1]}.{format}")
-                )
-
-                # Resolve any filename conflicts before conversion
-                pdf_path = self.file_handler._resolve_output_file_conflict(pdf_path)
+                ))
 
                 with open(self.file_handler.join_back(doc_path_set), "r") as srt_file:
                     srt_content = srt_file.read()
@@ -200,12 +184,9 @@ class DocumentConverter:
 
                 self.file_handler.post_process(doc_path_set, pdf_path, delete)
             elif doc_path_set[2] == "docx":
-                pdf_path = os.path.abspath(
+                pdf_path = self.file_handler._resolve_output_file_conflict(os.path.abspath(
                     os.path.join(output, f"{doc_path_set[1]}.{format}")
-                )
-
-                # Resolve any filename conflicts before conversion
-                pdf_path = self.file_handler._resolve_output_file_conflict(pdf_path)
+                ))
 
                 docx_path = self.file_handler.join_back(doc_path_set)
                 if platform.system() == "Windows" or HTML is None:
@@ -221,6 +202,7 @@ class DocumentConverter:
 
     def _docx_to_pdf_reportlab(self, docx_path: str, pdf_path: str) -> None:
         doc = docx.Document(docx_path)
+        # Default page dimensions, margins for PDFs
         page_width, page_height = A4
         left_margin = 0.75 * inch
         right_margin = 0.75 * inch
@@ -233,6 +215,7 @@ class DocumentConverter:
         y = top_margin
 
         for paragraph in doc.paragraphs:
+            # If empty paragraph, move down by line height, check for page break
             text = paragraph.text
             if not text:
                 y -= line_height
@@ -245,6 +228,7 @@ class DocumentConverter:
             words = text.split()
             line = ""
             for word in words:
+                # Next word could exceed page width
                 candidate = f"{line} {word}".strip()
                 if (
                     c.stringWidth(candidate, "Helvetica", 10)
@@ -261,6 +245,7 @@ class DocumentConverter:
                     line = word
 
             if line:
+                # Draw paragraph's last line
                 c.drawString(left_margin, y, line)
                 y -= line_height
                 if y < bottom_margin:
@@ -273,13 +258,10 @@ class DocumentConverter:
     def to_subtitles(
         self, output: str, file_paths: dict, format: str, delete: bool
     ) -> None:
-        # Extract Subtitles from Movies
+        # Extract subtitles from movies
         for movie_path_set in file_paths[Category.MOVIE]:
             input_path = self.file_handler.join_back(movie_path_set)
-            out_path = os.path.abspath(os.path.join(output, f"{movie_path_set[1]}.srt"))
-
-            # Resolve any filename conflicts before conversion
-            out_path = self.file_handler._resolve_output_file_conflict(out_path)
+            out_path = self.file_handler._resolve_output_file_conflict(os.path.abspath(os.path.join(output, f"{movie_path_set[1]}.srt")))
 
             self.event_logger.info(
                 f"[>] {lang.get_translation('extract_subtitles', self.locale)} '{input_path}'"
@@ -379,12 +361,9 @@ class DocumentConverter:
         gif_to_frames(output, file_paths, self.file_handler)
 
         for image_path_set in file_paths[Category.IMAGE]:
-            out_path = os.path.abspath(
+            out_path = self.file_handler._resolve_output_file_conflict(os.path.abspath(
                 os.path.join(output, f"{image_path_set[1]}.{format}")
-            )
-
-            # Resolve any filename conflicts before conversion
-            out_path = self.file_handler._resolve_output_file_conflict(out_path)
+            ))
 
             container = _new_container()
             if image_path_set[2] == "gif":
@@ -412,12 +391,9 @@ class DocumentConverter:
             if not self.file_handler.has_visuals(movie_path_set):
                 continue
 
-            out_path = os.path.abspath(
+            out_path = self.file_handler._resolve_output_file_conflict(os.path.abspath(
                 os.path.join(output, f"{movie_path_set[1]}.{format}")
-            )
-
-            # Resolve any filename conflicts before conversion
-            out_path = self.file_handler._resolve_output_file_conflict(out_path)
+            ))
 
             container = _new_container()
             clip = VideoFileClip(
@@ -450,12 +426,9 @@ class DocumentConverter:
                 if document_path_set[2] == format:
                     continue
 
-                out_path = os.path.abspath(
+                out_path = self.file_handler._resolve_output_file_conflict(os.path.abspath(
                     os.path.join(output, f"{document_path_set[1]}.docx")
-                )
-
-                # Resolve any filename conflicts before conversion
-                out_path = self.file_handler._resolve_output_file_conflict(out_path)
+                ))
 
                 doc = docx.Document()
 
@@ -557,12 +530,10 @@ class DocumentConverter:
                     out_filename = (
                         f"{doc_path_set[1]}_split_{i + 1}_{start}-{end}.{format}"
                     )
-                out_path = os.path.abspath(os.path.join(output, out_filename))
 
-                # Resolve any filename conflicts before conversion
-                out_path = self.file_handler._resolve_output_file_conflict(out_path)
+                out_path = self.file_handler._resolve_output_file_conflict(os.path.abspath(os.path.join(output, out_filename)))
 
-                # Save new PDF
+                # Save the new PDF
                 new_pdf.save(out_path)
                 new_pdf.close()
                 self.event_logger.info(
