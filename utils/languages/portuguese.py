@@ -107,4 +107,5 @@ PORTUGUESE = {
     "workers": "Trabalhadores",
     "quality": "Qualidade",
     "show_folder_on_completion": "Mostrar a pasta de saída ao concluir",
+    "merge_advice": "A fusão funciona apenas com ficheiros de vídeo e áudio",
 }

@@ -107,4 +107,5 @@ DANISH = {
     "workers": "Arbejderne",
     "quality": "Kvalitet",
     "show_folder_on_completion": "Vis outputmappen når færdig",
+    "merge_advice": "Fletning fungerer kun med video- og lydfiler",
 }

@@ -107,4 +107,5 @@ SWEDISH = {
     "workers": "Arbetare",
     "quality": "Kvalitet",
     "show_folder_on_completion": "Visa utdatamappen när klar",
+    "merge_advice": "Sammanfogning fungerar endast med video- och ljudfiler",
 }

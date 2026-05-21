@@ -107,4 +107,5 @@ GERMAN = {
     "workers": "Threads",
     "quality": "Qualität",
     "show_folder_on_completion": "Ausgabeordner nach Abschluss anzeigen",
+    "merge_advice": "Das Zusammenführen funktioniert nur mit Video- und Audiodateien",
 }

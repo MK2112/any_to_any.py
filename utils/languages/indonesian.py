@@ -107,4 +107,5 @@ INDONESIAN = {
     "workers": "Pekerja",
     "quality": "Kualitas",
     "show_folder_on_completion": "Tampilkan folder output setelah selesai",
+    "merge_advice": "Penggabungan hanya berfungsi dengan file video dan audio",
 }

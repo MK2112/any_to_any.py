@@ -107,4 +107,5 @@ CROATIAN = {
     "workers": "Radnici",
     "quality": "Kvaliteta",
     "show_folder_on_completion": "Prikaži izlaznu mapu po završetku",
+    "merge_advice": "Spajanje radi samo s video i audio datotekama",
 }

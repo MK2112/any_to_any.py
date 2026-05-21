@@ -107,4 +107,5 @@ TURKISH = {
     "workers": "Çalışanlar",
     "quality": "Kalite",
     "show_folder_on_completion": "Tamamlandığında çıktı klasörünü göster",
+    "merge_advice": "Birleştirme yalnızca video ve ses dosyalarıyla çalışır",
 }

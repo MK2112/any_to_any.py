@@ -107,4 +107,5 @@ MANDARIN_SIMPLIFIED = {
     "workers": "工作者",
     "quality": "质量",
     "show_folder_on_completion": "完成时显示输出文件夹",
+    "merge_advice": "合并功能仅适用于视频文件和音频文件",
 }

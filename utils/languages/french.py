@@ -107,4 +107,5 @@ FRENCH = {
     "workers": "Travailleurs",
     "quality": "Qualité",
     "show_folder_on_completion": "Afficher le dossier de sortie une fois terminé",
+    "merge_advice": "La fusion fonctionne uniquement avec les fichiers vidéo et audio",
 }

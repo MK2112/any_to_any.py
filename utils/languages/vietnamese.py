@@ -107,4 +107,5 @@ VIETNAMESE = {
     "workers": "Công nhân",
     "quality": "Chất lượng",
     "show_folder_on_completion": "Hiển thị thư mục đầu ra khi hoàn tất",
+    "merge_advice": "Việc gộp chỉ hoạt động với tệp video và âm thanh",
 }

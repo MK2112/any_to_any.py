@@ -107,4 +107,5 @@ JAPANESE = {
     "workers": "ワーカー",
     "quality": "品質",
     "show_folder_on_completion": "完了時に出力フォルダーを表示",
+    "merge_advice": "結合は動画ファイルと音声ファイルでのみ利用できます",
 }

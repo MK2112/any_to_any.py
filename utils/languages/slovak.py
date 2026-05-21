@@ -107,4 +107,5 @@ SLOVAK = {
     "workers": "Pracovníci",
     "quality": "Kvalita",
     "show_folder_on_completion": "Zobraziť výstupný priečinok po dokončení",
+    "merge_advice": "Zlúčenie funguje iba s video a audio súbormi",
 }

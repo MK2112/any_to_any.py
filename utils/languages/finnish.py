@@ -107,4 +107,5 @@ FINNISH = {
     "workers": "Työntekijät",
     "quality": "Laatu",
     "show_folder_on_completion": "Näytä tulostuskansio valmistumisen jälkeen",
+    "merge_advice": "Yhdistäminen toimii vain video- ja äänitiedostojen kanssa",
 }

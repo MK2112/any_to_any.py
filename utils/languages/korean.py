@@ -107,4 +107,5 @@ KOREAN = {
     "workers": "작업자",
     "quality": "품질",
     "show_folder_on_completion": "완료 시 출력 폴더 표시",
+    "merge_advice": "병합은 동영상 파일과 오디오 파일에서만 작동합니다",
 }

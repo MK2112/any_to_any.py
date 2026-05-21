@@ -107,4 +107,5 @@ PUNJABI_INDIAN = {
     "workers": "ਮਜ਼ਦੂਰ",
     "quality": "ਗੁਣਵੱਤਾ",
     "show_folder_on_completion": "ਮੁਕੰਮਲ ਹੋਣ 'ਤੇ ਆਉਟਪੁੱਟ ਫੋਲਡਰ ਵੇਖਾਓ",
+    "merge_advice": "ਮਰਜ ਸਿਰਫ਼ ਵੀਡੀਓ ਅਤੇ ਆਡੀਓ ਫਾਈਲਾਂ ਨਾਲ ਹੀ ਕੰਮ ਕਰਦਾ ਹੈ",
 }

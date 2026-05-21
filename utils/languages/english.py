@@ -107,4 +107,5 @@ ENGLISH = {
     "workers": "Workers",
     "quality": "Quality",
     "show_folder_on_completion": "Show Output Folder When Done",
+    "merge_advice": "Merging only works with movie files and audio files",
 }

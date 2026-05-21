@@ -107,4 +107,5 @@ CANTONESE = {
     "workers": "工作執行緒",
     "quality": "品質",
     "show_folder_on_completion": "完成時顯示輸出資料夾",
+    "merge_advice": "合併功能只適用於影片檔案同音訊檔案",
 }

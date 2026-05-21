@@ -107,4 +107,5 @@ DUTCH = {
     "workers": "Werknemers",
     "quality": "Kwaliteit",
     "show_folder_on_completion": "Toon de uitvoermap wanneer gereed",
+    "merge_advice": "Samenvoegen werkt alleen met video- en audiobestanden",
 }

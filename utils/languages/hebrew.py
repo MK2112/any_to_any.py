@@ -107,4 +107,5 @@ HEBREW = {
     "workers": "עובדים",
     "quality": "איכות",
     "show_folder_on_completion": "הצג את תיקיית הפלט בסיום",
+    "merge_advice": "מיזוג עובד רק עם קובצי וידאו ואודיו",
 }

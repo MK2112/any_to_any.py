@@ -916,7 +916,7 @@ class Controller:
         try:
             total_movies = len(file_paths[Category.MOVIE])
         except KeyError:
-            end_with_msg(event_logger=self.event_logger, exception=None, msg="[!] Error: Merging only works with movie files and audio files.")
+            end_with_msg(event_logger=self.event_logger, exception=None, msg=f"[!] {lang.get_translation("error", self.locale)}: {lang.get_translation("merge_advice", self.locale)}.")
 
         processed_movies = 0
 

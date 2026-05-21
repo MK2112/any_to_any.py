@@ -107,4 +107,5 @@ SPANISH = {
     "workers": "Trabajadores",
     "quality": "Calidad",
     "show_folder_on_completion": "Mostrar la carpeta de salida al finalizar",
+    "merge_advice": "La combinación solo funciona con archivos de video y audio",
 }
