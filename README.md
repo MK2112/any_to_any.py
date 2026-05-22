@@ -1,7 +1,7 @@
 # any_to_any.py - Universal media converter: audio, video, images, docs - GUI • Web UI • CLI
 
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
-![License](https://img.shields.io/badge/license-MIT-red)
+![License](https://img.shields.io/badge/license-AGPLv3-red)
 ![Issues](https://img.shields.io/github/issues/MK2112/any_to_any.py)
 ![Build](https://github.com/MK2112/any_to_any.py/actions/workflows/test.yml/badge.svg)
 
