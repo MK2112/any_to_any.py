@@ -49,4 +49,5 @@ LANGUAGE_CODES = {
     "ca_ES": "Catalan",
     "hr_HR": "Croatian",
     "es_MX": "Spanish",
+    "sr_RS": "Serbian",
 }

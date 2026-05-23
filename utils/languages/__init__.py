@@ -45,4 +45,5 @@ from .marathi import MARATHI
 from .catalan import CATALAN
 from .croatian import CROATIAN
 from .cantonese import CANTONESE
+from .serbian import SERBIAN
 from .language_codes import LANGUAGE_CODES
