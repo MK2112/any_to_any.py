@@ -50,4 +50,7 @@ LANGUAGE_CODES = {
     "hr_HR": "Croatian",
     "es_MX": "Spanish",
     "sr_RS": "Serbian",
+    "sr_BA": "Serbian",
+    "sr_ME": "Serbian",
+    "bs_BA": "Bosnian",
 }
