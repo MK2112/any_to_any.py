@@ -63,22 +63,25 @@ If you want to build a standalone executable for Windows/Linux/macOS, ideally in
 python gui/build.py
 ```
 
-### Runtime requirements for binaries
+### Runtime Requirements For Binaries
 
-The standalone binaries do not bundle `ffmpeg`.<br>
-They are configured to use a system-installed `ffmpeg`.<br>
+The standalone binaries *do not* bundle `ffmpeg` and instead are configured to use a system-installed `ffmpeg`.<br>
 On Windows, this installation of `ffmpeg` additionally has to be made available in the `PATH`.
 
-- Linux (Debian/Ubuntu): `sudo apt-get install ffmpeg`
-- Windows (recommended flow, tested for `ffmpeg` 8.0.1 on Windows 10):
-  1. Download a Windows build from [ffmpeg.org/download.html](https://www.ffmpeg.org/download.html) (for example from `gyan.dev`).
-     - Specifically, download `ffmpeg-release-full.7z` for the broadest codec coverage.
-  3. Extract the archive to a permanent location, e.g. `C:\ffmpeg`.
+**Linux (Debian/Ubuntu):**
+```bash
+sudo apt-get install ffmpeg
+```
+
+**Windows (tested for `ffmpeg` 8.0.1 on Windows 10):**<br>
+  1. Download a Windows build from [ffmpeg.org/download.html](https://www.ffmpeg.org/download.html) (for example from `gyan.dev`)
+     - Specifically download `ffmpeg-release-full.7z` for broadest codec coverage
+  3. Extract the archive to a permanent location, e.g. `C:\ffmpeg`
   4. Add `C:\ffmpeg\bin` to the system `Path`:
-     - Open Start, search for `Environment Variables`, open `Edit the system environment variables`.
-     - Click `Environment Variables...`.
-     - Under `System variables`, select `Path` -> `Edit` -> `New`.
-     - Add `C:\ffmpeg\bin` and confirm with `OK`.
+     - Open Start, search for `Environment Variables`, open `Edit the system environment variables`
+     - Click `Environment Variables...`
+     - Under `System variables`, select `Path` -> `Edit` -> `New`
+     - Add `C:\ffmpeg\bin` and confirm with `OK`
 
 <p align="center">
    <img src="./img/Any-to-Any-GUI.png" width="625" height="auto">
@@ -86,7 +89,7 @@ On Windows, this installation of `ffmpeg` additionally has to be made available 
 
 ## Command Line Interface
 
-This is the most feature-rich interface of `any_to_any.py`.<br>You can structure a command in three fundamental ways:
+This is the most feature-rich interface for `any_to_any.py`.<br>You can structure a command in three fundamental ways:
 - [**Single File Processing**](#single-file-processing)
    - You can convert,
    - You can't merge or concatenate with only one file.
