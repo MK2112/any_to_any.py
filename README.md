@@ -48,6 +48,8 @@ The GUI is intended for users who want as much ease of use as possible without r
 - Merge, concatenate, or extract as easily as with the CLI/web
 - Multi-language support
 
+You can access the GUI via the pre-packaged binaries, or run it directly from source.
+
 **Install GUI-related additional dependencies:**
 ```bash
 pip install -r requirements_gui.txt
