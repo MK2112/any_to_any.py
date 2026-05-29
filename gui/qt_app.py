@@ -826,7 +826,7 @@ class MainWindow(QMainWindow):
         QMessageBox.information(
             self,
             lang.get_translation("success", self.locale),
-            f"{lang.get_translation('conversion_successful', self.locale)}: {output_path}",
+            f"{lang.get_translation('conversion_successful', self.locale)}",
         )
 
         if self.open_target_folder_check.isChecked() and output_path:
