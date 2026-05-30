@@ -13,14 +13,10 @@ from core.controller import Controller
 ####
 
 if __name__ == "__main__":
-    # Interactable with through:
-    # - a CLI-interface,
-    # - a web interface, or
-    # - an application using this as its backend.
     controller = Controller()
 
     parser = argparse.ArgumentParser(
-        description=f"{'=' * 20} any_to_any.py {VERSION} - {lang.get_translation('description', controller.locale)} {'=' * 20}",
+        description=f"{'=' * 10} any_to_any.py {VERSION} - {lang.get_translation('description', controller.locale)} {'=' * 10}",
     )
     parser.add_argument(
         "-i",
