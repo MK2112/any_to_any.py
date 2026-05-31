@@ -277,7 +277,8 @@ class Controller:
         # Set environment for worker count
         if workers is not None:
             try:
-                os.environ["Any2Any_MAX_WORKERS"] = str(max(1, int(workers)))
+                # worker value must be >= 1, fallback to 1 if not
+                os.environ["Any2Any_MAX_WORKERS"] = str(max(1, int(workers or 1)))
             except Exception:
                 pass
 
