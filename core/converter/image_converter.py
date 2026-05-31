@@ -3,7 +3,6 @@ import sys
 import docx
 import pptx
 import fitz
-import pypdf
 import utils.language_support as lang
 
 from PIL import Image
@@ -176,36 +175,34 @@ class ImageConverter:
                     event_logger=self.event_logger,
                 )
             if doc_path_set[2] == "pdf":
-                # Per page, convert pdf to image
                 pdf_path = self.file_handler.join_back(doc_path_set)
-                pdf = pypdf.PdfReader(pdf_path)
-                img_path = os.path.abspath(
+                pdf_document = fitz.open(pdf_path)
+
+                if not os.path.exists(os.path.join(output, doc_path_set[1])):
+                    try:
+                        os.makedirs(os.path.join(output, doc_path_set[1]), exist_ok=True)
+                    except OSError as e:
+                        self.event_logger.info(
+                            f"[!] {lang.get_translation('error', self.locale)}: {e} - {lang.get_translation('set_out_dir', self.locale)} {input}"
+                        )
+                        output = input
+
+                total_pages = len(pdf_document)
+                img_path_pattern = os.path.abspath(
                     os.path.join(
-                        os.path.join(output, doc_path_set[1]),
-                        f"{doc_path_set[1]}-%{len(str(len(pdf.pages)))}d.{format}",
+                        output, doc_path_set[1],
+                        f"{doc_path_set[1]}-%0{len(str(total_pages))}d.{format}",
                     )
                 )
 
-                try:
-                    if not os.path.exists(os.path.dirname(img_path)):
-                        os.makedirs(os.path.dirname(img_path), exist_ok=True)
-                    output = os.path.dirname(img_path)
-                except OSError as e:
-                    self.event_logger.info(
-                        f"[!] {lang.get_translation('error', self.locale)}: {e} - {lang.get_translation('set_out_dir', self.locale)} {input}"
-                    )
-                    output = input
-
-                pdf_document = fitz.open(pdf_path)
-
-                for page_num in range(len(pdf_document)):
+                for page_num in range(total_pages):
                     pix = pdf_document[page_num].get_pixmap()
                     img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-                    img_file = img_path % (page_num + 1)
+                    img_file = img_path_pattern % (page_num + 1)
                     img.save(img_file, format.upper())
 
                 pdf_document.close()
-                self.file_handler.post_process(doc_path_set, img_path, delete)
+                self.file_handler.post_process(doc_path_set, img_path_pattern, delete)
 
         # Audio cant be image-framed, movies certrainly can
         for movie_path_set in file_paths[Category.MOVIE]:

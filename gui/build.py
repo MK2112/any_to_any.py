@@ -117,7 +117,6 @@ def build_executable():
         "--hidden-import=imageio_ffmpeg",
         "--hidden-import=docx",
         "--hidden-import=pptx",
-        "--hidden-import=pypdf",
         "--hidden-import=mammoth",
         "--collect-all=reportlab",
         "--hidden-import=markdownify",
