@@ -1,3 +1,4 @@
+import io
 import os
 import sys
 import fitz
@@ -139,23 +140,15 @@ class DocumentConverter:
                     os.path.join(output, f"{movie_path_set[1]}.{format}")
                 ))
 
-                num_digits = len(str(int(clip.duration * clip.fps)))
                 doc = fitz.open()
-                for i, frame in tqdm(
+                for _, frame in tqdm(
                     enumerate(clip.iter_frames(fps=clip.fps, dtype="uint8")),
                 ):
-                    frame_path = os.path.abspath(
-                        os.path.join(
-                            output,
-                            f"{movie_path_set[1]}-temp-{i:0{num_digits}d}.png",
-                        )
-                    )
-                    Image.fromarray(frame).save(frame_path, format="PNG")
-                    img = fitz.Pixmap(frame_path)
-                    rect = fitz.Rect(0, 0, img.width, img.height)
+                    h, w = frame.shape[:2]
+                    pix = fitz.Pixmap(fitz.csRGB, w, h, frame.tobytes(), stride=w * 3)
+                    rect = fitz.Rect(0, 0, w, h)
                     page = doc.new_page(width=rect.width, height=rect.height)
-                    page.insert_image(rect, pixmap=img)
-                    os.remove(frame_path)
+                    page.insert_image(rect, pixmap=pix)
                 doc.save(pdf_path)
                 doc.close()
                 clip.close()
@@ -406,16 +399,15 @@ class DocumentConverter:
             for idx, frame in tqdm(
                 enumerate(clip.iter_frames(fps=clip.fps, dtype="uint8"))
             ):
-                frame_png = os.path.join(
-                    output, f"{movie_path_set[1]}-temp-{idx:0{digits}d}.png"
-                )
-                Image.fromarray(frame).save(frame_png, format="PNG")
+                buf = io.BytesIO()
+                Image.fromarray(frame).save(buf, format="PNG")
+                buf.seek(0)
                 page = _add_page(container)
-                _place_img(page, frame_png, full_page=format == "pptx")
+                _place_img(page, buf, full_page=format == "pptx")
                 if format == "docx":
                     page.add_paragraph(f"Frame: {idx}")
                     page.add_page_break()
-                os.remove(frame_png)
+                buf.close()
 
             clip.close()
             container.save(out_path)
@@ -622,15 +614,4 @@ class DocumentConverter:
 
         # Remove duplicate range tuples, preserve order
         # Ranges still are allowed to overlap, must each be unique though
-        seen = set()
-        unique_ranges = []
-        for range_tuple in parsed_ranges:
-            if range_tuple not in seen:
-                seen.add(range_tuple)
-                unique_ranges.append(range_tuple)
-
-        if not unique_ranges:
-            # If no valid ranges parsed, default to all pages, which is None
-            unique_ranges = None
-
-        return unique_ranges
+        return list(dict.fromkeys(parsed_ranges)) or None
