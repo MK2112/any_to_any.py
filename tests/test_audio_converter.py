@@ -516,3 +516,253 @@ class TestAudioConverterIntegration:
         # Check that error was logged for both failed cases
         error_messages = [call[0][0] for call in event_logger.info.call_args_list]
         assert any("Error message" in str(msg) for msg in error_messages)
+
+
+class TestEnvWorkers:
+    @patch("core.converter.audio_converter.AudioFileClip")
+    def test_env_workers_valid_value(self, mock_clip, monkeypatch):
+        # Variable gets parsed and conversion runs through without issues
+        monkeypatch.setenv("Any2Any_MAX_WORKERS", "2")
+        fh = Mock()
+        setup_file_handler_mock(fh)
+        conv = AudioConverter(fh, Mock(), Mock())
+        mock_audio = Mock(fps=44100)
+        mock_clip.return_value = mock_audio
+        items = [("/d", f"a{i}", "wav") for i in range(3)]
+        fh.join_back.side_effect = [f"/d/a{i}.wav" for i in range(3)]
+        paths = {Category.AUDIO: items, Category.MOVIE: []}
+        conv.to_audio(paths, "mp3", "mp3", False, "128k", "/in", "/out", False)
+        assert mock_clip.call_count == 3 # All three files should have been opened
+
+
+class TestG722Clamping:
+    @patch("core.converter.audio_converter.AudioFileClip")
+    def test_g722_uses_16khz_on_first_try(self, mock_clip):
+        fh = Mock()
+        setup_file_handler_mock(fh)
+        conv = AudioConverter(fh, Mock(), Mock())
+        mock_audio = Mock(fps=44100)
+        mock_clip.return_value = mock_audio
+        fh.join_back.return_value = "/d/a.wav"
+        paths = {Category.AUDIO: [("/d", "a", "wav")], Category.MOVIE: []}
+        conv.to_audio(paths, "g722", "g722", False, "64k", "/in", "/out", False)
+        first_call = mock_audio.write_audiofile.call_args_list[0]
+        assert first_call[1]["fps"] == 16000
+
+    @patch("core.converter.audio_converter.AudioFileClip")
+    @patch("utils.language_support.get_translation", return_value="err")
+    def test_g722_uses_16khz_on_fallback(self, _tr, mock_clip):
+        fh = Mock()
+        setup_file_handler_mock(fh)
+        conv = AudioConverter(fh, Mock(), Mock())
+
+        mock_audio = Mock(fps=44100)
+        mock_audio.write_audiofile.side_effect = [Exception("rate"), None]
+        mock_clip.return_value = mock_audio
+        fh.join_back.return_value = "/d/a.wav"
+
+        paths = {Category.AUDIO: [("/d", "a", "wav")], Category.MOVIE: []}
+        conv.to_audio(paths, "g722", "g722", False, "64k", "/in", "/out", False)
+
+        fallback = mock_audio.write_audiofile.call_args_list[1]
+        assert fallback[1]["fps"] == 16000
+
+
+class TestParallelConversion:
+    """Ensure the ThreadPoolExecutor paths are exercised for >1 items."""
+
+    @patch("core.converter.audio_converter.AudioFileClip")
+    def test_multiple_audio_files_all_processed(self, mock_clip):
+        fh = Mock()
+        setup_file_handler_mock(fh)
+        conv = AudioConverter(fh, Mock(), Mock())
+
+        mock_audio = Mock(fps=44100)
+        mock_clip.return_value = mock_audio
+        items = [("/d", f"a{i}", "wav") for i in range(4)]
+        fh.join_back.side_effect = [f"/d/a{i}.wav" for i in range(4)]
+
+        paths = {Category.AUDIO: items, Category.MOVIE: []}
+        conv.to_audio(paths, "mp3", "mp3", False, "128k", "/in", "/out", False)
+
+        assert mock_clip.call_count == 4
+        assert fh.post_process.call_count == 4
+
+    @patch("core.converter.audio_converter.AudioFileClip")
+    @patch("core.converter.audio_converter.VideoFileClip")
+    def test_multiple_movie_files_extracted_in_parallel(self, mock_vfc, mock_afc):
+        fh = Mock()
+        setup_file_handler_mock(fh)
+        conv = AudioConverter(fh, Mock(), Mock())
+
+        mock_video = Mock()
+        mock_video_audio = Mock(fps=44100)
+        mock_video.audio = mock_video_audio
+        mock_vfc.return_value = mock_video
+        fh.has_visuals.return_value = True
+
+        movies = [("/d", f"v{i}", "mp4") for i in range(3)]
+        fh.join_back.side_effect = [f"/d/v{i}.mp4" for i in range(3)]
+
+        paths = {Category.AUDIO: [], Category.MOVIE: movies}
+        conv.to_audio(paths, "mp3", "mp3", False, "128k", "/in", "/out", False)
+
+        assert mock_vfc.call_count == 3
+        assert fh.post_process.call_count == 3
+
+
+class TestOutputPaths:
+    """Verify correct path construction for recursive / non-recursive modes."""
+
+    @patch("core.converter.audio_converter.AudioFileClip")
+    def test_non_recursive_places_output_in_output_dir(self, mock_clip):
+        fh = Mock()
+        setup_file_handler_mock(fh)
+        conv = AudioConverter(fh, Mock(), Mock())
+
+        mock_audio = Mock(fps=44100)
+        mock_clip.return_value = mock_audio
+        fh.join_back.return_value = "/src/audio.wav"
+
+        paths = {Category.AUDIO: [("/src", "audio", "wav")], Category.MOVIE: []}
+        conv.to_audio(paths, "mp3", "mp3", False, "128k", "/src", "/dst", False)
+
+        # _resolve_output_file_conflict receives a path under /dst
+        resolved = fh._resolve_output_file_conflict.call_args[0][0]
+        assert "/dst" in resolved or "audio.mp3" in resolved
+
+    @patch("core.converter.audio_converter.AudioFileClip")
+    def test_recursive_same_io_places_output_next_to_source(self, mock_clip):
+        fh = Mock()
+        setup_file_handler_mock(fh)
+        conv = AudioConverter(fh, Mock(), Mock())
+
+        mock_audio = Mock(fps=44100)
+        mock_clip.return_value = mock_audio
+        fh.join_back.return_value = "/shared/audio.wav"
+
+        paths = {Category.AUDIO: [("/shared/sub", "audio", "wav")], Category.MOVIE: []}
+        conv.to_audio(paths, "mp3", "mp3", True, "128k", "/shared", "/shared", False)
+
+        resolved = fh._resolve_output_file_conflict.call_args[0][0]
+        assert "/shared/sub" in resolved
+
+    @patch("core.converter.audio_converter.AudioFileClip")
+    def test_recursive_different_io_uses_output_dir(self, mock_clip):
+        fh = Mock()
+        setup_file_handler_mock(fh)
+        conv = AudioConverter(fh, Mock(), Mock())
+
+        mock_audio = Mock(fps=44100)
+        mock_clip.return_value = mock_audio
+        fh.join_back.return_value = "/src/audio.wav"
+
+        paths = {Category.AUDIO: [("/src", "audio", "wav")], Category.MOVIE: []}
+        conv.to_audio(paths, "mp3", "mp3", True, "128k", "/src", "/dst", False)
+
+        resolved = fh._resolve_output_file_conflict.call_args[0][0]
+        assert "/dst" in resolved
+
+
+class TestResourceCleanup:
+    """Ensure clips are always closed, even when conversion fails."""
+
+    @patch("core.converter.audio_converter.AudioFileClip")
+    @patch("utils.language_support.get_translation", return_value="err")
+    def test_audio_clip_closed_after_both_writes_fail(self, _tr, mock_clip):
+        fh = Mock()
+        setup_file_handler_mock(fh)
+        conv = AudioConverter(fh, Mock(), Mock())
+
+        mock_audio = Mock(fps=44100)
+        mock_audio.write_audiofile.side_effect = Exception("permanent failure")
+        mock_clip.return_value = mock_audio
+        fh.join_back.return_value = "/d/a.wav"
+
+        paths = {Category.AUDIO: [("/d", "a", "wav")], Category.MOVIE: []}
+
+        with pytest.raises(Exception, match="permanent failure"):
+            conv.to_audio(paths, "mp3", "mp3", False, "128k", "/in", "/out", False)
+
+        # Even though we raised, finally should have closed the clip
+        mock_audio.close.assert_called_once()
+
+    @patch("core.converter.audio_converter.VideoFileClip")
+    def test_video_and_audio_closed_after_extraction(self, mock_vfc):
+        fh = Mock()
+        setup_file_handler_mock(fh)
+        conv = AudioConverter(fh, Mock(), Mock())
+
+        mock_video = Mock()
+        mock_audio_track = Mock(fps=44100)
+        mock_video.audio = mock_audio_track
+        mock_vfc.return_value = mock_video
+        fh.has_visuals.return_value = True
+        fh.join_back.return_value = "/d/v.mp4"
+
+        paths = {Category.AUDIO: [], Category.MOVIE: [("/d", "v", "mp4")]}
+        conv.to_audio(paths, "mp3", "mp3", False, "128k", "/in", "/out", False)
+
+        mock_audio_track.close.assert_called()
+        mock_video.close.assert_called()
+
+
+class TestDeleteFlag:
+    """Ensure the delete flag is correctly forwarded to post_process."""
+
+    @patch("core.converter.audio_converter.AudioFileClip")
+    def test_delete_true_forwarded(self, mock_clip):
+        fh = Mock()
+        setup_file_handler_mock(fh)
+        conv = AudioConverter(fh, Mock(), Mock())
+
+        mock_audio = Mock(fps=44100)
+        mock_clip.return_value = mock_audio
+        fh.join_back.return_value = "/d/a.wav"
+
+        paths = {Category.AUDIO: [("/d", "a", "wav")], Category.MOVIE: []}
+        conv.to_audio(paths, "mp3", "mp3", False, "128k", "/in", "/out", True)
+
+        assert fh.post_process.call_args[0][2] is True
+
+    @patch("core.converter.audio_converter.AudioFileClip")
+    def test_delete_false_forwarded(self, mock_clip):
+        fh = Mock()
+        setup_file_handler_mock(fh)
+        conv = AudioConverter(fh, Mock(), Mock())
+
+        mock_audio = Mock(fps=44100)
+        mock_clip.return_value = mock_audio
+        fh.join_back.return_value = "/d/a.wav"
+
+        paths = {Category.AUDIO: [("/d", "a", "wav")], Category.MOVIE: []}
+        conv.to_audio(paths, "mp3", "mp3", False, "128k", "/in", "/out", False)
+
+        assert fh.post_process.call_args[0][2] is False
+
+
+class TestDefaultAudioFps:
+    def test_default_audio_fps_is_48000(self):
+        conv = AudioConverter(Mock(), Mock(), Mock())
+        assert conv.default_audio_fps == 48000
+
+
+class TestMovieToAudioEdgeCases:
+    @patch("core.converter.audio_converter.AudioFileClip")
+    @patch("utils.language_support.get_translation", return_value="err")
+    def test_audio_only_video_extraction_failure_logs_and_skips(self, _tr, mock_afc):
+        """When has_visuals=False and AudioFileClip raises, log & skip."""
+        fh = Mock()
+        setup_file_handler_mock(fh)
+        el = Mock()
+        conv = AudioConverter(fh, Mock(), el)
+
+        mock_afc.side_effect = Exception("corrupt")
+        fh.has_visuals.return_value = False
+        fh.join_back.return_value = "/d/bad.mkv"
+
+        paths = {Category.AUDIO: [], Category.MOVIE: [("/d", "bad", "mkv")]}
+        conv.to_audio(paths, "mp3", "mp3", False, "128k", "/in", "/out", False)
+
+        el.info.assert_called_once()
+        fh.post_process.assert_not_called()
