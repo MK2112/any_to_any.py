@@ -146,16 +146,14 @@ class ProgLogger(ProgressBarLogger):
         # Handle bar completion
         if value >= total and self.tqdm_bar:
             self.tqdm_bar.close()
-            # Reset state so the next conversion initializes a fresh bar
-            self.tqdm_bar = None
-            self.start_time = None
-            self.last_print_time = None
+            elapsed_snapshot = self.start_time # Capture elapsed time before resetting
+            self.tqdm_bar, self.start_time, self.last_print_time = None, None, None
             if self.job_id and self.shared_progress_dict is not None:
                 with threading.Lock():
                     if self.job_id in self.shared_progress_dict:
                         total_elapsed = None
-                        if self.start_time is not None:
-                            total_elapsed = current_time - self.start_time
+                        if elapsed_snapshot is not None:
+                            total_elapsed = current_time - elapsed_snapshot
 
                         self.shared_progress_dict[self.job_id].update(
                             {
