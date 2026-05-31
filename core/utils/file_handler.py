@@ -100,9 +100,11 @@ class FileHandler:
     def get_file_paths(
         self,
         input: str,
-        file_paths: dict = {},
-        supported_formats: dict = {},
+        file_paths: dict = None,
+        supported_formats: dict = None,
     ) -> dict:
+        file_paths = file_paths or {}
+        supported_formats = supported_formats or {}
         # Get media files from input directory
         def process_file(file_path: str) -> tuple:
             # Dissect "path/to/file.txt" into [path/to, file, txt]
