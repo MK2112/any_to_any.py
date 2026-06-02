@@ -14,12 +14,12 @@ from moviepy import (
     VideoFileClip,
     ImageClip,
     AudioFileClip,
-    VideoClip,
     concatenate_videoclips,
 )
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 
 class MovieConverter:
     def __init__(
@@ -130,7 +130,9 @@ class MovieConverter:
         for pics in [pngs, jpgs, bmps]:
             if len(pics) > 0:
                 final_clip = concatenate_videoclips(pics, method="compose")
-                out_path = self.file_handler._resolve_output_file_conflict(os.path.abspath(os.path.join(output, f"merged.{format}")))
+                out_path = self.file_handler._resolve_output_file_conflict(
+                    os.path.abspath(os.path.join(output, f"merged.{format}"))
+                )
 
                 final_clip.write_videofile(
                     out_path,
@@ -147,9 +149,7 @@ class MovieConverter:
                 return None
 
             out_path_local = self.file_handler._resolve_output_file_conflict(
-                os.path.abspath(
-                os.path.join(output, f"{movie_path_set[1]}.{format}")
-            )
+                os.path.abspath(os.path.join(output, f"{movie_path_set[1]}.{format}"))
             )
 
             video, audio = None, None
@@ -171,9 +171,7 @@ class MovieConverter:
                         audio = AudioFileClip(
                             self.file_handler.join_back(movie_path_set)
                         )
-                        video_clip = VideoClip(
-                            lambda t: np.zeros((720, 1280, 3), dtype=np.uint8)
-                        )
+                        video_clip = ImageClip(np.zeros((720, 1280, 3), dtype=np.uint8))
                         duration = audio.duration
                         video_clip = video_clip.with_duration(duration)
                         video_clip = video_clip.with_fps(
@@ -237,9 +235,11 @@ class MovieConverter:
                 ]
                 if len(pics) > 0:
                     final_clip = concatenate_videoclips(pics, method="compose")
-                    out_path = self.file_handler._resolve_output_file_conflict(os.path.abspath(
-                        os.path.join(output, f"{doc_path_set[1]}.{format}")
-                    ))
+                    out_path = self.file_handler._resolve_output_file_conflict(
+                        os.path.abspath(
+                            os.path.join(output, f"{doc_path_set[1]}.{format}")
+                        )
+                    )
 
                     final_clip.write_videofile(
                         out_path,
@@ -251,9 +251,9 @@ class MovieConverter:
                     self.file_handler.post_process(doc_path_set, out_path, delete)
             elif doc_path_set[2] == "pdf":
                 pdf_path = self.file_handler.join_back(doc_path_set)
-                movie_path = self.file_handler._resolve_output_file_conflict(os.path.abspath(
-                    os.path.join(output, f"{doc_path_set[1]}.{format}")
-                ))
+                movie_path = self.file_handler._resolve_output_file_conflict(
+                    os.path.abspath(os.path.join(output, f"{doc_path_set[1]}.{format}"))
+                )
 
                 doc = fitz.open(pdf_path)
                 image_files = []
@@ -351,7 +351,7 @@ class MovieConverter:
                     if os.path.exists(out_path):
                         # There might be some residue left, remove it
                         os.remove(out_path)
-                    codec_path_str = f"\"{codec_path_set[2]}\""
+                    codec_path_str = f'"{codec_path_set[2]}"'
                     self.event_logger.info(
                         f"\n\n[!] {lang.get_translation('codec_fallback', self.locale).replace('[path]', codec_path_str).replace('[format]', f'{codec[1]}')}\n"
                     )
@@ -367,11 +367,8 @@ class MovieConverter:
                 # Audio-only video file
                 audio = AudioFileClip(self.file_handler.join_back(codec_path_set))
                 # Create new VideoClip with audio only
-                clip = VideoClip(
-                    lambda t: np.zeros(
-                        (16, 16, 3), dtype=np.uint8
-                    ),  # 16x16 black pixels at least, required by moviepy
-                    duration=audio.duration,
+                clip = ImageClip(np.zeros((16, 16, 3), dtype=np.uint8)).with_duration(
+                    audio.duration
                 )
                 clip = clip.with_audio(audio)
                 clip.write_videofile(
