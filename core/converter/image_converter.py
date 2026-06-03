@@ -10,8 +10,10 @@ from tqdm import tqdm
 from io import BytesIO
 from moviepy import VideoFileClip
 from utils.category import Category
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 
 def office_to_frames(
     doc_path_set: tuple,
@@ -58,6 +60,14 @@ def office_to_frames(
     except Exception as e:
         event_logger.error(e)
 
+def _max_workers() -> int:
+    try:
+        _cpu = os.cpu_count()
+        _cpu = _cpu if isinstance(_cpu, int) else 2
+        return max(1, min(int(os.environ.get("Any2Any_MAX_WORKERS", "1")), _cpu - 1))
+    except (ValueError, TypeError):
+        return 1
+
 
 def gif_to_frames(output: str, file_paths: dict, file_handler) -> None:
     # Convert GIFs to frames, place those in a folder
@@ -66,22 +76,31 @@ def gif_to_frames(output: str, file_paths: dict, file_handler) -> None:
         for image_path in file_paths[Category.IMAGE]
         if image_path[2] == "gif"
     ]
-    if len(gifs) > 0:
-        for image_path_set in gifs:
-            clip = VideoFileClip(file_handler.join_back(image_path_set), audio=False)
-            # Calculate zero-padding width based on total number of frames
+
+    if not gifs:
+        return
+
+    def _extract_gif_frames(image_path_set: tuple):
+        out_dir = os.path.abspath(os.path.join(output, image_path_set[1]))
+        os.makedirs(out_dir, exist_ok=True)
+        clip = VideoFileClip(file_handler.join_back(image_path_set), audio=False)
+        try:
             total_frames = int(clip.duration * clip.fps)
             num_digits = len(str(total_frames))
-            # Create a dedicated folder for the gif to store its frames
-            if not os.path.exists(os.path.join(output, image_path_set[1])):
-                os.makedirs(os.path.join(output, image_path_set[1]), exist_ok=True)
             for i, frame in enumerate(clip.iter_frames(fps=clip.fps, dtype="uint8")):
-                frame_filename = f"{image_path_set[1]}-{i:0{num_digits}d}.png"
-                frame_path = os.path.abspath(
-                    os.path.join(output, image_path_set[1], frame_filename)
+                Image.fromarray(frame).save(
+                    os.path.join(out_dir, f"{image_path_set[1]}-{i:0{num_digits}d}.png")
                 )
-                Image.fromarray(frame).save(frame_path, format="PNG")
+        finally:
             clip.close()
+
+    max_workers = _max_workers()
+    if len(gifs) == 1 or max_workers == 1:
+        for g in gifs:
+            _extract_gif_frames(g)
+    else:
+        with ThreadPoolExecutor(max_workers=max_workers) as ex:
+            list(ex.map(_extract_gif_frames, gifs))
 
 
 class ImageConverter:
@@ -124,9 +143,11 @@ class ImageConverter:
                 # Ensure output directory exists (single images are placed directly in output)
                 os.makedirs(output, exist_ok=True)
 
-                img_path = self.file_handler._resolve_output_file_conflict(os.path.abspath(
-                    os.path.join(output, f"{image_path_set[1]}.{format}")
-                ))
+                img_path = self.file_handler._resolve_output_file_conflict(
+                    os.path.abspath(
+                        os.path.join(output, f"{image_path_set[1]}.{format}")
+                    )
+                )
 
                 # Convert and save the image
                 with Image.open(self.file_handler.join_back(image_path_set)) as img:
@@ -180,7 +201,9 @@ class ImageConverter:
 
                 if not os.path.exists(os.path.join(output, doc_path_set[1])):
                     try:
-                        os.makedirs(os.path.join(output, doc_path_set[1]), exist_ok=True)
+                        os.makedirs(
+                            os.path.join(output, doc_path_set[1]), exist_ok=True
+                        )
                     except OSError as e:
                         self.event_logger.info(
                             f"[!] {lang.get_translation('error', self.locale)}: {e} - {lang.get_translation('set_out_dir', self.locale)} {input}"
@@ -190,7 +213,8 @@ class ImageConverter:
                 total_pages = len(pdf_document)
                 img_path_pattern = os.path.abspath(
                     os.path.join(
-                        output, doc_path_set[1],
+                        output,
+                        doc_path_set[1],
                         f"{doc_path_set[1]}-%0{len(str(total_pages))}d.{format}",
                     )
                 )
@@ -205,45 +229,58 @@ class ImageConverter:
                 self.file_handler.post_process(doc_path_set, img_path_pattern, delete)
 
         # Audio cant be image-framed, movies certrainly can
-        for movie_path_set in file_paths[Category.MOVIE]:
+        def _movie_to_frames(movie_path_set: tuple):
             if movie_path_set[2] not in supported_formats[Category.MOVIE]:
                 self.event_logger.info(
                     f"[!] {lang.get_translation('movie_format_unsupported', self.locale)} {movie_path_set[2]} - {lang.get_translation('skipping', self.locale)}"
                 )
-                continue
-            if self.file_handler.has_visuals(movie_path_set):
-                video = VideoFileClip(
-                    self.file_handler.join_back(movie_path_set),
-                    audio=False,
-                    fps_source="tbr",
+                return None
+            if not self.file_handler.has_visuals(movie_path_set):
+                self.event_logger.info(
+                    f'[!] {lang.get_translation("skipping", self.locale)} "{self.file_handler.join_back(movie_path_set)}" - {lang.get_translation("audio_only_video", self.locale)}'
                 )
+                return None
+            video = VideoFileClip(
+                self.file_handler.join_back(movie_path_set),
+                audio=False,
+                fps_source="tbr",
+            )
+            try:
+                movie_out_dir = os.path.join(output, movie_path_set[1])
                 try:
-                    if not os.path.exists(os.path.join(output, movie_path_set[1])):
-                        os.makedirs(
-                            os.path.join(output, movie_path_set[1]), exist_ok=True
-                        )
+                    os.makedirs(movie_out_dir, exist_ok=True)
                 except OSError as e:
                     self.event_logger.info(
                         f"[!] {lang.get_translation('error', self.locale)}: {e} - {lang.get_translation('set_out_dir', self.locale)} {input}"
                     )
-                    output = input
+                    return None
                 img_path = os.path.abspath(
                     os.path.join(
-                        os.path.join(output, movie_path_set[1]),
+                        movie_out_dir,
                         f"{movie_path_set[1]}-%{len(str(int(video.duration * video.fps)))}d.{format}",
                     )
                 )
-
                 video.write_images_sequence(
                     img_path, fps=video.fps, logger=self.prog_logger
                 )
+                return (movie_path_set, img_path)
+            finally:
                 video.close()
-                self.file_handler.post_process(movie_path_set, img_path, delete)
-            else:
-                self.event_logger.info(
-                    f'[!] {lang.get_translation("skipping", self.locale)} "{self.file_handler.join_back(movie_path_set)}" - {lang.get_translation("audio_only_video", self.locale)}'
-                )
-                self.file_handler.post_process(movie_path_set, img_path, delete)
+
+        max_workers = _max_workers()
+        movie_items = list(file_paths[Category.MOVIE])
+        if len(movie_items) <= 1 or max_workers == 1:
+            for m in movie_items:
+                res = _movie_to_frames(m)
+                if res is not None:
+                    self.file_handler.post_process(res[0], res[1], delete)
+        else:
+            with ThreadPoolExecutor(max_workers=max_workers) as ex:
+                futures = [ex.submit(_movie_to_frames, m) for m in movie_items]
+                for fut in as_completed(futures):
+                    res = fut.result()
+                    if res is not None:
+                        self.file_handler.post_process(res[0], res[1], delete)
 
     def to_bmp(
         self,
@@ -277,18 +314,42 @@ class ImageConverter:
                 self.event_logger.info(
                     f'[!] {lang.get_translation("skipping", self.locale)} "{self.file_handler.join_back(movie_path_set)}" - {lang.get_translation("audio_only_video", self.locale)}'
                 )
+
+        convertible_images = [
+            ips
+            for ips in file_paths[Category.IMAGE]
+            if ips[2] != format
+            and ips[2] in ["png", "jpeg", "jpg", "tiff", "tga", "eps"]
+        ]
+
+        def _convert_image_to_bmp(image_path_set: tuple):
+            bmp_path = self.file_handler._resolve_output_file_conflict(
+                os.path.abspath(os.path.join(output, f"{image_path_set[1]}.{format}"))
+            )
+            with Image.open(self.file_handler.join_back(image_path_set)) as img:
+                img.convert("RGB").save(bmp_path, format=format)
+            return (image_path_set, bmp_path)
+
+        max_workers = _max_workers()
+        if len(convertible_images) <= 1 or max_workers == 1:
+            for image_path_set in convertible_images:
+                src, bmp_path = _convert_image_to_bmp(image_path_set)
+                self.file_handler.post_process(src, bmp_path, delete)
+        else:
+            with ThreadPoolExecutor(max_workers=max_workers) as ex:
+                futures = [
+                    ex.submit(_convert_image_to_bmp, ips) for ips in convertible_images
+                ]
+                for fut in as_completed(futures):
+                    src, bmp_path = fut.result()
+                    self.file_handler.post_process(src, bmp_path, delete)
+
         for image_path_set in file_paths[Category.IMAGE]:
             # Pngs and gifs are converted to bmps as well
             if image_path_set[2] == format:
                 continue
             if image_path_set[2] in ["png", "jpeg", "jpg", "tiff", "tga", "eps"]:
-                bmp_path = self.file_handler._resolve_output_file_conflict(os.path.abspath(
-                    os.path.join(output, f"{image_path_set[1]}.{format}")
-                ))
-
-                with Image.open(self.file_handler.join_back(image_path_set)) as img:
-                    img.convert("RGB").save(bmp_path, format=format)
-                self.file_handler.post_process(image_path_set, bmp_path, delete)
+                continue
             elif image_path_set[2] == "gif":
                 clip = VideoFileClip(self.file_handler.join_back(image_path_set))
                 for _, frame in enumerate(
@@ -337,7 +398,6 @@ class ImageConverter:
                 for i, page_num in enumerate(range(len(doc))):
                     pix = doc.load_page(page_num).get_pixmap()
                     img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-                    img = img.convert("RGB")
                     # Save each page as a separate BMP file
                     img.save(
                         os.path.join(
@@ -394,17 +454,40 @@ class ImageConverter:
                 )
 
         # pngs and gifs are converted to webps as well
+        convertible_images = [
+            ips
+            for ips in file_paths[Category.IMAGE]
+            if ips[2] != format
+            and ips[2] in ["png", "jpeg", "jpg", "tiff", "tga", "eps"]
+        ]
+
+        def _convert_image_to_webp(image_path_set: tuple):
+            webp_path = self.file_handler._resolve_output_file_conflict(
+                os.path.abspath(os.path.join(output, f"{image_path_set[1]}.{format}"))
+            )
+            with Image.open(self.file_handler.join_back(image_path_set)) as img:
+                img.convert("RGB").save(webp_path, format=format)
+            return (image_path_set, webp_path)
+
+        max_workers = _max_workers()
+        if len(convertible_images) <= 1 or max_workers == 1:
+            for image_path_set in convertible_images:
+                src, webp_path = _convert_image_to_webp(image_path_set)
+                self.file_handler.post_process(src, webp_path, delete)
+        else:
+            with ThreadPoolExecutor(max_workers=max_workers) as ex:
+                futures = [
+                    ex.submit(_convert_image_to_webp, ips) for ips in convertible_images
+                ]
+                for fut in as_completed(futures):
+                    src, webp_path = fut.result()
+                    self.file_handler.post_process(src, webp_path, delete)
+
         for image_path_set in file_paths[Category.IMAGE]:
             if image_path_set[2] == format:
                 continue
             if image_path_set[2] in ["png", "jpeg", "jpg", "tiff", "tga", "eps"]:
-                webp_path = self.file_handler._resolve_output_file_conflict(os.path.abspath(
-                    os.path.join(output, f"{image_path_set[1]}.{format}")
-                ))
-
-                with Image.open(self.file_handler.join_back(image_path_set)) as img:
-                    img.convert("RGB").save(webp_path, format=format)
-                self.file_handler.post_process(image_path_set, webp_path, delete)
+                continue
             elif image_path_set[2] == "gif":
                 clip = VideoFileClip(self.file_handler.join_back(image_path_set))
                 for _, frame in enumerate(
@@ -454,7 +537,6 @@ class ImageConverter:
                 for i, page_num in enumerate(range(len(doc))):
                     pix = doc.load_page(page_num).get_pixmap()
                     img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-                    img = img.convert("RGB")
                     # Save each page as a separate BMP file
                     img.save(
                         os.path.join(
@@ -572,9 +654,11 @@ class ImageConverter:
                         fps_source="tbr",
                     )
 
-                    gif_path = self.file_handler._resolve_output_file_conflict(os.path.abspath(
-                        os.path.join(output, f"{movie_path_set[1]}.{format}")
-                    ))
+                    gif_path = self.file_handler._resolve_output_file_conflict(
+                        os.path.abspath(
+                            os.path.join(output, f"{movie_path_set[1]}.{format}")
+                        )
+                    )
                     target_fps = max(1, int(video.fps // 3))
 
                     # Write GIF, log progress
@@ -607,16 +691,16 @@ class ImageConverter:
         for doc_path_set in file_paths[Category.DOCUMENT]:
             if doc_path_set[2] == "pdf":
                 pdf_path = self.file_handler.join_back(doc_path_set)
-                gif_path = self.file_handler._resolve_output_file_conflict(os.path.abspath(
-                    os.path.join(output, f"{doc_path_set[1]}.{format}")
-                ))
+                gif_path = self.file_handler._resolve_output_file_conflict(
+                    os.path.abspath(os.path.join(output, f"{doc_path_set[1]}.{format}"))
+                )
 
                 doc = fitz.open(pdf_path)
                 images = []
                 for page_num in range(len(doc)):
                     pix = doc.load_page(page_num).get_pixmap()
                     img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-                    images.append(img.convert("RGB"))
+                    images.append(img)
                 if images:
                     images[0].save(
                         gif_path,
@@ -630,9 +714,9 @@ class ImageConverter:
                 self.file_handler.post_process(doc_path_set, gif_path, delete)
             elif doc_path_set[2] in ["docx", "pptx"]:
                 input_path = self.file_handler.join_back(doc_path_set)
-                gif_path = self.file_handler._resolve_output_file_conflict(os.path.abspath(
-                    os.path.join(output, f"{doc_path_set[1]}.{format}")
-                ))
+                gif_path = self.file_handler._resolve_output_file_conflict(
+                    os.path.abspath(os.path.join(output, f"{doc_path_set[1]}.{format}"))
+                )
 
                 images = []
                 if doc_path_set[2] == "docx":
