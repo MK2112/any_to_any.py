@@ -48,9 +48,9 @@ class DocumentConverter:
             if doc_path_set[2] == "docx":
                 docx_path = self.file_handler.join_back(doc_path_set)
                 output_basename = doc_path_set[1]
-                md_path = self.file_handler._resolve_output_file_conflict(os.path.abspath(
-                    os.path.join(output, f"{output_basename}.{format}")
-                ))
+                md_path = self.file_handler._resolve_output_file_conflict(
+                    os.path.abspath(os.path.join(output, f"{output_basename}.{format}"))
+                )
 
                 image_md_dir = os.path.join(output, f"{output_basename}_images")
                 os.makedirs(image_md_dir, exist_ok=True)
@@ -79,10 +79,10 @@ class DocumentConverter:
                         convert_image=mammoth.images.img_element(convert_image),
                     )
                 html_content = document.value  # Already a str, no need to encode
-                
+
                 # Convert HTML to Markdown
                 markdown_text = markdownify(html_content)
-                
+
                 # Write Markdown file
                 with open(md_path, "w", encoding="utf-8") as md_file:
                     md_file.write(markdown_text)
@@ -92,7 +92,7 @@ class DocumentConverter:
         # Convert GIFs to Frames using to_frames
         # Produces a folder with gif frame for each gif
         gif_to_frames(output, file_paths, self.file_handler)
-        
+
         # Convert Images to PDF
         for image_path_set in file_paths[Category.IMAGE]:
             pdf_path = ""
@@ -102,9 +102,11 @@ class DocumentConverter:
                 rect = fitz.Rect(0, 0, img.width, img.height)
                 page = doc.new_page(width=rect.width, height=rect.height)
                 page.insert_image(rect, pixmap=img)
-                pdf_path = self.file_handler._resolve_output_file_conflict(os.path.abspath(
-                    os.path.join(output, f"{image_path_set[1]}.{format}")
-                ))
+                pdf_path = self.file_handler._resolve_output_file_conflict(
+                    os.path.abspath(
+                        os.path.join(output, f"{image_path_set[1]}.{format}")
+                    )
+                )
                 doc.save(pdf_path)
                 doc.close()
                 self.file_handler.post_process(image_path_set, pdf_path, delete)
@@ -112,9 +114,11 @@ class DocumentConverter:
                 # We suppose the gif was converted to frames and we have a folder of pngs
                 # All pngs shall be merged into one pdf
                 gif_frame_path = os.path.join(output, image_path_set[1])
-                pdf_path = self.file_handler._resolve_output_file_conflict(os.path.abspath(
-                    os.path.join(output, f"{image_path_set[1]}.{format}")
-                ))
+                pdf_path = self.file_handler._resolve_output_file_conflict(
+                    os.path.abspath(
+                        os.path.join(output, f"{image_path_set[1]}.{format}")
+                    )
+                )
 
                 doc = fitz.open()
                 for frame in sorted(os.listdir(gif_frame_path)):
@@ -136,9 +140,11 @@ class DocumentConverter:
                     audio=False,
                     fps_source="tbr",
                 )
-                pdf_path = self.file_handler._resolve_output_file_conflict(os.path.abspath(
-                    os.path.join(output, f"{movie_path_set[1]}.{format}")
-                ))
+                pdf_path = self.file_handler._resolve_output_file_conflict(
+                    os.path.abspath(
+                        os.path.join(output, f"{movie_path_set[1]}.{format}")
+                    )
+                )
 
                 doc = fitz.open()
                 for _, frame in tqdm(
@@ -159,9 +165,9 @@ class DocumentConverter:
                 # If document is already a pdf, skip
                 continue
             if doc_path_set[2] == "srt":
-                pdf_path = self.file_handler._resolve_output_file_conflict(os.path.abspath(
-                    os.path.join(output, f"{doc_path_set[1]}.{format}")
-                ))
+                pdf_path = self.file_handler._resolve_output_file_conflict(
+                    os.path.abspath(os.path.join(output, f"{doc_path_set[1]}.{format}"))
+                )
 
                 with open(self.file_handler.join_back(doc_path_set), "r") as srt_file:
                     srt_content = srt_file.read()
@@ -177,9 +183,9 @@ class DocumentConverter:
 
                 self.file_handler.post_process(doc_path_set, pdf_path, delete)
             elif doc_path_set[2] == "docx":
-                pdf_path = self.file_handler._resolve_output_file_conflict(os.path.abspath(
-                    os.path.join(output, f"{doc_path_set[1]}.{format}")
-                ))
+                pdf_path = self.file_handler._resolve_output_file_conflict(
+                    os.path.abspath(os.path.join(output, f"{doc_path_set[1]}.{format}"))
+                )
 
                 docx_path = self.file_handler.join_back(doc_path_set)
                 if platform.system() == "Windows" or HTML is None:
@@ -254,7 +260,9 @@ class DocumentConverter:
         # Extract subtitles from movies
         for movie_path_set in file_paths[Category.MOVIE]:
             input_path = self.file_handler.join_back(movie_path_set)
-            out_path = self.file_handler._resolve_output_file_conflict(os.path.abspath(os.path.join(output, f"{movie_path_set[1]}.srt")))
+            out_path = self.file_handler._resolve_output_file_conflict(
+                os.path.abspath(os.path.join(output, f"{movie_path_set[1]}.srt"))
+            )
 
             self.event_logger.info(
                 f"[>] {lang.get_translation('extract_subtitles', self.locale)} '{input_path}'"
@@ -267,7 +275,7 @@ class DocumentConverter:
                         "-i",
                         input_path,
                         "-map",
-                        "0:s:0", # Selects first subtitle stream
+                        "0:s:0",  # Selects first subtitle stream
                         "-c:s",
                         "srt",
                         out_path,
@@ -354,9 +362,9 @@ class DocumentConverter:
         gif_to_frames(output, file_paths, self.file_handler)
 
         for image_path_set in file_paths[Category.IMAGE]:
-            out_path = self.file_handler._resolve_output_file_conflict(os.path.abspath(
-                os.path.join(output, f"{image_path_set[1]}.{format}")
-            ))
+            out_path = self.file_handler._resolve_output_file_conflict(
+                os.path.abspath(os.path.join(output, f"{image_path_set[1]}.{format}"))
+            )
 
             container = _new_container()
             if image_path_set[2] == "gif":
@@ -384,9 +392,9 @@ class DocumentConverter:
             if not self.file_handler.has_visuals(movie_path_set):
                 continue
 
-            out_path = self.file_handler._resolve_output_file_conflict(os.path.abspath(
-                os.path.join(output, f"{movie_path_set[1]}.{format}")
-            ))
+            out_path = self.file_handler._resolve_output_file_conflict(
+                os.path.abspath(os.path.join(output, f"{movie_path_set[1]}.{format}"))
+            )
 
             container = _new_container()
             clip = VideoFileClip(
@@ -418,9 +426,11 @@ class DocumentConverter:
                 if document_path_set[2] == format:
                     continue
 
-                out_path = self.file_handler._resolve_output_file_conflict(os.path.abspath(
-                    os.path.join(output, f"{document_path_set[1]}.docx")
-                ))
+                out_path = self.file_handler._resolve_output_file_conflict(
+                    os.path.abspath(
+                        os.path.join(output, f"{document_path_set[1]}.docx")
+                    )
+                )
 
                 doc = docx.Document()
 
@@ -523,7 +533,9 @@ class DocumentConverter:
                         f"{doc_path_set[1]}_split_{i + 1}_{start}-{end}.{format}"
                     )
 
-                out_path = self.file_handler._resolve_output_file_conflict(os.path.abspath(os.path.join(output, out_filename)))
+                out_path = self.file_handler._resolve_output_file_conflict(
+                    os.path.abspath(os.path.join(output, out_filename))
+                )
 
                 # Save the new PDF
                 new_pdf.save(out_path)

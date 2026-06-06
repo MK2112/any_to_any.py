@@ -8,6 +8,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+
 class AudioConverter:
     def __init__(
         self, file_handler, prog_logger, event_logger, locale: str = "English"
@@ -32,7 +33,13 @@ class AudioConverter:
         try:
             # Decide worker count with env variable if present
             # Prob most elegant in this setting
-            env_workers = max(1, min(int(os.environ.get("Any2Any_MAX_WORKERS", "1")), os.cpu_count() - 1,))
+            env_workers = max(
+                1,
+                min(
+                    int(os.environ.get("Any2Any_MAX_WORKERS", "1")),
+                    os.cpu_count() - 1,
+                ),
+            )
         except ValueError:
             # If this variable doesn't exist, flag wasn't invoked: Default to 1
             env_workers = 1
@@ -40,7 +47,7 @@ class AudioConverter:
         # Helper, converts a single audio file
         def _convert_audio_file(audio_path_set: tuple):
             if audio_path_set[2] == format:
-                return None # Skip conversion from target format
+                return None  # Skip conversion from target format
             audio = None
             out_path = None
             try:
@@ -62,7 +69,9 @@ class AudioConverter:
                         out_path,
                         codec=codec,
                         bitrate=bitrate,
-                        fps=audio.fps if format != "g722" else 16000, # g722 clamps to 16kHz
+                        fps=audio.fps
+                        if format != "g722"
+                        else 16000,  # g722 clamps to 16kHz
                         logger=self.prog_logger,
                     )
                 except Exception as _:
@@ -101,9 +110,9 @@ class AudioConverter:
 
         # Movie to audio conversion
         def _extract_from_movie(movie_path_set: tuple):
-            out_path_local = self.file_handler._resolve_output_file_conflict(os.path.abspath(
-                os.path.join(output, f"{movie_path_set[1]}.{format}")
-            ))
+            out_path_local = self.file_handler._resolve_output_file_conflict(
+                os.path.abspath(os.path.join(output, f"{movie_path_set[1]}.{format}"))
+            )
 
             video, audio = None, None
             try:
@@ -116,7 +125,9 @@ class AudioConverter:
                     audio = video.audio
                     # Check if audio was found
                     if audio is None:
-                        movie_path_str = f"\"{self.file_handler.join_back(movie_path_set)}\""
+                        movie_path_str = (
+                            f'"{self.file_handler.join_back(movie_path_set)}"'
+                        )
                         self.event_logger.info(
                             f"[!] {lang.get_translation('no_audio', self.locale).replace('[path]', movie_path_str)} - {lang.get_translation('skipping', self.locale)}\n"
                         )
@@ -140,7 +151,9 @@ class AudioConverter:
                             logger=self.prog_logger,
                         )
                     except Exception as _:
-                        movie_path_str = f"\"{self.file_handler.join_back(movie_path_set)}\""
+                        movie_path_str = (
+                            f'"{self.file_handler.join_back(movie_path_set)}"'
+                        )
                         self.event_logger.info(
                             f"[!] {lang.get_translation('audio_extract_fail', self.locale).replace('[path]', movie_path_str)} - {lang.get_translation('skipping', self.locale)}\n"
                         )
