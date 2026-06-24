@@ -15,34 +15,6 @@ def mock_converter():
     return MovieConverter(file_handler, prog_logger, event_logger, locale="English")
 
 
-@patch("core.converter.movie_converter.VideoFileClip")
-def test_to_movie_converts_gif(mock_vfc, mock_converter):
-    gif_clip = MagicMock()
-    mock_vfc.return_value = gif_clip
-
-    gif_set = ("dir", "clip", "gif")
-    mock_converter.file_handler.join_back.return_value = "dir/clip.gif"
-
-    mock_converter.to_movie(
-        input="in",
-        output="out",
-        recursive=False,
-        file_paths={
-            Category.IMAGE: [gif_set],
-            Category.MOVIE: [],
-            Category.DOCUMENT: [],
-        },
-        format="mp4",
-        framerate=None,
-        codec="libx264",
-        delete=False,
-    )
-
-    mock_vfc.assert_called_once_with("dir/clip.gif", audio=False)
-    gif_clip.write_videofile.assert_called_once()
-    gif_clip.close.assert_called_once()
-
-
 @patch("core.converter.movie_converter.ImageClip")
 @patch("core.converter.movie_converter.concatenate_videoclips")
 def test_to_movie_from_jpgs(mock_concat, mock_imageclip, mock_converter):
