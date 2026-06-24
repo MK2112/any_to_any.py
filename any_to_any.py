@@ -1,4 +1,4 @@
-import os
+import sys
 import argparse
 import subprocess
 import utils.language_support as lang
@@ -162,10 +162,7 @@ if __name__ == "__main__":
     
     if args["web"]:
         # Windows wants this expressed differently
-        if os.name in ["nt"]:
-            subprocess.run("python ./web_to_any.py", shell=True)
-        else:
-            subprocess.run("python3 ./web_to_any.py", shell=True)
+        subprocess.run([sys.executable, "./web_to_any.py"])
     else:
         # Parse multiple formats if comma-separated
         formats = []
