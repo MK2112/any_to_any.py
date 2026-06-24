@@ -20,21 +20,22 @@ class DirectoryWatcher:
         if self._running:
             return
             
+        event_handler = self.event_handler
+
         class Handler(FileSystemEventHandler):
-            def _safe_callback(_, callback, *args):
+            def _safe_callback(self, callback, *args):
                 try:
                     callback(*args)
                 except Exception as e:
-                    # Log the error but don't let it crash the watcher
                     logging.error(f"Error in directory watcher callback: {e}", exc_info=True)
-            
-            def on_created(_, event):
+
+            def on_created(self, event):
                 if not event.is_directory:
-                    _._safe_callback(self.event_handler, 'created', event.src_path)
-                    
-            def on_modified(_, event):
+                    self._safe_callback(event_handler, 'created', event.src_path)
+
+            def on_modified(self, event):
                 if not event.is_directory:
-                    _._safe_callback(self.event_handler, 'modified', event.src_path)
+                    self._safe_callback(event_handler, 'modified', event.src_path)
 
         try:
             self.observer = Observer()
