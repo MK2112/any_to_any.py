@@ -70,12 +70,14 @@ class DirectoryWatcher:
         return self._running and self.observer is not None and self.observer.is_alive()
 
     def watch(self, interval: float = 1.0) -> None:
-        # Start watching and block until KeyboardInterrupt
-        self.start()
-        try:
-            while self.is_running():
+        while True:
+            try:
+                self.start()
+                while self.is_running():
+                    time.sleep(interval)
+            except KeyboardInterrupt:
+                break
+            except Exception as e:
+                logging.warning(f"Watcher error, restarting in {interval}s: {e}")
                 time.sleep(interval)
-        except KeyboardInterrupt:
-            pass
-        finally:
-            self.stop()
+        self.stop()
