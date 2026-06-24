@@ -576,7 +576,7 @@ class ImageConverter:
                 total=total_images,
                 unit="img",
                 leave=False,
-                disable=not getattr(self, "verbose", True),  # Respect verbosity setting
+                disable=False,
             )
 
             try:
