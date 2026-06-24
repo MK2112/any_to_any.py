@@ -31,9 +31,11 @@ app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 _csrf_tokens = {}
 _csrf_lock = threading.Lock()
 
-def generate_csrf_token():
+def get_csrf_token():
     session_id = session.sid if hasattr(session, 'sid') else request.remote_addr
     with _csrf_lock:
+        if session_id in _csrf_tokens:
+            return _csrf_tokens[session_id]
         token = secrets.token_hex(32)
         _csrf_tokens[session_id] = token
         return token
@@ -48,7 +50,7 @@ def validate_csrf_token(token):
 
 @app.context_processor
 def inject_csrf_token():
-    return {"csrf_token": generate_csrf_token()}
+    return {"csrf_token": get_csrf_token()}
 
 # Security headers
 @app.after_request
