@@ -53,8 +53,6 @@ class MovieConverter:
             # If this variable doesn't exist, flag wasn't invoked: Default to 1
             env_workers = 1
 
-        pngs, bmps, jpgs, webps = [], [], [], []
-
         # Helper for per-GIF conversion to video
         def _gif_to_video(image_path_set: tuple):
             clip = None
@@ -85,50 +83,33 @@ class MovieConverter:
                 if clip:
                     clip.close()
 
-        # Collect image items first, dispatch GIFs in parallel
-        gif_items = []
+        img_lists = {"png":  [], "jpeg": [], "jpg":  [],
+                       "bmp":  [], "webp": [], "gif":  []}
+
         for image_path_set in file_paths[Category.IMAGE]:
-            # Depending on the format, different fragmentation is required
+            target_list = img_lists.get(image_path_set[2])
             if image_path_set[2] == "gif":
-                gif_items.append(image_path_set)
-            elif image_path_set[2] == "png":
-                pngs.append((
-                    ImageClip(
-                        self.file_handler.join_back(image_path_set)
-                    ).with_duration(1 / 24 if framerate is None else 1 / framerate),
-                    image_path_set[1])
-                )
-            elif image_path_set[2] == "jpeg" or image_path_set[2] == "jpg":
-                jpgs.append((
-                    ImageClip(
-                        self.file_handler.join_back(image_path_set)
-                    ).with_duration(1 / 24 if framerate is None else 1 / framerate),
-                    image_path_set[1])
-                )
-            elif image_path_set[2] == "bmp":
-                bmps.append((
-                    ImageClip(
-                        self.file_handler.join_back(image_path_set)
-                    ).with_duration(1 / 24 if framerate is None else 1 / framerate),
-                    image_path_set[1])
-                )
-            elif image_path_set[2] == "webp":
-                webps.append((
-                    ImageClip(
-                        self.file_handler.join_back(image_path_set)
-                    ).with_duration(1 / 24 if framerate is None else 1 / framerate),
-                    image_path_set[1])
+                target_list.append(image_path_set)
+                continue
+            if target_list is not None:
+                target_list.append(
+                    (
+                        ImageClip(
+                            self.file_handler.join_back(image_path_set)
+                        ).with_duration(1 / (framerate or 24)),
+                        image_path_set[1],
+                    )
                 )
             # No post_process here, we just accumulated for processing if not .gif
 
-        if len(gif_items) == 1:
-            res = _gif_to_video(gif_items[0])
+        if len(img_lists["gif"]) == 1:
+            res = _gif_to_video(img_lists["gif"][0])
             if res is not None:
                 src, out_path = res
                 self.file_handler.post_process(src, out_path, delete)
-        elif len(gif_items) > 1:
+        elif len(img_lists["gif"]) > 1:
             with ThreadPoolExecutor(max_workers=env_workers) as ex:
-                futures = [ex.submit(_gif_to_video, g) for g in gif_items]
+                futures = [ex.submit(_gif_to_video, g) for g in img_lists["gif"]]
                 for fut in as_completed(futures):
                     res = fut.result()
                     if res is None:
@@ -137,7 +118,7 @@ class MovieConverter:
                     self.file_handler.post_process(src, out_path, delete)
 
         # Pics to movie
-        all_pics = pngs + jpgs + bmps + webps
+        all_pics = [clip_tuple for key in img_lists for clip_tuple in img_lists[key]]
         # 4.jpg, 47.jpg, 1.png, 8.png -> 1.png, 4.jpg, 8.png, 47.jpg
         all_pics.sort(key=lambda clip: clip[1])
 
