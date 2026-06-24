@@ -520,7 +520,7 @@ class ImageConverter:
                 )
             if doc_path_set[2] == "pdf":
                 pdf_path = self.file_handler.join_back(doc_path_set)
-                bmp_path = os.path.abspath(
+                webp_path = os.path.abspath(
                     os.path.join(output, f"{doc_path_set[1]}.{format}")
                 )
                 doc = fitz.open(pdf_path)
@@ -547,7 +547,7 @@ class ImageConverter:
                         format=format,
                     )
                 doc.close()
-                self.file_handler.post_process(doc_path_set, bmp_path, delete)
+                self.file_handler.post_process(doc_path_set, webp_path, delete)
 
     def to_gif(
         self,
