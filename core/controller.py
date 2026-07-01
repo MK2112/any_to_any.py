@@ -396,9 +396,9 @@ class Controller:
                     f"[!] {lang.get_translation('error', self.locale)}: {lang.get_translation('no_dir_exist', self.locale).replace('[dir]', f'{input_path}')}",
                 )
             self.input = Path(input_path)
-            self.output = Path(self.output)
+            self.output = Path(self.output) if self.output is not None else None
 
-            if not self.output:
+            if self.output is None:
                 end_with_msg(
                     self.event_logger,
                     ValueError,
@@ -591,7 +591,7 @@ class Controller:
 
                         # Process the file
                         file_paths = dropzone_controller.file_handler.get_file_paths(
-                            [file_path]
+                            file_path
                         )
                         if file_paths:
                             try:
@@ -913,11 +913,15 @@ class Controller:
         # If only a video file is provided, look for a matching audio file in the same directory
         found_audio = False
         audio_exts = list(self._supported_formats[Category.AUDIO].keys())
-        
+
         try:
             total_movies = len(file_paths[Category.MOVIE])
         except KeyError:
-            end_with_msg(event_logger=self.event_logger, exception=None, msg=f"[!] {lang.get_translation('error', self.locale)}: {lang.get_translation('merge_advice', self.locale)}.")
+            end_with_msg(
+                event_logger=self.event_logger,
+                exception=None,
+                msg=f"[!] {lang.get_translation('error', self.locale)}: {lang.get_translation('merge_advice', self.locale)}.",
+            )
 
         processed_movies = 0
 
