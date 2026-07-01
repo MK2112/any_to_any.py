@@ -83,8 +83,7 @@ class MovieConverter:
                 if clip:
                     clip.close()
 
-        img_lists = {"png":  [], "jpeg": [], "jpg":  [],
-                       "bmp":  [], "webp": [], "gif":  []}
+        img_lists = {"png": [], "jpeg": [], "jpg": [], "bmp": [], "webp": [], "gif": []}
 
         for image_path_set in file_paths[Category.IMAGE]:
             target_list = img_lists.get(image_path_set[2])
@@ -117,13 +116,15 @@ class MovieConverter:
                     src, out_path = res
                     self.file_handler.post_process(src, out_path, delete)
 
-        # Pics to movie
-        all_pics = [clip_tuple for key in img_lists for clip_tuple in img_lists[key]]
-        # 4.jpg, 47.jpg, 1.png, 8.png -> 1.png, 4.jpg, 8.png, 47.jpg
+        # Pics to movie, exclude gifs, already individually converted
+        non_gif_keys = [k for k in img_lists if k != "gif"]
+        all_pics = [clip_tuple for key in non_gif_keys for clip_tuple in img_lists[key]]
         all_pics.sort(key=lambda clip: clip[1])
 
         if len(all_pics) > 0:
-            final_clip = concatenate_videoclips([clip[0] for clip in all_pics], method="compose")
+            final_clip = concatenate_videoclips(
+                [clip[0] for clip in all_pics], method="compose"
+            )
             out_path = self.file_handler._resolve_output_file_conflict(
                 os.path.abspath(os.path.join(output, f"merged.{format}"))
             )
