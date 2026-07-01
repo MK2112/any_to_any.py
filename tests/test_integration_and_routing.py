@@ -4,6 +4,7 @@ import argparse
 import utils.language_support as lang
 from unittest import mock
 from core.utils.exit import end_with_msg
+from core.utils.file_handler import FileHandler
 from tests.test_fixtures import controller_instance
 
 
@@ -69,6 +70,20 @@ def setup_converter(controller_instance, output_dir):
     )()
     controller_instance.process_file_paths = mock.MagicMock()
     return controller_instance
+
+
+def test_get_file_paths_accepts_file_string(controller_instance, tmp_path):
+    file = tmp_path / "test.mp3"
+    file.write_bytes(b"\x00" * 128)
+    result = controller_instance.file_handler.get_file_paths(
+        str(file), supported_formats=controller_instance._supported_formats
+    )
+    assert len(result) > 0
+    assert any(
+        path[1] == "test" and path[2] == "mp3"
+        for paths in result.values()
+        for path in paths
+    )
 
 
 def test_watch_dropzone_nonexistent_dir(controller_instance, caplog):

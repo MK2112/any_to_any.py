@@ -38,3 +38,30 @@ def test_join_back_method(controller_instance, test_input_folder):
     assert controller_instance.file_handler.join_back(file_path_set) == str(
         test_input_folder / "test_file.mp4"
     )
+
+
+def test_multi_input_no_output_does_not_crash(controller_instance, tmp_path):
+    d1 = tmp_path / "dir1"
+    d2 = tmp_path / "dir2"
+    d1.mkdir()
+    d2.mkdir()
+    (d1 / "a.mp3").write_bytes(b"\x00" * 128)
+    (d2 / "b.mp3").write_bytes(b"\x00" * 128)
+
+    with pytest.raises(ValueError):
+        controller_instance.run(
+            input_path_args=[str(d1), str(d2)],
+            format="wav",
+            output=None,
+            framerate=None,
+            quality=None,
+            split=None,
+            merge=False,
+            concat=False,
+            delete=False,
+            across=False,
+            recursive=False,
+            dropzone=False,
+            language=None,
+            workers=1,
+        )

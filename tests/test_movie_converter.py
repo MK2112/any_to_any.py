@@ -152,6 +152,7 @@ def test_to_protocol_dash_fails(mock_run, mock_converter):
         )
         mock_end.assert_called()
 
+
 def test_to_movie_no_images_no_movies(mock_converter):
     # No exceptions when no inputs provided, graceful handling instead
     mock_converter.to_movie(
@@ -164,3 +165,113 @@ def test_to_movie_no_images_no_movies(mock_converter):
         codec="libx264",
         delete=False,
     )
+
+
+@patch("core.converter.movie_converter.VideoFileClip")
+@patch("core.converter.movie_converter.ImageClip")
+@patch("core.converter.movie_converter.concatenate_videoclips")
+def test_to_movie_gif_excluded_from_merged_video(
+    mock_concat, mock_imageclip, mock_vfc, mock_converter
+):
+    img_clip = MagicMock()
+    mock_imageclip.return_value.with_duration.return_value = img_clip
+    final_clip = MagicMock()
+    mock_concat.return_value = final_clip
+
+    mock_converter.file_handler.join_back.side_effect = [
+        "dir/photo.jpg",
+        "dir/animation.gif",
+    ]
+
+    mock_converter.to_movie(
+        input="in",
+        output="out",
+        recursive=False,
+        file_paths={
+            Category.IMAGE: [
+                ("dir", "photo", "jpg"),
+                ("dir", "animation", "gif"),
+            ],
+            Category.MOVIE: [],
+            Category.DOCUMENT: [],
+        },
+        format="mp4",
+        framerate=24,
+        codec="libx264",
+        delete=False,
+    )
+
+    # Only the jpg (non-gif) should be passed to concatenate_videoclips
+    concat_args = mock_concat.call_args[0][0]
+    assert len(concat_args) == 1, "GIF should be excluded from merged clip"
+
+
+@patch("core.converter.movie_converter.VideoFileClip")
+def test_to_movie_only_gifs_skips_merge(mock_vfc, mock_converter):
+    mock_clip = MagicMock()
+    mock_vfc.return_value = mock_clip
+    mock_converter.file_handler.join_back.return_value = "dir/anim.gif"
+
+    mock_converter.to_movie(
+        input="in",
+        output="out",
+        recursive=False,
+        file_paths={
+            Category.IMAGE: [("dir", "anim", "gif")],
+            Category.MOVIE: [],
+            Category.DOCUMENT: [],
+        },
+        format="mp4",
+        framerate=24,
+        codec="libx264",
+        delete=False,
+    )
+
+    # GIF should be individually converted, no merged video created
+    mock_vfc.assert_called_once()
+    mock_clip.write_videofile.assert_called_once()
+
+
+@patch("core.converter.movie_converter.VideoFileClip")
+def test_to_movie_gif_plus_png_and_jpg(mock_vfc, mock_converter):
+    img_clip = MagicMock()
+    mock_converter.file_handler.join_back.side_effect = [
+        "dir/img1.png",
+        "dir/img2.jpg",
+        "dir/anim.gif",
+    ]
+    mock_clip = MagicMock()
+    mock_vfc.return_value = mock_clip
+
+    with patch("core.converter.movie_converter.ImageClip") as mock_ic:
+        with patch(
+            "core.converter.movie_converter.concatenate_videoclips"
+        ) as mock_concat:
+            mock_ic.return_value.with_duration.return_value = img_clip
+            final_clip = MagicMock()
+            mock_concat.return_value = final_clip
+
+            mock_converter.to_movie(
+                input="in",
+                output="out",
+                recursive=False,
+                file_paths={
+                    Category.IMAGE: [
+                        ("dir", "img1", "png"),
+                        ("dir", "img2", "jpg"),
+                        ("dir", "anim", "gif"),
+                    ],
+                    Category.MOVIE: [],
+                    Category.DOCUMENT: [],
+                },
+                format="mp4",
+                framerate=24,
+                codec="libx264",
+                delete=False,
+            )
+
+            # Only png and jpg should be in the merged clip, not the gif
+            concat_args = mock_concat.call_args[0][0]
+            assert len(concat_args) == 2
+            # GIF individual conversion still happens
+            mock_vfc.assert_called_once()

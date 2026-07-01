@@ -2,6 +2,7 @@ import os
 import pytest
 
 from datetime import datetime
+from unittest import mock
 from unittest.mock import Mock, patch, MagicMock
 from core.controller import Controller
 from core.utils.metadata_handler import MetadataHandler
@@ -114,7 +115,7 @@ class TestCustomTagParsing:
 class TestMetadataExtraction:
     def test_extract_metadata_audio(self, metadata_handler, mock_audio_file):
         # Test audio metadata extraction
-        with patch.object(metadata_handler, 'extract_audio_metadata') as mock_extract:
+        with patch.object(metadata_handler, "extract_audio_metadata") as mock_extract:
             mock_extract.return_value = {
                 "format": "audio",
                 "extracted_at": datetime.now().isoformat(),
@@ -127,7 +128,7 @@ class TestMetadataExtraction:
 
     def test_extract_metadata_image(self, metadata_handler, mock_image_file):
         # Test image metadata extraction
-        with patch.object(metadata_handler, 'extract_image_metadata') as mock_extract:
+        with patch.object(metadata_handler, "extract_image_metadata") as mock_extract:
             mock_extract.return_value = {
                 "format": "image",
                 "extracted_at": datetime.now().isoformat(),
@@ -140,13 +141,17 @@ class TestMetadataExtraction:
 
     def test_extract_metadata_document(self, metadata_handler, mock_document_file):
         # Test document metadata extraction
-        with patch.object(metadata_handler, 'extract_document_metadata') as mock_extract:
+        with patch.object(
+            metadata_handler, "extract_document_metadata"
+        ) as mock_extract:
             mock_extract.return_value = {
                 "format": "document",
                 "extracted_at": datetime.now().isoformat(),
                 "tags": {"pages": 10, "author": "Test Author"},
             }
-            result = metadata_handler.extract_metadata(str(mock_document_file), "document")
+            result = metadata_handler.extract_metadata(
+                str(mock_document_file), "document"
+            )
             assert result["format"] == "document"
             assert "tags" in result
             mock_extract.assert_called_once_with(str(mock_document_file))
@@ -162,19 +167,17 @@ class TestMetadataStorage:
     def test_save_metadata(self, metadata_handler, temp_metadata_dir):
         # Test saving metadata to JSON file
         metadata_handler.set_metadata_dir(str(temp_metadata_dir))
-        
+
         test_metadata = {
             "format": "audio",
             "extracted_at": datetime.now().isoformat(),
             "tags": {"title": "Test Song", "artist": "Test Artist"},
         }
-        
+
         result = metadata_handler.save_metadata(
-            "input.mp3",
-            test_metadata,
-            "output.wav"
+            "input.mp3", test_metadata, "output.wav"
         )
-        
+
         assert result is not None
         assert os.path.exists(result)
         assert "output.metadata.json" in result
@@ -182,22 +185,22 @@ class TestMetadataStorage:
     def test_save_metadata_without_directory(self, metadata_handler):
         # Test saving metadata without setting directory
         test_metadata = {"format": "audio", "tags": {}}
-        result = metadata_handler.save_metadata("input.mp3", test_metadata, "output.wav")
+        result = metadata_handler.save_metadata(
+            "input.mp3", test_metadata, "output.wav"
+        )
         assert result is None
 
     def test_load_metadata(self, metadata_handler, temp_metadata_dir):
         # Test loading metadata from JSON file
         metadata_handler.set_metadata_dir(str(temp_metadata_dir))
-        
+
         test_metadata = {
             "format": "audio",
             "extracted_at": datetime.now().isoformat(),
             "tags": {"title": "Test", "duration": 120},
         }
         save_path = metadata_handler.save_metadata(
-            "input.mp3",
-            test_metadata,
-            "output.wav"
+            "input.mp3", test_metadata, "output.wav"
         )
         loaded = metadata_handler.load_metadata(save_path)
         assert loaded["format"] == "audio"
@@ -244,15 +247,16 @@ class TestMetadataApplication:
             "format": "document",
             "tags": {"title": "Test"},
         }
-        result = metadata_handler.apply_metadata_to_file(str(unsupported_file), metadata)
+        result = metadata_handler.apply_metadata_to_file(
+            str(unsupported_file), metadata
+        )
         assert result is False
 
     def test_apply_metadata_nonexistent_file(self, metadata_handler):
         # Test applying metadata to nonexistent file
         metadata = {"format": "audio", "tags": {}}
         result = metadata_handler.apply_metadata_to_file(
-            "/nonexistent/file.mp3",
-            metadata
+            "/nonexistent/file.mp3", metadata
         )
         assert result is False
 
@@ -260,16 +264,16 @@ class TestMetadataApplication:
         # Test applying ID3 tags to audio file (mocked)
         audio_file = tmp_path / "test.mp3"
         audio_file.touch()
-        
+
         metadata = {
             "format": "audio",
             "tags": {
                 "title": "Test Song",
                 "artist": "Test Artist",
                 "album": "Test Album",
-            }
+            },
         }
-        
+
         # Test that method handles the file without raising exception
         # Actual behavior depends on mutagen availability
         try:
@@ -291,7 +295,7 @@ class TestMetadataStripping:
         # Test stripping metadata from unsupported type
         doc_file = tmp_path / "document.txt"
         doc_file.touch()
-        
+
         result = metadata_handler.strip_metadata(str(doc_file), "document")
         assert result is False
 
@@ -299,22 +303,78 @@ class TestMetadataStripping:
 class TestIntegrationWithController:
     def test_controller_has_metadata_handler(self, controller_instance):
         # Test that controller initializes metadata handler
-        assert hasattr(controller_instance, 'metadata_handler')
+        assert hasattr(controller_instance, "metadata_handler")
         assert isinstance(controller_instance.metadata_handler, MetadataHandler)
 
     def test_controller_metadata_flags_initialization(self, controller_instance):
         # Test that controller initializes metadata flags
-        assert hasattr(controller_instance, 'preserve_meta')
-        assert hasattr(controller_instance, 'custom_tags')
-        assert hasattr(controller_instance, 'strip_meta')
+        assert hasattr(controller_instance, "preserve_meta")
+        assert hasattr(controller_instance, "custom_tags")
+        assert hasattr(controller_instance, "strip_meta")
         assert controller_instance.preserve_meta is False
         assert controller_instance.custom_tags == {}
         assert controller_instance.strip_meta is False
 
     def test_controller_handle_metadata_method(self, controller_instance):
         # Test that controller has metadata handling method
-        assert hasattr(controller_instance, '_handle_metadata')
+        assert hasattr(controller_instance, "_handle_metadata")
         assert callable(controller_instance._handle_metadata)
+
+    def test_handle_metadata_returns_early_when_no_flags(
+        self, controller_instance, tmp_path
+    ):
+        controller_instance.preserve_meta = False
+        controller_instance.custom_tags = {}
+        controller_instance.strip_meta = False
+        result = controller_instance._handle_metadata(
+            str(tmp_path / "input.mp3"),
+            str(tmp_path / "output.mp3"),
+            "audio",
+        )
+        assert result is None
+
+    def test_handle_metadata_strip_meta_calls_handler(
+        self, controller_instance, tmp_path
+    ):
+        controller_instance.preserve_meta = False
+        controller_instance.custom_tags = {}
+        controller_instance.strip_meta = True
+        with mock.patch.object(
+            controller_instance.metadata_handler, "strip_metadata"
+        ) as mock_strip:
+            controller_instance._handle_metadata(
+                str(tmp_path / "input.mp3"),
+                str(tmp_path / "output.mp3"),
+                "audio",
+            )
+            mock_strip.assert_called_once_with(str(tmp_path / "output.mp3"), "audio")
+
+    def test_handle_metadata_preserve_calls_extract_and_save(
+        self, controller_instance, tmp_path
+    ):
+        controller_instance.preserve_meta = True
+        controller_instance.strip_meta = False
+        controller_instance.custom_tags = {}
+        with (
+            mock.patch.object(
+                controller_instance.metadata_handler, "extract_metadata"
+            ) as mock_extract,
+            mock.patch.object(
+                controller_instance.metadata_handler, "save_metadata"
+            ) as mock_save,
+            mock.patch.object(
+                controller_instance.metadata_handler, "apply_metadata_to_file"
+            ) as mock_apply,
+        ):
+            mock_extract.return_value = {"format": "audio", "tags": {}}
+            controller_instance._handle_metadata(
+                str(tmp_path / "input.mp3"),
+                str(tmp_path / "output.mp3"),
+                "audio",
+            )
+            mock_extract.assert_called_once_with(str(tmp_path / "input.mp3"), "audio")
+            mock_save.assert_called_once()
+            mock_apply.assert_called_once()
 
 
 class TestMetadataHandlerEdgeCases:
@@ -341,7 +401,9 @@ class TestMetadataHandlerEdgeCases:
         assert result["artist"] == "Künstler"
         assert result["comment"] == "Ñoño"
 
-    def test_save_and_load_metadata_with_special_chars(self, metadata_handler, temp_metadata_dir):
+    def test_save_and_load_metadata_with_special_chars(
+        self, metadata_handler, temp_metadata_dir
+    ):
         # Test saving and loading metadata with special characters
         metadata_handler.set_metadata_dir(str(temp_metadata_dir))
         special_metadata = {
@@ -352,13 +414,11 @@ class TestMetadataHandlerEdgeCases:
                 "special": "!@#$%^&*()",
             },
         }
-        
+
         save_path = metadata_handler.save_metadata(
-            "input.mp3",
-            special_metadata,
-            "output.wav"
+            "input.mp3", special_metadata, "output.wav"
         )
-        
+
         loaded = metadata_handler.load_metadata(save_path)
         assert loaded["tags"]["title"] == "日本語テスト"
         assert loaded["tags"]["artist"] == "Künstler"
@@ -395,10 +455,10 @@ class TestMetadataHandlerFileOperations:
         metadata2 = {"format": "audio", "tags": {"version": 2}}
         path1 = metadata_handler.save_metadata("input.mp3", metadata1, "output.wav")
         path2 = metadata_handler.save_metadata("input.mp3", metadata2, "output.wav")
-        
+
         # Should be same path
         assert path1 == path2
-        
+
         # Load and verify it's the new version
         loaded = metadata_handler.load_metadata(path2)
         assert loaded["tags"]["version"] == 2
