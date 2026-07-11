@@ -460,6 +460,8 @@ class Controller:
                 for fmt in formats:
                     self.target_format = fmt.lower() if fmt else None
                     self.process_file_paths(file_paths)
+                if self.merging or self.concatenating:
+                    self.process_file_paths(file_paths)
                 found_files = len(file_paths) > 0 if not found_files else found_files
                 file_paths = {}
 
@@ -481,9 +483,6 @@ class Controller:
                 f"{lang.get_translation('no_media_general', self.locale)}"
             )
 
-        if self.merging:
-            self.process_file_paths(file_paths)
-
         self.event_logger.info(
             f"[+] {lang.get_translation('job_finished', self.locale)}"
         )
@@ -493,7 +492,7 @@ class Controller:
         if self.merging:
             self.merge(file_paths, getattr(self, "across", False))
         elif self.concatenating:
-            self.concat(file_paths, self.target_format)
+            self.concat(file_paths, getattr(self, "target_format", None))
         elif self.target_format in self._fmt_movie_keys:
             self.movie_converter.to_movie(
                 input=self.input,
@@ -702,7 +701,7 @@ class Controller:
                     page_ranges=page_ranges,
                 )
 
-    def concat(self, file_paths: dict, format: str) -> None:
+    def concat(self, file_paths: dict, format: str = None) -> None:
         # Concat files of same type (img/movie/audio) back to back
         # Concat audio files
         if file_paths[Category.AUDIO] and (
@@ -783,9 +782,8 @@ class Controller:
                     doc_path_set if doc_path_set[2] == "pdf" else None
                     for doc_path_set in file_paths[Category.DOCUMENT]
                 ],
-                key=lambda x: x[1] if x else "",  # Handle None values
+                key=lambda x: x[1] if x else "",
             )
-            pdfs = [pdf for pdf in pdfs if pdf is not None]
 
             srt_out_path = os.path.join(self.output, "concatenated_subtitles.srt")
             srts = sorted(
