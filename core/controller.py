@@ -477,6 +477,8 @@ class Controller:
             for fmt in formats:
                 self.target_format = fmt.lower() if fmt else None
                 self.process_file_paths(file_paths)
+            if self.merging or self.concatenating:
+                self.process_file_paths(file_paths)
 
         if (across and len(file_paths) == 0) or not found_files:
             self.event_logger.warning(
