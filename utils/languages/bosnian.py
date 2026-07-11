@@ -108,4 +108,5 @@ BOSNIAN = {
     "quality": "Kvalitet",
     "show_folder_on_completion": "Prikaži izlazni folder po završetku",
     "merge_advice": "Spajanje radi samo sa video i audio datotekama",
+    "no_format_selected": "Nije odabran format",
 }

@@ -108,4 +108,5 @@ FINNISH = {
     "quality": "Laatu",
     "show_folder_on_completion": "Näytä tulostuskansio valmistumisen jälkeen",
     "merge_advice": "Yhdistäminen toimii vain video- ja äänitiedostojen kanssa",
+    "no_format_selected": "Muotoa ei ole valittu",
 }

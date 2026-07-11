@@ -108,4 +108,5 @@ CZECH = {
     "quality": "Kvalita",
     "show_folder_on_completion": "Zobrazit výstupní složku po dokončení",
     "merge_advice": "Sloučení funguje pouze s video a audio soubory",
+    "no_format_selected": "Nebyl vybrán žádný formát",
 }

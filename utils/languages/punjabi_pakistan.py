@@ -108,4 +108,5 @@ PUNJABI_PAKISTAN = {
     "quality": "معیاری",
     "show_folder_on_completion": "مکمل ہونے پر آؤٹ پٹ فولڈر دکھائیں",
     "merge_advice": "مرج صرف ویڈیو اور آڈیو فائلوں کے ساتھ ہی کام کرتا ہے",
+    "no_format_selected": "کوئی فارمیٹ منتخب نہیں کیا گیا",
 }

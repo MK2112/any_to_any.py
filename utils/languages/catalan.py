@@ -108,4 +108,5 @@ CATALAN = {
     "quality": "Qualitat",
     "show_folder_on_completion": "Mostra la carpeta de sortida en finalitzar",
     "merge_advice": "La combinació només funciona amb fitxers de vídeo i àudio",
+    "no_format_selected": "No s'ha seleccionat cap format",
 }

@@ -108,4 +108,5 @@ ENGLISH = {
     "quality": "Quality",
     "show_folder_on_completion": "Show Output Folder When Done",
     "merge_advice": "Merging only works with movie files and audio files",
+    "no_format_selected": "No format selected",
 }

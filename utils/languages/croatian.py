@@ -108,4 +108,5 @@ CROATIAN = {
     "quality": "Kvaliteta",
     "show_folder_on_completion": "Prikaži izlaznu mapu po završetku",
     "merge_advice": "Spajanje radi samo s video i audio datotekama",
+    "no_format_selected": "Nije odabran format",
 }

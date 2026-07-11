@@ -108,4 +108,5 @@ SWEDISH = {
     "quality": "Kvalitet",
     "show_folder_on_completion": "Visa utdatamappen när klar",
     "merge_advice": "Sammanfogning fungerar endast med video- och ljudfiler",
+    "no_format_selected": "Inget format valt",
 }

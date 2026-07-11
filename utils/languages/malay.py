@@ -108,4 +108,5 @@ MALAY = {
     "quality": "Kualiti",
     "show_folder_on_completion": "Tunjukkan folder output apabila selesai",
     "merge_advice": "Penggabungan hanya berfungsi dengan fail video dan audio",
+    "no_format_selected": "Tiada format dipilih",
 }

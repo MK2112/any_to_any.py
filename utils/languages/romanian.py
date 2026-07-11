@@ -108,4 +108,5 @@ ROMANIAN = {
     "quality": "Calitate",
     "show_folder_on_completion": "Afișează folderul de ieșire la finalizare",
     "merge_advice": "Îmbinarea funcționează doar cu fișiere video și audio",
+    "no_format_selected": "Niciun format selectat",
 }

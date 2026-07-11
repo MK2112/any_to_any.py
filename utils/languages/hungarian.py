@@ -108,4 +108,5 @@ HUNGARIAN = {
     "quality": "Minőség",
     "show_folder_on_completion": "Kimeneti mappa megjelenítése befejezéskor",
     "merge_advice": "Az egyesítés csak videó- és hangfájlokkal működik",
+    "no_format_selected": "Nincs kiválasztott formátum",
 }

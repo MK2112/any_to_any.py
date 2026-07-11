@@ -108,4 +108,5 @@ DANISH = {
     "quality": "Kvalitet",
     "show_folder_on_completion": "Vis outputmappen når færdig",
     "merge_advice": "Fletning fungerer kun med video- og lydfiler",
+    "no_format_selected": "Intet format valgt",
 }

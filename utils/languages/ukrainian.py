@@ -108,4 +108,5 @@ UKRAINIAN = {
     "quality": "Якість",
     "show_folder_on_completion": "Показати папку виводу після завершення",
     "merge_advice": "Об’єднання працює лише з відео- та аудіофайлами",
+    "no_format_selected": "Формат не вибрано",
 }

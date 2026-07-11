@@ -108,4 +108,5 @@ FARSI = {
     "quality": "کیفیت",
     "show_folder_on_completion": "نمایش پوشه خروجی پس از اتمام",
     "merge_advice": "ادغام فقط با فایل‌های ویدیویی و صوتی کار می‌کند",
+    "no_format_selected": "هیچ قالبی انتخاب نشده است",
 }

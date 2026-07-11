@@ -108,4 +108,5 @@ NORWEGIAN = {
     "quality": "Kvalitet",
     "show_folder_on_completion": "Vis utdatamappen når ferdig",
     "merge_advice": "Sammenslåing fungerer kun med video- og lydfiler",
+    "no_format_selected": "Ingen format valgt",
 }

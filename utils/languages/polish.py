@@ -108,4 +108,5 @@ POLISH = {
     "quality": "Jakość",
     "show_folder_on_completion": "Pokaż folder wyjściowy po zakończeniu",
     "merge_advice": "Scalanie działa tylko z plikami wideo i audio",
+    "no_format_selected": "Nie wybrano formatu",
 }

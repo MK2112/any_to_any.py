@@ -108,4 +108,5 @@ GERMAN = {
     "quality": "Qualität",
     "show_folder_on_completion": "Ausgabeordner nach Abschluss anzeigen",
     "merge_advice": "Das Zusammenführen funktioniert nur mit Video- und Audiodateien",
+    "no_format_selected": "Kein Format ausgewählt",
 }

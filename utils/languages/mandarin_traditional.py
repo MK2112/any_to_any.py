@@ -108,4 +108,5 @@ MANDARIN_TRADITIONAL = {
     "quality": "質量",
     "show_folder_on_completion": "完成時顯示輸出資料夾",
     "merge_advice": "合併功能僅適用於影片檔案和音訊檔案",
+    "no_format_selected": "未選擇格式",
 }

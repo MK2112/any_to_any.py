@@ -108,4 +108,5 @@ INDONESIAN = {
     "quality": "Kualitas",
     "show_folder_on_completion": "Tampilkan folder output setelah selesai",
     "merge_advice": "Penggabungan hanya berfungsi dengan file video dan audio",
+    "no_format_selected": "Tidak ada format yang dipilih",
 }

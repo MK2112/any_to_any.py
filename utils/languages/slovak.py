@@ -108,4 +108,5 @@ SLOVAK = {
     "quality": "Kvalita",
     "show_folder_on_completion": "Zobraziť výstupný priečinok po dokončení",
     "merge_advice": "Zlúčenie funguje iba s video a audio súbormi",
+    "no_format_selected": "Nebol vybraný žiadny formátum",
 }

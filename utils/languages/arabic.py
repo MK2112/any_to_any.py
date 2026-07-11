@@ -108,4 +108,5 @@ ARABIC = {
     "quality": "الجودة",
     "show_folder_on_completion": "إظهار مجلد الإخراج عند الانتهاء",
     "merge_advice": "يعمل الدمج فقط مع ملفات الفيديو والصوت",
+    "no_format_selected": "لم يتم تحديد أي تنسيق",
 }

@@ -108,4 +108,5 @@ ITALIAN = {
     "quality": "Qualità",
     "show_folder_on_completion": "Mostra la cartella di output al termine",
     "merge_advice": "L'unione funziona solo con file video e audio",
+    "no_format_selected": "Nessun formato selezionato",
 }

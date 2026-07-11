@@ -108,4 +108,5 @@ SWAHILI = {
     "quality": "Ubora",
     "show_folder_on_completion": "Onyesha folda ya matokeo ikikamilika",
     "merge_advice": "Kuunganisha hufanya kazi tu na faili za video na sauti",
+    "no_format_selected": "Hakuna umbizo lililochaguliwa",
 }

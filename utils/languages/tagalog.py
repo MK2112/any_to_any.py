@@ -108,4 +108,5 @@ TAGALOG = {
     "quality": "Kalidad",
     "show_folder_on_completion": "Ipakita ang output folder kapag tapos na",
     "merge_advice": "Gumagana lamang ang pagsasama sa mga video at audio file",
+    "no_format_selected": "Walang napiling format",
 }

@@ -108,4 +108,5 @@ DUTCH = {
     "quality": "Kwaliteit",
     "show_folder_on_completion": "Toon de uitvoermap wanneer gereed",
     "merge_advice": "Samenvoegen werkt alleen met video- en audiobestanden",
+    "no_format_selected": "Geen formaat geselecteerd",
 }

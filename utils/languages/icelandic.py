@@ -108,4 +108,5 @@ ICELANDIC = {
     "quality": "Gæði",
     "show_folder_on_completion": "Sýna úttaksmöppu þegar lokið er",
     "merge_advice": "Sameining virkar aðeins með mynd- og hljóðskrám",
+    "no_format_selected": "Ekkert snið valið",
 }

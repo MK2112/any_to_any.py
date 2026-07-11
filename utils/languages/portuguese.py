@@ -108,4 +108,5 @@ PORTUGUESE = {
     "quality": "Qualidade",
     "show_folder_on_completion": "Mostrar a pasta de saída ao concluir",
     "merge_advice": "A fusão funciona apenas com ficheiros de vídeo e áudio",
+    "no_format_selected": "Nenhum formato selecionado",
 }

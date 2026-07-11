@@ -108,4 +108,5 @@ SERBIAN = {
     "quality": "Kvalitet",
     "show_folder_on_completion": "Prikaži izlazni folder po završetku",
     "merge_advice": "Spajanje radi samo sa video i audio fajlovima",
+    "no_format_selected": "Није изабран формат",
 }
