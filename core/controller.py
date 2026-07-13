@@ -786,6 +786,7 @@ class Controller:
                 ],
                 key=lambda x: x[1] if x else "",
             )
+            pdfs = [pdf for pdf in pdfs if pdf is not None]
 
             srt_out_path = os.path.join(self.output, "concatenated_subtitles.srt")
             srts = sorted(
