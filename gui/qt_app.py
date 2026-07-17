@@ -7,7 +7,6 @@ import platform
 import threading
 import subprocess
 from pathlib import Path
-import requests
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
 from PyQt6.QtGui import QShortcut, QKeySequence, QIcon, QPixmap, QPainter, QColor
 from PyQt6.QtWidgets import (
@@ -39,6 +38,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 import utils.language_support as lang
 from core.controller import Controller
 from utils.version import VERSION
+from utils.version_check import check_for_update
 
 if "--version" in sys.argv or "--self-test" in sys.argv:
     print(VERSION)
@@ -905,23 +905,6 @@ class MainWindow(QMainWindow):
 
     def open_help_dialog(self):
         HelpDialog(self, self.locale).exec()
-
-
-def check_for_update():
-    try:
-        url = "https://api.github.com/repos/MK2112/any_to_any.py/releases/latest"
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()
-        latest = response.json().get("tag_name", "").replace("v", "")
-        if not latest:
-            return None
-        local_parts = [int(x) for x in VERSION.split(".")]
-        latest_parts = [int(x) for x in latest.split(".")]
-        if latest_parts > local_parts:
-            return latest
-    except Exception:
-        pass
-    return None
 
 
 def main():
