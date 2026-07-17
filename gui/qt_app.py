@@ -7,6 +7,7 @@ import platform
 import threading
 import subprocess
 from pathlib import Path
+import requests
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
 from PyQt6.QtGui import QShortcut, QKeySequence, QIcon, QPixmap, QPainter, QColor
 from PyQt6.QtWidgets import (
@@ -92,7 +93,9 @@ class ConversionThread(QThread):
             )
 
             controller = Controller(
-                job_id=self.job_id, shared_progress_dict=self.shared_progress, is_web=True
+                job_id=self.job_id,
+                shared_progress_dict=self.shared_progress,
+                is_web=True,
             )
 
             if len(self.input_files) == 1:
@@ -904,12 +907,47 @@ class MainWindow(QMainWindow):
         HelpDialog(self, self.locale).exec()
 
 
+def check_for_update():
+    try:
+        url = "https://api.github.com/repos/MK2112/any_to_any.py/releases/latest"
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        latest = response.json().get("tag_name", "").replace("v", "")
+        if not latest:
+            return None
+        local_parts = [int(x) for x in VERSION.split(".")]
+        latest_parts = [int(x) for x in latest.split(".")]
+        if latest_parts > local_parts:
+            return latest
+    except Exception:
+        pass
+    return None
+
+
 def main():
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
     font = app.font()
     font.setPointSize(10)
     app.setFont(font)
+
+    latest = check_for_update()
+    if latest:
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Icon.Information)
+        msg.setWindowTitle("Update Available")
+        msg.setText(f"Version {latest} is available on GitHub.")
+        msg.setInformativeText(
+            f"You are running version {VERSION}. Would you like to visit the releases page?"
+        )
+        msg.setStandardButtons(
+            QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel
+        )
+        msg.setDefaultButton(QMessageBox.StandardButton.Ok)
+        if msg.exec() == QMessageBox.StandardButton.Ok:
+            import webbrowser
+
+            webbrowser.open("https://github.com/MK2112/any_to_any.py/releases")
 
     window = MainWindow()
     window.show()
