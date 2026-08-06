@@ -8,18 +8,19 @@ from watchdog.events import FileSystemEventHandler
 
 class DirectoryWatcher:
     # Watches for file system events in a directory and its subdirectories
-    def __init__(self, watch_path: str, event_handler: Callable, recursive: bool = True):
+    def __init__(
+        self, watch_path: str, event_handler: Callable, recursive: bool = True
+    ):
         self.watch_path = Path(watch_path).resolve()
         self.event_handler = event_handler
         self.recursive = recursive
         self.observer: Optional[Observer] = None
         self._running = False
 
-    def start(self) -> None:
-        # Start watching the directory
+    def start_watching(self) -> None:
         if self._running:
             return
-            
+
         event_handler = self.event_handler
 
         class Handler(FileSystemEventHandler):
@@ -27,19 +28,23 @@ class DirectoryWatcher:
                 try:
                     callback(*args)
                 except Exception as e:
-                    logging.error(f"Error in directory watcher callback: {e}", exc_info=True)
+                    logging.error(
+                        f"Error in directory watcher callback: {e}", exc_info=True
+                    )
 
             def on_created(self, event):
                 if not event.is_directory:
-                    self._safe_callback(event_handler, 'created', event.src_path)
+                    self._safe_callback(event_handler, "created", event.src_path)
 
             def on_modified(self, event):
                 if not event.is_directory:
-                    self._safe_callback(event_handler, 'modified', event.src_path)
+                    self._safe_callback(event_handler, "modified", event.src_path)
 
         try:
             self.observer = Observer()
-            self.observer.schedule(Handler(), str(self.watch_path), recursive=self.recursive)
+            self.observer.schedule(
+                Handler(), str(self.watch_path), recursive=self.recursive
+            )
             self.observer.start()
             self._running = True
         except Exception as e:
@@ -48,8 +53,7 @@ class DirectoryWatcher:
                 self.observer = None
             raise RuntimeError(f"Failed to start directory watcher: {e}")
 
-    def stop(self) -> None:
-        # Stop watching the directory
+    def stop_watching(self) -> None:
         if self.observer:
             self.observer.stop()
             self.observer.join()
@@ -57,22 +61,19 @@ class DirectoryWatcher:
         self._running = False
 
     def __enter__(self):
-        # Context manager entry
-        self.start()
+        self.start_watching()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        # Context manager exit
-        self.stop()
+        self.stop_watching()
 
     def is_running(self) -> bool:
-        # Check if the watcher is running
         return self._running and self.observer is not None and self.observer.is_alive()
 
     def watch(self, interval: float = 1.0) -> None:
         while True:
             try:
-                self.start()
+                self.start_watching()
                 while self.is_running():
                     time.sleep(interval)
             except KeyboardInterrupt:
@@ -80,4 +81,4 @@ class DirectoryWatcher:
             except Exception as e:
                 logging.warning(f"Watcher error, restarting in {interval}s: {e}")
                 time.sleep(interval)
-        self.stop()
+        self.stop_watching()
