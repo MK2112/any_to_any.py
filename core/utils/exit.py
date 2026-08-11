@@ -1,3 +1,4 @@
+import sys
 
 def end_with_msg(event_logger, exception: Exception, msg: str) -> None:
     # Single point of exit in the entire application
@@ -8,4 +9,4 @@ def end_with_msg(event_logger, exception: Exception, msg: str) -> None:
     else:
         # Normal exit
         event_logger.info(msg)
-        exit(0)
+        sys.exit(0)

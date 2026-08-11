@@ -1,5 +1,6 @@
 import time
 import logging
+
 from pathlib import Path
 from typing import Callable, Optional
 from watchdog.observers import Observer
