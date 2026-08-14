@@ -362,3 +362,193 @@ def test_gif_to_frames_creates_folder_and_files(
 
     gif_files = {Category.IMAGE: []}
     gif_to_frames(str(tmp_path), gif_files, fh)
+
+
+class TestSaveFormat:
+    def test_jpg_aliases_to_jpeg(self):
+        from core.converter.image_converter import _save_format
+
+        assert _save_format("jpg") == "JPEG"
+        assert _save_format("jpeg") == "JPEG"
+
+    def test_heif_family(self):
+        from core.converter.image_converter import _save_format
+
+        assert _save_format("heic") == "HEIF"
+        assert _save_format("heif") == "HEIF"
+        assert _save_format("avif") == "AVIF"
+
+    def test_unchanged_format(self):
+        from core.converter.image_converter import _save_format
+
+        assert _save_format("png") == "PNG"
+        assert _save_format("webp") == "WEBP"
+        assert _save_format("bmp") == "BMP"
+
+
+class TestToHeic:
+    # Test to_heic with in-memory image mocks
+    def test_jpeg_to_heic(self, tmp_path):
+        import numpy as np
+        from PIL import Image
+
+        img = Image.fromarray(
+            np.random.randint(0, 255, (64, 64, 3), dtype="uint8")
+        )
+        src = tmp_path / "photo.jpg"
+        img.save(str(src), format="JPEG")
+
+        file_paths = {
+            Category.IMAGE: [(str(tmp_path) + "/", "photo", "jpg")],
+            Category.MOVIE: [],
+            Category.DOCUMENT: [],
+            Category.AUDIO: [],
+        }
+        converter = ImageConverter(MagicMock(), MagicMock(), MagicMock(), "English")
+        converter.file_handler.join_back.return_value = str(src)
+        converter.file_handler.post_process = MagicMock()
+        converter.event_logger = MagicMock()
+        converter.file_handler._resolve_output_file_conflict = MagicMock(
+            side_effect=lambda x: x
+        )
+
+        converter.to_heic(
+            input=str(tmp_path),
+            output=str(tmp_path),
+            file_paths=file_paths,
+            supported_formats={Category.IMAGE: ["heic"]},
+            framerate=0,
+            format="heic",
+            delete=False,
+        )
+
+        out = tmp_path / "photo.heic"
+        assert out.exists()
+
+
+class TestHeicToFrames:
+    @pytest.fixture
+    def heic_src(self, tmp_path):
+        import numpy as np
+        import pillow_heif
+        from PIL import Image
+
+        pillow_heif.register_heif_opener()
+        img = Image.fromarray(
+            np.random.randint(0, 255, (64, 64, 3), dtype="uint8")
+        )
+        src = tmp_path / "photo.heic"
+        img.save(str(src), format="HEIF")
+        return src
+
+    def _converter(self, src):
+        converter = ImageConverter(MagicMock(), MagicMock(), MagicMock(), "English")
+        converter.file_handler.join_back.return_value = str(src)
+        converter.file_handler.post_process = MagicMock()
+        converter.event_logger = MagicMock()
+        converter.file_handler._resolve_output_file_conflict = MagicMock(
+            side_effect=lambda x: x
+        )
+        return converter
+
+    def test_heic_to_jpeg(self, tmp_path, heic_src):
+        converter = self._converter(heic_src)
+        file_paths = {
+            Category.IMAGE: [(str(tmp_path) + "/", "photo", "heic")],
+            Category.MOVIE: [],
+            Category.DOCUMENT: [],
+            Category.AUDIO: [],
+        }
+        converter.to_frames(
+            input=str(tmp_path),
+            output=str(tmp_path),
+            file_paths=file_paths,
+            supported_formats={Category.IMAGE: ["jpeg"]},
+            framerate=0,
+            format="jpeg",
+            delete=False,
+        )
+        assert (tmp_path / "photo.jpeg").exists()
+
+    def test_heic_to_png(self, tmp_path, heic_src):
+        converter = self._converter(heic_src)
+        file_paths = {
+            Category.IMAGE: [(str(tmp_path) + "/", "photo", "heic")],
+            Category.MOVIE: [],
+            Category.DOCUMENT: [],
+            Category.AUDIO: [],
+        }
+        converter.to_frames(
+            input=str(tmp_path),
+            output=str(tmp_path),
+            file_paths=file_paths,
+            supported_formats={Category.IMAGE: ["png"]},
+            framerate=0,
+            format="png",
+            delete=False,
+        )
+        assert (tmp_path / "photo.png").exists()
+
+
+class TestHeicToBmpAndWebp:
+    @pytest.fixture
+    def heic_src(self, tmp_path):
+        import numpy as np
+        import pillow_heif
+        from PIL import Image
+
+        pillow_heif.register_heif_opener()
+        img = Image.fromarray(
+            np.random.randint(0, 255, (64, 64, 3), dtype="uint8")
+        )
+        src = tmp_path / "photo.heic"
+        img.save(str(src), format="HEIF")
+        return src
+
+    def _converter(self, src):
+        converter = ImageConverter(MagicMock(), MagicMock(), MagicMock(), "English")
+        converter.file_handler.join_back.return_value = str(src)
+        converter.file_handler.post_process = MagicMock()
+        converter.event_logger = MagicMock()
+        converter.file_handler._resolve_output_file_conflict = MagicMock(
+            side_effect=lambda x: x
+        )
+        return converter
+
+    def test_heic_to_bmp(self, tmp_path, heic_src):
+        converter = self._converter(heic_src)
+        file_paths = {
+            Category.IMAGE: [(str(tmp_path) + "/", "photo", "heic")],
+            Category.MOVIE: [],
+            Category.DOCUMENT: [],
+            Category.AUDIO: [],
+        }
+        converter.to_bmp(
+            input=str(tmp_path),
+            output=str(tmp_path),
+            file_paths=file_paths,
+            supported_formats={Category.IMAGE: ["bmp"]},
+            framerate=0,
+            format="bmp",
+            delete=False,
+        )
+        assert (tmp_path / "photo.bmp").exists()
+
+    def test_heic_to_webp(self, tmp_path, heic_src):
+        converter = self._converter(heic_src)
+        file_paths = {
+            Category.IMAGE: [(str(tmp_path) + "/", "photo", "heic")],
+            Category.MOVIE: [],
+            Category.DOCUMENT: [],
+            Category.AUDIO: [],
+        }
+        converter.to_webp(
+            input=str(tmp_path),
+            output=str(tmp_path),
+            file_paths=file_paths,
+            supported_formats={Category.IMAGE: ["webp"]},
+            framerate=0,
+            format="webp",
+            delete=False,
+        )
+        assert (tmp_path / "photo.webp").exists()
