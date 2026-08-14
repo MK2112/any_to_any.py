@@ -14,6 +14,28 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+try:
+    import pillow_heif
+
+    pillow_heif.register_heif_opener()
+except ImportError:
+    pillow_heif = None
+
+_SAVE_FORMAT = {
+    "jpg": "JPEG",
+    "jpeg": "JPEG",
+    "heic": "HEIF",
+    "heif": "HEIF",
+    "avif": "AVIF",
+}
+
+
+def _save_format(format: str) -> str:
+    # Returning the pillow save format name for target format string (jpg -> jpeg, heic -> HEIF)
+    if format in _SAVE_FORMAT:
+        return _SAVE_FORMAT[format]
+    return format.upper()
+
 
 def office_to_frames(
     doc_path_set: tuple,
@@ -59,6 +81,7 @@ def office_to_frames(
             file_handler.post_process(doc_path_set, out_path, delete)
     except Exception as e:
         event_logger.error(e)
+
 
 def _max_workers() -> int:
     try:
@@ -154,7 +177,7 @@ class ImageConverter:
                     # Convert to RGB if needed (important for WebP to PNG)
                     if img.mode != "RGB":
                         img = img.convert("RGB")
-                    img.save(img_path, format=format.upper())
+                    img.save(img_path, format=_save_format(format))
 
                 # Verify the file was created before deleting source
                 if os.path.exists(img_path):
@@ -223,7 +246,7 @@ class ImageConverter:
                     pix = pdf_document[page_num].get_pixmap()
                     img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
                     img_file = img_path_pattern % (page_num + 1)
-                    img.save(img_file, format.upper())
+                    img.save(img_file, _save_format(format))
 
                 pdf_document.close()
                 self.file_handler.post_process(doc_path_set, img_path_pattern, delete)
@@ -319,7 +342,18 @@ class ImageConverter:
             ips
             for ips in file_paths[Category.IMAGE]
             if ips[2] != format
-            and ips[2] in ["png", "jpeg", "jpg", "tiff", "tga", "eps"]
+            and ips[2]
+            in [
+                "png",
+                "jpeg",
+                "jpg",
+                "tiff",
+                "tga",
+                "eps",
+                "heic",
+                "heif",
+                "avif",
+            ]
         ]
 
         def _convert_image_to_bmp(image_path_set: tuple):
@@ -348,7 +382,17 @@ class ImageConverter:
             # Pngs and gifs are converted to bmps as well
             if image_path_set[2] == format:
                 continue
-            if image_path_set[2] in ["png", "jpeg", "jpg", "tiff", "tga", "eps"]:
+            if image_path_set[2] in [
+                "png",
+                "jpeg",
+                "jpg",
+                "tiff",
+                "tga",
+                "eps",
+                "heic",
+                "heif",
+                "avif",
+            ]:
                 continue
             elif image_path_set[2] == "gif":
                 clip = VideoFileClip(self.file_handler.join_back(image_path_set))
@@ -458,7 +502,18 @@ class ImageConverter:
             ips
             for ips in file_paths[Category.IMAGE]
             if ips[2] != format
-            and ips[2] in ["png", "jpeg", "jpg", "tiff", "tga", "eps"]
+            and ips[2]
+            in [
+                "png",
+                "jpeg",
+                "jpg",
+                "tiff",
+                "tga",
+                "eps",
+                "heic",
+                "heif",
+                "avif",
+            ]
         ]
 
         def _convert_image_to_webp(image_path_set: tuple):
@@ -486,7 +541,17 @@ class ImageConverter:
         for image_path_set in file_paths[Category.IMAGE]:
             if image_path_set[2] == format:
                 continue
-            if image_path_set[2] in ["png", "jpeg", "jpg", "tiff", "tga", "eps"]:
+            if image_path_set[2] in [
+                "png",
+                "jpeg",
+                "jpg",
+                "tiff",
+                "tga",
+                "eps",
+                "heic",
+                "heif",
+                "avif",
+            ]:
                 continue
             elif image_path_set[2] == "gif":
                 clip = VideoFileClip(self.file_handler.join_back(image_path_set))
@@ -548,6 +613,94 @@ class ImageConverter:
                     )
                 doc.close()
                 self.file_handler.post_process(doc_path_set, webp_path, delete)
+
+    def to_heic(
+        self,
+        input: str,
+        output: str,
+        file_paths: dict,
+        supported_formats: dict,  # unused, aligns signature with to_frames, so keep it
+        framerate: int,
+        format: str,
+        delete: bool,
+    ) -> None:
+        # Convert still images, PDF and office documents to HEIF/HEIC/AVIF, not moviees tho
+        if pillow_heif is None:
+            self.event_logger.error(
+                f"[!] {lang.get_translation('error', self.locale)}: "
+                f"pillow-heif is required for {format} conversion. "
+                f"Install it with: pip install pillow-heif"
+            )
+            return
+
+        convertible_images = [
+            ips
+            for ips in file_paths[Category.IMAGE]
+            if ips[2] not in ["heic", "heif", "avif"]
+        ]
+
+        def _convert_image(ips: tuple) -> tuple:
+            heic_path = self.file_handler._resolve_output_file_conflict(
+                os.path.abspath(os.path.join(output, f"{ips[1]}.{format}"))
+            )
+            with Image.open(self.file_handler.join_back(ips)) as img:
+                if img.mode != "RGB":
+                    img = img.convert("RGB")
+                img.save(heic_path, format=_save_format(format))
+            return (ips, heic_path)
+
+        max_workers = _max_workers()
+        if len(convertible_images) <= 1 or max_workers == 1:
+            for ips in convertible_images:
+                src, heic_path = _convert_image(ips)
+                self.file_handler.post_process(src, heic_path, delete)
+        else:
+            with ThreadPoolExecutor(max_workers=max_workers) as ex:
+                futures = [ex.submit(_convert_image, ips) for ips in convertible_images]
+                for fut in as_completed(futures):
+                    src, heic_path = fut.result()
+                    self.file_handler.post_process(src, heic_path, delete)
+
+        # Documents can be converted to HEIC, e.g. contents of docx/pdf
+        for doc_path_set in file_paths[Category.DOCUMENT]:
+            if doc_path_set[2] == "docx":
+                office_to_frames(
+                    doc_path_set=doc_path_set,
+                    format=format,
+                    output=output,
+                    delete=delete,
+                    file_handler=self.file_handler,
+                    event_logger=self.event_logger,
+                )
+            if doc_path_set[2] == "pdf":
+                pdf_path = self.file_handler.join_back(doc_path_set)
+                heic_path = os.path.abspath(
+                    os.path.join(output, f"{doc_path_set[1]}.{format}")
+                )
+                doc = fitz.open(pdf_path)
+                if not os.path.exists(os.path.join(output, doc_path_set[1])):
+                    try:
+                        os.makedirs(
+                            os.path.join(output, doc_path_set[1]), exist_ok=True
+                        )
+                    except OSError as e:
+                        self.event_logger.info(
+                            f"[!] {lang.get_translation('error', self.locale)}: {e} - {lang.get_translation('set_out_dir', self.locale)} {input}"
+                        )
+                        output = input
+                for i, page_num in enumerate(range(len(doc))):
+                    pix = doc.load_page(page_num).get_pixmap()
+                    img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                    img.save(
+                        os.path.join(
+                            output,
+                            doc_path_set[1],
+                            f"{doc_path_set[1]}-{i:0{len(str(len(doc)))}}.{format}",
+                        ),
+                        format=_save_format(format),
+                    )
+                doc.close()
+                self.file_handler.post_process(doc_path_set, heic_path, delete)
 
     def to_gif(
         self,

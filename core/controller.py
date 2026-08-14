@@ -5,6 +5,7 @@ import time
 import logging
 import threading
 import utils.language_support as lang
+
 from pathlib import Path
 from utils.category import Category
 from utils.prog_logger import ProgLogger
@@ -113,6 +114,9 @@ class Controller:
                 "im": self.image_converter.to_frames,
                 "pcx": self.image_converter.to_frames,
                 "ppm": self.image_converter.to_frames,
+                "heic": self.image_converter.to_heic,
+                "heif": self.image_converter.to_heic,
+                "avif": self.image_converter.to_heic,
             },
             Category.DOCUMENT: {
                 "md": self.doc_converter.to_markdown,
