@@ -39,6 +39,9 @@
                 <div id="conversion-options">
                     <label for="conversion-type">{{ translations['convert_to'] }}:</label>
                     <select id="conversion-type">
+                        <optgroup label="{{ translations['resize_only'] }}">
+                            <option value="original">{{ translations['resolution_original'] }}</option>
+                        </optgroup>
                         {% for group in options %}
                         <optgroup label="{{ group.label }}">
                             {% for fmt in group.formats %}
@@ -47,10 +50,13 @@
                         </optgroup>
                         {% endfor %}
                     </select>
+                    <label style="margin-left: 2px;" id="conversion-resolution-label" for="conversion-resolution" title="{{ translations['resolution_help'] }}" hidden>{{ translations['resolution_label'] }}:</label>
+                    <select id="conversion-resolution" title="{{ translations['resolution_help'] }}" hidden></select>
                     <button title="{{ translations['convert_web_help'] }}" type="button" onclick="submitForm('/convert')">{{ translations['convert'] }}</button>
                     <button title="{{ translations['merge_web_help'] }}" type="button" onclick="submitForm('/merge')">{{ translations['merge'] }}</button>
                     <button title="{{ translations['concatenate_web_help'] }}" type="button" onclick="submitForm('/concat')">{{ translations['concatenate'] }}</button>
                 </div>
+                <script type="application/json" id="resolution-data">{{ resolution_data | tojson }}</script>
             </form>
             <div id="progress-container" style="display: none; margin-top: 1em;">
                 <div id="progress-bar" style="height: 24px; width: 0; background: #5cb050; transition: width 0.3s;"></div>

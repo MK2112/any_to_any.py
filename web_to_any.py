@@ -12,6 +12,8 @@ import utils.language_support as lang
 from functools import wraps
 from utils.version import VERSION
 from core.controller import Controller
+from core.utils.resolution import available_resolutions, normalize_resolution
+from utils.category import Category
 from datetime import datetime, timedelta
 from flask_uploads import UploadSet, configure_uploads, ALL
 from flask import Flask, render_template, request, send_file, jsonify, abort, session
@@ -187,12 +189,25 @@ def push_zip(source_path: str):
 def process_params() -> tuple:
     uploaded_files = request.files.getlist("files")
     fmt = request.form.get("conversionType")
-    
-    if not fmt or fmt not in controller.supported_formats:
+    resolution = request.form.get("resolution") or None
+
+    # 'original' means "keep the source format", used for resize-only jobs
+    if fmt == "original":
+        fmt = None
+    elif not fmt or fmt not in controller.supported_formats:
         abort(400, "Invalid format")
     if not uploaded_files or len(uploaded_files) > 50:
         abort(400, "No files or too many files")
-    
+    # A resize-only job (no format change) is meaningless without a resolution
+    if fmt is None and resolution is None:
+        abort(400, "A resolution is required for resize-only mode")
+    if resolution is not None:
+        resolution = normalize_resolution(
+            controller._RES_ALIASES, controller._RES_ALL, resolution
+        )
+        if resolution is None:
+            abort(400, "Invalid resolution")
+
     conv_key = os.urandom(4).hex()
     up_dir = f"{app.config['UPLOADED_FILES_DEST']}_{conv_key}"
     cv_dir = f"{app.config['CONVERTED_FILES_DEST']}_{conv_key}"
@@ -203,7 +218,7 @@ def process_params() -> tuple:
         if file and file.filename:
             safe_name = re.sub(r'[^\w\.\-]', '_', file.filename)
             file.save(os.path.join(up_dir, safe_name))
-    return fmt, up_dir, cv_dir, conv_key
+    return fmt, up_dir, cv_dir, conv_key, resolution
 
 
 @app.route("/")
@@ -211,6 +226,11 @@ def index():
     # Retrieve language from session (from browser), default to 'en_US'
     lang_code = session.get("language", "en_US")
     translations = lang.get_all_translations(lang.LANGUAGE_CODES[lang_code])
+    # Graceful fallback: any untranslated key resolves to its English text
+    translations = {
+        **lang.get_all_translations("English"),
+        **translations,
+    }
     grouped_options = []
     for category, mapping in controller._supported_formats.items():
         cat_name = str(category).split(".")[-1].replace("_", " ").title()
@@ -220,6 +240,24 @@ def index():
                 "formats": sorted(mapping.keys(), key=str.lower),
             }
         )
+    # Only movie formats, codecs and protocols accept resizing. Expose the per
+    # format allowed resolutions so the UI can constrain the choices up front.
+    resized_formats = {}
+    movie_resolutions = {}
+    for fmt in controller._fmt_movie_keys:
+        resolved = available_resolutions(
+            controller._supported_formats[Category.MOVIE], fmt
+        )
+        movie_resolutions[fmt] = resolved
+        resized_formats[fmt] = resolved
+    for fmt in controller._fmt_codec_keys:
+        resized_formats[fmt] = available_resolutions(
+            controller._supported_formats[Category.MOVIE_CODECS], fmt
+        )
+    for fmt in controller._fmt_protocol_keys:
+        resized_formats[fmt] = available_resolutions(
+            controller._supported_formats[Category.PROTOCOLS], fmt
+        )
     return render_template(
         "index.html",
         title=f"any_to_any.py {VERSION}",
@@ -227,6 +265,16 @@ def index():
         translations=translations,
         lang_code=lang_code,
         supported_languages=lang.LANGUAGE_CODES,
+        resolution_data={
+            "ladder": list(controller._STD_RES),
+            "formats": resized_formats,
+            "movies": movie_resolutions,
+            "strings": {
+                "resolution_original": translations["resolution_original"],
+                "resolution_required": translations["resolution_required"],
+                "movies_required": translations["resize_only_movies_required"],
+            },
+        },
     )
 
 
@@ -240,6 +288,7 @@ def send_to_backend(
     split_pattern: str,
     merge: bool,
     concat: bool,
+    resolution: str = None,
 ):
     job_id = getattr(controller_instance.prog_logger, "job_id", None)
     shared_dict = getattr(controller_instance.prog_logger, "shared_progress_dict", None)
@@ -281,7 +330,7 @@ def send_to_backend(
             preserve_meta=True,
             add_tag=False,
             strip_meta=False,
-            resolution=None,
+            resolution=resolution,
         )
 
         # Mark as done
@@ -333,11 +382,14 @@ def create_conversion_endpoint(merge: bool=False, concat: bool=False):
         if not csrf_token or not validate_csrf_token(csrf_token):
             abort(403, "Invalid CSRF token")
         
-        fmt, up_dir, cv_dir, job_id = process_params()
+        fmt, up_dir, cv_dir, job_id, resolution = process_params()
         # New controller instance for this job
         job_controller = create_controller(
             job_id=job_id, shared_progress_dict=shared_progress_dict
         )
+        # Merge/concat never apply a resolution; only conversions do
+        if merge or concat:
+            resolution = None
         # Start conversion in background thread
         thread = threading.Thread(
             target=send_to_backend,
@@ -351,6 +403,7 @@ def create_conversion_endpoint(merge: bool=False, concat: bool=False):
                 None,
                 merge,
                 concat,
+                resolution,
             ),
         )
         thread.start()

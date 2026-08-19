@@ -1,4 +1,6 @@
 // Language detection and forwarding
+let resolutionData = null;
+
 document.addEventListener('DOMContentLoaded', function() {
     // Only send if not already set in session (could check via a cookie or a hidden field)
     if (!window.sessionStorage.getItem('languageSet')) {
@@ -15,7 +17,82 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
+    // Resolution controls (the JSON block lives below in the body)
+    const dataEl = document.getElementById('resolution-data');
+    if (dataEl) {
+        resolutionData = JSON.parse(dataEl.textContent);
+        updateResolutionOptions();
+        document.getElementById('conversion-type').addEventListener('change', updateResolutionOptions);
+    }
 });
+
+// Populate the resolution dropdown with the given allowed values
+function buildResolutionOptions(allowed) {
+    const select = document.getElementById('conversion-resolution');
+    const previous = select.value;
+    select.innerHTML = '';
+    const keep = document.createElement('option');
+    keep.value = '';
+    keep.textContent = resolutionData.strings.resolution_original;
+    select.appendChild(keep);
+    allowed.forEach(res => {
+        const opt = document.createElement('option');
+        opt.value = res;
+        opt.textContent = res;
+        select.appendChild(opt);
+    });
+    // Keep the current choice only if it is still valid, otherwise reset
+    select.disabled = allowed.length === 0;
+    if (allowed.includes(previous)) {
+        select.value = previous;
+    }
+}
+
+// Valid movie extensions among the uploaded files
+function uploadedMovieExtensions() {
+    const exts = new Set();
+    uploadedFiles.forEach(file => {
+        const dot = file.name.lastIndexOf('.');
+        if (dot >= 0) {
+            const ext = file.name.slice(dot + 1).toLowerCase();
+            if (resolutionData.movies[ext]) exts.add(ext);
+        }
+    });
+    return exts;
+}
+
+// The resolution row is only shown when it can actually be applied
+function setResolutionRowVisible(visible) {
+    const select = document.getElementById('conversion-resolution');
+    const label = document.getElementById('conversion-resolution-label');
+    if (!visible) select.value = '';
+    select.hidden = !visible;
+    label.hidden = !visible;
+}
+
+// Refill the resolution dropdown for the currently selected target format
+function updateResolutionOptions() {
+    if (!resolutionData) return;
+    const format = document.getElementById('conversion-type').value;
+    if (format === 'original') {
+        // Resize-only: restrict to what the uploaded movies themselves allow
+        const exts = uploadedMovieExtensions();
+        const union = new Set();
+        exts.forEach(ext => resolutionData.movies[ext].forEach(r => union.add(r)));
+        if (union.size === 0) {
+            setResolutionRowVisible(false);
+            return;
+        }
+        const allowed = resolutionData.ladder.filter(r => union.has(r));
+        buildResolutionOptions(allowed);
+        setResolutionRowVisible(true);
+    } else {
+        const allowed = resolutionData.formats[format] || [];
+        buildResolutionOptions(allowed);
+        setResolutionRowVisible(allowed.length > 0);
+    }
+}
 
 // Accumulate all selected/dropped files in this array
 let uploadedFiles = [];
@@ -32,6 +109,18 @@ function submitForm(endpoint) {
         return;
     }
 
+    // Resize-only (keep the source format) requires a chosen resolution
+    if (conversionType === 'original' && resolutionData) {
+        const resolutionSelect = document.getElementById('conversion-resolution');
+        if (resolutionSelect.value === '') {
+            errorMessage.style.display = 'block';
+            errorMessage.textContent = resolutionSelect.hidden
+                ? resolutionData.strings.movies_required
+                : resolutionData.strings.resolution_required;
+            return;
+        }
+    }
+
     // Reset UI
     progressContainer.style.display = 'none';
     errorMessage.style.display = 'none';
@@ -42,6 +131,10 @@ function submitForm(endpoint) {
     if (csrfInput) formData.append('csrf_token', csrfInput.value);
     uploadedFiles.forEach(file => formData.append('files', file));
     formData.append('conversionType', conversionType);
+    // Merge/concat do not resize; only conversions apply a resolution
+    if (endpoint === '/convert') {
+        formData.append('resolution', document.getElementById('conversion-resolution').value);
+    }
 
     // Show loading state
     showLoader();
@@ -220,6 +313,9 @@ function handleFiles(files, fromInput) {
         li.textContent = f.name;
         fileList.appendChild(li);
     });
+
+    // Resize-only options depend on which movie formats were uploaded
+    updateResolutionOptions();
 }
 
 // Show the loader animation
