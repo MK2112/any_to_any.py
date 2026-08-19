@@ -120,34 +120,41 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--workers",
-        help="Maximum worker threads to use for per-file conversions (default: 1)",
+        help=f"{lang.get_translation('max_threads', controller.locale)}",
         type=int,
         default=1,
         required=False,
     )
     parser.add_argument(
         "--preserve-meta",
-        help="Preserve metadata (ID3 tags, EXIF, document properties) in output files",
+        help=f"{lang.get_translation('preserve_meta', controller.locale)}",
         action="store_true",
         required=False,
     )
     parser.add_argument(
         "--add-tag",
         nargs="*",
-        help="Add custom tags to files (format: key:value key2:value2)",
+        help=f"{lang.get_translation('add_tag', controller.locale)}",
         default=[],
         required=False,
     )
     parser.add_argument(
         "--strip-meta",
-        help="Remove all metadata from output files (for privacy)",
+        help=f"{lang.get_translation('strip_meta', controller.locale)}",
         action="store_true",
+        required=False,
+    )
+    parser.add_argument(
+        "-res",
+        "--resolution",
+        help=f"{lang.get_translation('resolution_help', controller.locale)}",
+        type=str,
         required=False,
     )
 
     args = vars(parser.parse_args())
 
-    if args["language"] in lang.LANGUAGE_CODES.keys():
+    if args["language"] in lang.LANGUAGE_CODES:
         # Reinitialize controller with new language
         controller = Controller(locale=lang.LANGUAGE_CODES[args["language"]])
 
@@ -188,4 +195,5 @@ if __name__ == "__main__":
             preserve_meta=args["preserve_meta"],
             add_tag=args["add_tag"],
             strip_meta=args["strip_meta"],
+            resolution=args["resolution"],
         )
