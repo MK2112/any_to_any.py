@@ -114,4 +114,9 @@ KOREAN = {
     "add_tag": "파일에 사용자 지정 태그 추가(형식: key:value key2:value2)",
     "strip_meta": "출력 파일에서 모든 메타데이터 제거(개인정보 보호를 위해)",
     "resolution_help": "동영상의 해상도를 1920x1080 또는 720p와 같은 특정 해상도로 조정합니다. 사용 가능한 해상도는 형식에 따라 다르며, 지정한 해상도가 지원되지 않으면 사용 가능한 옵션이 표시됩니다.",
+    "resolution_label": "해상도",
+    "resolution_original": "원본 해상도 유지",
+    "resize_only": "크기만 변경",
+    "resolution_required": "크기를 변경할 해상도를 선택하세요.",
+    "resize_only_movies_required": "크기만 변경하려면 동영상 파일을 업로드해야 합니다.",
 }

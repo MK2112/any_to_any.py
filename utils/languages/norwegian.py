@@ -114,4 +114,9 @@ NORWEGIAN = {
     "add_tag": "Legg til egendefinerte tagger i filer (format: key:value key2:value2)",
     "strip_meta": "Fjern alle metadata fra utdatafiler (av hensyn til personvern)",
     "resolution_help": "Skaler videoer til en bestemt oppløsning, for eksempel 1920x1080 eller 720p. Gyldige oppløsninger avhenger av formatet; tilgjengelige alternativer vises når en oppløsning avvises.",
+    "resolution_label": "Oppløsning",
+    "resolution_original": "Behold original oppløsning",
+    "resize_only": "Endre størrelse",
+    "resolution_required": "Velg en oppløsning som skal endres.",
+    "resize_only_movies_required": "Endring av størrelse krever opplastede videofiler.",
 }

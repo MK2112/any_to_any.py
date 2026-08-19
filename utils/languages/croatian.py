@@ -114,4 +114,9 @@ CROATIAN = {
     "add_tag": "Dodaj prilagođene oznake datotekama (format: key:value key2:value2)",
     "strip_meta": "Ukloni sve metapodatke iz izlaznih datoteka (radi zaštite privatnosti)",
     "resolution_help": "Promijeni veličinu videozapisa na određenu razlučivost, npr. 1920x1080 ili 720p. Valjane razlučivosti ovise o formatu; kada se razlučivost odbije, prikazuju se dostupne mogućnosti.",
+    "resolution_label": "Razlučivost",
+    "resolution_original": "Zadrži izvornu razlučivost",
+    "resize_only": "Samo promijeni veličinu",
+    "resolution_required": "Odaberite razlučivost za promjenu veličine.",
+    "resize_only_movies_required": "Samo promjena veličine zahtijeva učitane videodatoteke.",
 }

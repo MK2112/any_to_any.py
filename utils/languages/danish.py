@@ -114,4 +114,9 @@ DANISH = {
     "add_tag": "Tilføj brugerdefinerede tags til filer (format: key:value key2:value2)",
     "strip_meta": "Fjern alle metadata fra outputfiler (af hensyn til privatliv)",
     "resolution_help": "Skaler videoer til en bestemt opløsning, f.eks. 1920x1080 eller 720p. Gyldige opløsninger afhænger af formatet; tilgængelige muligheder vises, når en opløsning afvises.",
+    "resolution_label": "Opløsning",
+    "resolution_original": "Behold originalopløsningen",
+    "resize_only": "Skift kun størrelse",
+    "resolution_required": "Vælg en opløsning, der skal ændres til.",
+    "resize_only_movies_required": "Ændring af størrelse kræver uploadede videofiler.",
 }

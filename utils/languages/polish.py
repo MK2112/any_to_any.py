@@ -114,4 +114,9 @@ POLISH = {
     "add_tag": "Dodaj niestandardowe tagi do plików (format: key:value key2:value2)",
     "strip_meta": "Usuń wszystkie metadane z plików wyjściowych (dla ochrony prywatności)",
     "resolution_help": "Zmień rozdzielczość filmów na określoną, np. 1920x1080 lub 720p. Dostępne rozdzielczości zależą od formatu; po odrzuceniu rozdzielczości zostaną wyświetlone dostępne opcje.",
+    "resolution_label": "Rozdzielczość",
+    "resolution_original": "Zachowaj oryginalną rozdzielczość",
+    "resize_only": "Tylko zmiana rozmiaru",
+    "resolution_required": "Wybierz rozdzielczość do zmiany rozmiaru.",
+    "resize_only_movies_required": "Opcja tylko zmiany rozmiaru wymaga przesłanych plików wideo.",
 }

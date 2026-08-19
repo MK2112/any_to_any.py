@@ -114,4 +114,9 @@ SERBIAN = {
     "add_tag": "Dodaj prilagođene oznake datotekama (format: key:value key2:value2)",
     "strip_meta": "Ukloni sve metapodatke iz izlaznih datoteka (radi privatnosti)",
     "resolution_help": "Promeni veličinu videozapisa na određenu rezoluciju, npr. 1920x1080 ili 720p. Važeće rezolucije zavise od formata; kada se rezolucija odbije, biće navedene dostupne opcije.",
+    "resolution_label": "Rezolucija",
+    "resolution_original": "Zadrži originalnu rezoluciju",
+    "resize_only": "Samo promeni veličinu",
+    "resolution_required": "Izaberite rezoluciju za promenu veličine.",
+    "resize_only_movies_required": "Samo promena veličine zahteva otpremljene video datoteke.",
 }

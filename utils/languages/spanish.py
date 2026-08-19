@@ -114,4 +114,9 @@ SPANISH = {
     "add_tag": "Añadir etiquetas personalizadas a los archivos (formato: key:value key2:value2)",
     "strip_meta": "Eliminar todos los metadatos de los archivos de salida (para proteger la privacidad)",
     "resolution_help": "Cambiar el tamaño de los vídeos a una resolución específica, por ejemplo, 1920x1080 o 720p. Las resoluciones válidas dependen del formato; las opciones disponibles se muestran cuando se rechaza una resolución.",
+    "resolution_label": "Resolución",
+    "resolution_original": "Mantener la resolución original",
+    "resize_only": "Solo redimensionar",
+    "resolution_required": "Selecciona una resolución para redimensionar.",
+    "resize_only_movies_required": "El redimensionamiento únicamente requiere archivos de vídeo subidos.",
 }

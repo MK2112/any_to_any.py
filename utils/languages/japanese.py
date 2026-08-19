@@ -114,4 +114,9 @@ JAPANESE = {
     "add_tag": "ファイルにカスタムタグを追加する（形式：key:value key2:value2）",
     "strip_meta": "出力ファイルからすべてのメタデータを削除する（プライバシー保護のため）",
     "resolution_help": "動画を指定した解像度（例：1920x1080 または 720p）にリサイズします。有効な解像度は形式によって異なり、指定した解像度が拒否された場合は利用可能なオプションが表示されます。",
+    "resolution_label": "解像度",
+    "resolution_original": "元の解像度を維持",
+    "resize_only": "サイズ変更のみ",
+    "resolution_required": "サイズ変更する解像度を選択してください。",
+    "resize_only_movies_required": "サイズ変更のみを使用するには、動画ファイルをアップロードしてください。",
 }

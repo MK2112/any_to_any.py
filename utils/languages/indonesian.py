@@ -114,4 +114,9 @@ INDONESIAN = {
     "add_tag": "Tambahkan tag khusus ke file (format: key:value key2:value2)",
     "strip_meta": "Hapus semua metadata dari file keluaran (untuk privasi)",
     "resolution_help": "Ubah ukuran video ke resolusi tertentu, misalnya 1920x1080 atau 720p. Resolusi yang valid bergantung pada format; opsi yang tersedia akan ditampilkan saat resolusi ditolak.",
+    "resolution_label": "Resolusi",
+    "resolution_original": "Pertahankan resolusi asli",
+    "resize_only": "Hanya ubah ukuran",
+    "resolution_required": "Pilih resolusi untuk diubah ukurannya.",
+    "resize_only_movies_required": "Hanya ubah ukuran memerlukan file video yang diunggah.",
 }

@@ -114,4 +114,9 @@ MANDARIN_SIMPLIFIED = {
     "add_tag": "向文件添加自定义标签（格式：key:value key2:value2）",
     "strip_meta": "从输出文件中移除所有元数据（用于隐私保护）",
     "resolution_help": "将视频调整为指定分辨率，例如 1920x1080 或 720p。有效分辨率取决于格式；如果指定的分辨率被拒绝，可用选项会列出。",
+    "resolution_label": "分辨率",
+    "resolution_original": "保持原始分辨率",
+    "resize_only": "仅调整大小",
+    "resolution_required": "请选择要调整大小的分辨率。",
+    "resize_only_movies_required": "仅调整大小需要上传的影片文件。",
 }

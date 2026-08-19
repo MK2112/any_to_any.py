@@ -114,4 +114,9 @@ TURKISH = {
     "add_tag": "Dosyalara özel etiketler ekle (biçim: key:value key2:value2)",
     "strip_meta": "Çıktı dosyalarındaki tüm meta verileri kaldır (gizlilik için)",
     "resolution_help": "Videoları 1920x1080 veya 720p gibi belirli bir çözünürlüğe yeniden boyutlandır. Geçerli çözünürlükler biçime bağlıdır; bir çözünürlük reddedildiğinde kullanılabilir seçenekler listelenir.",
+    "resolution_label": "Çözünürlük",
+    "resolution_original": "Orijinali koru",
+    "resize_only": "Yalnızca boyutlandır",
+    "resolution_required": "Boyutlandırmak için bir çözünürlük seçin.",
+    "resize_only_movies_required": "Yalnızca boyutlandırma, yüklenmiş video dosyaları gerektirir.",
 }

@@ -114,4 +114,9 @@ GERMAN = {
     "add_tag": "Benutzerdefinierte Tags zu Dateien hinzufügen (Format: key:value key2:value2)",
     "strip_meta": "Alle Metadaten aus den Ausgabedateien entfernen (zum Schutz der Privatsphäre)",
     "resolution_help": "Videos auf eine bestimmte Auflösung skalieren, z. B. 1920x1080 oder 720p. Gültige Auflösungen hängen vom Format ab; wenn eine Auflösung abgelehnt wird, werden die verfügbaren Optionen angezeigt.",
+    "resolution_label": "Auflösung",
+    "resolution_original": "Original behalten",
+    "resize_only": "Nur Größe ändern",
+    "resolution_required": "Wählen Sie eine Auflösung aus.",
+    "resize_only_movies_required": "Für „Nur Größe ändern“ müssen Videodateien hochgeladen sein.",
 }

@@ -114,4 +114,9 @@ HUNGARIAN = {
     "add_tag": "Egyéni címkék hozzáadása a fájlokhoz (formátum: key:value key2:value2)",
     "strip_meta": "Az összes metaadat eltávolítása a kimeneti fájlokból (az adatvédelem érdekében)",
     "resolution_help": "Videók átméretezése meghatározott felbontásra, például 1920x1080 vagy 720p. Az érvényes felbontások a formátumtól függenek; egy felbontás elutasításakor megjelennek az elérhető lehetőségek.",
+    "resolution_label": "Felbontás",
+    "resolution_original": "Eredeti felbontás megtartása",
+    "resize_only": "Csak átméretezés",
+    "resolution_required": "Válasszon felbontást az átméretezéshez.",
+    "resize_only_movies_required": "A csak átméretezés feltöltött videofájlokat igényel.",
 }

@@ -114,4 +114,9 @@ MALAY = {
     "add_tag": "Tambah tag tersuai pada fail (format: key:value key2:value2)",
     "strip_meta": "Buang semua metadata daripada fail output (untuk privasi)",
     "resolution_help": "Ubah saiz video kepada resolusi tertentu, contohnya 1920x1080 atau 720p. Resolusi yang sah bergantung pada format; pilihan yang tersedia akan disenaraikan apabila resolusi ditolak.",
+    "resolution_label": "Resolusi",
+    "resolution_original": "Kekalkan resolusi asal",
+    "resize_only": "Ubah saiz sahaja",
+    "resolution_required": "Pilih resolusi untuk diubah saiz.",
+    "resize_only_movies_required": "Ubah saiz sahaja memerlukan fail video yang dimuat naik.",
 }

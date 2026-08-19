@@ -114,4 +114,9 @@ CATALAN = {
     "add_tag": "Afegeix etiquetes personalitzades als fitxers (format: key:value key2:value2)",
     "strip_meta": "Elimina totes les metadades dels fitxers de sortida (per protegir la privadesa)",
     "resolution_help": "Canvia la mida dels vídeos a una resolució específica, com ara 1920x1080 o 720p. Les resolucions vàlides depenen del format; quan es rebutja una resolució, es mostren les opcions disponibles.",
+    "resolution_label": "Resolució",
+    "resolution_original": "Mantén la resolució original",
+    "resize_only": "Només canvia la mida",
+    "resolution_required": "Selecciona una resolució per canviar la mida.",
+    "resize_only_movies_required": "El canvi de mida requereix fitxers de vídeo pujats.",
 }

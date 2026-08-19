@@ -114,4 +114,9 @@ CZECH = {
     "add_tag": "Přidat k souborům vlastní tagy (formát: key:value key2:value2)",
     "strip_meta": "Odstranit z výstupních souborů všechna metadata (z důvodu ochrany soukromí)",
     "resolution_help": "Změnit velikost videí na konkrétní rozlišení, např. 1920x1080 nebo 720p. Platná rozlišení závisí na formátu; při zamítnutí rozlišení se zobrazí dostupné možnosti.",
+    "resolution_label": "Rozlišení",
+    "resolution_original": "Zachovat původní rozlišení",
+    "resize_only": "Pouze změnit velikost",
+    "resolution_required": "Vyberte rozlišení pro změnu velikosti.",
+    "resize_only_movies_required": "Pouze změna velikosti vyžaduje nahrané videosoubory.",
 }

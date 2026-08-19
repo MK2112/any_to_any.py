@@ -114,4 +114,9 @@ DUTCH = {
     "add_tag": "Aangepaste tags aan bestanden toevoegen (indeling: key:value key2:value2)",
     "strip_meta": "Alle metagegevens uit uitvoerbestanden verwijderen (voor privacy)",
     "resolution_help": "Video's schalen naar een specifieke resolutie, bijvoorbeeld 1920x1080 of 720p. Geldige resoluties zijn afhankelijk van het formaat; wanneer een resolutie wordt geweigerd, worden de beschikbare opties weergegeven.",
+    "resolution_label": "Resolutie",
+    "resolution_original": "Originele resolutie behouden",
+    "resize_only": "Alleen formaat wijzigen",
+    "resolution_required": "Selecteer een resolutie om het formaat te wijzigen.",
+    "resize_only_movies_required": "Alleen het formaat wijzigen vereist geüploade videobestanden.",
 }

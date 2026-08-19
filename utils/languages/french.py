@@ -114,4 +114,9 @@ FRENCH = {
     "add_tag": "Ajouter des tags personnalisés aux fichiers (format : key:value key2:value2)",
     "strip_meta": "Supprimer toutes les métadonnées des fichiers de sortie (pour préserver la confidentialité)",
     "resolution_help": "Redimensionner les vidéos à une résolution spécifique, par exemple 1920x1080 ou 720p. Les résolutions disponibles dépendent du format ; les options disponibles sont affichées lorsqu’une résolution est refusée.",
+    "resolution_label": "Résolution",
+    "resolution_original": "Conserver la résolution d'origine",
+    "resize_only": "Redimensionner uniquement",
+    "resolution_required": "Sélectionnez une résolution à redimensionner.",
+    "resize_only_movies_required": "Le redimensionnement uniquement nécessite des fichiers vidéo importés.",
 }

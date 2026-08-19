@@ -114,4 +114,9 @@ PORTUGUESE = {
     "add_tag": "Adicionar tags personalizadas aos arquivos (formato: key:value key2:value2)",
     "strip_meta": "Remover todos os metadados dos arquivos de saída (para proteger a privacidade)",
     "resolution_help": "Redimensionar vídeos para uma resolução específica, como 1920x1080 ou 720p. As resoluções válidas dependem do formato; quando uma resolução é rejeitada, as opções disponíveis são exibidas.",
+    "resolution_label": "Resolução",
+    "resolution_original": "Manter resolução original",
+    "resize_only": "Apenas redimensionar",
+    "resolution_required": "Selecione uma resolução para redimensionar.",
+    "resize_only_movies_required": "O redimensionamento requer arquivos de vídeo enviados.",
 }

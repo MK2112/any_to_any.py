@@ -114,4 +114,9 @@ FINNISH = {
     "add_tag": "Lisää tiedostoihin mukautettuja tunnisteita (muoto: key:value key2:value2)",
     "strip_meta": "Poista kaikki metatiedot tulostiedostoista (yksityisyyden suojaamiseksi)",
     "resolution_help": "Muuta videoiden kooksi tietty tarkkuus, esimerkiksi 1920x1080 tai 720p. Kelvolliset tarkkuudet riippuvat muodosta; käytettävissä olevat vaihtoehdot näytetään, kun tarkkuus hylätään.",
+    "resolution_label": "Resoluutio",
+    "resolution_original": "Säilytä alkuperäinen resoluutio",
+    "resize_only": "Muuta vain kokoa",
+    "resolution_required": "Valitse resoluutio, jonka kokoa muutetaan.",
+    "resize_only_movies_required": "Pelkkä koon muuttaminen edellyttää ladattuja videotiedostoja.",
 }

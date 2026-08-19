@@ -114,4 +114,9 @@ SWEDISH = {
     "add_tag": "Lägg till anpassade taggar i filer (format: key:value key2:value2)",
     "strip_meta": "Ta bort alla metadata från utdatafiler (för integritet)",
     "resolution_help": "Ändra videors storlek till en specifik upplösning, t.ex. 1920x1080 eller 720p. Giltiga upplösningar beror på formatet; tillgängliga alternativ visas när en upplösning avvisas.",
+    "resolution_label": "Upplösning",
+    "resolution_original": "Behåll originalupplösning",
+    "resize_only": "Ändra endast storlek",
+    "resolution_required": "Välj en upplösning att ändra storlek till.",
+    "resize_only_movies_required": "Ändring av storlek kräver uppladdade videofiler.",
 }

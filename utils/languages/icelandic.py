@@ -114,4 +114,9 @@ ICELANDIC = {
     "add_tag": "Bæta sérsniðnum merkjum við skrár (snið: key:value key2:value2)",
     "strip_meta": "Fjarlægja öll lýsigögn úr úttaksskrám (vegna persónuverndar)",
     "resolution_help": "Breyta stærð myndbanda í tiltekna upplausn, t.d. 1920x1080 eða 720p. Leyfilegar upplausnir fara eftir sniði; tiltækir valkostir eru sýndir þegar upplausn er hafnað.",
+    "resolution_label": "Upplausn",
+    "resolution_original": "Halda upprunalegri upplausn",
+    "resize_only": "Aðeins breyta stærð",
+    "resolution_required": "Veldu upplausn til að breyta stærð.",
+    "resize_only_movies_required": "Aðeins stærðarbreyting krefst upphlaðinna myndbandaskráa.",
 }

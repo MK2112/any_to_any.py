@@ -114,4 +114,9 @@ BOSNIAN = {
     "add_tag": "Dodaj prilagođene oznake datotekama (format: key:value key2:value2)",
     "strip_meta": "Ukloni sve metapodatke iz izlaznih datoteka (radi zaštite privatnosti)",
     "resolution_help": "Promijeni veličinu videozapisa na određenu rezoluciju, npr. 1920x1080 ili 720p. Važeće rezolucije zavise od formata; kada se rezolucija odbije, prikazuju se dostupne opcije.",
+    "resolution_label": "Rezolucija",
+    "resolution_original": "Zadrži originalnu rezoluciju",
+    "resize_only": "Samo promijeni veličinu",
+    "resolution_required": "Odaberite rezoluciju za promjenu veličine.",
+    "resize_only_movies_required": "Samo promjena veličine zahtijeva učitane video datoteke.",
 }

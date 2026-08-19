@@ -114,4 +114,9 @@ MANDARIN_TRADITIONAL = {
     "add_tag": "為檔案新增自訂標籤（格式：key:value key2:value2）",
     "strip_meta": "從輸出檔案中移除所有中繼資料（用於保護隱私）",
     "resolution_help": "將影片調整為指定解析度，例如 1920x1080 或 720p。有效解析度取決於格式；當指定的解析度不受支援時，會列出可用選項。",
+    "resolution_label": "解析度",
+    "resolution_original": "保留原始解析度",
+    "resize_only": "僅調整大小",
+    "resolution_required": "請選擇要調整大小的解析度。",
+    "resize_only_movies_required": "僅調整大小需要上傳影片檔案。",
 }

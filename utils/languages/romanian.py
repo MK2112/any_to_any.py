@@ -114,4 +114,9 @@ ROMANIAN = {
     "add_tag": "Adaugă etichete personalizate fișierelor (format: key:value key2:value2)",
     "strip_meta": "Elimină toate metadatele din fișierele de ieșire (pentru protejarea confidențialității)",
     "resolution_help": "Redimensionează videoclipurile la o rezoluție specifică, de exemplu 1920x1080 sau 720p. Rezoluțiile valide depind de format; opțiunile disponibile sunt afișate atunci când o rezoluție este respinsă.",
+    "resolution_label": "Rezoluție",
+    "resolution_original": "Păstrează rezoluția originală",
+    "resize_only": "Doar redimensionare",
+    "resolution_required": "Selectează o rezoluție pentru redimensionare.",
+    "resize_only_movies_required": "Redimensionarea necesită fișiere video încărcate.",
 }

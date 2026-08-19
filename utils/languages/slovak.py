@@ -114,4 +114,9 @@ SLOVAK = {
     "add_tag": "Pridať k súborom vlastné značky (formát: key:value key2:value2)",
     "strip_meta": "Odstrániť všetky metadáta z výstupných súborov (na ochranu súkromia)",
     "resolution_help": "Zmeniť veľkosť videí na konkrétne rozlíšenie, napr. 1920x1080 alebo 720p. Platné rozlíšenia závisia od formátu; pri odmietnutí rozlíšenia sa zobrazia dostupné možnosti.",
+    "resolution_label": "Rozlíšenie",
+    "resolution_original": "Ponechať pôvodné rozlíšenie",
+    "resize_only": "Iba zmeniť veľkosť",
+    "resolution_required": "Vyberte rozlíšenie, na ktoré chcete zmeniť veľkosť.",
+    "resize_only_movies_required": "Iba zmena veľkosti vyžaduje nahrané videosúbory.",
 }

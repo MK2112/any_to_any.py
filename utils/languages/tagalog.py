@@ -114,4 +114,9 @@ TAGALOG = {
     "add_tag": "Magdagdag ng mga custom na tag sa mga file (format: key:value key2:value2)",
     "strip_meta": "Alisin ang lahat ng metadata sa mga output file (para sa privacy)",
     "resolution_help": "I-resize ang mga video sa partikular na resolution, gaya ng 1920x1080 o 720p. Nakadepende sa format ang mga valid na resolution; ililista ang mga available na opsyon kapag tinanggihan ang isang resolution.",
+    "resolution_label": "Resolusyon",
+    "resolution_original": "Panatilihin ang orihinal na resolusyon",
+    "resize_only": "Baguhin lang ang laki",
+    "resolution_required": "Pumili ng resolusyon na babaguhin ang laki.",
+    "resize_only_movies_required": "Ang pagbabago lang ng laki ay nangangailangan ng mga na-upload na video file.",
 }

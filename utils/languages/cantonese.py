@@ -114,4 +114,9 @@ CANTONESE = {
     "add_tag": "為檔案加入自訂標籤（格式：key:value key2:value2）",
     "strip_meta": "從輸出檔案移除所有中繼資料（用於保障私隱）",
     "resolution_help": "將影片調整至指定解像度，例如 1920x1080 或 720p。有效解像度取決於格式；當指定解像度唔受支援時，會列出可用選項。",
+    "resolution_label": "解像度",
+    "resolution_original": "保留原本解像度",
+    "resize_only": "只調整大小",
+    "resolution_required": "請選擇要調整大小嘅解像度。",
+    "resize_only_movies_required": "只調整大小需要上載影片檔案。",
 }

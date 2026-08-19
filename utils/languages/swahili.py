@@ -114,4 +114,9 @@ SWAHILI = {
     "add_tag": "Ongeza tagi maalum kwenye faili (umbizo: key:value key2:value2)",
     "strip_meta": "Ondoa metadata yote kutoka kwenye faili za matokeo (kwa faragha)",
     "resolution_help": "Badilisha ukubwa wa video hadi mwonekano mahususi, kwa mfano 1920x1080 au 720p. Mionekano halali hutegemea umbizo; chaguo zinazopatikana huorodheshwa mwonekano unapokataliwa.",
+    "resolution_label": "Azimio",
+    "resolution_original": "Weka azimio la asili",
+    "resize_only": "Badilisha ukubwa pekee",
+    "resolution_required": "Chagua azimio la kubadilisha ukubwa.",
+    "resize_only_movies_required": "Kubadilisha ukubwa pekee kunahitaji faili za video zilizopakiwa.",
 }

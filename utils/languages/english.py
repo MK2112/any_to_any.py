@@ -114,4 +114,9 @@ ENGLISH = {
     "add_tag": "Add custom tags to files (format: key:value key2:value2)",
     "strip_meta": "Remove all metadata from output files (for privacy)",
     "resolution_help": "Resize movies to specific resolution, e.g. 1920x1080 or 720p. Valid resolutions depend on format, available options are listed when a resolution is rejected.",
+    "resolution_label": "Resolution",
+    "resolution_original": "Keep original",
+    "resize_only": "Resize only",
+    "resolution_required": "Select a resolution to resize.",
+    "resize_only_movies_required": "Resize-only requires uploaded movie files."
 }

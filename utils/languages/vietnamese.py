@@ -114,4 +114,9 @@ VIETNAMESE = {
     "add_tag": "Thêm thẻ tùy chỉnh vào tệp (định dạng: key:value key2:value2)",
     "strip_meta": "Xóa toàn bộ siêu dữ liệu khỏi các tệp đầu ra (để bảo vệ quyền riêng tư)",
     "resolution_help": "Thay đổi kích thước video về độ phân giải cụ thể, ví dụ 1920x1080 hoặc 720p. Độ phân giải hợp lệ tùy thuộc vào định dạng; các tùy chọn khả dụng sẽ được liệt kê khi độ phân giải bị từ chối.",
+    "resolution_label": "Độ phân giải",
+    "resolution_original": "Giữ nguyên độ phân giải",
+    "resize_only": "Chỉ thay đổi kích thước",
+    "resolution_required": "Chọn độ phân giải để thay đổi kích thước.",
+    "resize_only_movies_required": "Chỉ thay đổi kích thước yêu cầu các tệp video đã tải lên.",
 }
