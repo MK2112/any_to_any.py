@@ -109,4 +109,9 @@ MANDARIN_SIMPLIFIED = {
     "show_folder_on_completion": "完成时显示输出文件夹",
     "merge_advice": "合并功能仅适用于视频文件和音频文件",
     "no_format_selected": "未选择格式",
+    "max_threads": "用于逐文件转换的最大工作线程数（默认：1）",
+    "preserve_meta": "保留输出文件中的元数据（ID3 标签、EXIF、文档属性）",
+    "add_tag": "向文件添加自定义标签（格式：key:value key2:value2）",
+    "strip_meta": "从输出文件中移除所有元数据（用于隐私保护）",
+    "resolution_help": "将视频调整为指定分辨率，例如 1920x1080 或 720p。有效分辨率取决于格式；如果指定的分辨率被拒绝，可用选项会列出。",
 }

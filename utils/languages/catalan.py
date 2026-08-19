@@ -109,4 +109,9 @@ CATALAN = {
     "show_folder_on_completion": "Mostra la carpeta de sortida en finalitzar",
     "merge_advice": "La combinació només funciona amb fitxers de vídeo i àudio",
     "no_format_selected": "No s'ha seleccionat cap format",
+    "max_threads": "Nombre màxim de fils de treball que s'utilitzaran per a les conversions fitxer per fitxer (per defecte: 1)",
+    "preserve_meta": "Conserva les metadades (etiquetes ID3, EXIF, propietats dels documents) als fitxers de sortida",
+    "add_tag": "Afegeix etiquetes personalitzades als fitxers (format: key:value key2:value2)",
+    "strip_meta": "Elimina totes les metadades dels fitxers de sortida (per protegir la privadesa)",
+    "resolution_help": "Canvia la mida dels vídeos a una resolució específica, com ara 1920x1080 o 720p. Les resolucions vàlides depenen del format; quan es rebutja una resolució, es mostren les opcions disponibles.",
 }

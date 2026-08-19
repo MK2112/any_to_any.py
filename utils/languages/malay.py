@@ -109,4 +109,9 @@ MALAY = {
     "show_folder_on_completion": "Tunjukkan folder output apabila selesai",
     "merge_advice": "Penggabungan hanya berfungsi dengan fail video dan audio",
     "no_format_selected": "Tiada format dipilih",
+    "max_threads": "Bilangan maksimum thread pekerja yang digunakan untuk penukaran setiap fail (lalai: 1)",
+    "preserve_meta": "Kekalkan metadata (tag ID3, EXIF, sifat dokumen) dalam fail output",
+    "add_tag": "Tambah tag tersuai pada fail (format: key:value key2:value2)",
+    "strip_meta": "Buang semua metadata daripada fail output (untuk privasi)",
+    "resolution_help": "Ubah saiz video kepada resolusi tertentu, contohnya 1920x1080 atau 720p. Resolusi yang sah bergantung pada format; pilihan yang tersedia akan disenaraikan apabila resolusi ditolak.",
 }

@@ -109,4 +109,9 @@ BOSNIAN = {
     "show_folder_on_completion": "Prikaži izlazni folder po završetku",
     "merge_advice": "Spajanje radi samo sa video i audio datotekama",
     "no_format_selected": "Nije odabran format",
+    "max_threads": "Maksimalan broj radnih niti koje se koriste za konverziju pojedinačnih datoteka (zadano: 1)",
+    "preserve_meta": "Zadrži metapodatke (ID3 oznake, EXIF, svojstva dokumenata) u izlaznim datotekama",
+    "add_tag": "Dodaj prilagođene oznake datotekama (format: key:value key2:value2)",
+    "strip_meta": "Ukloni sve metapodatke iz izlaznih datoteka (radi zaštite privatnosti)",
+    "resolution_help": "Promijeni veličinu videozapisa na određenu rezoluciju, npr. 1920x1080 ili 720p. Važeće rezolucije zavise od formata; kada se rezolucija odbije, prikazuju se dostupne opcije.",
 }

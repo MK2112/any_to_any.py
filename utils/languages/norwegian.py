@@ -109,4 +109,9 @@ NORWEGIAN = {
     "show_folder_on_completion": "Vis utdatamappen når ferdig",
     "merge_advice": "Sammenslåing fungerer kun med video- og lydfiler",
     "no_format_selected": "Ingen format valgt",
+    "max_threads": "Maksimalt antall arbeidstråder som skal brukes til konvertering av enkeltfiler (standard: 1)",
+    "preserve_meta": "Behold metadata (ID3-tagger, EXIF, dokumentegenskaper) i utdatafiler",
+    "add_tag": "Legg til egendefinerte tagger i filer (format: key:value key2:value2)",
+    "strip_meta": "Fjern alle metadata fra utdatafiler (av hensyn til personvern)",
+    "resolution_help": "Skaler videoer til en bestemt oppløsning, for eksempel 1920x1080 eller 720p. Gyldige oppløsninger avhenger av formatet; tilgjengelige alternativer vises når en oppløsning avvises.",
 }

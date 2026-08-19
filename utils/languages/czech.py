@@ -109,4 +109,9 @@ CZECH = {
     "show_folder_on_completion": "Zobrazit výstupní složku po dokončení",
     "merge_advice": "Sloučení funguje pouze s video a audio soubory",
     "no_format_selected": "Nebyl vybrán žádný formát",
+    "max_threads": "Maximální počet pracovních vláken používaných pro převod jednotlivých souborů (výchozí: 1)",
+    "preserve_meta": "Zachovat metadata (tagy ID3, EXIF, vlastnosti dokumentů) ve výstupních souborech",
+    "add_tag": "Přidat k souborům vlastní tagy (formát: key:value key2:value2)",
+    "strip_meta": "Odstranit z výstupních souborů všechna metadata (z důvodu ochrany soukromí)",
+    "resolution_help": "Změnit velikost videí na konkrétní rozlišení, např. 1920x1080 nebo 720p. Platná rozlišení závisí na formátu; při zamítnutí rozlišení se zobrazí dostupné možnosti.",
 }

@@ -109,4 +109,9 @@ DANISH = {
     "show_folder_on_completion": "Vis outputmappen når færdig",
     "merge_advice": "Fletning fungerer kun med video- og lydfiler",
     "no_format_selected": "Intet format valgt",
+    "max_threads": "Maksimalt antal arbejdståde, der skal bruges til konvertering af hver fil (standard: 1)",
+    "preserve_meta": "Bevar metadata (ID3-tags, EXIF, dokumentegenskaber) i outputfiler",
+    "add_tag": "Tilføj brugerdefinerede tags til filer (format: key:value key2:value2)",
+    "strip_meta": "Fjern alle metadata fra outputfiler (af hensyn til privatliv)",
+    "resolution_help": "Skaler videoer til en bestemt opløsning, f.eks. 1920x1080 eller 720p. Gyldige opløsninger afhænger af formatet; tilgængelige muligheder vises, når en opløsning afvises.",
 }

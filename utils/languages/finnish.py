@@ -109,4 +109,9 @@ FINNISH = {
     "show_folder_on_completion": "Näytä tulostuskansio valmistumisen jälkeen",
     "merge_advice": "Yhdistäminen toimii vain video- ja äänitiedostojen kanssa",
     "no_format_selected": "Muotoa ei ole valittu",
+    "max_threads": "Tiedostokohtaisissa muunnoksissa käytettävien työntekijäsäikeiden enimmäismäärä (oletus: 1)",
+    "preserve_meta": "Säilytä metatiedot (ID3-tunnisteet, EXIF, asiakirjojen ominaisuudet) tulostiedostoissa",
+    "add_tag": "Lisää tiedostoihin mukautettuja tunnisteita (muoto: key:value key2:value2)",
+    "strip_meta": "Poista kaikki metatiedot tulostiedostoista (yksityisyyden suojaamiseksi)",
+    "resolution_help": "Muuta videoiden kooksi tietty tarkkuus, esimerkiksi 1920x1080 tai 720p. Kelvolliset tarkkuudet riippuvat muodosta; käytettävissä olevat vaihtoehdot näytetään, kun tarkkuus hylätään.",
 }

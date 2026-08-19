@@ -109,4 +109,9 @@ SPANISH = {
     "show_folder_on_completion": "Mostrar la carpeta de salida al finalizar",
     "merge_advice": "La combinación solo funciona con archivos de video y audio",
     "no_format_selected": "Ningún formato seleccionado",
+    "max_threads": "Número máximo de hilos de trabajo que se usarán para las conversiones archivo por archivo (predeterminado: 1)",
+    "preserve_meta": "Conservar los metadatos (etiquetas ID3, EXIF, propiedades de documentos) en los archivos de salida",
+    "add_tag": "Añadir etiquetas personalizadas a los archivos (formato: key:value key2:value2)",
+    "strip_meta": "Eliminar todos los metadatos de los archivos de salida (para proteger la privacidad)",
+    "resolution_help": "Cambiar el tamaño de los vídeos a una resolución específica, por ejemplo, 1920x1080 o 720p. Las resoluciones válidas dependen del formato; las opciones disponibles se muestran cuando se rechaza una resolución.",
 }

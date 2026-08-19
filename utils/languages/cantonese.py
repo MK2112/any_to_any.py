@@ -109,4 +109,9 @@ CANTONESE = {
     "show_folder_on_completion": "完成時顯示輸出資料夾",
     "merge_advice": "合併功能只適用於影片檔案同音訊檔案",
     "no_format_selected": "未選擇格式",
+    "max_threads": "用於逐個檔案轉換嘅最大工作執行緒數量（預設：1）",
+    "preserve_meta": "保留輸出檔案嘅中繼資料（ID3 標籤、EXIF、文件屬性）",
+    "add_tag": "為檔案加入自訂標籤（格式：key:value key2:value2）",
+    "strip_meta": "從輸出檔案移除所有中繼資料（用於保障私隱）",
+    "resolution_help": "將影片調整至指定解像度，例如 1920x1080 或 720p。有效解像度取決於格式；當指定解像度唔受支援時，會列出可用選項。",
 }

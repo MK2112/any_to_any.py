@@ -109,4 +109,9 @@ KOREAN = {
     "show_folder_on_completion": "완료 시 출력 폴더 표시",
     "merge_advice": "병합은 동영상 파일과 오디오 파일에서만 작동합니다",
     "no_format_selected": "선택된 형식 없음",
+    "max_threads": "파일별 변환에 사용할 최대 작업 스레드 수(기본값: 1)",
+    "preserve_meta": "출력 파일의 메타데이터(ID3 태그, EXIF, 문서 속성) 보존",
+    "add_tag": "파일에 사용자 지정 태그 추가(형식: key:value key2:value2)",
+    "strip_meta": "출력 파일에서 모든 메타데이터 제거(개인정보 보호를 위해)",
+    "resolution_help": "동영상의 해상도를 1920x1080 또는 720p와 같은 특정 해상도로 조정합니다. 사용 가능한 해상도는 형식에 따라 다르며, 지정한 해상도가 지원되지 않으면 사용 가능한 옵션이 표시됩니다.",
 }

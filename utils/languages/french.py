@@ -109,4 +109,9 @@ FRENCH = {
     "show_folder_on_completion": "Afficher le dossier de sortie une fois terminé",
     "merge_advice": "La fusion fonctionne uniquement avec les fichiers vidéo et audio",
     "no_format_selected": "Aucun format sélectionné",
+    "max_threads": "Nombre maximal de threads de travail à utiliser pour les conversions fichier par fichier (par défaut : 1)",
+    "preserve_meta": "Conserver les métadonnées (tags ID3, EXIF, propriétés des documents) dans les fichiers de sortie",
+    "add_tag": "Ajouter des tags personnalisés aux fichiers (format : key:value key2:value2)",
+    "strip_meta": "Supprimer toutes les métadonnées des fichiers de sortie (pour préserver la confidentialité)",
+    "resolution_help": "Redimensionner les vidéos à une résolution spécifique, par exemple 1920x1080 ou 720p. Les résolutions disponibles dépendent du format ; les options disponibles sont affichées lorsqu’une résolution est refusée.",
 }

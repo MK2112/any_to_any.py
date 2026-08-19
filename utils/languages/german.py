@@ -109,4 +109,9 @@ GERMAN = {
     "show_folder_on_completion": "Ausgabeordner nach Abschluss anzeigen",
     "merge_advice": "Das Zusammenführen funktioniert nur mit Video- und Audiodateien",
     "no_format_selected": "Kein Format ausgewählt",
+    "max_threads": "Maximale Anzahl von Worker-Threads für die Konvertierung einzelner Dateien (Standard: 1)",
+    "preserve_meta": "Metadaten (ID3-Tags, EXIF, Dokumenteigenschaften) in den Ausgabedateien beibehalten",
+    "add_tag": "Benutzerdefinierte Tags zu Dateien hinzufügen (Format: key:value key2:value2)",
+    "strip_meta": "Alle Metadaten aus den Ausgabedateien entfernen (zum Schutz der Privatsphäre)",
+    "resolution_help": "Videos auf eine bestimmte Auflösung skalieren, z. B. 1920x1080 oder 720p. Gültige Auflösungen hängen vom Format ab; wenn eine Auflösung abgelehnt wird, werden die verfügbaren Optionen angezeigt.",
 }

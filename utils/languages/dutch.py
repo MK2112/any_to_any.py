@@ -109,4 +109,9 @@ DUTCH = {
     "show_folder_on_completion": "Toon de uitvoermap wanneer gereed",
     "merge_advice": "Samenvoegen werkt alleen met video- en audiobestanden",
     "no_format_selected": "Geen formaat geselecteerd",
+    "max_threads": "Maximum aantal workerthreads voor conversies per bestand (standaard: 1)",
+    "preserve_meta": "Metagegevens (ID3-tags, EXIF, documenteigenschappen) in uitvoerbestanden behouden",
+    "add_tag": "Aangepaste tags aan bestanden toevoegen (indeling: key:value key2:value2)",
+    "strip_meta": "Alle metagegevens uit uitvoerbestanden verwijderen (voor privacy)",
+    "resolution_help": "Video's schalen naar een specifieke resolutie, bijvoorbeeld 1920x1080 of 720p. Geldige resoluties zijn afhankelijk van het formaat; wanneer een resolutie wordt geweigerd, worden de beschikbare opties weergegeven.",
 }

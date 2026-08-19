@@ -109,4 +109,9 @@ SWAHILI = {
     "show_folder_on_completion": "Onyesha folda ya matokeo ikikamilika",
     "merge_advice": "Kuunganisha hufanya kazi tu na faili za video na sauti",
     "no_format_selected": "Hakuna umbizo lililochaguliwa",
+    "max_threads": "Idadi ya juu ya nyuzi za kazi za kutumia kwa ubadilishaji wa kila faili (chaguomsingi: 1)",
+    "preserve_meta": "Hifadhi metadata (tagi za ID3, EXIF, sifa za hati) katika faili za matokeo",
+    "add_tag": "Ongeza tagi maalum kwenye faili (umbizo: key:value key2:value2)",
+    "strip_meta": "Ondoa metadata yote kutoka kwenye faili za matokeo (kwa faragha)",
+    "resolution_help": "Badilisha ukubwa wa video hadi mwonekano mahususi, kwa mfano 1920x1080 au 720p. Mionekano halali hutegemea umbizo; chaguo zinazopatikana huorodheshwa mwonekano unapokataliwa.",
 }

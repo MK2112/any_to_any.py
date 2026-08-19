@@ -109,4 +109,9 @@ VIETNAMESE = {
     "show_folder_on_completion": "Hiển thị thư mục đầu ra khi hoàn tất",
     "merge_advice": "Việc gộp chỉ hoạt động với tệp video và âm thanh",
     "no_format_selected": "Chưa chọn định dạng",
+    "max_threads": "Số luồng worker tối đa được sử dụng để chuyển đổi từng tệp (mặc định: 1)",
+    "preserve_meta": "Giữ lại siêu dữ liệu (thẻ ID3, EXIF, thuộc tính tài liệu) trong các tệp đầu ra",
+    "add_tag": "Thêm thẻ tùy chỉnh vào tệp (định dạng: key:value key2:value2)",
+    "strip_meta": "Xóa toàn bộ siêu dữ liệu khỏi các tệp đầu ra (để bảo vệ quyền riêng tư)",
+    "resolution_help": "Thay đổi kích thước video về độ phân giải cụ thể, ví dụ 1920x1080 hoặc 720p. Độ phân giải hợp lệ tùy thuộc vào định dạng; các tùy chọn khả dụng sẽ được liệt kê khi độ phân giải bị từ chối.",
 }

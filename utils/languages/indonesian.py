@@ -109,4 +109,9 @@ INDONESIAN = {
     "show_folder_on_completion": "Tampilkan folder output setelah selesai",
     "merge_advice": "Penggabungan hanya berfungsi dengan file video dan audio",
     "no_format_selected": "Tidak ada format yang dipilih",
+    "max_threads": "Jumlah maksimum thread pekerja yang digunakan untuk konversi per file (default: 1)",
+    "preserve_meta": "Pertahankan metadata (tag ID3, EXIF, properti dokumen) dalam file keluaran",
+    "add_tag": "Tambahkan tag khusus ke file (format: key:value key2:value2)",
+    "strip_meta": "Hapus semua metadata dari file keluaran (untuk privasi)",
+    "resolution_help": "Ubah ukuran video ke resolusi tertentu, misalnya 1920x1080 atau 720p. Resolusi yang valid bergantung pada format; opsi yang tersedia akan ditampilkan saat resolusi ditolak.",
 }

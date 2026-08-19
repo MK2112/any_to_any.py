@@ -109,4 +109,9 @@ TURKISH = {
     "show_folder_on_completion": "Tamamlandığında çıktı klasörünü göster",
     "merge_advice": "Birleştirme yalnızca video ve ses dosyalarıyla çalışır",
     "no_format_selected": "Hiçbir format seçilmedi",
+    "max_threads": "Dosya başına dönüştürmelerde kullanılacak maksimum iş parçacığı sayısı (varsayılan: 1)",
+    "preserve_meta": "Çıktı dosyalarındaki meta verileri (ID3 etiketleri, EXIF, belge özellikleri) koru",
+    "add_tag": "Dosyalara özel etiketler ekle (biçim: key:value key2:value2)",
+    "strip_meta": "Çıktı dosyalarındaki tüm meta verileri kaldır (gizlilik için)",
+    "resolution_help": "Videoları 1920x1080 veya 720p gibi belirli bir çözünürlüğe yeniden boyutlandır. Geçerli çözünürlükler biçime bağlıdır; bir çözünürlük reddedildiğinde kullanılabilir seçenekler listelenir.",
 }

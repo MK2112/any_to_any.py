@@ -109,4 +109,9 @@ POLISH = {
     "show_folder_on_completion": "Pokaż folder wyjściowy po zakończeniu",
     "merge_advice": "Scalanie działa tylko z plikami wideo i audio",
     "no_format_selected": "Nie wybrano formatu",
+    "max_threads": "Maksymalna liczba wątków roboczych używanych do konwersji poszczególnych plików (domyślnie: 1)",
+    "preserve_meta": "Zachowaj metadane (tagi ID3, EXIF, właściwości dokumentów) w plikach wyjściowych",
+    "add_tag": "Dodaj niestandardowe tagi do plików (format: key:value key2:value2)",
+    "strip_meta": "Usuń wszystkie metadane z plików wyjściowych (dla ochrony prywatności)",
+    "resolution_help": "Zmień rozdzielczość filmów na określoną, np. 1920x1080 lub 720p. Dostępne rozdzielczości zależą od formatu; po odrzuceniu rozdzielczości zostaną wyświetlone dostępne opcje.",
 }

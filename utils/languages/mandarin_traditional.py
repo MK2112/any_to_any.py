@@ -109,4 +109,9 @@ MANDARIN_TRADITIONAL = {
     "show_folder_on_completion": "完成時顯示輸出資料夾",
     "merge_advice": "合併功能僅適用於影片檔案和音訊檔案",
     "no_format_selected": "未選擇格式",
+    "max_threads": "用於逐檔轉換的最大工作執行緒數（預設：1）",
+    "preserve_meta": "保留輸出檔案中的中繼資料（ID3 標籤、EXIF、文件屬性）",
+    "add_tag": "為檔案新增自訂標籤（格式：key:value key2:value2）",
+    "strip_meta": "從輸出檔案中移除所有中繼資料（用於保護隱私）",
+    "resolution_help": "將影片調整為指定解析度，例如 1920x1080 或 720p。有效解析度取決於格式；當指定的解析度不受支援時，會列出可用選項。",
 }

@@ -109,4 +109,9 @@ TAGALOG = {
     "show_folder_on_completion": "Ipakita ang output folder kapag tapos na",
     "merge_advice": "Gumagana lamang ang pagsasama sa mga video at audio file",
     "no_format_selected": "Walang napiling format",
+    "max_threads": "Pinakamataas na bilang ng worker thread na gagamitin para sa conversion ng bawat file (default: 1)",
+    "preserve_meta": "Panatilihin ang metadata (ID3 tags, EXIF, mga property ng dokumento) sa mga output file",
+    "add_tag": "Magdagdag ng mga custom na tag sa mga file (format: key:value key2:value2)",
+    "strip_meta": "Alisin ang lahat ng metadata sa mga output file (para sa privacy)",
+    "resolution_help": "I-resize ang mga video sa partikular na resolution, gaya ng 1920x1080 o 720p. Nakadepende sa format ang mga valid na resolution; ililista ang mga available na opsyon kapag tinanggihan ang isang resolution.",
 }

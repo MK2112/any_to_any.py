@@ -109,4 +109,9 @@ PORTUGUESE = {
     "show_folder_on_completion": "Mostrar a pasta de saída ao concluir",
     "merge_advice": "A fusão funciona apenas com ficheiros de vídeo e áudio",
     "no_format_selected": "Nenhum formato selecionado",
+    "max_threads": "Número máximo de threads de trabalho a serem usados nas conversões por arquivo (padrão: 1)",
+    "preserve_meta": "Preservar os metadados (tags ID3, EXIF, propriedades de documentos) nos arquivos de saída",
+    "add_tag": "Adicionar tags personalizadas aos arquivos (formato: key:value key2:value2)",
+    "strip_meta": "Remover todos os metadados dos arquivos de saída (para proteger a privacidade)",
+    "resolution_help": "Redimensionar vídeos para uma resolução específica, como 1920x1080 ou 720p. As resoluções válidas dependem do formato; quando uma resolução é rejeitada, as opções disponíveis são exibidas.",
 }

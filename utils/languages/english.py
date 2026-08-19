@@ -109,4 +109,9 @@ ENGLISH = {
     "show_folder_on_completion": "Show Output Folder When Done",
     "merge_advice": "Merging only works with movie files and audio files",
     "no_format_selected": "No format selected",
+    "max_threads": "Maximum worker threads to use for per-file conversions (default: 1)",
+    "preserve_meta": "Preserve metadata (ID3 tags, EXIF, document properties) in output files",
+    "add_tag": "Add custom tags to files (format: key:value key2:value2)",
+    "strip_meta": "Remove all metadata from output files (for privacy)",
+    "resolution_help": "Resize movies to specific resolution, e.g. 1920x1080 or 720p. Valid resolutions depend on format, available options are listed when a resolution is rejected.",
 }

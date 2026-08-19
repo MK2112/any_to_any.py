@@ -109,4 +109,9 @@ SWEDISH = {
     "show_folder_on_completion": "Visa utdatamappen när klar",
     "merge_advice": "Sammanfogning fungerar endast med video- och ljudfiler",
     "no_format_selected": "Inget format valt",
+    "max_threads": "Maximalt antal arbetstrådar som ska användas för konvertering fil för fil (standard: 1)",
+    "preserve_meta": "Bevara metadata (ID3-taggar, EXIF, dokumentegenskaper) i utdatafiler",
+    "add_tag": "Lägg till anpassade taggar i filer (format: key:value key2:value2)",
+    "strip_meta": "Ta bort alla metadata från utdatafiler (för integritet)",
+    "resolution_help": "Ändra videors storlek till en specifik upplösning, t.ex. 1920x1080 eller 720p. Giltiga upplösningar beror på formatet; tillgängliga alternativ visas när en upplösning avvisas.",
 }

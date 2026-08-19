@@ -109,4 +109,9 @@ SLOVAK = {
     "show_folder_on_completion": "Zobraziť výstupný priečinok po dokončení",
     "merge_advice": "Zlúčenie funguje iba s video a audio súbormi",
     "no_format_selected": "Nebol vybraný žiadny formátum",
+    "max_threads": "Maximálny počet pracovných vlákien používaných na konverziu jednotlivých súborov (predvolené: 1)",
+    "preserve_meta": "Zachovať metadáta (značky ID3, EXIF, vlastnosti dokumentov) vo výstupných súboroch",
+    "add_tag": "Pridať k súborom vlastné značky (formát: key:value key2:value2)",
+    "strip_meta": "Odstrániť všetky metadáta z výstupných súborov (na ochranu súkromia)",
+    "resolution_help": "Zmeniť veľkosť videí na konkrétne rozlíšenie, napr. 1920x1080 alebo 720p. Platné rozlíšenia závisia od formátu; pri odmietnutí rozlíšenia sa zobrazia dostupné možnosti.",
 }

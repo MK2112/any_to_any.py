@@ -109,4 +109,9 @@ ROMANIAN = {
     "show_folder_on_completion": "Afișează folderul de ieșire la finalizare",
     "merge_advice": "Îmbinarea funcționează doar cu fișiere video și audio",
     "no_format_selected": "Niciun format selectat",
+    "max_threads": "Numărul maxim de fire de execuție utilizate pentru conversiile fișier cu fișier (implicit: 1)",
+    "preserve_meta": "Păstrează metadatele (taguri ID3, EXIF, proprietăți ale documentelor) în fișierele de ieșire",
+    "add_tag": "Adaugă etichete personalizate fișierelor (format: key:value key2:value2)",
+    "strip_meta": "Elimină toate metadatele din fișierele de ieșire (pentru protejarea confidențialității)",
+    "resolution_help": "Redimensionează videoclipurile la o rezoluție specifică, de exemplu 1920x1080 sau 720p. Rezoluțiile valide depind de format; opțiunile disponibile sunt afișate atunci când o rezoluție este respinsă.",
 }
