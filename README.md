@@ -125,6 +125,17 @@ python any_to_any.py -i /path/to/file.mp4 -f hls
 ```
 The option for `hls` creates a directory with distinct folders for stream fragments of resolutions `426x240`, `640x360`, `842x480`, `1280x720`, and `1920x1080`.
 
+Resize an MP4 to `1280x720`, keeping its file format:
+```bash
+python any_to_any.py -i /path/to/file.mp4 -res 1280x720
+```
+
+Resize while converting to a different format, e.g. MP4 to MKV at `1080p`:
+```bash
+python any_to_any.py -i /path/to/file.mp4 -f mkv -res 1080p
+```
+Resolutions can be given as `WxH` (e.g. `1920x1080`) or as an alias such as `4k`, `1440p`, `1080p`, `720p`, `480p`, `360p` or `240p`. Not every file format supports every resolution — if the requested resolution is not enabled by the target format (or, if no `-f`/`--format` is given, by the input file's own format), the available resolutions are listed and the script exits.
+
 If you feel like it, you can even convert an MP4 file to a PDF, that PDF to a GIF and the GIF back to MP4:
 ```bash
 # Create the PDF containing the movie's frames [Movie -> Document]
@@ -252,6 +263,7 @@ python any_to_any.py -i /path/to/input_dir -f mp3 --workers 4 --recursive
 | `-r` or </br>`--recursive`   | Recursively process all input files in subdirectories from the input directory. Outputs by default will be placed in their respective subdirectory, unless different output path provided. |
 | `-z` or </br>`--dropzone`    | While running, a specified directory will be monitored for new files. When a file is added, it will be converted to the specified format, saved in the output directory and deleted from the input directory. |
 | `-fps` or</br>`--framerate`  | Set the framerate (fps) when converting to a movie format or codec; default maintains input fps. |
+| `-res` or</br>`--resolution` | Resize movies to a specific resolution, e.g. `1920x1080` or `720p`. Works alone (keeping the input file format) or combined with `-f`/`--format`, subject to what the target format allows. If the resolution is not supported by the effective target format, the available resolutions are listed and the script exits. |
 | `--workers`                  | Set the maximum number of parallel worker threads for per-file conversions (`1` to `cpu_count - 1` are supported). Defaults to `1`. |
 | `--preserve-meta`            | Preserve metadata (ID3 tags for audio, EXIF for images, properties for documents) in output files and save metadata as JSON for archival purposes. |
 | `--add-tag`                  | Add custom tags to files during conversion (format: `key:value key2:value2`). Tags are stored in metadata JSON files. |
