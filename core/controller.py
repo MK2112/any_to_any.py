@@ -9,6 +9,11 @@ import utils.language_support as lang
 from pathlib import Path
 from utils.category import Category
 from utils.prog_logger import ProgLogger
+from core.utils.resolution import (
+    available_resolutions,
+    normalize_resolution,
+    resolution_allowed,
+)
 from core.utils.exit import end_with_msg
 from core.converter.audio_converter import AudioConverter
 from core.converter.movie_converter import MovieConverter
@@ -58,6 +63,33 @@ class Controller:
         )
         self.image_converter = ImageConverter(
             self.file_handler, self.prog_logger, self.event_logger, self.locale
+        )
+
+        self._STD_RES = (
+            "3840x2160",
+            "2560x1440",
+            "1920x1080",
+            "1280x720",
+            "854x480",
+            "640x360",
+            "426x240",
+        )
+
+        self._RES_ALIASES = {
+            "4k": "3840x2160",
+            "1440p": "2560x1440",
+            "1080p": "1920x1080",
+            "720p": "1280x720",
+            "480p": "854x480",
+            "360p": "640x360",
+            "240p": "426x240",
+        }
+
+        self._RES_ALL = frozenset(self._STD_RES)  # <= 3840x2160
+        self._RES_HD = frozenset(self._STD_RES[2:])  # <= 1920x1080
+        self._RES_SD = frozenset(self._STD_RES[4:])  # <= 854x480
+        self._RES_HLS = frozenset(
+            {"426x240", "640x360", "842x480", "1280x720", "1920x1080"}
         )
 
         # Dictionary of supported formats and respective information
@@ -126,74 +158,82 @@ class Controller:
                 "srt": self.doc_converter.to_subtitles,
             },
             Category.MOVIE: {
-                "webm": "libvpx",
-                "wtv": "mpeg2video",
-                "apng": "apng",
-                "ivf": "libaom-av1",
-                "mov": "libx264",
-                "mkv": "libx264",
-                "avi": "libx264",
-                "mp4": "libx264",
-                "wmv": "wmv2",
-                "flv": "libx264",
-                "mjpeg": "mjpeg",
-                "m2ts": "mpeg2video",
-                "3gp": "libx264",
-                "3g2": "libx264",
-                "asf": "wmv2",
-                "vob": "mpeg2video",
-                "ts": "hevc",
-                "raw": "rawvideo",
-                "mpg": "mpeg2video",
-                "mxf": "mpeg2video",
-                "drc": "libx265",
-                "swf": "flv",
-                "f4v": "libx264",
-                "m4v": "libx264",
-                "mts": "mpeg2video",
-                "m2v": "mpeg2video",
-                "yuv": "rawvideo",
+                "webm": ["libvpx", self._RES_ALL],  # [lib, resolutions]
+                "wtv": ["mpeg2video", self._RES_HD],
+                "apng": ["apng", self._RES_ALL],
+                "ivf": ["libaom-av1", self._RES_SD],
+                "mov": ["libx264", self._RES_ALL],
+                "mkv": ["libx264", self._RES_ALL],
+                "avi": ["libx264", self._RES_ALL],
+                "mp4": ["libx264", self._RES_ALL],
+                "wmv": ["wmv2", self._RES_HD],
+                "flv": ["libx264", self._RES_HD],
+                "mjpeg": ["mjpeg", self._RES_HD],
+                "m2ts": ["mpeg2video", self._RES_ALL],
+                "3gp": ["libx264", self._RES_SD],
+                "3g2": ["libx264", self._RES_SD],
+                "asf": ["wmv2", self._RES_HD],
+                "vob": ["mpeg2video", self._RES_SD],
+                "ts": ["hevc", self._RES_ALL],
+                "raw": ["rawvideo", self._RES_ALL],
+                "mpg": ["mpeg2video", self._RES_HD],
+                "mxf": ["mpeg2video", self._RES_ALL],
+                "drc": ["libx265", self._RES_ALL],
+                "swf": ["flv", self._RES_SD],
+                "f4v": ["libx264", self._RES_ALL],
+                "m4v": ["libx264", self._RES_ALL],
+                "mts": ["mpeg2video", self._RES_ALL],
+                "m2v": ["mpeg2video", self._RES_SD],
+                "yuv": ["rawvideo", self._RES_ALL],
             },
             Category.MOVIE_CODECS: {
-                "av1": ["libaom-av1", "mkv"],  # [lib, fallback]
-                "avc": ["libx264", "mp4"],
-                "vp9": ["libvpx-vp9", "mp4"],
-                "h265": ["libx265", "mkv"],
-                "h264": ["libx264", "mkv"],
-                "h263p": ["h263p", "mkv"],
-                "xvid": ["libxvid", "mp4"],
-                "mpeg4": ["mpeg4", "mp4"],
-                "theora": ["libtheora", "ogv"],
-                "mpeg2": ["mpeg2video", "mp4"],
-                "mpeg1": ["mpeg1video", "mp4"],
-                "hevc": ["libx265", "mkv"],
-                "prores": ["prores", "mkv"],
-                "vp8": ["libvpx", "webm"],
-                "huffyuv": ["huffyuv", "mkv"],
-                "ffv1": ["ffv1", "mkv"],
-                "ffvhuff": ["ffvhuff", "mkv"],
-                "v210": ["v210", "mkv"],
-                "v410": ["v410", "mkv"],
-                "v308": ["v308", "mkv"],
-                "v408": ["v408", "mkv"],
-                "zlib": ["zlib", "mkv"],
-                "qtrle": ["qtrle", "mkv"],
-                "snow": ["snow", "mkv"],
-                "svq1": ["svq1", "mkv"],
-                "utvideo": ["utvideo", "mkv"],
-                "cinepak": ["cinepak", "mkv"],
-                "msmpeg4": ["msmpeg4", "mkv"],
-                "h264_nvenc": ["h264_nvenc", "mp4"],
-                "vpx": ["libvpx", "webm"],
-                "h264_rgb": ["libx264rgb", "mkv"],
-                "mpeg2video": ["mpeg2video", "mpg"],
-                "prores_ks": ["prores_ks", "mkv"],
-                "vc2": ["vc2", "mkv"],
-                "flv1": ["flv", "flv"],
+                "av1": [
+                    "libaom-av1",
+                    "mkv",
+                    self._RES_ALL,
+                ],  # [lib, fallback, resolutions]
+                "avc": ["libx264", "mp4", self._RES_ALL],
+                "vp9": ["libvpx-vp9", "mp4", self._RES_ALL],
+                "vp8": ["libvpx", "webm", self._RES_ALL],
+                "h265": ["libx265", "mkv", self._RES_ALL],
+                "h264": ["libx264", "mkv", self._RES_ALL],
+                "h263p": ["h263p", "mkv", self._RES_HD],
+                "xvid": ["libxvid", "mp4", self._RES_ALL],
+                "mpeg4": ["mpeg4", "mp4", self._RES_ALL],
+                "theora": ["libtheora", "ogv", self._RES_ALL],
+                "mpeg2": ["mpeg2video", "mp4", self._RES_ALL],
+                "mpeg1": ["mpeg1video", "mp4", self._RES_SD],
+                "hevc": ["libx265", "mkv", self._RES_ALL],
+                "prores": ["prores", "mkv", self._RES_ALL],
+                "huffyuv": ["huffyuv", "mkv", self._RES_ALL],
+                "ffv1": ["ffv1", "mkv", self._RES_ALL],
+                "ffvhuff": ["ffvhuff", "mkv", self._RES_ALL],
+                "v210": ["v210", "mkv", self._RES_ALL],
+                "v410": ["v410", "mkv", self._RES_ALL],
+                "v308": ["v308", "mkv", self._RES_ALL],
+                "v408": ["v408", "mkv", self._RES_ALL],
+                "zlib": ["zlib", "mkv", self._RES_ALL],
+                "qtrle": ["qtrle", "mkv", self._RES_ALL],
+                "snow": ["snow", "mkv", self._RES_ALL],
+                "svq1": ["svq1", "mkv", self._RES_ALL],
+                "utvideo": ["utvideo", "mkv", self._RES_ALL],
+                "cinepak": ["cinepak", "mkv", self._RES_ALL],
+                "msmpeg4": ["msmpeg4", "mkv", self._RES_ALL],
+                "h264_nvenc": ["h264_nvenc", "mp4", self._RES_ALL],
+                "vpx": ["libvpx", "webm", self._RES_ALL],
+                "h264_rgb": ["libx264rgb", "mkv", self._RES_ALL],
+                "mpeg2video": ["mpeg2video", "mpg", self._RES_ALL],
+                "prores_ks": ["prores_ks", "mkv", self._RES_ALL],
+                "vc2": ["vc2", "mkv", self._RES_ALL],
+                "flv1": ["flv", "flv", self._RES_HD],
             },
             Category.PROTOCOLS: {
-                "hls": ["hls", "mkv"],
-                "dash": ["dash", "mkv"],
+                "hls": [
+                    "hls",
+                    "mkv",
+                    self._RES_HLS,
+                ],  # [protocol, fallback, resolutions]
+                "dash": ["dash", "mkv", self._RES_HLS],
             },
         }
 
@@ -274,6 +314,7 @@ class Controller:
         preserve_meta: bool = False,
         add_tag: list = None,
         strip_meta: bool = False,
+        resolution: str = None,
     ) -> None:
         # Convert media files to defined formats or
         # merge or concatenate, according to the arguments
@@ -342,6 +383,23 @@ class Controller:
         self.preserve_meta = preserve_meta
         self.strip_meta = strip_meta
         self.custom_tags = self.metadata_handler.parse_custom_tags(add_tag or [])
+        # Normalize --resolution to its canonical 'WxH' form upfront so every
+        # downstream consumer (dropzone included) receives a validated value.
+        if resolution is not None:
+            requested = normalize_resolution(
+                self._RES_ALIASES, self._RES_ALL, resolution
+            )
+            if requested is None:
+                end_with_msg(
+                    self.event_logger,
+                    ValueError,
+                    f"[!] {lang.get_translation('error', self.locale)}: "
+                    f"Unknown resolution '{resolution}'. Available resolutions: "
+                    f"{', '.join(self._STD_RES)}.",
+                )
+            self.resolution = requested
+        else:
+            self.resolution = None
 
         # Language setting if not set already
         if language is not None and self.locale is None:
@@ -460,9 +518,16 @@ class Controller:
                 # Initialize metadata directory if preservation is enabled
                 if self.preserve_meta or self.custom_tags:
                     self.metadata_handler.set_metadata_dir(str(self.output))
+                # Validate the requested resolution against the target formats
+                if self.resolution is not None:
+                    self._validate_resolution(file_paths, formats)
                 # Process each format sequentially
                 for fmt in formats:
                     self.target_format = fmt.lower() if fmt else None
+                    self.process_file_paths(file_paths)
+                # Resize without converting (keep the input file format)
+                if not formats and self.resolution is not None:
+                    self.target_format = None
                     self.process_file_paths(file_paths)
                 if self.merging or self.concatenating:
                     self.process_file_paths(file_paths)
@@ -477,9 +542,17 @@ class Controller:
             if self.preserve_meta or self.custom_tags:
                 self.metadata_handler.set_metadata_dir(str(self.output))
 
+            # Validate the requested resolution against the target formats
+            if self.resolution is not None:
+                self._validate_resolution(file_paths, formats)
+
             # Process each format sequentially
             for fmt in formats:
                 self.target_format = fmt.lower() if fmt else None
+                self.process_file_paths(file_paths)
+            # Resize without converting (keep the input file format)
+            if not formats and self.resolution is not None:
+                self.target_format = None
                 self.process_file_paths(file_paths)
             if self.merging or self.concatenating:
                 self.process_file_paths(file_paths)
@@ -493,12 +566,100 @@ class Controller:
             f"[+] {lang.get_translation('job_finished', self.locale)}"
         )
 
+    def _validate_resolution(self, file_paths: dict, formats: list = None) -> None:
+        # Ensure the requested resolution is valid for every effective target
+        # format. On a mismatch, list the available resolutions and exit so the
+        # user can retry with a supported value.
+        formats = formats or []
+        requested = normalize_resolution(
+            self._RES_ALIASES, self._RES_ALL, self.resolution
+        )
+        if requested is None:
+            end_with_msg(
+                self.event_logger,
+                ValueError,
+                f"[!] {lang.get_translation('error', self.locale)}: "
+                f"Unknown resolution '{self.resolution}'. Available resolutions: "
+                f"{', '.join(self._STD_RES)}.",
+            )
+
+        if formats:
+            targets = [fmt.lower() for fmt in formats]
+        else:
+            targets = [movie_set[2] for movie_set in file_paths[Category.MOVIE]]
+
+        if not targets:
+            detail = ", ".join(formats) if formats else "no movie files found"
+            end_with_msg(
+                self.event_logger,
+                ValueError,
+                f"[!] {lang.get_translation('error', self.locale)}: "
+                f"Resolution '{self.resolution}' cannot be applied - resizing is "
+                f"only supported for movie formats, codecs and protocols "
+                f"({detail}).",
+            )
+
+        for fmt in targets:
+            if fmt in self._fmt_movie_keys:
+                category = self._supported_formats[Category.MOVIE]
+            elif fmt in self._fmt_codec_keys:
+                category = self._supported_formats[Category.MOVIE_CODECS]
+            elif fmt in self._fmt_protocol_keys:
+                category = self._supported_formats[Category.PROTOCOLS]
+            else:
+                end_with_msg(
+                    self.event_logger,
+                    ValueError,
+                    f"[!] {lang.get_translation('error', self.locale)}: "
+                    f"Resolution '{requested}' cannot be applied - resizing is "
+                    f"only supported for movie formats, codecs and protocols "
+                    f"('{fmt}').",
+                )
+            if not resolution_allowed(category, fmt, requested):
+                available = available_resolutions(category, fmt)
+                end_with_msg(
+                    self.event_logger,
+                    ValueError,
+                    f"[!] {lang.get_translation('error', self.locale)}: "
+                    f"Resolution '{requested}' is not supported for format "
+                    f"'{fmt}'. Available resolutions for '{fmt}': "
+                    f"{', '.join(available)}.",
+                )
+
+        # Canonical form is used from here on
+        self.resolution = requested
+
+    def _resize_movies(self, file_paths: dict) -> None:
+        # Resize each movie file to the requested resolution while keeping its
+        # original file format (used when no -f/--format target is given).
+        for movie_path_set in file_paths[Category.MOVIE]:
+            fmt = movie_path_set[2]
+            if fmt not in self._fmt_movie_keys:
+                continue
+            self.movie_converter.to_movie(
+                input=self.input,
+                output=self.output,
+                recursive=self.recursive,
+                file_paths={
+                    Category.IMAGE: [],
+                    Category.MOVIE: [movie_path_set],
+                    Category.DOCUMENT: [],
+                },
+                format=fmt,
+                framerate=self.framerate,
+                codec=self._supported_formats[Category.MOVIE][fmt][0],
+                delete=self.delete,
+                resolution=self.resolution,
+            )
+
     def process_file_paths(self, file_paths: dict) -> None:
         # Check if value associated to format is tuple/string or function to call specific conversion
         if self.merging:
             self.merge(file_paths, getattr(self, "across", False))
         elif self.concatenating:
             self.concat(file_paths, getattr(self, "target_format", None))
+        elif self.resolution is not None and self.target_format is None:
+            self._resize_movies(file_paths)
         elif self.target_format in self._fmt_movie_keys:
             self.movie_converter.to_movie(
                 input=self.input,
@@ -507,8 +668,9 @@ class Controller:
                 file_paths=file_paths,
                 format=self.target_format,
                 framerate=self.framerate,
-                codec=self._supported_formats[Category.MOVIE][self.target_format],
+                codec=self._supported_formats[Category.MOVIE][self.target_format][0],
                 delete=self.delete,
+                resolution=self.resolution,
             )
         elif self.target_format in self._fmt_audio_keys:
             self.audio_converter.to_audio(
@@ -531,8 +693,9 @@ class Controller:
                 framerate=self.framerate,
                 codec=self._supported_formats[Category.MOVIE_CODECS][
                     self.target_format
-                ],
+                ][:2],
                 delete=self.delete,
+                resolution=self.resolution,
             )
         elif self.target_format in self._fmt_image_keys:
             self._supported_formats[Category.IMAGE][self.target_format](
@@ -590,6 +753,7 @@ class Controller:
                         dropzone_controller.merging = self.merging
                         dropzone_controller.concatenating = self.concatenating
                         dropzone_controller.recursive = True
+                        dropzone_controller.resolution = self.resolution
                         dropzone_controller.event_logger = self.event_logger
                         dropzone_controller.file_handler = self.file_handler
                         dropzone_controller.target_format = self.target_format
@@ -751,7 +915,7 @@ class Controller:
             concat_vid.write_videofile(
                 video_out_path,
                 fps=concat_vid.fps if self.framerate is None else self.framerate,
-                codec=self._supported_formats[Category.MOVIE][format],
+                codec=self._supported_formats[Category.MOVIE][format][0],
                 logger=self.prog_logger,
             )
             concat_vid.close()
@@ -1004,7 +1168,7 @@ class Controller:
                         fps=video.fps if self.framerate is None else self.framerate,
                         codec=self._supported_formats[Category.MOVIE][
                             movie_path_set[2]
-                        ],
+                        ][0],
                         logger=self.prog_logger,
                     )
                 except Exception as e:

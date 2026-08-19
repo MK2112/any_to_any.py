@@ -9,6 +9,7 @@ from PIL import Image
 from tqdm import tqdm
 from utils.category import Category
 from core.utils.exit import end_with_msg
+from core.utils.resolution import parse_resolution
 from core.converter.image_converter import office_to_frames
 from moviepy import (
     VideoFileClip,
@@ -40,6 +41,7 @@ class MovieConverter:
         framerate: int,
         codec: str,
         delete: bool,
+        resolution: str = None,
     ) -> None:
         # Convert to movie with specified format
         # Determine worker count
@@ -140,7 +142,7 @@ class MovieConverter:
 
         # Movie to different movie (parallel per file)
         def _movie_to_movie(movie_path_set: tuple):
-            if movie_path_set[2] == format:
+            if movie_path_set[2] == format and not resolution:
                 return None
 
             out_path_local = self.file_handler._resolve_output_file_conflict(
@@ -154,6 +156,8 @@ class MovieConverter:
                         self.file_handler.join_back(movie_path_set), audio=True
                     )
                     audio = video.audio
+                    if resolution is not None:
+                        video = video.resized(new_size=parse_resolution(resolution))
                     video.write_videofile(
                         out_path_local,
                         fps=video.fps if framerate is None else framerate,
@@ -167,6 +171,10 @@ class MovieConverter:
                             self.file_handler.join_back(movie_path_set)
                         )
                         video_clip = ImageClip(np.zeros((720, 1280, 3), dtype=np.uint8))
+                        if resolution is not None:
+                            video_clip = video_clip.resized(
+                                new_size=parse_resolution(resolution)
+                            )
                         duration = audio.duration
                         video_clip = video_clip.with_duration(duration)
                         video_clip = video_clip.with_fps(
@@ -311,6 +319,7 @@ class MovieConverter:
         framerate: int,
         codec: dict,
         delete: bool,
+        resolution: str = None,
     ) -> None:
         # Convert movie to same movie with different codec
         for codec_path_set in file_paths[Category.MOVIE]:
@@ -334,6 +343,8 @@ class MovieConverter:
                     audio=True,
                     fps_source="tbr",
                 )
+                if resolution is not None:
+                    video = video.resized(new_size=parse_resolution(resolution))
                 try:
                     video.write_videofile(
                         out_path,
@@ -365,6 +376,8 @@ class MovieConverter:
                 clip = ImageClip(np.zeros((16, 16, 3), dtype=np.uint8)).with_duration(
                     audio.duration
                 )
+                if resolution is not None:
+                    clip = clip.resized(new_size=parse_resolution(resolution))
                 clip = clip.with_audio(audio)
                 clip.write_videofile(
                     out_path,
