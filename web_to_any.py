@@ -278,6 +278,10 @@ def send_to_backend(
             dropzone=False,
             language="en_US",
             workers=1,
+            preserve_meta=True,
+            add_tag=False,
+            strip_meta=False,
+            resolution=None,
         )
 
         # Mark as done

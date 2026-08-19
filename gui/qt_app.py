@@ -128,6 +128,10 @@ class ConversionThread(QThread):
                         dropzone=False,
                         language=None,
                         workers=self.workers,
+                        preserve_meta=True,
+                        add_tag=False,
+                        strip_meta=False,
+                        resolution=None,
                     )
                 except Exception as e:
                     error_holder["error"] = str(e)
