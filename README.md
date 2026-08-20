@@ -7,8 +7,6 @@
 
 ![screenshot](./img/Any-to-Any-Web.png)
 
-[Download (Windows/Linux)](https://github.com/MK2112/any_to_any.py/releases/latest)
-
 - **Convert** between a wide range of media formats (audio, video, image, document)
 - **Merge** video files with separate audio files
 - **Extract** audio tracks from video files
@@ -88,7 +86,8 @@ sudo apt-get install ffmpeg
      - Add `C:\ffmpeg\bin` and confirm with `OK`
 
 <p align="center">
-   <img src="./img/Any-to-Any-GUI.png" width="625" height="auto">
+   <img src="./img/Any-to-Any-GUI.png" width="625" height="auto"><br />
+   <a href="https://github.com/MK2112/any_to_any.py/releases/latest" target="_blank">Download (Windows/Linux)</a>
 </p>
 
 ## Command Line Interface
