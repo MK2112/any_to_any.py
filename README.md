@@ -7,6 +7,8 @@
 
 ![screenshot](./img/Any-to-Any-Web.png)
 
+[Download (Windows/Linux)](https://github.com/MK2112/any_to_any.py/releases/latest)
+
 - **Convert** between a wide range of media formats (audio, video, image, document)
 - **Merge** video files with separate audio files
 - **Extract** audio tracks from video files
