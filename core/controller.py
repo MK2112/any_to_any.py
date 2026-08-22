@@ -531,6 +531,17 @@ class Controller:
                     self.process_file_paths(file_paths)
                 if self.merging or self.concatenating:
                     self.process_file_paths(file_paths)
+                # Split-only jobs carry neither format, resolution nor merge/
+                # concat flags; dispatch them so page_ranges get processed
+                if (
+                    not formats
+                    and self.resolution is None
+                    and not self.merging
+                    and not self.concatenating
+                    and self.page_ranges is not None
+                ):
+                    self.target_format = None
+                    self.process_file_paths(file_paths)
                 found_files = len(file_paths) > 0 if not found_files else found_files
                 file_paths = {}
 
@@ -555,6 +566,16 @@ class Controller:
                 self.target_format = None
                 self.process_file_paths(file_paths)
             if self.merging or self.concatenating:
+                self.process_file_paths(file_paths)
+            # Split-only jobs (mirrors the non-across path above)
+            if (
+                not formats
+                and self.resolution is None
+                and not self.merging
+                and not self.concatenating
+                and self.page_ranges is not None
+            ):
+                self.target_format = None
                 self.process_file_paths(file_paths)
 
         if (across and len(file_paths) == 0) or not found_files:
