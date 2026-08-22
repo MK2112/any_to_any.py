@@ -118,5 +118,12 @@ ENGLISH = {
     "resolution_original": "Keep original",
     "resize_only": "Resize only",
     "resolution_required": "Select a resolution to resize.",
-    "resize_only_movies_required": "Resize-only requires uploaded movie files."
+    "resize_only_movies_required": "Resize-only requires uploaded movie files.",
+    "split_pages": "Split Pages (PDF)",
+    "split_placeholder": "e.g. 1-3,8-end",
+    "cancelling": "Cancelling...",
+    "open_containing_folder": "Open Containing Folder",
+    "no_format_available_split": "Splitting ignores the output format and applies to PDF inputs only.",
+    "exit_while_converting": "A conversion is still running. Cancel it and exit anyway?",
+    "resolution_unsupported": "Resolution {res} is not supported for '{fmt}'. Available resolutions: {list}"
 }
