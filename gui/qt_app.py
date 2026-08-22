@@ -1,7 +1,8 @@
 import os
+import re
 import sys
-import copy
 import json
+import uuid
 import time
 import platform
 import threading
@@ -37,6 +38,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 import utils.language_support as lang
 from core.controller import Controller
+from core.utils.resolution import available_resolutions
+from utils.category import Category
 from utils.version import VERSION
 from utils.version_check import check_for_update
 
@@ -44,10 +47,78 @@ if "--version" in sys.argv or "--self-test" in sys.argv:
     print(VERSION)
     sys.exit(0)
 
+APP_ROOT = Path(__file__).resolve().parent.parent
+SETTINGS_FILE = str(Path.home() / ".any_to_any_gui_settings.json")
+
+STYLE_CONVERT_BTN = """
+    QPushButton {
+        background-color: #4CAF50;
+        color: white;
+        font-weight: bold;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+    }
+    QPushButton:hover { background-color: #43A047; }
+    QPushButton:pressed { background-color: #388E3C; }
+    QPushButton:disabled { background-color: #777777; }
+"""
+
+STYLE_CANCEL_BTN = """
+    QPushButton {
+        background-color: #f44336;
+        color: white;
+        font-weight: bold;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+    }
+    QPushButton:hover { background-color: #e53935; }
+    QPushButton:pressed { background-color: #c62828; }
+    QPushButton:disabled { background-color: #777777; }
+"""
+
+PROGRESS_STYLE_DONE = (
+    "QProgressBar {background: #e0ffe0;} QProgressBar::chunk {background: #4CAF50;}"
+)
+PROGRESS_STYLE_CANCELLED = (
+    "QProgressBar {background: #fff3e0;} QProgressBar::chunk {background: #ff9800;}"
+)
+PROGRESS_STYLE_ERROR = (
+    "QProgressBar {background: #ffe0e0;} QProgressBar::chunk {background: #e53935;}"
+)
+
+DRAG_OVER_STYLE_LIST = "QListWidget { border: None; background-color: #606060; }"
+DRAG_OVER_STYLE_WINDOW = "QListWidget { border: None; background-color: #404040; }"
+
+GENERIC_STATUS_TOKENS = {"", "starting", "preparing", "waiting", "processing", "running", "done"}
+
+SPLIT_RANGE_RE = re.compile(r"^(\d+)\s*-\s*(\d+|end|rest)$", re.IGNORECASE)
+SPLIT_SINGLE_RE = re.compile(r"^(?:\d+|end|rest)$", re.IGNORECASE)
+
+
+def tr_key(key, locale=None):
+    # Resolve a translation with graceful fallback to English, mirroring the
+    # web interface behaviour: untranslated keys never surface as raw keys.
+    language = locale if locale is not None else lang.get_system_language()
+    text = lang.TRANSLATIONS.get(language, lang.TRANSLATIONS["English"]).get(key)
+    if text is None:
+        text = lang.TRANSLATIONS["English"].get(key, key)
+    return text
+
+
+class UpdateCheckThread(QThread):
+    update_available = pyqtSignal(str)
+
+    def run(self):
+        latest = check_for_update()
+        if latest:
+            self.update_available.emit(latest)
+
 
 class ConversionThread(QThread):
     progress_updated = pyqtSignal(dict)
-    conversion_finished = pyqtSignal(str, str)  # job_id, output_path
+    conversion_finished = pyqtSignal(str, str)  # job_id, output_dir
     error_occurred = pyqtSignal(str)
 
     def __init__(
@@ -62,6 +133,10 @@ class ConversionThread(QThread):
         recursive=False,
         delete=False,
         workers=1,
+        resolution=None,
+        split=None,
+        preserve_meta=False,
+        strip_meta=False,
     ):
         super().__init__()
         self.input_files = input_files
@@ -74,7 +149,11 @@ class ConversionThread(QThread):
         self.recursive = recursive
         self.delete = delete
         self.workers = workers
-        self.job_id = str(id(self))
+        self.resolution = resolution
+        self.split = split
+        self.preserve_meta = preserve_meta
+        self.strip_meta = strip_meta
+        self.job_id = uuid.uuid4().hex[:8]
         self.shared_progress = {}
         self._cancelled = False
 
@@ -98,15 +177,10 @@ class ConversionThread(QThread):
                 is_web=True,
             )
 
-            if len(self.input_files) == 1:
-                base_name = Path(self.input_files[0]).stem
-                output_path = str(
-                    Path(self.output_dir) / f"{base_name}.{self.output_format}"
-                )
-            else:
-                output_path = str(
-                    Path(self.output_dir) / f"converted.{self.output_format}"
-                )
+            # The backend derives concrete output file names itself; reporting
+            # the directory stays correct across convert/merge/concat/split/
+            # resize-only jobs alike.
+            output_path = str(Path(self.output_dir))
 
             conversion_done = threading.Event()
             error_holder = {}
@@ -119,7 +193,7 @@ class ConversionThread(QThread):
                         output=output_path,
                         framerate=self.framerate,
                         quality=self.quality,
-                        split=None,
+                        split=self.split,
                         merge=self.merge,
                         concat=self.concat,
                         delete=self.delete,
@@ -128,24 +202,29 @@ class ConversionThread(QThread):
                         dropzone=False,
                         language=None,
                         workers=self.workers,
-                        preserve_meta=True,
-                        add_tag=False,
-                        strip_meta=False,
-                        resolution=None,
+                        preserve_meta=self.preserve_meta,
+                        add_tag=[],
+                        strip_meta=self.strip_meta,
+                        resolution=self.resolution,
                     )
-                except Exception as e:
-                    error_holder["error"] = str(e)
+                except SystemExit as exc:
+                    # The core exits gracefully (sys.exit) e.g. when no media
+                    # was found; SystemExit is a BaseException and would
+                    # otherwise bypass error reporting entirely.
+                    error_holder["error"] = str(exc) or "Processing stopped early"
+                except BaseException as exc:
+                    error_holder["error"] = f"{type(exc).__name__}: {exc}"
                 finally:
                     conversion_done.set()
 
-            t = threading.Thread(target=conversion_job)
-            t.start()
+            worker = threading.Thread(target=conversion_job, daemon=True)
+            worker.start()
 
             last_snapshot = None
-            # Poll progress every 100ms
+            # Poll shared progress every 100ms, emitting only on change
             while not conversion_done.is_set() and not self._cancelled:
-                prog = copy.deepcopy(self.shared_progress.get(self.job_id, {}))
-                progress = prog.get("progress", None)
+                prog = self.shared_progress.get(self.job_id, {})
+                progress = prog.get("progress")
                 total = prog.get("total", 100)
                 percent = None
                 if progress is not None and total:
@@ -155,15 +234,17 @@ class ConversionThread(QThread):
                         percent = None
                 message = prog.get("message", prog.get("status", ""))
                 status = prog.get("status", "running")
-                error = prog.get("error", None)
-                snapshot = {
-                    "progress": percent,
-                    "message": message,
-                    "status": status,
-                    "error": error,
-                }
+                error = prog.get("error")
+                snapshot = (percent, message, status, error)
                 if snapshot != last_snapshot:
-                    self.progress_updated.emit(snapshot)
+                    self.progress_updated.emit(
+                        {
+                            "progress": percent,
+                            "message": message,
+                            "status": status,
+                            "error": error,
+                        }
+                    )
                     last_snapshot = snapshot
                 time.sleep(0.1)
 
@@ -176,23 +257,18 @@ class ConversionThread(QThread):
                         "error": None,
                     }
                 )
+                worker.join(timeout=5.0)
                 return
 
-            # Wait for thread to complete
-            t.join(timeout=5.0)
+            worker.join(timeout=30.0)
 
-            # Final progress update
-            prog = copy.deepcopy(self.shared_progress.get(self.job_id, {}))
-            percent = 100
-            message = prog.get("message", prog.get("status", "Done"))
-            status = prog.get("status", "done")
-            error = prog.get("error", None)
+            prog = self.shared_progress.get(self.job_id, {})
             self.progress_updated.emit(
                 {
-                    "progress": percent,
-                    "message": message,
-                    "status": status,
-                    "error": error,
+                    "progress": 100,
+                    "message": prog.get("message", prog.get("status", "Done")),
+                    "status": prog.get("status", "done"),
+                    "error": prog.get("error"),
                 }
             )
 
@@ -205,6 +281,38 @@ class ConversionThread(QThread):
             self.error_occurred.emit(str(e))
 
 
+class DropListWidget(QListWidget):
+    # File list supporting external drops (files/folders) as well as internal
+    # reordering; subclassing keeps Qt's virtual dispatch intact unlike
+    # instance-level handler monkeypatching.
+    files_dropped = pyqtSignal(list)
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasUrls():
+            self.setStyleSheet(DRAG_OVER_STYLE_LIST)
+            event.acceptProposedAction()
+        else:
+            super().dragEnterEvent(event)
+
+    def dragLeaveEvent(self, event):
+        self.setStyleSheet("")
+        super().dragLeaveEvent(event)
+
+    def dropEvent(self, event):
+        self.setStyleSheet("")
+        if event.mimeData().hasUrls() and event.source() is not self:
+            paths = [
+                url.toLocalFile()
+                for url in event.mimeData().urls()
+                if url.toLocalFile()
+            ]
+            event.acceptProposedAction()
+            self.files_dropped.emit(paths)
+        else:
+            # Preserve built-in internal-move reordering
+            super().dropEvent(event)
+
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -214,11 +322,24 @@ class MainWindow(QMainWindow):
         self.conversion_threads = {}
         self.current_thread = None
         self._conversion_start_time = None
+        self._progress_epoch = 0  # Guards stale progress-reset timers
+        self.supported_formats = self.get_supported_formats()
+        self.supported_extensions = {
+            ext.lower()
+            for formats in self.controller._supported_formats.values()
+            for ext in formats.keys()
+        }
         self.init_ui()
         self._setup_shortcuts()
         self.setWindowTitle(f"any_to_any.py {VERSION}")
+        icon_path = APP_ROOT / "img" / "app_icon.png"
+        if icon_path.is_file():
+            self.setWindowIcon(QIcon(str(icon_path)))
         self.setMinimumSize(850, 650)
         self.setAcceptDrops(True)  # Enable drag-drop on main window
+
+    def _tr(self, key):
+        return tr_key(key, self.locale)
 
     def _setup_shortcuts(self):
         # Keyboard shortcuts, will expand this in the future
@@ -235,11 +356,25 @@ class MainWindow(QMainWindow):
             formats[cat_name] = sorted(list(mapping.keys()))
         return formats
 
+    # ---- Drag & drop -----------------------------------------------------
+
+    @staticmethod
+    def _expand_paths(paths):
+        files_to_add = []
+        for path in paths:
+            if not path:
+                continue
+            if os.path.isfile(path):
+                files_to_add.append(path)
+            elif os.path.isdir(path):
+                for root, _, files in os.walk(path):
+                    for file in files:
+                        files_to_add.append(os.path.join(root, file))
+        return files_to_add
+
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
-            self.file_list.setStyleSheet(
-                "QListWidget { border: None; background-color: #404040; }"
-            )
+            self.file_list.setStyleSheet(DRAG_OVER_STYLE_WINDOW)
             event.acceptProposedAction()
         else:
             event.ignore()
@@ -248,63 +383,40 @@ class MainWindow(QMainWindow):
         self.file_list.setStyleSheet("")
         event.accept()
 
-    def _handle_file_list_drop(self, event):
-        # Handle files/folders dropped onto file list
-        self.file_list.setStyleSheet("")
-        if not event.mimeData().hasUrls():
-            event.ignore()
-            return
-
-        files_to_add = []
-        for url in event.mimeData().urls():
-            path = url.toLocalFile()
-            if not path:
-                continue
-            if os.path.isfile(path):
-                files_to_add.append(path)
-            elif os.path.isdir(path):
-                for root, _, files in os.walk(path):
-                    for file in files:
-                        files_to_add.append(os.path.join(root, file))
-        if files_to_add:
-            self.add_files_batch(files_to_add)
-        event.accept()
-
     def dropEvent(self, event):
-        # Handle files/folders dropped onto main window
         self.file_list.setStyleSheet("")
         if not event.mimeData().hasUrls():
             event.ignore()
             return
-        files_to_add = []
-        for url in event.mimeData().urls():
-            path = url.toLocalFile()
-            if not path:
-                continue
-            if os.path.isfile(path):
-                files_to_add.append(path)
-            elif os.path.isdir(path):
-                for root, _, files in os.walk(path):
-                    for file in files:
-                        files_to_add.append(os.path.join(root, file))
+        paths = [
+            url.toLocalFile() for url in event.mimeData().urls() if url.toLocalFile()
+        ]
+        files_to_add = self._expand_paths(paths)
         if files_to_add:
             self.add_files_batch(files_to_add)
         event.accept()
+
+    # ---- File list management -------------------------------------------
 
     def add_files_batch(self, files):
-        # Aggregator, adds multiple files with single UI update
+        # Aggregator: adds multiple files with a single UI update, skipping
+        # duplicates and extensions the backend would reject anyway.
         self.file_list.setUpdatesEnabled(False)
         try:
             for file in files:
-                if file not in self._file_paths_set and os.path.isfile(file):
-                    self._file_paths_set.add(file)
-                    item = QListWidgetItem(Path(file).name)
-                    item.setData(Qt.ItemDataRole.UserRole, file)
-                    item.setToolTip(file)
-                    self.file_list.addItem(item)
+                if file in self._file_paths_set or not os.path.isfile(file):
+                    continue
+                if Path(file).suffix.lstrip(".").lower() not in self.supported_extensions:
+                    continue
+                self._file_paths_set.add(file)
+                item = QListWidgetItem(Path(file).name)
+                item.setData(Qt.ItemDataRole.UserRole, file)
+                item.setToolTip(file)
+                self.file_list.addItem(item)
         finally:
             self.file_list.setUpdatesEnabled(True)
             self._update_file_count()
+            self._refresh_resolution_options()
 
     def add_file_to_list(self, file):
         if not os.path.isfile(file):
@@ -317,6 +429,7 @@ class MainWindow(QMainWindow):
         item.setToolTip(file)
         self.file_list.addItem(item)
         self._update_file_count()
+        self._refresh_resolution_options()
 
     def _update_file_count(self):
         count = self.file_list.count()
@@ -361,10 +474,126 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(
                 self,
                 lang.get_translation("error", self.locale),
-                lang.get_translation("invalid_output_dir", self.locale),
+                lang.get_translation("no_dir_exist", self.locale).replace(
+                    "[dir]", output_dir or "-"
+                ),
             )
             return
         self._open_file_location(output_dir)
+
+    # ---- Resolution support ---------------------------------------------
+
+    def _resolution_ladder_for_target(self, target_format):
+        # Allowed resolutions for a movie/codec/protocol target, largest first
+        supported = self.controller._supported_formats
+        if target_format in self.controller._fmt_movie_keys:
+            return available_resolutions(supported[Category.MOVIE], target_format)
+        if target_format in self.controller._fmt_codec_keys:
+            return available_resolutions(supported[Category.MOVIE_CODECS], target_format)
+        if target_format in self.controller._fmt_protocol_keys:
+            return available_resolutions(supported[Category.PROTOCOLS], target_format)
+        return []
+
+    def _selected_movie_ladder_intersection(self):
+        # For resize-only jobs: resolutions every selected movie file permits
+        ladders = []
+        seen_exts = set()
+        for i in range(self.file_list.count()):
+            ext = Path(self.file_list.item(i).data(Qt.ItemDataRole.UserRole)).suffix.lstrip(".").lower()
+            if ext in seen_exts:
+                continue
+            seen_exts.add(ext)
+            ladder = self._resolution_ladder_for_target(ext)
+            if ladder:
+                ladders.append(set(ladder))
+        if not ladders:
+            return []
+        common = set.intersection(*ladders)
+        return [res for res in self.controller._STD_RES if res in common]
+
+    def _populate_resolution_combo(self, allowed):
+        combo = self.resolution_combo
+        previous = combo.currentData()
+        combo.blockSignals(True)
+        combo.clear()
+        combo.addItem(self._tr("resolution_original"), "")
+        for res in allowed:
+            combo.addItem(res, res)
+        if previous and previous in allowed:
+            combo.setCurrentIndex(combo.findData(previous))
+        combo.setEnabled(bool(allowed))
+        combo.blockSignals(False)
+
+    def _refresh_resolution_options(self):
+        # Refill the resolution dropdown for the current mode, mirroring the
+        # web view: per-target ladders, or the intersection of the selected
+        # movies' ladders for resize-only jobs.
+        if self.merge_check.isChecked() or self.concat_check.isChecked():
+            self._populate_resolution_combo([])
+            return
+        target = self.format_combo.currentData()
+        if target == "original":
+            self._populate_resolution_combo(self._selected_movie_ladder_intersection())
+        elif target:
+            self._populate_resolution_combo(self._resolution_ladder_for_target(target))
+        else:
+            self._populate_resolution_combo([])
+
+    def _on_format_changed(self):
+        self._refresh_resolution_options()
+        self._sync_mode_controls()
+
+    # ---- Mode interdependence --------------------------------------------
+
+    def _sync_mode_controls(self):
+        merge = self.merge_check.isChecked()
+        concat = self.concat_check.isChecked()
+        merge_or_concat = merge or concat
+        split_active = bool(self.split_edit.text().strip())
+
+        for signal_source in (self.merge_check, self.concat_check, self.split_edit, self.format_combo):
+            signal_source.blockSignals(True)
+        try:
+            self.split_edit.setEnabled(not merge_or_concat)
+            if merge_or_concat:
+                # Merging/concatenating never applies a resolution (web parity)
+                self.resolution_combo.blockSignals(False)
+                self._populate_resolution_combo([])
+                self.resolution_combo.setEnabled(False)
+        finally:
+            for signal_source in (self.merge_check, self.concat_check, self.split_edit, self.format_combo):
+                signal_source.blockSignals(False)
+
+        # A filled split field excludes merge/concat (mirrors CLI rules)
+        merge_concat_enabled = not (split_active and not merge_or_concat)
+        self.merge_check.setEnabled(merge_concat_enabled)
+        self.concat_check.setEnabled(merge_concat_enabled)
+        if not merge_concat_enabled:
+            self.merge_check.setChecked(False)
+            self.concat_check.setChecked(False)
+
+    def _on_merge_concat_toggled(self):
+        if (self.merge_check.isChecked() or self.concat_check.isChecked()) and self.split_edit.text().strip():
+            self.split_edit.clear()
+        self._refresh_resolution_options()
+        self._sync_mode_controls()
+
+    def _on_split_edited(self):
+        if self.split_edit.text().strip():
+            self.merge_check.setChecked(False)
+            self.concat_check.setChecked(False)
+            self.resolution_combo.blockSignals(True)
+            self.resolution_combo.setCurrentIndex(0)
+            self.resolution_combo.setEnabled(False)
+            self.resolution_combo.blockSignals(False)
+            self.merge_check.setEnabled(False)
+            self.concat_check.setEnabled(False)
+        else:
+            self.merge_check.setEnabled(True)
+            self.concat_check.setEnabled(True)
+            self._refresh_resolution_options()
+
+    # ---- UI construction --------------------------------------------------
 
     def init_ui(self):
         self.last_dir = str(Path.home())
@@ -384,21 +613,14 @@ class MainWindow(QMainWindow):
         input_layout = QVBoxLayout(input_group)
 
         # File list
-        self.file_list = QListWidget()
+        self.file_list = DropListWidget()
         self.file_list.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
         self.file_list.setAcceptDrops(True)
         self.file_list.setDragDropMode(QListWidget.DragDropMode.InternalMove)
-        self.file_list.dragEnterEvent = lambda evt: (
-            self.file_list.setStyleSheet(
-                "QListWidget { border: None; background-color: #606060; }"
-            ),
-            evt.acceptProposedAction(),
-        )[1]
-        self.file_list.dragLeaveEvent = lambda evt: (
-            self.file_list.setStyleSheet(""),
-            evt.accept(),
-        )[1]
-        self.file_list.dropEvent = self._handle_file_list_drop
+        self.file_list.setUniformItemSizes(True)
+        self.file_list.files_dropped.connect(
+            lambda paths: self.add_files_batch(self._expand_paths(paths))
+        )
         self.file_list.setMinimumHeight(150)
         self.file_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.file_list.customContextMenuRequested.connect(self.show_file_context_menu)
@@ -423,11 +645,7 @@ class MainWindow(QMainWindow):
         self.remove_btn = QPushButton(lang.get_translation("remove", self.locale))
         self.remove_btn.clicked.connect(self.remove_selected)
 
-        self.clear_btn = QPushButton(
-            lang.get_translation("clear_all", self.locale)
-            if hasattr(lang, "get_translation")
-            else "Clear All"
-        )
+        self.clear_btn = QPushButton(lang.get_translation("clear_all", self.locale))
         self.clear_btn.clicked.connect(self.clear_all_files)
 
         for file_btn_widget in [
@@ -448,7 +666,7 @@ class MainWindow(QMainWindow):
         # Row 0: Format and output directory
         format_label = QLabel(lang.get_translation("convert", self.locale) + ":")
         self.format_combo = QComboBox()
-        self.supported_formats = self.get_supported_formats()
+        self.format_combo.addItem(lang.get_translation("resolution_original", self.locale), "original")
         for cat, fmts in self.supported_formats.items():
             self.format_combo.addItem(f"--- {cat} ---")
             idx = self.format_combo.count() - 1
@@ -458,6 +676,8 @@ class MainWindow(QMainWindow):
                 self.format_combo.setItemData(
                     self.format_combo.count() - 1, f"{cat}", Qt.ItemDataRole.ToolTipRole
                 )
+        self.format_combo.setCurrentIndex(1)  # Category header: force explicit choice
+        self.format_combo.currentIndexChanged.connect(self._on_format_changed)
         settings_layout.addWidget(format_label, 0, 0)
         settings_layout.addWidget(self.format_combo, 0, 1)
 
@@ -481,7 +701,9 @@ class MainWindow(QMainWindow):
         self.framerate_spin.setRange(0, 120)
         self.framerate_spin.setValue(0)
         self.framerate_spin.setSpecialValueText("Auto")
-        self.framerate_spin.setToolTip("Set framerate (0 = auto)")
+        self.framerate_spin.setToolTip(
+            lang.get_translation("framerate_help", self.locale)
+        )
         settings_layout.addWidget(framerate_label, 1, 0)
         settings_layout.addWidget(self.framerate_spin, 1, 1)
 
@@ -493,11 +715,51 @@ class MainWindow(QMainWindow):
 
         workers_label = QLabel(f"{lang.get_translation('workers', self.locale)}:")
         self.workers_spin = QSpinBox()
-        self.workers_spin.setRange(1, 8)
+        cpu_count = os.cpu_count() or 2
+        self.workers_spin.setRange(1, max(1, min(cpu_count - 1, 32)))
         self.workers_spin.setValue(1)
-        self.workers_spin.setToolTip("Number of parallel conversion threads")
+        self.workers_spin.setToolTip(
+            lang.get_translation("max_threads", self.locale)
+        )
         settings_layout.addWidget(workers_label, 2, 0)
         settings_layout.addWidget(self.workers_spin, 2, 1)
+
+        # Row 2 (right): Resolution, constrained by the selected target format
+        resolution_label = QLabel(
+            f"{lang.get_translation('resolution_label', self.locale)}:"
+        )
+        self.resolution_combo = QComboBox()
+        self.resolution_combo.setToolTip(
+            lang.get_translation("resolution_help", self.locale)
+        )
+        settings_layout.addWidget(resolution_label, 2, 2)
+        settings_layout.addWidget(self.resolution_combo, 2, 3)
+
+        # Row 3: PDF page-range splitting
+        split_label = QLabel(f"{self._tr('split_pages')}:")
+        self.split_edit = QLineEdit()
+        self.split_edit.setPlaceholderText(self._tr("split_placeholder"))
+        self.split_edit.setToolTip(lang.get_translation("split_help", self.locale))
+        self.split_edit.textChanged.connect(lambda _: self._on_split_edited())
+        settings_layout.addWidget(split_label, 3, 0)
+        settings_layout.addWidget(self.split_edit, 3, 1, 1, 3)
+
+        # Row 4: Metadata handling
+        self.preserve_meta_check = QCheckBox(
+            lang.get_translation("preserve_meta", self.locale)
+        )
+        self.preserve_meta_check.setChecked(True)
+        self.strip_meta_check = QCheckBox(
+            lang.get_translation("strip_meta", self.locale)
+        )
+        self.preserve_meta_check.toggled.connect(
+            lambda checked: self.strip_meta_check.setChecked(False) if checked else None
+        )
+        self.strip_meta_check.toggled.connect(
+            lambda checked: self.preserve_meta_check.setChecked(False) if checked else None
+        )
+        settings_layout.addWidget(self.preserve_meta_check, 4, 0, 1, 3)
+        settings_layout.addWidget(self.strip_meta_check, 4, 3, 1, 3)
 
         layout.addWidget(settings_group)
 
@@ -521,6 +783,9 @@ class MainWindow(QMainWindow):
             self.open_target_folder_check,
         ]:
             options_layout.addWidget(widget)
+
+        self.merge_check.toggled.connect(lambda _: self._on_merge_concat_toggled())
+        self.concat_check.toggled.connect(lambda _: self._on_merge_concat_toggled())
 
         options_layout.addStretch()
         layout.addLayout(options_layout)
@@ -553,35 +818,11 @@ class MainWindow(QMainWindow):
         self.cancel_btn = QPushButton(lang.get_translation("cancel", self.locale))
         self.cancel_btn.clicked.connect(self.cancel_conversion)
         self.cancel_btn.setEnabled(False)
-        self.cancel_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #f44336;
-                color: white;
-                font-weight: bold;
-                padding: 10px 20px;
-                border: none;
-                border-radius: 4px;
-            }
-            QPushButton:disabled {
-                background-color: #777777;
-            }
-        """)
+        self.cancel_btn.setStyleSheet(STYLE_CANCEL_BTN)
 
         self.convert_btn = QPushButton(lang.get_translation("convert", self.locale))
         self.convert_btn.clicked.connect(self.start_conversion)
-        self.convert_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #4CAF50;
-                color: white;
-                font-weight: bold;
-                padding: 10px 20px;
-                border: none;
-                border-radius: 4px;
-            }
-            QPushButton:disabled {
-                background-color: #777777;
-            }
-        """)
+        self.convert_btn.setStyleSheet(STYLE_CONVERT_BTN)
 
         action_layout.addWidget(self.cancel_btn)
         action_layout.addWidget(self.convert_btn)
@@ -591,10 +832,17 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(15)
 
+        # Initialize dependent controls once everything exists
+        self._refresh_resolution_options()
+        self._sync_mode_controls()
+
+    # ---- File actions -----------------------------------------------------
+
     def clear_all_files(self):
         self.file_list.clear()
         self._file_paths_set.clear()
         self._update_file_count()
+        self._refresh_resolution_options()
 
     def add_files(self):
         file_dialog = QFileDialog()
@@ -608,8 +856,7 @@ class MainWindow(QMainWindow):
         if files:
             self.last_dir = str(Path(files[0]).parent)
             save_settings({"last_dir": self.last_dir, "locale": self.locale})
-            for file in files:
-                self.add_file_to_list(file)
+            self.add_files_batch(files)
 
     def add_folder(self):
         folder = QFileDialog.getExistingDirectory(
@@ -618,16 +865,24 @@ class MainWindow(QMainWindow):
         if folder:
             self.last_dir = folder
             save_settings({"last_dir": self.last_dir, "locale": self.locale})
-            for root, _, files in os.walk(folder):
-                for file in files:
-                    self.add_file_to_list(os.path.join(root, file))
+            files = []
+            for root, _, names in os.walk(folder):
+                for name in names:
+                    files.append(os.path.join(root, name))
+            self.add_files_batch(files)
 
     def remove_selected(self):
-        for item in self.file_list.selectedItems():
-            file_path = item.data(Qt.ItemDataRole.UserRole)
-            self._file_paths_set.discard(file_path)
-            self.file_list.takeItem(self.file_list.row(item))
+        rows = sorted(
+            {self.file_list.row(item) for item in self.file_list.selectedItems()},
+            reverse=True,
+        )
+        for row in rows:
+            item = self.file_list.item(row)
+            if item is not None:
+                self._file_paths_set.discard(item.data(Qt.ItemDataRole.UserRole))
+                self.file_list.takeItem(row)
         self._update_file_count()
+        self._refresh_resolution_options()
 
     def show_file_context_menu(self, pos):
         # Right-click context menu for file list
@@ -635,22 +890,26 @@ class MainWindow(QMainWindow):
         selected = self.file_list.selectedItems()
 
         if selected:
-            remove_action = menu.addAction("Remove Selected")
+            remove_action = menu.addAction(
+                lang.get_translation("remove_selected_files", self.locale)
+            )
             remove_action.triggered.connect(self.remove_selected)
             if len(selected) == 1:
                 file_path = selected[0].data(Qt.ItemDataRole.UserRole)
-                open_folder_action = menu.addAction("Open Containing Folder")
+                open_folder_action = menu.addAction(self._tr("open_containing_folder"))
                 open_folder_action.triggered.connect(
                     lambda: self._open_file_location(file_path)
                 )
 
         menu.addSeparator()
 
-        clear_action = menu.addAction("Clear All")
+        clear_action = menu.addAction(lang.get_translation("clear_all", self.locale))
         clear_action.triggered.connect(self.clear_all_files)
-        add_files_action = menu.addAction("Add Files...")
+        add_files_action = menu.addAction(lang.get_translation("add_files", self.locale))
         add_files_action.triggered.connect(self.add_files)
-        add_folder_action = menu.addAction("Add Folder...")
+        add_folder_action = menu.addAction(
+            lang.get_translation("add_folder", self.locale)
+        )
         add_folder_action.triggered.connect(self.add_folder)
 
         menu.exec(self.file_list.mapToGlobal(pos))
@@ -684,7 +943,51 @@ class MainWindow(QMainWindow):
             save_settings({"last_dir": self.last_dir, "locale": self.locale})
             self.output_dir_edit.setText(directory)
 
+    def _prune_missing_sources(self):
+        # Drop list entries whose source files are gone (e.g. deleted after a
+        # successful conversion) so the list never offers stale inputs.
+        missing_rows = []
+        for i in range(self.file_list.count()):
+            path = self.file_list.item(i).data(Qt.ItemDataRole.UserRole)
+            if not os.path.exists(path):
+                missing_rows.append(i)
+        for row in reversed(missing_rows):
+            item = self.file_list.item(row)
+            if item is not None:
+                self._file_paths_set.discard(item.data(Qt.ItemDataRole.UserRole))
+                self.file_list.takeItem(row)
+        if missing_rows:
+            self._update_file_count()
+            self._refresh_resolution_options()
+
+    # ---- Split helpers ----------------------------------------------------
+
+    @staticmethod
+    def _is_valid_split_pattern(pattern):
+        # Mirrors the backend's page-range grammar ('1-3,8-end', 'rest', also
+        # ';'-delimited), while rejecting reversed ranges up front which the
+        # backend would silently drop.
+        normalized = pattern.replace(";", ",")
+        parts = [part.strip() for part in normalized.split(",") if part.strip()]
+        if not parts:
+            return False
+        for part in parts:
+            if SPLIT_SINGLE_RE.match(part):
+                continue
+            match = SPLIT_RANGE_RE.match(part)
+            if not match:
+                return False
+            end_token = match.group(2)
+            if end_token.isdigit() and int(end_token) < int(match.group(1)):
+                return False
+        return True
+
+    # ---- Conversion -------------------------------------------------------
+
     def start_conversion(self):
+        if self.current_thread is not None and self.current_thread.isRunning():
+            return  # Shortcut-triggered double start guard
+
         input_files = [
             self.file_list.item(i).data(Qt.ItemDataRole.UserRole)
             for i in range(self.file_list.count())
@@ -702,16 +1005,28 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(
                 self,
                 lang.get_translation("error", self.locale),
-                lang.get_translation("invalid_output_dir", self.locale),
+                lang.get_translation("no_dir_exist", self.locale).replace(
+                    "[dir]", output_dir or "-"
+                ),
             )
             return
 
-        output_format = self.format_combo.currentData()
-        if not output_format:
+        merge = self.merge_check.isChecked()
+        concat = self.concat_check.isChecked()
+        if merge and concat:
             QMessageBox.warning(
                 self,
                 lang.get_translation("error", self.locale),
-                lang.get_translation("no_format_selected", self.locale),
+                lang.get_translation("merge_concat_error", self.locale),
+            )
+            return
+
+        split_pattern = self.split_edit.text().strip()
+        if split_pattern and (merge or concat):
+            QMessageBox.warning(
+                self,
+                lang.get_translation("error", self.locale),
+                lang.get_translation("split_merge_error", self.locale),
             )
             return
 
@@ -722,22 +1037,93 @@ class MainWindow(QMainWindow):
             "Low": "low",
         }
 
+        resolution = self.resolution_combo.currentData() or None
+        run_format = self.format_combo.currentData()
+        run_split = None
+
+        if split_pattern:
+            # Splitting ignores the output format and needs a PDF input
+            if not self._is_valid_split_pattern(split_pattern):
+                QMessageBox.warning(
+                    self,
+                    lang.get_translation("error", self.locale),
+                    lang.get_translation("split_help", self.locale),
+                )
+                return
+            if not any(Path(f).suffix.lower() == ".pdf" for f in input_files):
+                QMessageBox.warning(
+                    self,
+                    lang.get_translation("error", self.locale),
+                    self._tr("no_format_available_split"),
+                )
+                return
+            run_format = None
+            run_split = split_pattern
+            resolution = None
+        elif run_format == "original":
+            # Resize-only job: keep each input's format, apply the resolution
+            has_movies = any(
+                self._resolution_ladder_for_target(
+                    Path(f).suffix.lstrip(".").lower()
+                )
+                for f in input_files
+            )
+            if not has_movies:
+                QMessageBox.warning(
+                    self,
+                    lang.get_translation("error", self.locale),
+                    lang.get_translation("resize_only_movies_required", self.locale),
+                )
+                return
+            if not resolution:
+                QMessageBox.warning(
+                    self,
+                    lang.get_translation("error", self.locale),
+                    lang.get_translation("resolution_required", self.locale),
+                )
+                return
+            run_format = None
+        elif run_format is None:
+            QMessageBox.warning(
+                self,
+                lang.get_translation("error", self.locale),
+                lang.get_translation("no_format_selected", self.locale),
+            )
+            return
+        elif resolution:
+            allowed = self._resolution_ladder_for_target(run_format)
+            if allowed and resolution not in allowed:
+                QMessageBox.warning(
+                    self,
+                    lang.get_translation("error", self.locale),
+                    tr_key("resolution_unsupported", self.locale).format(
+                        res=resolution,
+                        fmt=run_format,
+                        list=", ".join(allowed),
+                    ),
+                )
+                return
+        if merge or concat:
+            # Merging/concatenating never applies a resolution (web parity)
+            resolution = None
+
         # Disable UI during conversion
         self.set_ui_enabled(False)
         self.status_label.setText(
-            lang.get_translation("starting_conversion", self.locale)
+            lang.get_translation("preparing_conversion", self.locale)
         )
         self.progress_bar.setValue(0)
         self.progress_bar.setStyleSheet("")
+        self._progress_epoch += 1
 
         # Start conversion thread
         self._conversion_start_time = time.time()  # For ETA
         self.current_thread = ConversionThread(
             input_files,
-            output_format,
+            run_format,
             output_dir,
-            merge=self.merge_check.isChecked(),
-            concat=self.concat_check.isChecked(),
+            merge=merge,
+            concat=concat,
             framerate=self.framerate_spin.value()
             if self.framerate_spin.value() > 0
             else None,
@@ -745,6 +1131,10 @@ class MainWindow(QMainWindow):
             recursive=self.recursive_check.isChecked(),
             delete=self.delete_check.isChecked(),
             workers=self.workers_spin.value(),
+            resolution=resolution,
+            split=run_split,
+            preserve_meta=self.preserve_meta_check.isChecked(),
+            strip_meta=self.strip_meta_check.isChecked(),
         )
         self.current_thread.progress_updated.connect(self.update_progress)
         self.current_thread.conversion_finished.connect(self.conversion_completed)
@@ -755,12 +1145,13 @@ class MainWindow(QMainWindow):
     def cancel_conversion(self):
         if self.current_thread and self.current_thread.isRunning():
             self.current_thread.cancel()
-            self.status_label.setText("Cancelling...")
+            self.status_label.setText(self._tr("cancelling"))
 
     def update_progress(self, progress_info):
         value = progress_info.get("progress")
         status = progress_info.get("status", "")
         error = progress_info.get("error")
+        message = progress_info.get("message", "")
 
         if value is None or status in ("starting", "preparing", "waiting"):
             self.progress_bar.setRange(0, 0)  # Indeterminate
@@ -770,54 +1161,54 @@ class MainWindow(QMainWindow):
 
         # Color cues
         if status == "done":
-            self.progress_bar.setStyleSheet(
-                "QProgressBar {background: #e0ffe0;} QProgressBar::chunk {background: #4CAF50;}"
-            )
+            self.progress_bar.setStyleSheet(PROGRESS_STYLE_DONE)
         elif status == "cancelled":
-            self.progress_bar.setStyleSheet(
-                "QProgressBar {background: #fff3e0;} QProgressBar::chunk {background: #ff9800;}"
-            )
+            self.progress_bar.setStyleSheet(PROGRESS_STYLE_CANCELLED)
         elif error or status == "error":
-            self.progress_bar.setStyleSheet(
-                "QProgressBar {background: #ffe0e0;} QProgressBar::chunk {background: #e53935;}"
-            )
+            self.progress_bar.setStyleSheet(PROGRESS_STYLE_ERROR)
 
         if error:
             self.status_label.setText(f"Error: {error}")
-        else:
-            eta_str = None
+            return
 
-            # Show ETA
-            if (
-                value is not None
-                and value > 0
-                and value < 100
-                and self._conversion_start_time is not None
-            ):
-                elapsed = time.time() - self._conversion_start_time
-                if elapsed > 0.5:
-                    try:
-                        estimated_total = elapsed / (value / 100.0)
-                        eta_seconds = max(0, estimated_total - elapsed)
-                        if eta_seconds < 60:
-                            eta_str = f"{int(eta_seconds)}s"
-                        elif eta_seconds < 3600:
-                            eta_str = (
-                                f"{int(eta_seconds // 60)}m {int(eta_seconds % 60)}s"
-                            )
-                        else:
-                            eta_str = f"{int(eta_seconds // 3600)}h {int((eta_seconds % 3600) // 60)}m"
-                    except (ValueError, ZeroDivisionError):
-                        pass
+        eta_str = None
+        # Show ETA
+        if (
+            value is not None
+            and value > 0
+            and value < 100
+            and self._conversion_start_time is not None
+        ):
+            elapsed = time.time() - self._conversion_start_time
+            if elapsed > 0.5:
+                try:
+                    estimated_total = elapsed / (value / 100.0)
+                    eta_seconds = max(0, estimated_total - elapsed)
+                    if eta_seconds < 60:
+                        eta_str = f"{int(eta_seconds)}s"
+                    elif eta_seconds < 3600:
+                        eta_str = (
+                            f"{int(eta_seconds // 60)}m {int(eta_seconds % 60)}s"
+                        )
+                    else:
+                        eta_str = f"{int(eta_seconds // 3600)}h {int((eta_seconds % 3600) // 60)}m"
+                except (ValueError, ZeroDivisionError):
+                    pass
 
-            self.status_label.setText(eta_str)
+        # Surface the backend's step description alongside the ETA
+        label_parts = []
+        if message and message.lower().strip() not in GENERIC_STATUS_TOKENS:
+            label_parts.append(message)
+        if eta_str:
+            label_parts.append(f"ETA {eta_str}")
+        self.status_label.setText("  –  ".join(label_parts))
 
-        if status in ("done", "cancelled") or error:
+        if status in ("done", "cancelled"):
             self.progress_bar.setValue(100 if status == "done" else 0)
             self.progress_bar.setRange(0, 100)
             self._conversion_start_time = None
 
-    def conversion_completed(self, job_id, output_path):
+    def conversion_completed(self, job_id, output_dir):
         if job_id in self.conversion_threads:
             del self.conversion_threads[job_id]
         self.current_thread = None
@@ -828,7 +1219,8 @@ class MainWindow(QMainWindow):
             lang.get_translation("conversion_complete", self.locale)
         )
 
-        QTimer.singleShot(2000, self._reset_progress)
+        self._schedule_progress_reset(2000)
+        self._prune_missing_sources()
 
         QMessageBox.information(
             self,
@@ -836,10 +1228,9 @@ class MainWindow(QMainWindow):
             f"{lang.get_translation('conversion_successful', self.locale)}",
         )
 
-        if self.open_target_folder_check.isChecked() and output_path:
-            output_dir = os.path.dirname(output_path)
+        if self.open_target_folder_check.isChecked() and output_dir:
             if os.path.isdir(output_dir):
-                self._open_file_location(output_path)
+                self._open_file_location(output_dir)
 
     def conversion_error(self, error_message):
         self.current_thread = None
@@ -847,7 +1238,7 @@ class MainWindow(QMainWindow):
         self.progress_bar.setValue(0)
         self.status_label.setText(lang.get_translation("error", self.locale))
 
-        QTimer.singleShot(3000, self._reset_progress)
+        self._schedule_progress_reset(3000)
 
         QMessageBox.critical(
             self,
@@ -855,7 +1246,15 @@ class MainWindow(QMainWindow):
             f"{lang.get_translation('conversion_failed', self.locale)}: {error_message}",
         )
 
-    def _reset_progress(self):
+    def _schedule_progress_reset(self, delay_ms):
+        # Epoch-guarded reset: stale timers from a previous job must never
+        # clobber the bar of a conversion started in the meantime.
+        epoch = self._progress_epoch
+        QTimer.singleShot(delay_ms, lambda: self._reset_progress(epoch))
+
+    def _reset_progress(self, epoch):
+        if epoch != self._progress_epoch:
+            return
         self.progress_bar.setValue(0)
         self.progress_bar.setRange(0, 100)
         self.progress_bar.setStyleSheet("")
@@ -875,6 +1274,10 @@ class MainWindow(QMainWindow):
             self.framerate_spin,
             self.quality_combo,
             self.workers_spin,
+            self.resolution_combo,
+            self.split_edit,
+            self.preserve_meta_check,
+            self.strip_meta_check,
             self.convert_btn,
         ]:
             widget.setEnabled(enabled)
@@ -885,12 +1288,28 @@ class MainWindow(QMainWindow):
             self.convert_btn.setText(lang.get_translation("converting", self.locale))
         else:
             self.convert_btn.setText(lang.get_translation("convert", self.locale))
+            # Restore mode-dependent availability
+            self._sync_mode_controls()
+            self._refresh_resolution_options()
 
     def closeEvent(self, event):
+        converting = self.current_thread is not None and self.current_thread.isRunning()
+        if converting:
+            reply = QMessageBox.question(
+                self,
+                self.windowTitle(),
+                self._tr("exit_while_converting"),
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if reply != QMessageBox.StandardButton.Yes:
+                event.ignore()
+                return
+            self.current_thread.cancel()
         for thread in list(self.conversion_threads.values()):
             if thread.isRunning():
                 thread.cancel()
-                thread.wait(2000)
+                thread.wait(10000)
         save_settings({"last_dir": self.last_dir, "locale": self.locale})
         event.accept()
 
@@ -899,13 +1318,15 @@ class MainWindow(QMainWindow):
         if dlg.exec():
             self.locale = dlg.selected_locale
             save_settings({"last_dir": self.last_dir, "locale": self.locale})
-            # Recreate UI with new locale
+            # Preserve the current selection across the UI rebuild; the set
+            # must be cleared too, otherwise re-adding would be deduped away
+            current_files = [
+                self.file_list.item(i).data(Qt.ItemDataRole.UserRole)
+                for i in range(self.file_list.count())
+            ]
             self._file_paths_set.clear()
-            for i in range(self.file_list.count()):
-                self._file_paths_set.add(
-                    self.file_list.item(i).data(Qt.ItemDataRole.UserRole)
-                )
             self.init_ui()
+            self.add_files_batch(current_files)
 
     def open_help_dialog(self):
         HelpDialog(self, self.locale).exec()
@@ -918,8 +1339,18 @@ def main():
     font.setPointSize(10)
     app.setFont(font)
 
-    latest = check_for_update()
-    if latest:
+    icon_path = APP_ROOT / "img" / "app_icon.png"
+    if icon_path.is_file():
+        app.setWindowIcon(QIcon(str(icon_path)))
+
+    # The update check performs network I/O; running it asynchronously keeps
+    # startup instant regardless of connectivity.
+    window = MainWindow()
+    window.show()
+
+    update_thread = UpdateCheckThread()
+
+    def prompt_update(latest):
         msg = QMessageBox()
         msg.setIcon(QMessageBox.Icon.Information)
         msg.setWindowTitle("Update Available")
@@ -936,22 +1367,19 @@ def main():
 
             webbrowser.open("https://github.com/MK2112/any_to_any.py/releases")
 
-    window = MainWindow()
-    window.show()
+    update_thread.update_available.connect(prompt_update)
+    update_thread.start()
 
     sys.exit(app.exec())
-
-
-SETTINGS_FILE = str(Path.home() / ".any_to_any_gui_settings.json")
 
 
 class SettingsDialog(QDialog):
     def __init__(self, parent, locale, supported_locales):
         super().__init__(parent)
-        self.setWindowTitle(lang.get_translation("settings", locale))
+        self.setWindowTitle(tr_key("settings", locale))
         self.selected_locale = locale
         layout = QVBoxLayout(self)
-        layout.addWidget(QLabel(lang.get_translation("language", locale)))
+        layout.addWidget(QLabel(tr_key("language", locale)))
         self.locale_combo = QComboBox()
         for loc in supported_locales:
             self.locale_combo.addItem(loc)
@@ -970,8 +1398,8 @@ class SettingsDialog(QDialog):
 class HelpDialog(QDialog):
     def __init__(self, parent, locale):
         super().__init__(parent)
-        self.setWindowTitle(lang.get_translation("help", locale))
-        self.setMinimumSize(450, 300)
+        self.setWindowTitle(tr_key("help", locale))
+        self.setMinimumSize(450, 380)
         layout = QVBoxLayout(self)
         help_text = QTextEdit()
         help_text.setReadOnly(True)
@@ -983,16 +1411,30 @@ https://github.com/MK2112/any_to_any.py
 Features:
 - Drag-and-drop files or folders into the list
 - Select output format and destination directory
+- Pick a target resolution (movies/codecs/protocols only)
+- 'Keep original' + resolution resizes without changing formats
+- Split PDFs by page ranges, e.g. '1-3,8-end'
 - Set framerate (0 = auto), quality, and worker threads
+- Preserve or strip metadata (ID3 tags, EXIF, document properties)
 - Check merge/concatenate/recursive/delete options
 - Click Convert to start, Cancel to stop
 
 Options:
 - Framerate: Set target framerate (0 = keep original)
 - Quality: High/Medium/Low for audio bitrate
-- Workers: Parallel conversion threads (1-8)
+- Workers: Parallel conversion threads (up to CPU count - 1)
 - Recursive: Include files from subfolders
 - Delete: Remove original files after conversion
+- Split Pages: Splits PDF inputs; ignores the selected output format
+- Resolution: Choices adapt to the selected target format
+- Metadata: Preserve writes metadata JSON sidecars, Strip removes metadata
+
+Keyboard shortcuts:
+- Ctrl+O: Add Files
+- Ctrl+Shift+A: Add Folder
+- Delete: Remove Selected
+- Ctrl+Return: Convert
+- Escape: Cancel
 
 For more info, see the project README on GitHub:
 https://github.com/MK2112/any_to_any.py/blob/main/README.md
@@ -1012,9 +1454,12 @@ def load_settings():
 
 
 def save_settings(data):
+    # Merge instead of clobbering so independently stored keys survive
+    merged = load_settings()
+    merged.update(data)
     try:
         with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
-            json.dump(data, f)
+            json.dump(merged, f)
     except Exception:
         pass
 

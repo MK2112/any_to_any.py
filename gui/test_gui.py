@@ -135,9 +135,12 @@ def test_framerate_spin_range(main_window):
 
 
 def test_workers_spin_range(main_window):
-    # Test workers spinbox has correct range
+    # Test workers spinbox has correct range, capped by CPU count like the CLI
+    import os
+
+    expected_max = max(1, min((os.cpu_count() or 2) - 1, 32))
     assert main_window.workers_spin.minimum() == 1
-    assert main_window.workers_spin.maximum() == 8
+    assert main_window.workers_spin.maximum() == expected_max
 
 
 def test_quality_combo_options(main_window):
@@ -262,6 +265,257 @@ def test_help_dialog_creation(qapp):
     from gui.qt_app import HelpDialog
     dlg = HelpDialog(None, "English")
     assert dlg is not None
+
+
+# ---- Resolution integration -------------------------------------------------
+
+
+def test_format_combo_has_keep_original_entry(main_window):
+    assert main_window.format_combo.itemData(0) == "original"
+    # Default selection is a category header, forcing an explicit choice
+    assert main_window.format_combo.currentData() is None
+
+
+def test_resolution_combo_initially_disabled(main_window):
+    # No target format chosen -> no ladder -> disabled
+    assert not main_window.resolution_combo.isEnabled()
+
+
+def test_resolution_ladder_for_target(main_window):
+    ladder = main_window._resolution_ladder_for_target("mp4")
+    assert "1920x1080" in ladder
+    assert "3840x2160" in ladder
+    assert main_window._resolution_ladder_for_target("mp3") == []
+
+
+def test_hls_protocol_ladder(main_window):
+    ladder = main_window._resolution_ladder_for_target("hls")
+    assert "842x480" in ladder
+    assert "3840x2160" not in ladder
+
+
+def test_selecting_movie_format_populates_resolution(main_window):
+    idx = main_window.format_combo.findData("mp4")
+    main_window.format_combo.setCurrentIndex(idx)
+    combo = main_window.resolution_combo
+    assert combo.isEnabled()
+    data = [combo.itemData(i) for i in range(combo.count())]
+    assert "" in data  # Keep-original option always present
+    assert "1920x1080" in data
+
+
+def test_audio_format_disables_resolution(main_window):
+    idx = main_window.format_combo.findData("mp3")
+    main_window.format_combo.setCurrentIndex(idx)
+    assert not main_window.resolution_combo.isEnabled()
+    assert main_window.resolution_combo.count() == 1
+
+
+def test_resize_only_ladder_intersection(main_window, tmp_path):
+    f1 = tmp_path / "a.mp4"  # allows up to 4k
+    f2 = tmp_path / "b.flv"  # HD max
+    f1.touch()
+    f2.touch()
+    main_window.add_files_batch([str(f1), str(f2)])
+    idx = main_window.format_combo.findData("original")
+    main_window.format_combo.setCurrentIndex(idx)
+    ladder = main_window._selected_movie_ladder_intersection()
+    assert "1920x1080" in ladder
+    assert "2560x1440" not in ladder
+
+
+def test_merge_concat_disables_resolution(main_window, tmp_path):
+    f1 = tmp_path / "a.mp4"
+    f1.touch()
+    main_window.add_files_batch([str(f1)])
+    idx = main_window.format_combo.findData("mp4")
+    main_window.format_combo.setCurrentIndex(idx)
+    assert main_window.resolution_combo.isEnabled()
+    main_window.merge_check.setChecked(True)
+    assert not main_window.resolution_combo.isEnabled()
+
+
+# ---- Split integration ------------------------------------------------------
+
+
+def test_split_pattern_validation(main_window):
+    for pattern in [
+        "1-3",
+        "10",
+        "1-3,2-6,8-end",
+        "1-5,rest",
+        "end",
+        "rest",
+        "1 - 4",
+        "1-3;5-7",  # Semicolon delimiter accepted like the backend
+        "1-3,,5",  # Empty parts tolerated like the backend
+    ]:
+        assert main_window._is_valid_split_pattern(pattern), pattern
+    for pattern in ["", "abc", "3-1", "1--2", "all"]:
+        assert not main_window._is_valid_split_pattern(pattern), pattern
+
+
+def test_start_conversion_blocked_without_format(main_window, tmp_path):
+    test_file = tmp_path / "video.mp4"
+    test_file.touch()
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+    main_window.add_files_batch([str(test_file)])
+    main_window.output_dir_edit.setText(str(out_dir))
+    with patch("gui.qt_app.QMessageBox") as mock_box:
+        main_window.start_conversion()
+        assert mock_box.warning.called
+    assert main_window.current_thread is None
+
+
+def test_resize_only_requires_resolution(main_window, tmp_path):
+    test_file = tmp_path / "video.mkv"
+    test_file.touch()
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+    main_window.add_files_batch([str(test_file)])
+    main_window.output_dir_edit.setText(str(out_dir))
+    idx = main_window.format_combo.findData("original")
+    main_window.format_combo.setCurrentIndex(idx)
+    with patch("gui.qt_app.QMessageBox") as mock_box:
+        main_window.start_conversion()
+        assert mock_box.warning.called
+    assert main_window.current_thread is None
+
+
+def test_merge_concat_mutual_exclusion(main_window, tmp_path):
+    test_file = tmp_path / "video.mp4"
+    test_file.touch()
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+    main_window.add_files_batch([str(test_file)])
+    main_window.output_dir_edit.setText(str(out_dir))
+    idx = main_window.format_combo.findData("mp4")
+    main_window.format_combo.setCurrentIndex(idx)
+    main_window.merge_check.setChecked(True)
+    main_window.concat_check.setChecked(True)
+    with patch("gui.qt_app.QMessageBox") as mock_box:
+        main_window.start_conversion()
+        assert mock_box.warning.called
+    assert main_window.current_thread is None
+
+
+# ---- Metadata options -------------------------------------------------------
+
+
+def test_metadata_checkboxes_exclusive(main_window):
+    main_window.strip_meta_check.setChecked(True)
+    assert not main_window.preserve_meta_check.isChecked()
+    main_window.preserve_meta_check.setChecked(True)
+    assert not main_window.strip_meta_check.isChecked()
+
+
+def test_conversion_thread_new_options():
+    from gui.qt_app import ConversionThread
+
+    thread = ConversionThread(
+        input_files=["/path/to/file.mp4"],
+        output_format=None,
+        output_dir="/output",
+        resolution="1280x720",
+        split="1-3",
+        preserve_meta=True,
+        strip_meta=False,
+    )
+    assert thread.resolution == "1280x720"
+    assert thread.split == "1-3"
+    assert thread.preserve_meta is True
+    assert thread.strip_meta is False
+
+
+def test_job_id_is_hex8():
+    import re
+    from gui.qt_app import ConversionThread
+
+    thread = ConversionThread(["/file.mp4"], "mp3", "/out")
+    assert re.fullmatch(r"[0-9a-f]{8}", thread.job_id)
+
+
+# ---- Translation fallback ---------------------------------------------------
+
+
+def test_tr_key_english_fallback():
+    from gui.qt_app import tr_key
+
+    assert tr_key("split_pages", "English") == "Split Pages (PDF)"
+    # Untranslated locale falls back to English text, never the raw key
+    assert tr_key("split_pages", "German") == "Split Pages (PDF)"
+    assert tr_key("resolution_label", "German") != "resolution_label"
+
+
+# ---- File list behaviour ----------------------------------------------------
+
+
+def test_add_files_batch_filters_unsupported(main_window, tmp_path):
+    good = tmp_path / "good.mp4"
+    bad = tmp_path / "bad.xyz"
+    good.touch()
+    bad.touch()
+    main_window.add_files_batch([str(good), str(bad)])
+    assert str(good) in main_window._file_paths_set
+    assert str(bad) not in main_window._file_paths_set
+    assert main_window.file_list.count() == 1
+
+
+def test_prune_missing_sources(main_window, tmp_path):
+    f1 = tmp_path / "keep.mp4"
+    f2 = tmp_path / "gone.mp4"
+    f1.touch()
+    f2.touch()
+    main_window.add_files_batch([str(f1), str(f2)])
+    f2.unlink()
+    main_window._prune_missing_sources()
+    assert main_window.file_list.count() == 1
+    assert str(f1) in main_window._file_paths_set
+    assert str(f2) not in main_window._file_paths_set
+
+
+def test_language_switch_preserves_file_list(main_window, tmp_path):
+    # Regression: rebuilding the UI (locale change) used to desync the
+    # duplicate-check set from the list, silently dropping all files.
+    from gui import qt_app
+
+    test_file = tmp_path / "clip.mp4"
+    test_file.touch()
+    main_window.add_files_batch([str(test_file)])
+    assert main_window.file_list.count() == 1
+
+    class FakeDialog:
+        def __init__(self, *args, **kwargs):
+            self.selected_locale = "German"
+
+        def exec(self):
+            return True
+
+    original = qt_app.SettingsDialog
+    qt_app.SettingsDialog = FakeDialog
+    try:
+        main_window.open_settings_dialog()
+    finally:
+        qt_app.SettingsDialog = original
+
+    assert main_window.file_list.count() == 1
+    assert str(test_file) in main_window._file_paths_set
+    assert main_window.locale == "German"
+
+
+def test_save_settings_merges_existing_keys():
+    from gui.qt_app import load_settings, save_settings
+
+    original = load_settings()
+    try:
+        save_settings({"gui_test_marker": "abc"})
+        save_settings({"last_dir": "/tmp/x"})
+        loaded = load_settings()
+        assert loaded.get("gui_test_marker") == "abc"
+        assert loaded.get("last_dir") == "/tmp/x"
+    finally:
+        save_settings(original)
 
 
 if __name__ == "__main__":
