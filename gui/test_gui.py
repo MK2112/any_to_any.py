@@ -459,6 +459,43 @@ def test_metadata_selector_options(main_window):
     assert main_window.metadata_combo.currentText() == "Default"
 
 
+# ---- Update check wiring ----------------------------------------------------
+
+
+def _pump_events(qapp, seconds):
+    from time import time, sleep
+
+    deadline = time() + seconds
+    while time() < deadline:
+        qapp.processEvents()
+        sleep(0.02)
+
+
+def test_update_check_emits_newer_version(qapp):
+    from gui import qt_app
+
+    received = []
+    bridge = qt_app.UpdateCheckBridge()
+    bridge.update_available.connect(received.append)
+    monkey = patch("gui.qt_app.check_for_update", lambda: "9.9.9")
+    with monkey:
+        qt_app.start_update_check(bridge)
+    _pump_events(qapp, 3)
+    assert received == ["9.9.9"]
+
+
+def test_update_check_silent_when_up_to_date(qapp):
+    from gui import qt_app
+
+    received = []
+    bridge = qt_app.UpdateCheckBridge()
+    bridge.update_available.connect(received.append)
+    with patch("gui.qt_app.check_for_update", lambda: None):
+        qt_app.start_update_check(bridge)
+    _pump_events(qapp, 1)
+    assert received == []
+
+
 # ---- Folder opener robustness -----------------------------------------------
 
 

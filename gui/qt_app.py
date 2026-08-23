@@ -9,7 +9,7 @@ import platform
 import threading
 import subprocess
 from pathlib import Path
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
+from PyQt6.QtCore import Qt, QObject, QThread, pyqtSignal, QTimer
 from PyQt6.QtGui import QShortcut, QKeySequence, QIcon, QPixmap, QPainter, QColor
 from PyQt6.QtWidgets import (
     QApplication,
@@ -108,13 +108,21 @@ def tr_key(key, locale=None):
     return text
 
 
-class UpdateCheckThread(QThread):
+class UpdateCheckBridge(QObject):
+    # Bridges results of the background update check onto the GUI thread.
     update_available = pyqtSignal(str)
 
-    def run(self):
+
+def start_update_check(bridge) -> None:
+    # Daemonized on purpose: the check never delays startup and quitting the
+    # app while a slow request is in flight cannot crash teardown (a running
+    # QThread destroyed at exit would abort the process).
+    def job():
         latest = check_for_update()
         if latest:
-            self.update_available.emit(latest)
+            bridge.update_available.emit(latest)
+
+    threading.Thread(target=job, daemon=True, name="update-check").start()
 
 
 class ConversionThread(QThread):
@@ -1376,7 +1384,7 @@ def main():
     window = MainWindow()
     window.show()
 
-    update_thread = UpdateCheckThread()
+    update_bridge = UpdateCheckBridge()
 
     def prompt_update(latest):
         msg = QMessageBox()
@@ -1395,8 +1403,8 @@ def main():
 
             webbrowser.open("https://github.com/MK2112/any_to_any.py/releases")
 
-    update_thread.update_available.connect(prompt_update)
-    update_thread.start()
+    update_bridge.update_available.connect(prompt_update)
+    start_update_check(update_bridge)
 
     sys.exit(app.exec())
 
