@@ -450,11 +450,13 @@ def test_merge_concat_mutual_exclusion(main_window, tmp_path):
 # ---- Metadata options -------------------------------------------------------
 
 
-def test_metadata_checkboxes_exclusive(main_window):
-    main_window.strip_meta_check.setChecked(True)
-    assert not main_window.preserve_meta_check.isChecked()
-    main_window.preserve_meta_check.setChecked(True)
-    assert not main_window.strip_meta_check.isChecked()
+def test_metadata_selector_options(main_window):
+    options = [
+        main_window.metadata_combo.itemText(i)
+        for i in range(main_window.metadata_combo.count())
+    ]
+    assert options == ["Default", "Preserve", "Strip"]
+    assert main_window.metadata_combo.currentText() == "Default"
 
 
 def test_conversion_thread_new_options():

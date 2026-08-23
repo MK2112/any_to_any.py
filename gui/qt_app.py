@@ -722,22 +722,16 @@ class MainWindow(QMainWindow):
         settings_layout.addWidget(split_label, 2, 2)
         settings_layout.addWidget(self.split_edit, 2, 3)
 
-        # Row 3: Metadata handling
-        self.preserve_meta_check = QCheckBox(
-            lang.get_translation("preserve_meta", self.locale)
+        # Row 3: Metadata handling (single selector, details on hover)
+        self.metadata_label = QLabel(f"{self._tr('metadata_label')}:")
+        self.metadata_combo = QComboBox()
+        self.metadata_combo.addItems(["Default", "Preserve", "Strip"])
+        self.metadata_combo.setToolTip(
+            f"{lang.get_translation('preserve_meta', self.locale)}\n\n"
+            f"{lang.get_translation('strip_meta', self.locale)}"
         )
-        self.preserve_meta_check.setChecked(True)
-        self.strip_meta_check = QCheckBox(
-            lang.get_translation("strip_meta", self.locale)
-        )
-        self.preserve_meta_check.toggled.connect(
-            lambda checked: self.strip_meta_check.setChecked(False) if checked else None
-        )
-        self.strip_meta_check.toggled.connect(
-            lambda checked: self.preserve_meta_check.setChecked(False) if checked else None
-        )
-        settings_layout.addWidget(self.preserve_meta_check, 3, 0, 1, 3)
-        settings_layout.addWidget(self.strip_meta_check, 3, 3, 1, 3)
+        settings_layout.addWidget(self.metadata_label, 3, 0)
+        settings_layout.addWidget(self.metadata_combo, 3, 1, 1, 2)
 
         layout.addWidget(settings_group)
 
@@ -1118,8 +1112,8 @@ class MainWindow(QMainWindow):
             workers=self.workers_spin.value(),
             resolution=resolution,
             split=run_split,
-            preserve_meta=self.preserve_meta_check.isChecked(),
-            strip_meta=self.strip_meta_check.isChecked(),
+            preserve_meta=self.metadata_combo.currentText() == "Preserve",
+            strip_meta=self.metadata_combo.currentText() == "Strip",
         )
         self.current_thread.progress_updated.connect(self.update_progress)
         self.current_thread.conversion_finished.connect(self.conversion_completed)
@@ -1261,8 +1255,7 @@ class MainWindow(QMainWindow):
             self.workers_spin,
             self.resolution_combo,
             self.split_edit,
-            self.preserve_meta_check,
-            self.strip_meta_check,
+            self.metadata_combo,
             self.convert_btn,
         ]:
             widget.setEnabled(enabled)
@@ -1411,7 +1404,8 @@ Options:
 - Delete: Remove original files after conversion
 - Split Pages: Appears when PDF is the target; splits PDF inputs by page ranges
 - Resolution: Appears for movie targets; choices adapt to the selected format
-- Metadata: Preserve writes metadata JSON sidecars, Strip removes metadata
+- Metadata: Default keeps output as-is, Preserve archives tags as JSON,
+  Strip removes metadata for privacy
 
 Keyboard shortcuts:
 - Ctrl+O: Add Files
