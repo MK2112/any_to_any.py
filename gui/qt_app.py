@@ -4,6 +4,7 @@ import sys
 import json
 import uuid
 import time
+import shutil
 import platform
 import threading
 import subprocess
@@ -888,15 +889,43 @@ class MainWindow(QMainWindow):
     def _open_file_location(self, file_path):
         folder = file_path if os.path.isdir(file_path) else os.path.dirname(file_path)
         system = platform.system()
-        try:
-            if system == "Linux":
-                subprocess.Popen(["xdg-open", folder])
-            elif system == "Darwin":
-                subprocess.Popen(["open", folder])
-            elif system == "Windows":
-                subprocess.Popen(["explorer", folder])
-        except Exception as e:
-            self.status_label.setText(f"Could not open folder: {e}")
+        openers = {
+            "Linux": (
+                ["xdg-open"],
+                ["gio", "open"],
+                ["kde-open5"],
+                ["kde-open"],
+                ["nautilus"],
+                ["dolphin"],
+                ["thunar"],
+                ["nemo"],
+                ["pcmanfm"],
+            ),
+            "Darwin": (["open"],),
+            "Windows": (["explorer"],),
+        }.get(system, ())
+        popen_kwargs = dict(
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        if system != "Windows":
+            # Windowed PyInstaller binaries may carry invalid stdio handles;
+            # detaching the spawned opener from them keeps the call working.
+            popen_kwargs["start_new_session"] = True
+        for opener in openers:
+            if shutil.which(opener[0]) is None:
+                continue
+            try:
+                subprocess.Popen(opener + [folder], **popen_kwargs)
+                return
+            except OSError:
+                continue
+        QMessageBox.warning(
+            self,
+            lang.get_translation("error", self.locale),
+            f'Could not open "{folder}".',
+        )
 
     def browse_output_dir(self):
         # Start from current output dir if set, otherwise last used dir

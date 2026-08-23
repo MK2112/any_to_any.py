@@ -459,6 +459,79 @@ def test_metadata_selector_options(main_window):
     assert main_window.metadata_combo.currentText() == "Default"
 
 
+# ---- Folder opener robustness -----------------------------------------------
+
+
+def test_open_file_location_prefers_available_opener(main_window, monkeypatch):
+    from gui import qt_app as qa
+
+    calls = []
+    monkeypatch.setattr(qa.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(
+        qa.shutil, "which", lambda name: "/usr/bin/gio" if name == "gio" else None
+    )
+
+    class FakePopen:
+        def __init__(self, argv, **kwargs):
+            calls.append(argv)
+
+    monkeypatch.setattr(qa.subprocess, "Popen", FakePopen)
+    main_window._open_file_location("/tmp/some/file.mp4")
+    # Files resolve to their containing folder
+    assert calls == [["gio", "open", "/tmp/some"]]
+
+
+def test_open_file_location_detaches_child_process(main_window, monkeypatch):
+    from gui import qt_app as qa
+
+    seen = {}
+    monkeypatch.setattr(qa.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(qa.shutil, "which", lambda name: "/usr/bin/xdg-open")
+
+    def fake_popen(argv, **kwargs):
+        seen["argv"] = argv
+        seen["kwargs"] = kwargs
+
+    monkeypatch.setattr(qa.subprocess, "Popen", fake_popen)
+    main_window._open_file_location("/tmp/just_a_dir")
+    assert seen["argv"][0] == "xdg-open"
+    assert seen["kwargs"]["stdout"] == qa.subprocess.DEVNULL
+    assert seen["kwargs"]["stderr"] == qa.subprocess.DEVNULL
+    assert seen["kwargs"]["start_new_session"] is True
+
+
+def test_open_file_location_shows_dialog_when_all_fail(main_window, monkeypatch):
+    from gui import qt_app as qa
+
+    warnings = []
+    monkeypatch.setattr(qa.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(qa.shutil, "which", lambda name: None)
+    monkeypatch.setattr(
+        qa.QMessageBox, "warning", staticmethod(lambda *a, **k: warnings.append(a))
+    )
+    main_window._open_file_location("/tmp/nowhere.mp4")
+    assert len(warnings) == 1
+
+
+def test_open_file_location_survives_spawner_errors(main_window, monkeypatch):
+    from gui import qt_app as qa
+
+    monkeypatch.setattr(qa.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(qa.shutil, "which", lambda name: "/usr/bin/" + name)
+
+    attempts = []
+
+    def flaky_popen(argv, **kwargs):
+        attempts.append(argv[0])
+        if argv[0] == "xdg-open":
+            raise OSError("EBADF")
+
+    monkeypatch.setattr(qa.subprocess, "Popen", flaky_popen)
+    main_window._open_file_location("/tmp/f.mp4")
+    assert attempts[0] == "xdg-open"
+    assert attempts[-1] != "xdg-open"  # fell through to a later candidate
+
+
 def test_conversion_thread_new_options():
     from gui.qt_app import ConversionThread
 
