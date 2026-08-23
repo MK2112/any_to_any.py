@@ -125,5 +125,6 @@ ENGLISH = {
     "open_containing_folder": "Open Containing Folder",
     "no_format_available_split": "Splitting applies to PDF files; add at least one PDF to split.",
     "exit_while_converting": "A conversion is still running. Cancel it and exit anyway?",
-    "resolution_unsupported": "Resolution {res} is not supported for '{fmt}'. Available resolutions: {list}"
+    "resolution_unsupported": "Resolution {res} is not supported for '{fmt}'. Available resolutions: {list}",
+    "metadata_label": "Metadata"
 }
