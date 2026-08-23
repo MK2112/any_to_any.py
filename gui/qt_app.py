@@ -904,10 +904,21 @@ class MainWindow(QMainWindow):
             "Darwin": (["open"],),
             "Windows": (["explorer"],),
         }.get(system, ())
+        # PyInstaller's bootloader points LD_LIBRARY_PATH (and friends) at the
+        # extraction directory; GUI openers inheriting that can fail to start
+        # due to mismatched bundled libraries. Hand them a clean slate.
+        blocked_prefixes = ("_MEI", "_PYI")
+        child_env = {
+            key: value
+            for key, value in os.environ.items()
+            if not key.startswith(blocked_prefixes)
+            and key not in ("LD_LIBRARY_PATH", "LD_PRELOAD")
+        }
         popen_kwargs = dict(
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
+            env=child_env,
         )
         if system != "Windows":
             # Windowed PyInstaller binaries may carry invalid stdio handles;
@@ -917,10 +928,21 @@ class MainWindow(QMainWindow):
             if shutil.which(opener[0]) is None:
                 continue
             try:
-                subprocess.Popen(opener + [folder], **popen_kwargs)
-                return
+                process = subprocess.Popen(opener + [folder], **popen_kwargs)
             except OSError:
                 continue
+            if system == "Windows":
+                # explorer.exe always exits non-zero, even on success
+                return
+            # Openers like xdg-open exit non-zero when they could not hand
+            # the folder off; give them a brief window to reveal that and
+            # fall through to the next candidate on failure.
+            try:
+                if process.wait(timeout=1.0) == 0:
+                    return
+            except subprocess.TimeoutExpired:
+                # Still running: the opener (e.g. a file manager) took over
+                return
         QMessageBox.warning(
             self,
             lang.get_translation("error", self.locale),

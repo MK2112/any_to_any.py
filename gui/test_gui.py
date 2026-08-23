@@ -462,6 +462,21 @@ def test_metadata_selector_options(main_window):
 # ---- Folder opener robustness -----------------------------------------------
 
 
+class FakeProcess:
+    # Mimics subprocess.Popen results: hang=True simulates an opener that
+    # stays alive (file managers), rc simulates an immediate exit code.
+    def __init__(self, rc=None, hang=False):
+        self._rc = rc
+        self._hang = hang
+
+    def wait(self, timeout=None):
+        import subprocess
+
+        if self._hang:
+            raise subprocess.TimeoutExpired("opener", timeout)
+        return self._rc
+
+
 def test_open_file_location_prefers_available_opener(main_window, monkeypatch):
     from gui import qt_app as qa
 
@@ -471,11 +486,11 @@ def test_open_file_location_prefers_available_opener(main_window, monkeypatch):
         qa.shutil, "which", lambda name: "/usr/bin/gio" if name == "gio" else None
     )
 
-    class FakePopen:
-        def __init__(self, argv, **kwargs):
-            calls.append(argv)
+    def fake_popen(argv, **kwargs):
+        calls.append(argv)
+        return FakeProcess(hang=True)
 
-    monkeypatch.setattr(qa.subprocess, "Popen", FakePopen)
+    monkeypatch.setattr(qa.subprocess, "Popen", fake_popen)
     main_window._open_file_location("/tmp/some/file.mp4")
     # Files resolve to their containing folder
     assert calls == [["gio", "open", "/tmp/some"]]
@@ -491,6 +506,7 @@ def test_open_file_location_detaches_child_process(main_window, monkeypatch):
     def fake_popen(argv, **kwargs):
         seen["argv"] = argv
         seen["kwargs"] = kwargs
+        return FakeProcess(rc=0)
 
     monkeypatch.setattr(qa.subprocess, "Popen", fake_popen)
     main_window._open_file_location("/tmp/just_a_dir")
@@ -498,6 +514,51 @@ def test_open_file_location_detaches_child_process(main_window, monkeypatch):
     assert seen["kwargs"]["stdout"] == qa.subprocess.DEVNULL
     assert seen["kwargs"]["stderr"] == qa.subprocess.DEVNULL
     assert seen["kwargs"]["start_new_session"] is True
+
+
+def test_open_file_location_sanitizes_child_environment(main_window, monkeypatch):
+    from gui import qt_app as qa
+
+    seen = {}
+    monkeypatch.setattr(qa.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(qa.shutil, "which", lambda name: "/usr/bin/xdg-open")
+
+    def fake_popen(argv, **kwargs):
+        seen["kwargs"] = kwargs
+        return FakeProcess(rc=0)
+
+    monkeypatch.setattr(qa.subprocess, "Popen", fake_popen)
+    monkeypatch.setenv("LD_LIBRARY_PATH", "/tmp/_MEI12345")
+    monkeypatch.setenv("LD_PRELOAD", "/tmp/_MEI12345/lib.so")
+    monkeypatch.setenv("_MEIPASS2", "/tmp/_MEI12345")
+    monkeypatch.setenv("_PYI_APPLICATION_HOME_DIR", "/tmp/_MEI12345")
+    monkeypatch.setenv("HOME", "/home/user")  # must survive untouched
+    main_window._open_file_location("/tmp/just_a_dir")
+    env = seen["kwargs"]["env"]
+    assert "LD_LIBRARY_PATH" not in env
+    assert "LD_PRELOAD" not in env
+    assert "_MEIPASS2" not in env
+    assert "_PYI_APPLICATION_HOME_DIR" not in env
+    assert env["HOME"] == "/home/user"
+
+
+def test_open_file_location_falls_through_on_opener_failure(main_window, monkeypatch):
+    from gui import qt_app as qa
+
+    attempts = []
+    monkeypatch.setattr(qa.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(qa.shutil, "which", lambda name: "/usr/bin/" + name)
+
+    def fake_popen(argv, **kwargs):
+        attempts.append(argv[0])
+        # xdg-open and gio both "fail" immediately with a non-zero exit
+        return FakeProcess(rc=1 if argv[0] in ("xdg-open", "gio") else 0)
+
+    monkeypatch.setattr(qa.subprocess, "Popen", fake_popen)
+    main_window._open_file_location("/tmp/f.mp4")
+    assert attempts[0] == "xdg-open"
+    assert "gio" in attempts
+    assert attempts[-1] not in ("xdg-open", "gio")
 
 
 def test_open_file_location_shows_dialog_when_all_fail(main_window, monkeypatch):
@@ -525,6 +586,7 @@ def test_open_file_location_survives_spawner_errors(main_window, monkeypatch):
         attempts.append(argv[0])
         if argv[0] == "xdg-open":
             raise OSError("EBADF")
+        return FakeProcess(rc=0)
 
     monkeypatch.setattr(qa.subprocess, "Popen", flaky_popen)
     main_window._open_file_location("/tmp/f.mp4")
