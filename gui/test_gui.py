@@ -276,9 +276,15 @@ def test_format_combo_has_keep_original_entry(main_window):
     assert main_window.format_combo.currentData() is None
 
 
-def test_resolution_combo_initially_disabled(main_window):
-    # No target format chosen -> no ladder -> disabled
+def test_resolution_combo_initially_hidden(main_window):
+    # No target format chosen -> no ladder -> field hidden entirely
+    assert not main_window.resolution_combo.isVisibleTo(main_window)
     assert not main_window.resolution_combo.isEnabled()
+
+
+def test_split_field_initially_hidden(main_window):
+    # Split only applies to PDF targets
+    assert not main_window.split_edit.isVisibleTo(main_window)
 
 
 def test_resolution_ladder_for_target(main_window):
@@ -298,16 +304,16 @@ def test_selecting_movie_format_populates_resolution(main_window):
     idx = main_window.format_combo.findData("mp4")
     main_window.format_combo.setCurrentIndex(idx)
     combo = main_window.resolution_combo
-    assert combo.isEnabled()
+    assert combo.isVisibleTo(main_window)
     data = [combo.itemData(i) for i in range(combo.count())]
     assert "" in data  # Keep-original option always present
     assert "1920x1080" in data
 
 
-def test_audio_format_disables_resolution(main_window):
+def test_audio_format_hides_resolution(main_window):
     idx = main_window.format_combo.findData("mp3")
     main_window.format_combo.setCurrentIndex(idx)
-    assert not main_window.resolution_combo.isEnabled()
+    assert not main_window.resolution_combo.isVisibleTo(main_window)
     assert main_window.resolution_combo.count() == 1
 
 
@@ -324,15 +330,56 @@ def test_resize_only_ladder_intersection(main_window, tmp_path):
     assert "2560x1440" not in ladder
 
 
-def test_merge_concat_disables_resolution(main_window, tmp_path):
+def test_merge_concat_hides_resolution(main_window, tmp_path):
     f1 = tmp_path / "a.mp4"
     f1.touch()
     main_window.add_files_batch([str(f1)])
     idx = main_window.format_combo.findData("mp4")
     main_window.format_combo.setCurrentIndex(idx)
-    assert main_window.resolution_combo.isEnabled()
+    assert main_window.resolution_combo.isVisibleTo(main_window)
     main_window.merge_check.setChecked(True)
-    assert not main_window.resolution_combo.isEnabled()
+    assert not main_window.resolution_combo.isVisibleTo(main_window)
+
+
+def test_split_and_resolution_share_slot_exclusively(main_window):
+    # PDF target: split shown, resolution hidden
+    idx = main_window.format_combo.findData("pdf")
+    main_window.format_combo.setCurrentIndex(idx)
+    assert main_window.split_edit.isVisibleTo(main_window)
+    assert not main_window.resolution_combo.isVisibleTo(main_window)
+
+    # Movie target: exactly the reverse
+    idx = main_window.format_combo.findData("mp4")
+    main_window.format_combo.setCurrentIndex(idx)
+    assert not main_window.split_edit.isVisibleTo(main_window)
+    assert main_window.resolution_combo.isVisibleTo(main_window)
+
+
+def test_split_hidden_clears_pattern_and_unlocks_merge(main_window):
+    idx = main_window.format_combo.findData("pdf")
+    main_window.format_combo.setCurrentIndex(idx)
+    main_window.split_edit.setText("1-3,8-end")
+    # A filled pattern locks merge/concat out
+    assert not main_window.merge_check.isEnabled()
+    assert not main_window.concat_check.isEnabled()
+
+    # Leaving the PDF context hides the field and resets its state
+    idx = main_window.format_combo.findData("mp4")
+    main_window.format_combo.setCurrentIndex(idx)
+    assert not main_window.split_edit.isVisibleTo(main_window)
+    assert main_window.split_edit.text() == ""
+    assert main_window.merge_check.isEnabled()
+    assert main_window.concat_check.isEnabled()
+
+
+def test_merge_checked_hides_split_field(main_window):
+    idx = main_window.format_combo.findData("pdf")
+    main_window.format_combo.setCurrentIndex(idx)
+    assert main_window.split_edit.isVisibleTo(main_window)
+    main_window.merge_check.setChecked(True)
+    assert not main_window.split_edit.isVisibleTo(main_window)
+    main_window.merge_check.setChecked(False)
+    assert main_window.split_edit.isVisibleTo(main_window)
 
 
 # ---- Split integration ------------------------------------------------------

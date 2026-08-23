@@ -416,7 +416,7 @@ class MainWindow(QMainWindow):
         finally:
             self.file_list.setUpdatesEnabled(True)
             self._update_file_count()
-            self._refresh_resolution_options()
+            self._update_mode_dependent_ui()
 
     def add_file_to_list(self, file):
         if not os.path.isfile(file):
@@ -429,7 +429,7 @@ class MainWindow(QMainWindow):
         item.setToolTip(file)
         self.file_list.addItem(item)
         self._update_file_count()
-        self._refresh_resolution_options()
+        self._update_mode_dependent_ui()
 
     def _update_file_count(self):
         count = self.file_list.count()
@@ -512,6 +512,8 @@ class MainWindow(QMainWindow):
         return [res for res in self.controller._STD_RES if res in common]
 
     def _populate_resolution_combo(self, allowed):
+        # The resolution field shares its grid slot with the split field; it
+        # is shown only when a ladder exists for the effective mode.
         combo = self.resolution_combo
         previous = combo.currentData()
         combo.blockSignals(True)
@@ -521,18 +523,43 @@ class MainWindow(QMainWindow):
             combo.addItem(res, res)
         if previous and previous in allowed:
             combo.setCurrentIndex(combo.findData(previous))
+        else:
+            combo.setCurrentIndex(0)
         combo.setEnabled(bool(allowed))
         combo.blockSignals(False)
+        visible = bool(allowed)
+        combo.setVisible(visible)
+        self.resolution_label.setVisible(visible)
 
-    def _refresh_resolution_options(self):
-        # Refill the resolution dropdown for the current mode, mirroring the
-        # web view: per-target ladders, or the intersection of the selected
-        # movies' ladders for resize-only jobs.
-        if self.merge_check.isChecked() or self.concat_check.isChecked():
-            self._populate_resolution_combo([])
-            return
+    def _update_mode_dependent_ui(self):
+        # Single source of truth for controls depending on the selected mode;
+        # keeps the split and resolution fields mutually exclusive and hidden
+        # whenever they cannot apply.
+        merge = self.merge_check.isChecked()
+        concat = self.concat_check.isChecked()
+        merge_or_concat = merge or concat
         target = self.format_combo.currentData()
-        if target == "original":
+
+        # Split row: offered exclusively for PDF targets outside merge/concat
+        split_visible = target == "pdf" and not merge_or_concat
+        split_text = self.split_edit.text().strip()
+        if not split_visible and split_text:
+            self.split_edit.blockSignals(True)
+            self.split_edit.clear()
+            self.split_edit.blockSignals(False)
+            split_text = ""
+        self.split_label.setVisible(split_visible)
+        self.split_edit.setVisible(split_visible)
+
+        # A filled split pattern excludes merging/concatenating (CLI rules)
+        lock_merge_concat = bool(split_text)
+        self.merge_check.setEnabled(not lock_merge_concat)
+        self.concat_check.setEnabled(not lock_merge_concat)
+
+        # Resolution row: per-target ladder, intersection for resize-only
+        if merge_or_concat:
+            self._populate_resolution_combo([])
+        elif target == "original":
             self._populate_resolution_combo(self._selected_movie_ladder_intersection())
         elif target:
             self._populate_resolution_combo(self._resolution_ladder_for_target(target))
@@ -540,58 +567,7 @@ class MainWindow(QMainWindow):
             self._populate_resolution_combo([])
 
     def _on_format_changed(self):
-        self._refresh_resolution_options()
-        self._sync_mode_controls()
-
-    # ---- Mode interdependence --------------------------------------------
-
-    def _sync_mode_controls(self):
-        merge = self.merge_check.isChecked()
-        concat = self.concat_check.isChecked()
-        merge_or_concat = merge or concat
-        split_active = bool(self.split_edit.text().strip())
-
-        for signal_source in (self.merge_check, self.concat_check, self.split_edit, self.format_combo):
-            signal_source.blockSignals(True)
-        try:
-            self.split_edit.setEnabled(not merge_or_concat)
-            if merge_or_concat:
-                # Merging/concatenating never applies a resolution (web parity)
-                self.resolution_combo.blockSignals(False)
-                self._populate_resolution_combo([])
-                self.resolution_combo.setEnabled(False)
-        finally:
-            for signal_source in (self.merge_check, self.concat_check, self.split_edit, self.format_combo):
-                signal_source.blockSignals(False)
-
-        # A filled split field excludes merge/concat (mirrors CLI rules)
-        merge_concat_enabled = not (split_active and not merge_or_concat)
-        self.merge_check.setEnabled(merge_concat_enabled)
-        self.concat_check.setEnabled(merge_concat_enabled)
-        if not merge_concat_enabled:
-            self.merge_check.setChecked(False)
-            self.concat_check.setChecked(False)
-
-    def _on_merge_concat_toggled(self):
-        if (self.merge_check.isChecked() or self.concat_check.isChecked()) and self.split_edit.text().strip():
-            self.split_edit.clear()
-        self._refresh_resolution_options()
-        self._sync_mode_controls()
-
-    def _on_split_edited(self):
-        if self.split_edit.text().strip():
-            self.merge_check.setChecked(False)
-            self.concat_check.setChecked(False)
-            self.resolution_combo.blockSignals(True)
-            self.resolution_combo.setCurrentIndex(0)
-            self.resolution_combo.setEnabled(False)
-            self.resolution_combo.blockSignals(False)
-            self.merge_check.setEnabled(False)
-            self.concat_check.setEnabled(False)
-        else:
-            self.merge_check.setEnabled(True)
-            self.concat_check.setEnabled(True)
-            self._refresh_resolution_options()
+        self._update_mode_dependent_ui()
 
     # ---- UI construction --------------------------------------------------
 
@@ -724,27 +700,29 @@ class MainWindow(QMainWindow):
         settings_layout.addWidget(workers_label, 2, 0)
         settings_layout.addWidget(self.workers_spin, 2, 1)
 
-        # Row 2 (right): Resolution, constrained by the selected target format
-        resolution_label = QLabel(
+        # Row 2 (right): Resolution and Split Pages share this slot; exactly
+        # one of them can apply at a time (movies vs PDF targets), so the
+        # inapplicable one stays hidden and the layout collapses cleanly.
+        self.resolution_label = QLabel(
             f"{lang.get_translation('resolution_label', self.locale)}:"
         )
         self.resolution_combo = QComboBox()
         self.resolution_combo.setToolTip(
             lang.get_translation("resolution_help", self.locale)
         )
-        settings_layout.addWidget(resolution_label, 2, 2)
+        settings_layout.addWidget(self.resolution_label, 2, 2)
         settings_layout.addWidget(self.resolution_combo, 2, 3)
 
-        # Row 3: PDF page-range splitting
         split_label = QLabel(f"{self._tr('split_pages')}:")
+        self.split_label = split_label
         self.split_edit = QLineEdit()
         self.split_edit.setPlaceholderText(self._tr("split_placeholder"))
         self.split_edit.setToolTip(lang.get_translation("split_help", self.locale))
-        self.split_edit.textChanged.connect(lambda _: self._on_split_edited())
-        settings_layout.addWidget(split_label, 3, 0)
-        settings_layout.addWidget(self.split_edit, 3, 1, 1, 3)
+        self.split_edit.textChanged.connect(lambda _: self._update_mode_dependent_ui())
+        settings_layout.addWidget(split_label, 2, 2)
+        settings_layout.addWidget(self.split_edit, 2, 3)
 
-        # Row 4: Metadata handling
+        # Row 3: Metadata handling
         self.preserve_meta_check = QCheckBox(
             lang.get_translation("preserve_meta", self.locale)
         )
@@ -758,8 +736,8 @@ class MainWindow(QMainWindow):
         self.strip_meta_check.toggled.connect(
             lambda checked: self.preserve_meta_check.setChecked(False) if checked else None
         )
-        settings_layout.addWidget(self.preserve_meta_check, 4, 0, 1, 3)
-        settings_layout.addWidget(self.strip_meta_check, 4, 3, 1, 3)
+        settings_layout.addWidget(self.preserve_meta_check, 3, 0, 1, 3)
+        settings_layout.addWidget(self.strip_meta_check, 3, 3, 1, 3)
 
         layout.addWidget(settings_group)
 
@@ -784,8 +762,8 @@ class MainWindow(QMainWindow):
         ]:
             options_layout.addWidget(widget)
 
-        self.merge_check.toggled.connect(lambda _: self._on_merge_concat_toggled())
-        self.concat_check.toggled.connect(lambda _: self._on_merge_concat_toggled())
+        self.merge_check.toggled.connect(lambda _: self._update_mode_dependent_ui())
+        self.concat_check.toggled.connect(lambda _: self._update_mode_dependent_ui())
 
         options_layout.addStretch()
         layout.addLayout(options_layout)
@@ -833,8 +811,7 @@ class MainWindow(QMainWindow):
         layout.setSpacing(15)
 
         # Initialize dependent controls once everything exists
-        self._refresh_resolution_options()
-        self._sync_mode_controls()
+        self._update_mode_dependent_ui()
 
     # ---- File actions -----------------------------------------------------
 
@@ -842,7 +819,7 @@ class MainWindow(QMainWindow):
         self.file_list.clear()
         self._file_paths_set.clear()
         self._update_file_count()
-        self._refresh_resolution_options()
+        self._update_mode_dependent_ui()
 
     def add_files(self):
         file_dialog = QFileDialog()
@@ -882,7 +859,7 @@ class MainWindow(QMainWindow):
                 self._file_paths_set.discard(item.data(Qt.ItemDataRole.UserRole))
                 self.file_list.takeItem(row)
         self._update_file_count()
-        self._refresh_resolution_options()
+        self._update_mode_dependent_ui()
 
     def show_file_context_menu(self, pos):
         # Right-click context menu for file list
@@ -958,7 +935,7 @@ class MainWindow(QMainWindow):
                 self.file_list.takeItem(row)
         if missing_rows:
             self._update_file_count()
-            self._refresh_resolution_options()
+            self._update_mode_dependent_ui()
 
     # ---- Split helpers ----------------------------------------------------
 
@@ -1021,7 +998,11 @@ class MainWindow(QMainWindow):
             )
             return
 
-        split_pattern = self.split_edit.text().strip()
+        # Only fields actually offered by the current mode contribute; hidden
+        # ones are inert by construction.
+        split_pattern = (
+            self.split_edit.text().strip() if self.split_edit.isVisibleTo(self) else ""
+        )
         if split_pattern and (merge or concat):
             QMessageBox.warning(
                 self,
@@ -1037,7 +1018,11 @@ class MainWindow(QMainWindow):
             "Low": "low",
         }
 
-        resolution = self.resolution_combo.currentData() or None
+        resolution = (
+            self.resolution_combo.currentData() or None
+            if self.resolution_combo.isVisibleTo(self)
+            else None
+        )
         run_format = self.format_combo.currentData()
         run_split = None
 
@@ -1289,8 +1274,7 @@ class MainWindow(QMainWindow):
         else:
             self.convert_btn.setText(lang.get_translation("convert", self.locale))
             # Restore mode-dependent availability
-            self._sync_mode_controls()
-            self._refresh_resolution_options()
+            self._update_mode_dependent_ui()
 
     def closeEvent(self, event):
         converting = self.current_thread is not None and self.current_thread.isRunning()
@@ -1425,8 +1409,8 @@ Options:
 - Workers: Parallel conversion threads (up to CPU count - 1)
 - Recursive: Include files from subfolders
 - Delete: Remove original files after conversion
-- Split Pages: Splits PDF inputs; ignores the selected output format
-- Resolution: Choices adapt to the selected target format
+- Split Pages: Appears when PDF is the target; splits PDF inputs by page ranges
+- Resolution: Appears for movie targets; choices adapt to the selected format
 - Metadata: Preserve writes metadata JSON sidecars, Strip removes metadata
 
 Keyboard shortcuts:
