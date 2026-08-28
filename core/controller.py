@@ -51,6 +51,7 @@ class Controller:
         self.event_logger = logging.getLogger(__name__)
         self.file_handler = FileHandler(self.event_logger, self.locale)
         self.metadata_handler = MetadataHandler(self.event_logger, self.locale)
+        self.file_handler.metadata_callback = self._metadata_hook
 
         self.audio_converter = AudioConverter(
             self.file_handler, self.prog_logger, self.event_logger, self.locale
@@ -439,6 +440,15 @@ class Controller:
                 ]
                 if ext_normalized in fmt_normalized:
                     self.output = os.path.dirname(self.output)
+
+        # Validate input paths exist before any directory creation
+        for input_path in input_paths:
+            if not os.path.exists(input_path):
+                end_with_msg(
+                    self.event_logger,
+                    FileNotFoundError,
+                    f"[!] {lang.get_translation('error', self.locale)}: {lang.get_translation('no_dir_exist', self.locale).replace('[dir]', f'{os.path.abspath(input_path)}')}",
+                )
 
         if self.output is not None and not os.path.exists(self.output):
             os.makedirs(self.output)
@@ -829,6 +839,25 @@ class Controller:
                 f"{lang.get_translation('error', self.locale)}: {str(e)}"
             )
             raise
+
+    def _category_for_format(self, source_format: str) -> str | None:
+        # Map file format ('mp3', 'png') back to category
+        # Returns e.g. 'audio' or 'image'
+        for category, formats in self._supported_formats.items():
+            if source_format in formats:
+                return category.value
+        return None
+
+    def _metadata_hook(
+        self, input_file_path: str, output_file_path: str, source_format: str
+    ) -> None:
+        # Invoked by FileHandler.post_process after every successful conversion.
+        if not (self.preserve_meta or self.custom_tags or self.strip_meta):
+            return
+        file_type = self._category_for_format(source_format)
+        if file_type is None:
+            return
+        self._handle_metadata(input_file_path, output_file_path, file_type)
 
     def _handle_metadata(
         self, input_file_path: str, output_file_path: str, file_type: str
