@@ -13,6 +13,7 @@ class FileHandler:
         self.event_logger = event_logger
         self.locale = locale
         self.CONFLICT_RESOLUTION_TIMEOUT = 2.0  # numeric suffix loop attempt time in s
+        self.metadata_callback = None
 
     def join_back(self, file_path_set: tuple) -> str:
         # Join back the file path set to a concurrent path
@@ -67,6 +68,19 @@ class FileHandler:
                     f"[>] {lang.get_translation('converted', self.locale)} "
                     f'"{source_path}" -> "{resolved_out_path}"'
                 )
+
+            if (
+                os.path.exists(resolved_out_path)
+                and self.metadata_callback is not None
+            ):
+                try:
+                    self.metadata_callback(
+                        source_path, resolved_out_path, file_path_set[2]
+                    )
+                except Exception as e:
+                    self.event_logger.debug(
+                        f"Metadata handling skipped for {resolved_out_path}: {e}"
+                    )
 
             # Only delete source file if requested, output exists, and source exists
             if delete and os.path.exists(resolved_out_path) and os.path.exists(source_path):
