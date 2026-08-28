@@ -533,8 +533,10 @@ def download_zip(job_id: str):
 def set_language():
     # Web interface language is set via the browser, *not* via sys language
     # This POST helps retrieve client's language info
-    data = request.get_json()
+    data = request.get_json(silent=True) or {}
     lang_code = data.get("language")
+    if not lang_code:
+        return {"success": False}, 400
     if "_" not in lang_code:
         for code, _ in lang.LANGUAGE_CODES.items():
             if lang_code in code:
