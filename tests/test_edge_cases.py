@@ -189,3 +189,45 @@ def test_single_image_conversion_no_subfolder(controller_instance, tmp_path):
     # Verify no unnecessary subfolder was created
     subdirs = [d for d in output_dir.iterdir() if d.is_dir()]
     assert len(subdirs) == 0, f"No subdirectories should exist, but found: {subdirs}"
+
+
+def test_wav_to_mp3_real_conversion(controller_instance, tmp_path):
+    # Generate some sine WAV, convert through full pipeline, verify decodability of the MP3
+    import wave
+    import struct
+    import numpy as np
+    from moviepy import AudioFileClip
+
+    wav_path = tmp_path / "tone.wav"
+    with wave.open(str(wav_path), "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(44100)
+        n_frames = int(44100 * 0.2)
+        frames = b"".join(
+            struct.pack("<h", int(16000 * np.sin(2 * np.pi * 440 * i / 44100)))
+            for i in range(n_frames)
+        )
+        w.writeframes(frames)
+
+    controller_instance.run(
+        [str(wav_path)],
+        format="mp3",
+        output=None,
+        framerate=None,
+        quality=None,
+        split=None,
+        merge=False,
+        concat=False,
+        delete=False,
+        across=False,
+        recursive=False,
+        dropzone=False,
+        language=None,
+        workers=1,
+    )
+
+    out = tmp_path / "tone.mp3"
+    assert out.exists() and out.stat().st_size > 0
+    with AudioFileClip(str(out)) as clip:
+        assert clip.duration > 0
