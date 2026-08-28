@@ -135,6 +135,12 @@ class ImageConverter:
         self.event_logger = event_logger
         self.locale = locale
 
+    def _per_file_out_dir(self, path_set: tuple, input: str, output: str) -> str:
+        # When in_dir doubles as out_dir: place outputs next to source
+        if input == output:
+            return path_set[0]
+        return output
+
     def to_frames(
         self,
         input: str,
@@ -166,9 +172,10 @@ class ImageConverter:
                 # Ensure output directory exists (single images are placed directly in output)
                 os.makedirs(output, exist_ok=True)
 
+                out_dir = self._per_file_out_dir(image_path_set, input, output)
                 img_path = self.file_handler._resolve_output_file_conflict(
                     os.path.abspath(
-                        os.path.join(output, f"{image_path_set[1]}.{format}")
+                        os.path.join(out_dir, f"{image_path_set[1]}.{format}")
                     )
                 )
 
@@ -200,14 +207,21 @@ class ImageConverter:
         for doc_path_set in file_paths[Category.DOCUMENT]:
             if doc_path_set[2] == format:
                 continue
-            if not os.path.exists(os.path.join(output, doc_path_set[1])):
+            doc_out_dir = (
+                os.path.join(doc_path_set[0], doc_path_set[1])
+                if input == output
+                else os.path.join(output, doc_path_set[1])
+            )
+            if not os.path.exists(doc_out_dir):
                 try:
-                    os.makedirs(os.path.join(output, doc_path_set[1]), exist_ok=True)
+                    os.makedirs(doc_out_dir, exist_ok=True)
                 except OSError as e:
                     self.event_logger.info(
                         f"[!] {lang.get_translation('error', self.locale)}: {e} - {lang.get_translation('set_out_dir', self.locale)} {input}"
                     )
                     output = input
+                    doc_out_dir = os.path.join(output, doc_path_set[1])
+                    os.makedirs(doc_out_dir, exist_ok=True)
             if doc_path_set[2] in ["docx", "pptx"]:
                 # Read all images from docx, write to os.path.join(self.output, doc_path_set[1])
                 office_to_frames(
@@ -221,33 +235,18 @@ class ImageConverter:
             if doc_path_set[2] == "pdf":
                 pdf_path = self.file_handler.join_back(doc_path_set)
                 pdf_document = fitz.open(pdf_path)
-
-                if not os.path.exists(os.path.join(output, doc_path_set[1])):
-                    try:
-                        os.makedirs(
-                            os.path.join(output, doc_path_set[1]), exist_ok=True
-                        )
-                    except OSError as e:
-                        self.event_logger.info(
-                            f"[!] {lang.get_translation('error', self.locale)}: {e} - {lang.get_translation('set_out_dir', self.locale)} {input}"
-                        )
-                        output = input
-
                 total_pages = len(pdf_document)
                 img_path_pattern = os.path.abspath(
                     os.path.join(
-                        output,
-                        doc_path_set[1],
+                        doc_out_dir,
                         f"{doc_path_set[1]}-%0{len(str(total_pages))}d.{format}",
                     )
                 )
-
                 for page_num in range(total_pages):
                     pix = pdf_document[page_num].get_pixmap()
                     img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
                     img_file = img_path_pattern % (page_num + 1)
                     img.save(img_file, _save_format(format))
-
                 pdf_document.close()
                 self.file_handler.post_process(doc_path_set, img_path_pattern, delete)
 
@@ -269,7 +268,11 @@ class ImageConverter:
                 fps_source="tbr",
             )
             try:
-                movie_out_dir = os.path.join(output, movie_path_set[1])
+                movie_out_dir = (
+                    os.path.join(movie_path_set[0], movie_path_set[1])
+                    if input == output
+                    else os.path.join(output, movie_path_set[1])
+                )
                 try:
                     os.makedirs(movie_out_dir, exist_ok=True)
                 except OSError as e:
@@ -357,8 +360,9 @@ class ImageConverter:
         ]
 
         def _convert_image_to_bmp(image_path_set: tuple):
+            out_dir = self._per_file_out_dir(image_path_set, input, output)
             bmp_path = self.file_handler._resolve_output_file_conflict(
-                os.path.abspath(os.path.join(output, f"{image_path_set[1]}.{format}"))
+                os.path.abspath(os.path.join(out_dir, f"{image_path_set[1]}.{format}"))
             )
             with Image.open(self.file_handler.join_back(image_path_set)) as img:
                 img.convert("RGB").save(bmp_path, format=format)
@@ -517,8 +521,9 @@ class ImageConverter:
         ]
 
         def _convert_image_to_webp(image_path_set: tuple):
+            out_dir = self._per_file_out_dir(image_path_set, input, output)
             webp_path = self.file_handler._resolve_output_file_conflict(
-                os.path.abspath(os.path.join(output, f"{image_path_set[1]}.{format}"))
+                os.path.abspath(os.path.join(out_dir, f"{image_path_set[1]}.{format}"))
             )
             with Image.open(self.file_handler.join_back(image_path_set)) as img:
                 img.convert("RGB").save(webp_path, format=format)
@@ -640,8 +645,9 @@ class ImageConverter:
         ]
 
         def _convert_image(ips: tuple) -> tuple:
+            out_dir = self._per_file_out_dir(ips, input, output)
             heic_path = self.file_handler._resolve_output_file_conflict(
-                os.path.abspath(os.path.join(output, f"{ips[1]}.{format}"))
+                os.path.abspath(os.path.join(out_dir, f"{ips[1]}.{format}"))
             )
             with Image.open(self.file_handler.join_back(ips)) as img:
                 if img.mode != "RGB":
@@ -814,12 +820,10 @@ class ImageConverter:
                     )
                     target_fps = max(1, int(video.fps // 3))
 
-                    # Write GIF, log progress
                     video.write_gif(
                         gif_path,
                         fps=target_fps,
                         logger=self.prog_logger,
-                        verbose=False,
                     )
 
                     # Log completion of this video
