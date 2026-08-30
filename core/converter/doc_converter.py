@@ -607,7 +607,7 @@ class DocumentConverter:
                         continue  # Some invalid range
 
                     # Parse end
-                    if end_str.lower() == "end":
+                    if end_str.lower() in ("end", "rest"):
                         end = total_pages
                     else:
                         try:
