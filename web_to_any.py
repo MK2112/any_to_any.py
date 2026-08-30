@@ -22,45 +22,65 @@ from flask import Flask, render_template, request, send_file, jsonify, abort, se
 # Extension to the CLI-based any_to_any.py
 app = Flask(__name__, template_folder=os.path.abspath("templates"))
 app.secret_key = os.urandom(32)
-app.config["MAX_CONTENT_LENGTH"] = 16 * 1024**3  # 16 GiB effective upload limit, adjust as needed
 
-# Session cookie to be secure, SameSite policy against CSRF
-app.config["SESSION_COOKIE_SECURE"] = True
+# 16 GiB effective upload limit, adjust as needed
+app.config["MAX_CONTENT_LENGTH"] = 16 * 1024**3
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
-# CSRF token storage: {session_id: csrf_token}
 _csrf_tokens = {}
+_csrf_max_entries = 10000
+_csrf_ttl_seconds = 24 * 3600
 _csrf_lock = threading.Lock()
 
+
 def get_csrf_token():
-    session_id = session.sid if hasattr(session, 'sid') else request.remote_addr
+    session_id = session.sid if hasattr(session, "sid") else request.remote_addr
+    now = time.time()
     with _csrf_lock:
-        if session_id in _csrf_tokens:
-            return _csrf_tokens[session_id]
+        entry = _csrf_tokens.get(session_id)
+        if entry and now - entry["created_at"] < _csrf_ttl_seconds:
+            return entry["token"]
+        # Remove expired entries, cap size to bound memory (i.e. drop oldest)
+        if len(_csrf_tokens) >= _csrf_max_entries:
+            for sid in sorted(
+                _csrf_tokens, key=lambda s: _csrf_tokens[s]["created_at"]
+            )[: len(_csrf_tokens) // 10]:
+                _csrf_tokens.pop(sid, None)
         token = secrets.token_hex(32)
-        _csrf_tokens[session_id] = token
+        _csrf_tokens[session_id] = {"token": token, "created_at": now}
         return token
 
+
 def validate_csrf_token(token):
-    session_id = session.sid if hasattr(session, 'sid') else request.remote_addr
+    session_id = session.sid if hasattr(session, "sid") else request.remote_addr
+    now = time.time()
     with _csrf_lock:
-        stored_token = _csrf_tokens.get(session_id)
-        if stored_token and secrets.compare_digest(stored_token, token):
+        entry = _csrf_tokens.get(session_id)
+        if (
+            entry
+            and now - entry["created_at"] < _csrf_ttl_seconds
+            and secrets.compare_digest(entry["token"], token)
+        ):
             return True
     return False
+
 
 @app.context_processor
 def inject_csrf_token():
     return {"csrf_token": get_csrf_token()}
 
+
 # Security headers
 @app.after_request
 def headers(response):
-    response.headers['X-Content-Type-Options'] = 'nosniff'
-    response.headers['X-Frame-Options'] = 'DENY'
-    response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Strict-Transport-Security"] = (
+        "max-age=31536000; includeSubDomains"
+    )
     return response
+
 
 # Disable Flask's default access logging
 log = logging.getLogger("werkzeug")
@@ -70,31 +90,52 @@ app.logger.setLevel(logging.ERROR)
 host = "127.0.0.1"
 port = 5000
 
-# Rate limiting: {ip: [timestamps]}
+_is_loopback = host.lower() in ("127.0.0.1", "localhost", "::1")
+app.config["SESSION_COOKIE_SECURE"] = not _is_loopback
+
+# Rate limiting
 _rate_limit = {}
-def _rate_check(max_req: int=30, window: int=3600):
+_max_ips = 10000
+_rate_lock = threading.Lock()
+
+
+def _rate_check(max_req: int = 30, window: int = 3600):
     # Rate limit as max_req per window seconds per IP.
+    # max_req reqs ALLOWED per window and request max_req+1 gets 429
     def decorator(f):
         @wraps(f)
         def wrapper(*args, **kwargs):
             ip = request.remote_addr
             now = datetime.now()
             cutoff = now - timedelta(seconds=window)
-            _rate_limit[ip] = [t for t in _rate_limit.get(ip, []) if t > cutoff]
-            if len(_rate_limit[ip]) >= max_req:
-                abort(429)
-            _rate_limit[ip].append(now)
+            with _rate_lock:
+                _rate_limit[ip] = [t for t in _rate_limit.get(ip, []) if t > cutoff]
+                if len(_rate_limit[ip]) >= max_req:
+                    abort(429)
+                _rate_limit[ip].append(now)
+                if len(_rate_limit) > _max_ips:
+                    for k in sorted(_rate_limit, key=lambda k: len(_rate_limit[k]))[
+                        : len(_rate_limit) // 10
+                    ]:
+                        _rate_limit.pop(k, None)
             return f(*args, **kwargs)
+
         return wrapper
+
     return decorator
+
 
 # Initialize a default controller for the app
 controller = None
 
 
 # This function creates a new controller instance with the given job_id
-def create_controller(job_id: str = None, shared_progress_dict: dict = None) -> Controller:
-    controller = Controller(job_id=job_id, shared_progress_dict=shared_progress_dict, is_web=True)
+def create_controller(
+    job_id: str = None, shared_progress_dict: dict = None
+) -> Controller:
+    controller = Controller(
+        job_id=job_id, shared_progress_dict=shared_progress_dict, is_web=True
+    )
     controller.web_flag = True
     controller.web_host = f"{'http' if host.lower() in ['127.0.0.1', 'localhost'] else 'https'}://{host}:{port}"
     return controller
@@ -106,6 +147,7 @@ controller = create_controller()
 # Shared progress dictionary for job tracking
 shared_progress_dict = {}
 progress_lock = threading.Lock()
+_last_progress_cache = {}
 
 files = UploadSet("files", ALL)
 app.config["UPLOADED_FILES_DEST"] = "./uploads"
@@ -213,10 +255,10 @@ def process_params() -> tuple:
     cv_dir = f"{app.config['CONVERTED_FILES_DEST']}_{conv_key}"
     os.makedirs(up_dir, exist_ok=True)
     os.makedirs(cv_dir, exist_ok=True)
-    
+
     for file in uploaded_files:
         if file and file.filename:
-            safe_name = re.sub(r'[^\w\.\-]', '_', file.filename)
+            safe_name = re.sub(r"[^\w\.\-]", "_", file.filename)
             file.save(os.path.join(up_dir, safe_name))
     return fmt, up_dir, cv_dir, conv_key, resolution
 
@@ -296,7 +338,13 @@ def send_to_backend(
     input_dir = input_path_args[0] if input_path_args else None
     total_files = 0
     if input_dir and os.path.isdir(input_dir):
-        total_files = len([f for f in os.listdir(input_dir) if os.path.isfile(os.path.join(input_dir, f))])
+        total_files = len(
+            [
+                f
+                for f in os.listdir(input_dir)
+                if os.path.isfile(os.path.join(input_dir, f))
+            ]
+        )
 
     try:
         if job_id and shared_dict is not None:
@@ -333,7 +381,6 @@ def send_to_backend(
             resolution=resolution,
         )
 
-        # Mark as done
         if job_id and shared_dict is not None:
             with progress_lock:
                 shared_dict[job_id].update(
@@ -361,11 +408,9 @@ def send_to_backend(
                             "last_updated": time.time(),
                         }
                     )
-        # Re-raise the exception to be handled by the caller
         raise
 
     finally:
-        # Clean up uploaded files
         if (
             input_path_args
             and len(input_path_args) > 0
@@ -374,14 +419,16 @@ def send_to_backend(
             shutil.rmtree(input_path_args[0], ignore_errors=True)
 
 
-def create_conversion_endpoint(merge: bool=False, concat: bool=False):
+def create_conversion_endpoint(merge: bool = False, concat: bool = False):
     @_rate_check(max_req=30, window=3600)
     def endpoint():
-        csrf_token = request.form.get("csrf_token") or request.headers.get("X-CSRF-Token")
+        csrf_token = request.form.get("csrf_token") or request.headers.get(
+            "X-CSRF-Token"
+        )
         # Validating the CSRF token for all POST requests
         if not csrf_token or not validate_csrf_token(csrf_token):
             abort(403, "Invalid CSRF token")
-        
+
         fmt, up_dir, cv_dir, job_id, resolution = process_params()
         # New controller instance for this job
         job_controller = create_controller(
@@ -409,6 +456,7 @@ def create_conversion_endpoint(merge: bool=False, concat: bool=False):
         thread.start()
         # Return job_id so frontend can poll progress
         return jsonify({"job_id": job_id}), 202
+
     return endpoint
 
 
@@ -432,13 +480,11 @@ app.add_url_rule(
 )
 
 
-_last_progress_cache = {} # Tracks the last prog value per job_id for prog estimation
-
 @app.route("/progress/<job_id>", methods=["GET"])
 def get_progress(job_id: str):
-    if not re.match(r'^[a-f0-9]{8}$', job_id):
+    if not re.match(r"^[a-f0-9]{8}$", job_id):
         return jsonify({"error": "Invalid job ID"}), 400
-    
+
     with progress_lock:
         prog = shared_progress_dict.get(
             job_id,
@@ -454,15 +500,15 @@ def get_progress(job_id: str):
         total_n_files = prog.get("total_files", 1)
         current_prog = prog.get("progress", 0)
         last_prog = _last_progress_cache.get(job_id, 0)
-        
+
         if current_prog < last_prog and last_prog > 0:
             completed_files = prog.get("completed_files", 0) + 1
             prog["completed_files"] = completed_files
         else:
             completed_files = prog.get("completed_files", 0)
-        
+
         _last_progress_cache[job_id] = current_prog
-        
+
         if total_n_files > 1 and completed_files > 0:
             cumulative_prog = completed_files * 100 + current_prog
             progress_percent = int((cumulative_prog / (total_n_files * 100)) * 100)
@@ -470,7 +516,11 @@ def get_progress(job_id: str):
             progress_percent = prog.get("progress_percent")
             cumulative_prog = current_prog
         else:
-            progress_percent = int((current_prog / prog.get("total", 100)) * 100) if prog.get("total", 0) > 0 else 0
+            progress_percent = (
+                int((current_prog / prog.get("total", 100)) * 100)
+                if prog.get("total", 0) > 0
+                else 0
+            )
             cumulative_prog = current_prog
 
         current_time = time.time()
@@ -483,23 +533,25 @@ def get_progress(job_id: str):
                 del shared_progress_dict[jid]
                 _last_progress_cache.pop(jid, None)
 
-        return jsonify({
-            "progress": cumulative_prog if total_n_files > 1 else current_prog,
-            "total": total_n_files * 100,
-            "status": prog.get("status", "waiting"),
-            "error": prog.get("error"),
-            "progress_percent": progress_percent,
-            "total_files": total_n_files,
-            "completed_files": completed_files,
-        })
+        return jsonify(
+            {
+                "progress": cumulative_prog if total_n_files > 1 else current_prog,
+                "total": total_n_files * 100,
+                "status": prog.get("status", "waiting"),
+                "error": prog.get("error"),
+                "progress_percent": progress_percent,
+                "total_files": total_n_files,
+                "completed_files": completed_files,
+            }
+        )
 
 
 @app.route("/download/<job_id>", methods=["GET"])
 def download_zip(job_id: str):
     # Validate job_id (prevent path traversal)
-    if not re.match(r'^[a-f0-9]{8}$', job_id):
+    if not re.match(r"^[a-f0-9]{8}$", job_id):
         abort(400)
-    
+
     base_path = f"{app.config['CONVERTED_FILES_DEST']}_{job_id}"
     if not os.path.exists(base_path):
         abort(404, "Output not found")
