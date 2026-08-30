@@ -49,7 +49,7 @@ class TestResolutionModule:
             assert available == [
                 "1920x1080",
                 "1280x720",
-                "842x480",
+                "854x480",
                 "640x360",
                 "426x240",
             ]

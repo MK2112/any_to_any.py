@@ -90,7 +90,7 @@ class Controller:
         self._RES_HD = frozenset(self._STD_RES[2:])  # <= 1920x1080
         self._RES_SD = frozenset(self._STD_RES[4:])  # <= 854x480
         self._RES_HLS = frozenset(
-            {"426x240", "640x360", "842x480", "1280x720", "1920x1080"}
+            {"426x240", "640x360", "854x480", "1280x720", "1920x1080"}
         )
 
         # Dictionary of supported formats and respective information
