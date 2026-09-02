@@ -62,15 +62,14 @@ class FileHandler:
         try:
             source_path = self.join_back(file_path_set)
             resolved_out_path = os.path.abspath(out_path)
-            # Only log if the conversion was successful and output exists
-            if show_status and os.path.exists(resolved_out_path):
+            if show_status and os.path.isfile(resolved_out_path):
                 self.event_logger.info(
                     f"[>] {lang.get_translation('converted', self.locale)} "
                     f'"{source_path}" -> "{resolved_out_path}"'
                 )
 
             if (
-                os.path.exists(resolved_out_path)
+                os.path.isfile(resolved_out_path)
                 and self.metadata_callback is not None
             ):
                 try:
@@ -82,8 +81,7 @@ class FileHandler:
                         f"Metadata handling skipped for {resolved_out_path}: {e}"
                     )
 
-            # Only delete source file if requested, output exists, and source exists
-            if delete and os.path.exists(resolved_out_path) and os.path.exists(source_path):
+            if delete and os.path.isfile(resolved_out_path) and os.path.isfile(source_path):
                 try:
                     os.remove(source_path)
                     self.event_logger.info(

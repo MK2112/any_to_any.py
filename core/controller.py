@@ -923,7 +923,12 @@ class Controller:
 
     def concat(self, file_paths: dict, format: str = None) -> None:
         # Concat files of same type (img/movie/audio) back to back
-        # Concat audio files
+        # -d may only remove participating files, not everything in path
+        audio_out_path, video_out_path = None, None
+        srt_out_path, gif_out_path, pdf_out_path = None, None, None
+        concat_audios, concat_movies, concat_images = [], [], []
+        concat_pdfs, concat_srts = [], []
+
         if file_paths[Category.AUDIO] and (
             format is None or format in self._supported_formats[Category.AUDIO]
         ):
@@ -944,6 +949,7 @@ class Controller:
                 logger=self.prog_logger,
             )
             concat_audio.close()
+            concat_audios = list(file_paths[Category.AUDIO])
 
         # Concat movie files
         if file_paths[Category.MOVIE] and (
@@ -969,6 +975,7 @@ class Controller:
                 logger=self.prog_logger,
             )
             concat_vid.close()
+            concat_movies = list(file_paths[Category.MOVIE])
 
         # Concat image files (make a gif out of them)
         if file_paths[Category.IMAGE] and (
@@ -991,6 +998,7 @@ class Controller:
                 gif_out_path, fps=self.framerate, logger=self.prog_logger
             )
             concatenated_image.close()  # Added for consistency
+            concat_images = list(file_paths[Category.IMAGE])
 
         # Concat document files (keep respective document format)
         if file_paths[Category.DOCUMENT] and (
@@ -1051,6 +1059,7 @@ class Controller:
                     pdf_document.close()
                 doc.save(pdf_out_path)
                 doc.close()
+                concat_pdfs = list(pdfs)
 
             if len(srts) > 0:
                 # Set up manual progress tracking for SRT concatenation
@@ -1087,15 +1096,23 @@ class Controller:
                     with open(srt_out_path, "a") as srt_file:
                         srt_file.write(srt_content)
                         srt_file.write("\n")
+                concat_srts = list(srts)
 
-        # Post-processing with progress tracking
-        total_categories = sum(len(files) for files in file_paths.values())
+        consumed_groups = [
+            (concat_audios, audio_out_path),
+            (concat_movies, video_out_path),
+            (concat_images, gif_out_path),
+            (concat_pdfs, pdf_out_path),
+            (concat_srts, srt_out_path),
+        ]
+        total_categories = sum(len(files) for files, _ in consumed_groups)
         processed_files = 0
 
-        for category in file_paths.keys():
-            # Iterate over each input category and post-process respective files
-            for i, file_path in enumerate(file_paths[category]):
-                # Manual progress update for post-processing
+        for files, out_path in consumed_groups:
+            # Skip branches that did not run or produced nothing
+            if not files or out_path is None:
+                continue
+            for i, file_path in enumerate(files):
                 if hasattr(self.prog_logger, "job_id") and self.prog_logger.job_id:
                     if (
                         hasattr(self.prog_logger, "shared_progress_dict")
@@ -1118,7 +1135,7 @@ class Controller:
                                 )
 
                 self.file_handler.post_process(
-                    file_path, self.output, self.delete, show_status=(i == 0)
+                    file_path, out_path, self.delete, show_status=(i == 0)
                 )
                 processed_files += 1
 
