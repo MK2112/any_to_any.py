@@ -11,11 +11,11 @@ import utils.language_support as lang
 
 from functools import wraps
 from utils.version import VERSION
-from core.controller import Controller
-from core.utils.resolution import available_resolutions, normalize_resolution
 from utils.category import Category
+from core.controller import Controller
 from datetime import datetime, timedelta
 from flask_uploads import UploadSet, configure_uploads, ALL
+from core.utils.resolution import available_resolutions, normalize_resolution
 from flask import Flask, render_template, request, send_file, jsonify, abort, session
 
 # Web server providing a web interface
@@ -32,6 +32,59 @@ _csrf_tokens = {}
 _csrf_max_entries = 10000
 _csrf_ttl_seconds = 24 * 3600
 _csrf_lock = threading.Lock()
+
+_job_owners = {}
+_job_lock = threading.Lock()
+_JOB_ID_BYTES = 16
+_JOB_ID_RE = re.compile(r"^[a-f0-9]{32}$")
+
+
+def _job_owner_id() -> str:
+    # Unique owner id per session so user can
+    # authenticate for access to its jobs
+    owner_id = session.get("job_owner_id")
+    if owner_id is None:
+        owner_id = secrets.token_urlsafe(32)
+        session["job_owner_id"] = owner_id
+    return owner_id
+
+
+def _create_job_storage() -> tuple[str, str, str]:
+    # Reserve both directories with exclusive creation before accepting files
+    for _ in range(10):
+        job_id = secrets.token_hex(_JOB_ID_BYTES)
+        up_dir = f"{app.config['UPLOADED_FILES_DEST']}_{job_id}"
+        cv_dir = f"{app.config['CONVERTED_FILES_DEST']}_{job_id}"
+        created_upload_dir = False
+        try:
+            os.makedirs(up_dir, exist_ok=False)
+            created_upload_dir = True
+            os.makedirs(cv_dir, exist_ok=False)
+        except FileExistsError:
+            if created_upload_dir:
+                shutil.rmtree(up_dir, ignore_errors=True)
+            continue
+        except Exception:
+            if created_upload_dir:
+                shutil.rmtree(up_dir, ignore_errors=True)
+            raise
+
+        with _job_lock:
+            _job_owners[job_id] = _job_owner_id()
+        return job_id, up_dir, cv_dir
+
+    raise RuntimeError("Could not allocate unique job storage")
+
+
+def _job_is_authorized(job_id: str) -> bool:
+    if not _JOB_ID_RE.fullmatch(job_id):
+        return False
+    owner_id = session.get("job_owner_id")
+    if not owner_id:
+        return False
+    with _job_lock:
+        job_owner = _job_owners.get(job_id)
+    return job_owner is not None and secrets.compare_digest(job_owner, owner_id)
 
 
 def get_csrf_token():
@@ -249,13 +302,7 @@ def process_params() -> tuple:
         )
         if resolution is None:
             abort(400, "Invalid resolution")
-
-    conv_key = os.urandom(4).hex()
-    up_dir = f"{app.config['UPLOADED_FILES_DEST']}_{conv_key}"
-    cv_dir = f"{app.config['CONVERTED_FILES_DEST']}_{conv_key}"
-    os.makedirs(up_dir, exist_ok=True)
-    os.makedirs(cv_dir, exist_ok=True)
-
+    conv_key, up_dir, cv_dir = _create_job_storage()
     for file in uploaded_files:
         if file and file.filename:
             safe_name = re.sub(r"[^\w\.\-]", "_", file.filename)
@@ -482,8 +529,10 @@ app.add_url_rule(
 
 @app.route("/progress/<job_id>", methods=["GET"])
 def get_progress(job_id: str):
-    if not re.match(r"^[a-f0-9]{8}$", job_id):
+    if not _JOB_ID_RE.fullmatch(job_id):
         return jsonify({"error": "Invalid job ID"}), 400
+    if not _job_is_authorized(job_id):
+        abort(404, "Job not found")
 
     with progress_lock:
         prog = shared_progress_dict.get(
@@ -548,8 +597,10 @@ def get_progress(job_id: str):
 
 @app.route("/download/<job_id>", methods=["GET"])
 def download_zip(job_id: str):
-    if not re.match(r"^[a-f0-9]{8}$", job_id):
+    if not _JOB_ID_RE.fullmatch(job_id):
         abort(400)
+    if not _job_is_authorized(job_id):
+        abort(404, "Job not found")
 
     base_path = f"{app.config['CONVERTED_FILES_DEST']}_{job_id}"
     if not os.path.exists(base_path):
@@ -567,14 +618,18 @@ def download_zip(job_id: str):
             abort(404, "No converted files found in output directory")
 
     # If it's a single file
-    if os.path.isfile(base_path):
-        try:
-            # Zip single file
-            return push_zip(base_path)
-        except Exception as e:
-            app.logger.error(f"Error processing single file: {str(e)}")
-            abort(500, f"Error processing file: {str(e)}")
-    return push_zip(base_path)
+    try:
+        response = push_zip(base_path)
+    except Exception as e:
+        app.logger.error(f"Error processing output: {str(e)}")
+        abort(500, f"Error processing file: {str(e)}")
+
+    with _job_lock:
+        _job_owners.pop(job_id, None)
+    with progress_lock:
+        shared_progress_dict.pop(job_id, None)
+        _last_progress_cache.pop(job_id, None)
+    return response
 
 
 @app.route("/language", methods=["POST"])

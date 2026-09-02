@@ -6,7 +6,6 @@ import web_to_any as w
 from unittest import mock
 
 
-
 @pytest.fixture(autouse=True)
 def reset_web_globals():
     # Reset mutable module-level state (before and after each test)
@@ -15,6 +14,7 @@ def reset_web_globals():
         w._last_progress_cache.clear()
         w._rate_limit.clear()
         w._csrf_tokens.clear()
+        w._job_owners.clear()
     yield
     with w.progress_lock:
         w.shared_progress_dict.clear()
@@ -32,7 +32,9 @@ def client(reset_web_globals):
 def tmp_storage(tmp_path, monkeypatch):
     # Point upload/converted destinations at scratch directory
     monkeypatch.setitem(w.app.config, "UPLOADED_FILES_DEST", str(tmp_path / "uploads"))
-    monkeypatch.setitem(w.app.config, "CONVERTED_FILES_DEST", str(tmp_path / "converted"))
+    monkeypatch.setitem(
+        w.app.config, "CONVERTED_FILES_DEST", str(tmp_path / "converted")
+    )
     return tmp_path
 
 
@@ -47,6 +49,7 @@ def _csrf_for(client):
 def _wait_for_call(mock_obj, timeout=10.0):
     # Wait for background conversion thread to invoke the any_to_any backend
     import time as _time
+
     deadline = _time.time() + timeout
     while _time.time() < deadline and mock_obj.call_count == 0:
         _time.sleep(0.02)
@@ -54,7 +57,7 @@ def _wait_for_call(mock_obj, timeout=10.0):
 
 
 def test_convert_returns_202_and_job_id(client, tmp_storage):
-    # Test the pipeline of CSRF-validated upload spawning background job and returning its id for progress polling
+    # CSRF-validated upload spawning background job and returning its id for progress polling
     token = _csrf_for(client)
     with mock.patch.object(w, "send_to_backend") as mock_backend:
         resp = client.post(
@@ -68,10 +71,59 @@ def test_convert_returns_202_and_job_id(client, tmp_storage):
         )
     assert resp.status_code == 202
     job_id = resp.get_json()["job_id"]
-    assert re.fullmatch(r"[0-9a-f]{8}", job_id)
+    assert re.fullmatch(r"[0-9a-f]{32}", job_id)
     _wait_for_call(mock_backend)
     args, _ = mock_backend.call_args
-    assert args[2] == "jpeg" # target format
+    assert args[2] == "jpeg"  # target format
     assert args[7] is False  # no merge
     assert args[8] is False  # no concat
-    assert args[9] is None   # no specified resolution
+    assert args[9] is None  # no specified resolution
+
+
+def test_job_is_not_accessible_from_another_session(client, tmp_storage):
+    # job_id is bound to the session that created it, and cannot be accessed from another session
+    token = _csrf_for(client)
+    with mock.patch.object(w, "send_to_backend"):
+        response = client.post(
+            "/convert",
+            data={
+                "files": [(io.BytesIO(b"pngdata"), "photo.png")],
+                "conversionType": "jpeg",
+                "csrf_token": token,
+            },
+            content_type="multipart/form-data",
+        )
+    job_id = response.get_json()["job_id"]
+
+    other_client = w.app.test_client()
+    assert other_client.get(f"/progress/{job_id}").status_code == 404
+    assert other_client.get(f"/download/{job_id}").status_code == 404
+
+
+def test_job_id_collision_does_not_merge_storage(client, tmp_storage, monkeypatch):
+    # If generated job_id collides with an existing upload/converted directory,
+    # new job gets different id and does not merge with existing data
+    fixed_id = "a" * 32
+    colliding_upload_dir = tmp_storage / "uploads_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    colliding_output_dir = tmp_storage / "converted_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    colliding_upload_dir.mkdir()
+    colliding_output_dir.mkdir()
+    (colliding_upload_dir / "existing.png").write_bytes(b"existing")
+
+    token = _csrf_for(client)
+    generated_ids = iter([fixed_id, "b" * 32])
+    monkeypatch.setattr(w.secrets, "token_hex", lambda _: next(generated_ids))
+    with mock.patch.object(w, "send_to_backend"):
+        response = client.post(
+            "/convert",
+            data={
+                "files": [(io.BytesIO(b"new"), "new.png")],
+                "conversionType": "jpeg",
+                "csrf_token": token,
+            },
+            content_type="multipart/form-data",
+        )
+
+    assert response.get_json()["job_id"] == "b" * 32
+    assert (colliding_upload_dir / "existing.png").read_bytes() == b"existing"
+    assert (tmp_storage / "uploads_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb").is_dir()
