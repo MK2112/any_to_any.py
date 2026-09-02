@@ -1,6 +1,7 @@
 import os
 import time
 import pytest
+import threading
 
 from pathlib import Path
 from tests.test_fixtures import controller_instance
@@ -8,7 +9,7 @@ from tests.test_fixtures import controller_instance
 
 class TestOutputConflictResolution:
     def test_no_conflict_returns_original_path(self, controller_instance, tmp_path):
-        # Test that if file doesn't exist, original path is returned
+        # If file doesn't exist, original path is returned
         output_path = os.path.join(str(tmp_path), "nonexistent_file.mp3")
 
         result = controller_instance.file_handler._resolve_output_file_conflict(
@@ -18,7 +19,7 @@ class TestOutputConflictResolution:
         assert result == output_path
 
     def test_numeric_suffix_single_conflict(self, controller_instance, tmp_path):
-        # Test that a numeric suffix is added when file exists
+        # Numeric suffix is added when file exists
         existing_file = tmp_path / "test.mp3"
         existing_file.write_text("existing content")
         result = controller_instance.file_handler._resolve_output_file_conflict(
@@ -30,7 +31,7 @@ class TestOutputConflictResolution:
         assert not os.path.exists(result)  # New path doesn't exist yet
 
     def test_numeric_suffix_multiple_conflicts(self, controller_instance, tmp_path):
-        # Test that numeric suffix increments when multiple files exist
+        # Numeric suffix increments when multiple files exist
         (tmp_path / "test.mp3").write_text("1")
         (tmp_path / "test_1.mp3").write_text("2")
         (tmp_path / "test_2.mp3").write_text("3")
@@ -42,7 +43,7 @@ class TestOutputConflictResolution:
     def test_numeric_suffix_with_different_extension(
         self, controller_instance, tmp_path
     ):
-        # Test that numeric suffix works with different file extensions
+        # Numeric suffix works with different file extensions
         existing_file = tmp_path / "test.wav"
         existing_file.write_text("existing")
         result = controller_instance.file_handler._resolve_output_file_conflict(
@@ -53,7 +54,7 @@ class TestOutputConflictResolution:
         assert result.endswith(".wav")
 
     def test_numeric_suffix_with_complex_filename(self, controller_instance, tmp_path):
-        # Test that numeric suffix works with complex filenames
+        # Numeric suffix works with complex filenames
         existing_file = tmp_path / "my_audio_file_v2.flac"
         existing_file.write_text("existing")
         result = controller_instance.file_handler._resolve_output_file_conflict(
@@ -63,32 +64,26 @@ class TestOutputConflictResolution:
         assert result == os.path.join(str(tmp_path), "my_audio_file_v2_1.flac")
 
     def test_random_suffix_is_unique(self, controller_instance, tmp_path):
-        # Test that random suffixes are unique across multiple calls
+        # Random suffixes are unique across multiple calls
         base_path = os.path.join(str(tmp_path), "test.mp3")
         (tmp_path / "test.mp3").write_text("existing")
-        # Force timeout scenario by pre-creating many files
         for i in range(1, 100):
             (tmp_path / f"test_{i}.mp3").write_text(str(i))
-        # Get first random suffix result
         result1 = controller_instance.file_handler._resolve_output_file_conflict(
             base_path
         )
-        # Create that file too
         os.makedirs(os.path.dirname(result1), exist_ok=True)
         with open(result1, "w") as f:
             f.write("new")
-        # Get second random suffix result
         result2 = controller_instance.file_handler._resolve_output_file_conflict(
             base_path
         )
-
-        # They should be different (with very very high probability)
         assert result1 != result2
 
     def test_conflict_resolution_preserves_original_file(
         self, controller_instance, tmp_path
     ):
-        # Test that original file is not overwritten
+        # Original file is not overwritten
         existing_file = tmp_path / "test.mp3"
         existing_content = "original content"
         existing_file.write_text(existing_content)
@@ -102,7 +97,7 @@ class TestOutputConflictResolution:
 
 class TestPostProcessWithConflictResolution:
     def test_post_process_returns_resolved_path(self, controller_instance, tmp_path):
-        # Test that post_process returns the resolved output path
+        # post_process returns the resolved output path
         input_dir = tmp_path / "input"
         input_dir.mkdir()
         input_file = input_dir / "test.mp3"
@@ -119,11 +114,10 @@ class TestPostProcessWithConflictResolution:
             file_path_set, str(output_file), delete=False, show_status=False
         )
 
-        # Should return the actual output path used by conversion
         assert result == str(output_file)
 
     def test_post_process_with_delete_and_conflict(self, controller_instance, tmp_path):
-        # Test that post_process correctly handles delete flag with conflict resolution.
+        # post_process correctly handles delete flag with conflict resolution
         input_dir = tmp_path / "input"
         input_dir.mkdir()
         input_file = input_dir / "test.mp3"
@@ -136,29 +130,23 @@ class TestPostProcessWithConflictResolution:
 
         file_path_set = (str(input_dir) + os.sep, "test", "mp3")
 
-        # Call post_process with delete=True
-        # post_process deletes if and only if the resolved output path EXISTS
-        # Since we haven't actually created the resolved file, deletion won't happen
         result = controller_instance.file_handler.post_process(
             file_path_set,
             str(output_file),
-            delete=False,  # Set False, resolved file does not yet exist
+            delete=False,
             show_status=False,
         )
 
-        # Input file should still exist
         assert input_file.exists()
-        # Output path should be returned as provided
         assert result == str(output_file)
 
     def test_post_process_without_conflict(self, controller_instance, tmp_path):
-        # Test that post_process works normally when no conflict exists
+        # post_process works normally when no conflict exists
         input_dir = tmp_path / "input"
         input_dir.mkdir()
         input_file = input_dir / "test.mp3"
         input_file.write_text("input content")
 
-        # Create output directory (but NOT the output file itself)
         output_dir = tmp_path / "output"
         output_dir.mkdir()
         output_file = output_dir / "test.mp3"
@@ -172,11 +160,99 @@ class TestPostProcessWithConflictResolution:
         assert result == str(output_file)
 
 
-class TestConflictResolutionIntegration:
-    # Integration tests for conflict resolution in actual conversion scenarios
+class TestConflictResolutionRace:
+    # The resolver must never hand the same output name to two workers
+    def test_repeated_resolution_never_returns_same_path(
+        self, controller_instance, tmp_path
+    ):
+        # Without a write in between, the same target must resolve to two distinct names
+        output_path = os.path.join(str(tmp_path), "song.mp3")
 
+        first = controller_instance.file_handler._resolve_output_file_conflict(
+            output_path
+        )
+        second = controller_instance.file_handler._resolve_output_file_conflict(
+            output_path
+        )
+
+        assert first != second
+
+    def test_concurrent_resolution_no_duplicate_candidates(
+        self, controller_instance, tmp_path
+    ):
+        # Two workers converting the same basename (--across) must never be handed the same candidate
+        output_path = os.path.join(str(tmp_path), "song.mp3")
+        barrier = threading.Barrier(2)
+        results = []
+        results_lock = threading.Lock()
+
+        def worker():
+            barrier.wait()
+            resolved = controller_instance.file_handler._resolve_output_file_conflict(
+                output_path
+            )
+            with results_lock:
+                results.append(resolved)
+
+        threads = [threading.Thread(target=worker) for _ in range(2)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert len(results) == 2
+        assert len(set(results)) == 2
+
+    def test_concurrent_dir_resolution_no_duplicate_candidates(
+        self, controller_instance, tmp_path
+    ):
+        # Same guarantee for directory targets
+        dir_path = os.path.join(str(tmp_path), "frames")
+        barrier = threading.Barrier(2)
+        results = []
+        results_lock = threading.Lock()
+
+        def worker():
+            barrier.wait()
+            resolved = controller_instance.file_handler._resolve_output_dir_conflict(
+                dir_path
+            )
+            with results_lock:
+                results.append(resolved)
+
+        threads = [threading.Thread(target=worker) for _ in range(2)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert len(set(results)) == 2
+
+    def test_resolve_write_postprocess_cycle(self, controller_instance, tmp_path):
+        # Resolve, write, post_process. Once the real file
+        # exists on disk, the next resolution picks the numeric suffix
+        output_path = os.path.join(str(tmp_path), "song.mp3")
+        resolved = controller_instance.file_handler._resolve_output_file_conflict(
+            output_path
+        )
+        with open(resolved, "w") as f:
+            f.write("done")
+        controller_instance.file_handler.post_process(
+            (str(tmp_path) + os.sep, "src", "mp3"),
+            resolved,
+            delete=False,
+            show_status=False,
+        )
+
+        again = controller_instance.file_handler._resolve_output_file_conflict(
+            output_path
+        )
+        assert again == os.path.join(str(tmp_path), "song_1.mp3")
+
+
+class TestConflictResolutionIntegration:
     def test_multiple_conversions_same_output_dir(self, controller_instance, tmp_path):
-        # Test that multiple conversions to same output don't overwrite
+        # Multiple conversions to same output don't overwrite
         output_dir = tmp_path / "output"
         output_dir.mkdir()
         output_path = os.path.join(str(output_dir), "result.mp4")

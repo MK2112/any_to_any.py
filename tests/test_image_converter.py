@@ -47,7 +47,7 @@ class TestOfficeToFrames:
         mock_os.makedirs = Mock()
         mock_tqdm.return_value = [(0, mock_rel1), (1, mock_rel2)]
 
-        doc_path_set = ("base", "filename", "docx")
+        doc_path_set = ("base", "filename_docx", "docx")
 
         with patch("builtins.open", mock_open()) as mock_file:
             office_to_frames(
@@ -56,7 +56,9 @@ class TestOfficeToFrames:
 
         # Assertions
         mock_docx.Document.assert_called_once_with("/path/to/file.docx")
-        mock_os.makedirs.assert_called_once_with("/output/filename", exist_ok=True)
+        mock_os.makedirs.assert_called_once_with(
+            "/output/filename_docx", exist_ok=True
+        )
         mock_file.assert_called_once()
         file_handler.post_process.assert_called_once()
         event_logger.error.assert_not_called()
@@ -84,7 +86,7 @@ class TestOfficeToFrames:
         mock_os.makedirs = Mock()
         mock_tqdm.return_value = [(0, mock_slide)]
 
-        doc_path_set = ("base", "filename", "pptx")
+        doc_path_set = ("base", "filename_pptx", "pptx")
 
         with patch("builtins.open", mock_open()) as mock_file:
             office_to_frames(
@@ -93,7 +95,9 @@ class TestOfficeToFrames:
 
         # Assertions
         mock_pptx.Presentation.assert_called_once_with("/path/to/file.docx")
-        mock_os.makedirs.assert_called_once_with("/output/filename", exist_ok=True)
+        mock_os.makedirs.assert_called_once_with(
+            "/output/filename_pptx", exist_ok=True
+        )
         mock_file.assert_called_once()
         file_handler.post_process.assert_called_once()
 
@@ -113,7 +117,7 @@ class TestOfficeToFrames:
         # Make Document raise an exception
         mock_docx.Document.side_effect = Exception("Test error")
 
-        doc_path_set = ("base", "filename", "docx")
+        doc_path_set = ("base", "filename_err", "docx")
         office_to_frames(
             doc_path_set, "png", "/output", False, file_handler, event_logger
         )
