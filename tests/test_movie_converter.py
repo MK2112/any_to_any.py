@@ -49,7 +49,7 @@ def test_to_movie_from_jpgs(mock_concat, mock_imageclip, mock_converter):
 
 @patch("core.converter.movie_converter.ImageClip")
 @patch("core.converter.movie_converter.concatenate_videoclips")
-@patch("core.converter.movie_converter.fitz.open")
+@patch("core.converter.movie_converter.pypdf.open")
 @patch("core.converter.movie_converter.Image.frombytes")
 @patch("os.listdir")
 @patch("os.makedirs")
@@ -59,7 +59,7 @@ def test_to_movie_pdf_to_video(
     mock_makedirs,
     mock_listdir,
     mock_frombytes,
-    mock_fitz_open,
+    mock_pypdf_open,
     mock_concat,
     mock_imageclip,
     mock_converter,
@@ -71,7 +71,7 @@ def test_to_movie_pdf_to_video(
     mock_doc = MagicMock()
     mock_doc.__len__.return_value = 1
     mock_doc.load_page.return_value = page
-    mock_fitz_open.return_value = mock_doc
+    mock_pypdf_open.return_value = mock_doc
     mock_frombytes.return_value.convert.return_value = MagicMock()
     mock_listdir.return_value = ["file-0.jpeg"]
     mock_concat.return_value = MagicMock()
@@ -91,7 +91,7 @@ def test_to_movie_pdf_to_video(
         delete=True,
     )
 
-    mock_fitz_open.assert_called_once()
+    mock_pypdf_open.assert_called_once()
     mock_concat.return_value.write_videofile.assert_called_once()
     mock_rmtree.assert_called_once()
 

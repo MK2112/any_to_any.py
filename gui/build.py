@@ -120,7 +120,6 @@ def build_executable():
         "--hidden-import=mammoth",
         "--collect-all=reportlab",
         "--hidden-import=markdownify",
-        "--hidden-import=fitz",
         "--hidden-import=PyMuPDF",
     ])
 

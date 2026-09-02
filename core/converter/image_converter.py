@@ -2,7 +2,7 @@ import os
 import sys
 import docx
 import pptx
-import fitz
+import pymupdf as pypdf
 import utils.language_support as lang
 
 from PIL import Image
@@ -234,7 +234,7 @@ class ImageConverter:
                 )
             if doc_path_set[2] == "pdf":
                 pdf_path = self.file_handler.join_back(doc_path_set)
-                pdf_document = fitz.open(pdf_path)
+                pdf_document = pypdf.open(pdf_path)
                 total_pages = len(pdf_document)
                 img_path_pattern = os.path.abspath(
                     os.path.join(
@@ -432,7 +432,7 @@ class ImageConverter:
                 bmp_path = os.path.abspath(
                     os.path.join(output, f"{doc_path_set[1]}.{format}")
                 )
-                doc = fitz.open(pdf_path)
+                doc = pypdf.open(pdf_path)
                 if not os.path.exists(os.path.join(output, doc_path_set[1])):
                     try:
                         os.makedirs(
@@ -593,7 +593,7 @@ class ImageConverter:
                 webp_path = os.path.abspath(
                     os.path.join(output, f"{doc_path_set[1]}.{format}")
                 )
-                doc = fitz.open(pdf_path)
+                doc = pypdf.open(pdf_path)
                 if not os.path.exists(os.path.join(output, doc_path_set[1])):
                     try:
                         os.makedirs(
@@ -683,7 +683,7 @@ class ImageConverter:
                 heic_path = os.path.abspath(
                     os.path.join(output, f"{doc_path_set[1]}.{format}")
                 )
-                doc = fitz.open(pdf_path)
+                doc = pypdf.open(pdf_path)
                 if not os.path.exists(os.path.join(output, doc_path_set[1])):
                     try:
                         os.makedirs(
@@ -852,7 +852,7 @@ class ImageConverter:
                     os.path.abspath(os.path.join(output, f"{doc_path_set[1]}.{format}"))
                 )
 
-                doc = fitz.open(pdf_path)
+                doc = pypdf.open(pdf_path)
                 images = []
                 for page_num in range(len(doc)):
                     pix = doc.load_page(page_num).get_pixmap()

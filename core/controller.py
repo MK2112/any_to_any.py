@@ -1,9 +1,9 @@
 import os
 import re
-import fitz
 import time
 import logging
 import threading
+import pymupdf as pypdf
 import utils.language_support as lang
 
 from pathlib import Path
@@ -1043,10 +1043,10 @@ class Controller:
                                         }
                                     )
 
-                doc = fitz.open()
+                doc = pypdf.open()
                 for doc_path_set in pdfs:
                     pdf_path = self.file_handler.join_back(doc_path_set)
-                    pdf_document = fitz.open(pdf_path)
+                    pdf_document = pypdf.open(pdf_path)
                     doc.insert_pdf(pdf_document)
                     pdf_document.close()
                 doc.save(pdf_out_path)

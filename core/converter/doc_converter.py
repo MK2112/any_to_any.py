@@ -1,13 +1,13 @@
 import io
 import os
 import sys
-import fitz
 import docx
 import pptx
 import shutil
 import mammoth
 import subprocess
 import platform
+import pymupdf as pypdf
 import utils.language_support as lang
 
 from PIL import Image
@@ -97,9 +97,9 @@ class DocumentConverter:
         for image_path_set in file_paths[Category.IMAGE]:
             pdf_path = ""
             if image_path_set[2] != "gif":
-                doc = fitz.open()
-                img = fitz.Pixmap(self.file_handler.join_back(image_path_set))
-                rect = fitz.Rect(0, 0, img.width, img.height)
+                doc = pypdf.open()
+                img = pypdf.Pixmap(self.file_handler.join_back(image_path_set))
+                rect = pypdf.Rect(0, 0, img.width, img.height)
                 page = doc.new_page(width=rect.width, height=rect.height)
                 page.insert_image(rect, pixmap=img)
                 pdf_path = self.file_handler._resolve_output_file_conflict(
@@ -120,11 +120,11 @@ class DocumentConverter:
                     )
                 )
 
-                doc = fitz.open()
+                doc = pypdf.open()
                 for frame in sorted(os.listdir(gif_frame_path)):
                     if frame.endswith(".png"):
-                        img = fitz.Pixmap(os.path.join(gif_frame_path, frame))
-                        rect = fitz.Rect(0, 0, img.width, img.height)
+                        img = pypdf.Pixmap(os.path.join(gif_frame_path, frame))
+                        rect = pypdf.Rect(0, 0, img.width, img.height)
                         page = doc.new_page(width=rect.width, height=rect.height)
                         page.insert_image(rect, pixmap=img)
                 doc.save(pdf_path)
@@ -146,13 +146,13 @@ class DocumentConverter:
                     )
                 )
 
-                doc = fitz.open()
+                doc = pypdf.open()
                 for _, frame in tqdm(
                     enumerate(clip.iter_frames(fps=clip.fps, dtype="uint8")),
                 ):
                     h, w = frame.shape[:2]
-                    pix = fitz.Pixmap(fitz.csRGB, w, h, frame.tobytes(), stride=w * 3)
-                    rect = fitz.Rect(0, 0, w, h)
+                    pix = pypdf.Pixmap(pypdf.csRGB, w, h, frame.tobytes(), stride=w * 3)
+                    rect = pypdf.Rect(0, 0, w, h)
                     page = doc.new_page(width=rect.width, height=rect.height)
                     page.insert_image(rect, pixmap=pix)
                 doc.save(pdf_path)
@@ -173,7 +173,7 @@ class DocumentConverter:
                     srt_content = srt_file.read()
 
                 # Insert the SRT content into the PDF
-                doc = fitz.open()
+                doc = pypdf.open()
 
                 page = doc.new_page()
                 page.insert_text((50, 50), srt_content, fontsize=12)
@@ -464,7 +464,7 @@ class DocumentConverter:
                                     )
                         doc.add_page_break()
                 elif document_path_set[2] == "pdf":
-                    pdf = fitz.open(self.file_handler.join_back(document_path_set))
+                    pdf = pypdf.open(self.file_handler.join_back(document_path_set))
                     for pnum in tqdm(range(len(pdf))):
                         page = pdf.load_page(pnum)
                         txt = page.get_text().strip()
@@ -507,7 +507,7 @@ class DocumentConverter:
         doc_path = self.file_handler.join_back(doc_path_set)
         if format == "pdf":
             # Open the PDF document
-            pdf = fitz.open(doc_path)
+            pdf = pypdf.open(doc_path)
             total_pages = len(pdf)
             if total_pages == 0:
                 pdf.close()
@@ -523,7 +523,7 @@ class DocumentConverter:
             # Create output directory if it doesn't exist
             os.makedirs(output, exist_ok=True)
             for i, (start, end) in enumerate(parsed_ranges):
-                new_pdf = fitz.open()
+                new_pdf = pypdf.open()
                 new_pdf.insert_pdf(pdf, from_page=start - 1, to_page=end - 1)
                 # Generate output filename
                 if len(parsed_ranges) == 1:

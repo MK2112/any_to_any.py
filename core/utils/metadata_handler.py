@@ -115,9 +115,9 @@ class MetadataHandler:
 
             if file_ext == "pdf":
                 try:
-                    import fitz
+                    import pymupdf as pypdf
 
-                    doc = fitz.open(file_path)
+                    doc = pypdf.open(file_path)
                     metadata["tags"]["pages"] = len(doc)
                     if doc.metadata:
                         for key, value in doc.metadata.items():

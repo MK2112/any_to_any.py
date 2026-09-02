@@ -1,10 +1,10 @@
 import os
-import fitz
 import docx
 import shutil
 import pytest
 import tempfile
 import numpy as np
+import pymupdf as pypdf
 
 from utils.category import Category
 from core.converter.doc_converter import DocumentConverter
@@ -218,12 +218,12 @@ class TestDocumentConverterToMarkdown:
 
 
 class TestDocumentConverterToPdf:
-    @patch("core.converter.doc_converter.fitz.open")
-    @patch("core.converter.doc_converter.fitz.Pixmap")
+    @patch("core.converter.doc_converter.pypdf.open")
+    @patch("core.converter.doc_converter.pypdf.Pixmap")
     def test_to_pdf_image_conversion(
         self,
         mock_pixmap,
-        mock_fitz_open,
+        mock_pypdf_open,
         document_converter,
         temp_output_dir,
         sample_file_paths,
@@ -233,7 +233,7 @@ class TestDocumentConverterToPdf:
         mock_pix = MagicMock(width=100, height=100)
         mock_pixmap.return_value = mock_pix
         mock_doc.new_page.return_value = mock_page
-        mock_fitz_open.return_value = mock_doc
+        mock_pypdf_open.return_value = mock_doc
 
         document_converter.file_handler.join_back.return_value = os.path.join(
             "path", "test_image.jpg"
@@ -254,10 +254,10 @@ class TestDocumentConverterToPdf:
         mock_doc.close.assert_called()
 
     @patch("core.converter.doc_converter.gif_to_frames")
-    @patch("core.converter.doc_converter.fitz.open")
+    @patch("core.converter.doc_converter.pypdf.open")
     @patch("os.listdir")
     @patch("os.path.join")
-    @patch("core.converter.doc_converter.fitz.Pixmap")
+    @patch("core.converter.doc_converter.pypdf.Pixmap")
     @patch("shutil.rmtree")
     def test_to_pdf_gif_conversion(
         self,
@@ -265,7 +265,7 @@ class TestDocumentConverterToPdf:
         mock_pixmap,
         mock_join,
         mock_listdir,
-        mock_fitz_open,
+        mock_pypdf_open,
         mock_gif_to_frames,
         document_converter,
         temp_output_dir,
@@ -275,7 +275,7 @@ class TestDocumentConverterToPdf:
         mock_pix = MagicMock(width=100, height=100)
         mock_pixmap.return_value = mock_pix
         mock_doc.new_page.return_value = mock_page
-        mock_fitz_open.return_value = mock_doc
+        mock_pypdf_open.return_value = mock_doc
         mock_listdir.return_value = ["frame1.png", "frame2.png"]
         mock_join.side_effect = lambda *args: "/".join(args)
 
@@ -311,14 +311,14 @@ class TestDocumentConverterToPdf:
     @patch("PIL.Image.fromarray")
     @patch("os.remove")
     @patch("core.converter.doc_converter.VideoFileClip")
-    @patch("core.converter.doc_converter.fitz.open")
-    @patch("core.converter.doc_converter.fitz.Pixmap")
+    @patch("core.converter.doc_converter.pypdf.open")
+    @patch("core.converter.doc_converter.pypdf.Pixmap")
     @patch("os.path.join")
     def test_to_pdf_movie_conversion(
         self,
         mock_join,
         mock_pixmap,
-        mock_fitz_open,
+        mock_pypdf_open,
         mock_video_clip,
         mock_remove,
         mock_image_fromarray,
@@ -330,7 +330,7 @@ class TestDocumentConverterToPdf:
         mock_pix = MagicMock(width=100, height=100)
         mock_pixmap.return_value = mock_pix
         mock_doc.new_page.return_value = mock_page
-        mock_fitz_open.return_value = mock_doc
+        mock_pypdf_open.return_value = mock_doc
 
         mock_video = MagicMock()
         mock_video.fps = 30
@@ -429,9 +429,9 @@ class TestDocumentConverterEdgeCases:
         document_converter.to_subtitles(temp_output_dir, empty_paths, "srt", False)
         document_converter.to_office(temp_output_dir, empty_paths, "docx", False)
 
-    @patch("fitz.open")
+    @patch("pymupdf.open")
     def test_pdf_skip_existing_pdf(
-        self, mock_fitz_open, document_converter, temp_output_dir
+        self, mock_pypdf_open, document_converter, temp_output_dir
     ):
         pdf_files = {
             Category.DOCUMENT: [("/path", "test", "pdf")],
@@ -440,14 +440,14 @@ class TestDocumentConverterEdgeCases:
         }
         with patch("core.converter.image_converter.gif_to_frames"):
             document_converter.to_pdf(temp_output_dir, pdf_files, "pdf", False)
-        mock_fitz_open.assert_not_called()
+        mock_pypdf_open.assert_not_called()
 
 
 class TestDocumentConverterPdfSplitting:
     def test_split_pdf_with_real_file(self, document_converter, temp_output_dir):
         # Test PDF splitting with a real 5 page PDF file
         pdf_path = os.path.join(temp_output_dir, "test.pdf")
-        doc = fitz.open()
+        doc = pypdf.open()
 
         for i in range(5):
             page = doc.new_page()
@@ -476,8 +476,8 @@ class TestDocumentConverterPdfSplitting:
         assert os.path.exists(part2_path)
 
         # Verify the page counts are correct
-        part1 = fitz.open(part1_path)
-        part2 = fitz.open(part2_path)
+        part1 = pypdf.open(part1_path)
+        part2 = pypdf.open(part2_path)
 
         assert len(part1) == 2  # First part has 2 pages
         assert len(part2) == 3  # Second part has 3 pages
@@ -487,8 +487,8 @@ class TestDocumentConverterPdfSplitting:
         part2.close()
 
         # Verify the content of the first page of each part
-        part1 = fitz.open(part1_path)
-        part2 = fitz.open(part2_path)
+        part1 = pypdf.open(part1_path)
+        part2 = pypdf.open(part2_path)
 
         assert "Page 1" in part1[0].get_text()
         assert "Page 3" in part2[0].get_text()
@@ -500,14 +500,14 @@ class TestDocumentConverterPdfSplitting:
 class TestDocumentConverterIntegration:
     # Integration tests that test multiple components together
     @patch("core.converter.image_converter.gif_to_frames")
-    @patch("fitz.open")
+    @patch("pymupdf.open")
     @patch("mammoth.convert_to_html")
     @patch("weasyprint.HTML")
     def test_docx_to_pdf_integration(
         self,
         mock_weasyprint,
         mock_mammoth,
-        mock_fitz_open,
+        mock_pypdf_open,
         mock_gif_to_frames,
         document_converter,
         temp_output_dir,

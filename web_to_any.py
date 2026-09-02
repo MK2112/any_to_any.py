@@ -548,7 +548,6 @@ def get_progress(job_id: str):
 
 @app.route("/download/<job_id>", methods=["GET"])
 def download_zip(job_id: str):
-    # Validate job_id (prevent path traversal)
     if not re.match(r"^[a-f0-9]{8}$", job_id):
         abort(400)
 
@@ -558,7 +557,6 @@ def download_zip(job_id: str):
 
     # If it's a directory, check if it has any content
     if os.path.isdir(base_path):
-        # Check for any files or directories
         has_content = False
         for _, dirs, files in os.walk(base_path):
             if files or dirs:
@@ -568,16 +566,14 @@ def download_zip(job_id: str):
         if not has_content:
             abort(404, "No converted files found in output directory")
 
-    # If it's a single file, handle it directly
+    # If it's a single file
     if os.path.isfile(base_path):
         try:
-            # For single files, we'll zip just that file
+            # Zip single file
             return push_zip(base_path)
         except Exception as e:
             app.logger.error(f"Error processing single file: {str(e)}")
             abort(500, f"Error processing file: {str(e)}")
-
-    # For directories, use the directory as the source
     return push_zip(base_path)
 
 

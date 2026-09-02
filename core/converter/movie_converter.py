@@ -1,9 +1,9 @@
 import os
 import sys
-import fitz
 import shutil
 import subprocess
 import numpy as np
+import pymupdf as pypdf
 import utils.language_support as lang
 from PIL import Image
 from tqdm import tqdm
@@ -258,7 +258,7 @@ class MovieConverter:
                     os.path.abspath(os.path.join(output, f"{doc_path_set[1]}.{format}"))
                 )
 
-                doc = fitz.open(pdf_path)
+                doc = pypdf.open(pdf_path)
                 image_files = []
                 if not os.path.exists(os.path.join(output, doc_path_set[1])):
                     try:
