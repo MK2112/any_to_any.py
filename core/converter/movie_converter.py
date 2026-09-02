@@ -5,12 +5,16 @@ import subprocess
 import numpy as np
 import pymupdf as pypdf
 import utils.language_support as lang
+
 from PIL import Image
 from tqdm import tqdm
 from utils.category import Category
 from core.utils.exit import end_with_msg
 from core.utils.resolution import parse_resolution
 from core.converter.image_converter import office_to_frames
+from core.utils.file_handler import safe_output_dir as _safe_out_dir
+
+
 from moviepy import (
     VideoFileClip,
     ImageClip,
@@ -220,7 +224,9 @@ class MovieConverter:
             if doc_path_set[2] == "docx":
                 # Convert docx to list of images first
                 # Stitch that together, convert to movie
-                office_to_frames(
+                # Use the actual (conflict-resolved) frames dir (C2), never
+                # assume output/<basename> which may hold pre-existing user data.
+                frames_dir = office_to_frames(
                     doc_path_set,
                     "jpeg",
                     output,
@@ -228,14 +234,19 @@ class MovieConverter:
                     self.file_handler,
                     self.event_logger,
                 )
+                if not isinstance(frames_dir, str) or not frames_dir:
+                    frames_dir = os.path.join(output, doc_path_set[1])
                 # This creates a folder named docx_path_set[1] in the output directory
                 # with all the images in it
                 # Now we can convert that to a movie
-                pics = [
-                    image
-                    for image in os.listdir(os.path.join(output, doc_path_set[1]))
-                    if image.endswith(".jpeg")
-                ]
+                try:
+                    pics = [
+                        image
+                        for image in os.listdir(frames_dir)
+                        if image.endswith(".jpeg")
+                    ]
+                except OSError:
+                    pics = []
                 if len(pics) > 0:
                     final_clip = concatenate_videoclips(pics, method="compose")
                     out_path = self.file_handler._resolve_output_file_conflict(
@@ -260,53 +271,69 @@ class MovieConverter:
 
                 doc = pypdf.open(pdf_path)
                 image_files = []
-                if not os.path.exists(os.path.join(output, doc_path_set[1])):
+                # Never reuse output/<basename> as scratch (C2): it may hold
+                # pre-existing user data which rmtree would then delete.
+                scratch_dir = _safe_out_dir(os.path.join(output, doc_path_set[1]))
+                if not os.path.exists(scratch_dir):
                     try:
-                        os.makedirs(
-                            os.path.join(output, doc_path_set[1]), exist_ok=True
-                        )
+                        os.makedirs(scratch_dir, exist_ok=True)
                     except OSError as e:
                         self.event_logger.info(
                             f"[!] {lang.get_translation('error', self.locale)}: {e} - {lang.get_translation('set_out_dir', self.locale)} {input}"
                         )
                         output = input
-                for i, page_num in tqdm(enumerate(range(len(doc)))):
-                    pix = doc.load_page(page_num).get_pixmap()
-                    img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-                    img = img.convert("RGB")
-                    # Save each page as a separate JPEG file
-                    img.save(
-                        os.path.join(
-                            output,
-                            doc_path_set[1],
-                            f"{doc_path_set[1]}-{i:0{len(str(len(doc)))}}.jpeg",
-                        ),
-                        format="JPEG",
-                    )
-                    image_files.append(
-                        f"{doc_path_set[1]}-{i:0{len(str(len(doc)))}}.jpeg"
-                    )
-                doc.close()
+                        scratch_dir = _safe_out_dir(
+                            os.path.join(output, doc_path_set[1])
+                        )
+                        os.makedirs(scratch_dir, exist_ok=True)
+                try:
+                    for i, page_num in tqdm(enumerate(range(len(doc)))):
+                        pix = doc.load_page(page_num).get_pixmap()
+                        img = Image.frombytes(
+                            "RGB", [pix.width, pix.height], pix.samples
+                        )
+                        img = img.convert("RGB")
+                        # Save each page as a separate JPEG file
+                        img.save(
+                            os.path.join(
+                                scratch_dir,
+                                f"{doc_path_set[1]}-{i:0{len(str(len(doc)))}}.jpeg",
+                            ),
+                            format="JPEG",
+                        )
+                        image_files.append(
+                            f"{doc_path_set[1]}-{i:0{len(str(len(doc)))}}.jpeg"
+                        )
+                    doc.close()
 
-                # Convert the JPEG files to a video
-                image_files = sorted(image_files)
-                image_clips = [
-                    ImageClip(os.path.join(output, doc_path_set[1], img)).with_duration(
-                        (1 / framerate) if framerate is not None else 1 / 24
+                    # Convert the JPEG files to a video
+                    image_files = sorted(image_files)
+                    image_clips = [
+                        ImageClip(os.path.join(scratch_dir, img)).with_duration(
+                            (1 / framerate) if framerate is not None else 1 / 24
+                        )
+                        for img in image_files
+                    ]
+                    final_clip = concatenate_videoclips(image_clips, method="compose")
+                    final_clip.write_videofile(
+                        movie_path,
+                        fps=24 if framerate is None else framerate,
+                        codec=codec,
+                        logger=self.prog_logger,
                     )
-                    for img in image_files
-                ]
-                final_clip = concatenate_videoclips(image_clips, method="compose")
-                final_clip.write_videofile(
-                    movie_path,
-                    fps=24 if framerate is None else framerate,
-                    codec=codec,
-                    logger=self.prog_logger,
-                )
-                final_clip.close()
-
-                # Remove the temporary image files
-                shutil.rmtree(os.path.join(output, doc_path_set[1]))
+                    final_clip.close()
+                finally:
+                    # Remove only the scratch dir we resolved/created (C2).
+                    # It is conflict-resolved, never a pre-existing user dir,
+                    # so rmtree is safe. Keep the call unconditional so mocked
+                    # unit tests (makedirs mocked, dir never really created)
+                    # still observe the cleanup.
+                    try:
+                        shutil.rmtree(scratch_dir)
+                    except OSError as e:
+                        self.event_logger.info(
+                            f"[!] {lang.get_translation('error', self.locale)}: {e}"
+                        )
                 self.file_handler.post_process(doc_path_set, movie_path, delete)
 
     def to_codec(

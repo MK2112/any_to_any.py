@@ -19,6 +19,8 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.units import inch
 from reportlab.lib.pagesizes import A4
 from core.converter.image_converter import gif_to_frames
+from core.utils.file_handler import safe_output_dir as _safe_out_dir
+
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -47,21 +49,23 @@ class DocumentConverter:
         for doc_path_set in file_paths[Category.DOCUMENT]:
             if doc_path_set[2] == "docx":
                 docx_path = self.file_handler.join_back(doc_path_set)
-                output_basename = doc_path_set[1]
+                out_basename = doc_path_set[1]
                 md_path = self.file_handler._resolve_output_file_conflict(
-                    os.path.abspath(os.path.join(output, f"{output_basename}.{format}"))
+                    os.path.abspath(os.path.join(output, f"{out_basename}.{format}"))
                 )
 
-                image_md_dir = os.path.join(output, f"{output_basename}_images")
-                os.makedirs(image_md_dir, exist_ok=True)
+                image_md_out_dir = _safe_out_dir(
+                    os.path.join(output, f"{out_basename}_images")
+                )
+                os.makedirs(image_md_out_dir, exist_ok=True)
                 image_idx = 0
 
                 # Custom image converter for mammoth
                 def convert_image(image):
                     nonlocal image_idx
                     extension = image.content_type.split("/")[-1]
-                    image_filename = f"{output_basename}_{image_idx}.{extension}"
-                    image_path = os.path.join(image_md_dir, image_filename)
+                    image_filename = f"{out_basename}_{image_idx}.{extension}"
+                    image_path = os.path.join(image_md_out_dir, image_filename)
                     with image.open() as image_bytes:
                         buf = image_bytes.read()
                     with open(image_path, "wb") as img_file:
@@ -91,7 +95,23 @@ class DocumentConverter:
     def to_pdf(self, output: str, file_paths: dict, format: str, delete: bool) -> None:
         # Convert GIFs to Frames using to_frames
         # Produces a folder with gif frame for each gif
-        gif_to_frames(output, file_paths, self.file_handler)
+        _pre_existing: dict = {}
+        try:
+            for _ips in file_paths.get(Category.IMAGE, []):
+                if len(_ips) == 3 and _ips[2] == "gif":
+                    try:
+                        _base = os.path.join(output, _ips[1])
+                        _pre_existing[_ips[1]] = bool(os.path.exists(_base))
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+        try:
+            _gif_frame_dirs = gif_to_frames(output, file_paths, self.file_handler) or {}
+        except Exception:
+            _gif_frame_dirs = {}
+        if not isinstance(_gif_frame_dirs, dict):
+            _gif_frame_dirs = {}
 
         # Convert Images to PDF
         for image_path_set in file_paths[Category.IMAGE]:
@@ -113,7 +133,9 @@ class DocumentConverter:
             elif image_path_set[2] == "gif":
                 # We suppose the gif was converted to frames and we have a folder of pngs
                 # All pngs shall be merged into one pdf
-                gif_frame_path = os.path.join(output, image_path_set[1])
+                gif_frame_path = _gif_frame_dirs.get(
+                    image_path_set[1], os.path.join(output, image_path_set[1])
+                )
                 pdf_path = self.file_handler._resolve_output_file_conflict(
                     os.path.abspath(
                         os.path.join(output, f"{image_path_set[1]}.{format}")
@@ -121,7 +143,11 @@ class DocumentConverter:
                 )
 
                 doc = pypdf.open()
-                for frame in sorted(os.listdir(gif_frame_path)):
+                try:
+                    _frames = sorted(os.listdir(gif_frame_path))
+                except OSError:
+                    _frames = []
+                for frame in _frames:
                     if frame.endswith(".png"):
                         img = pypdf.Pixmap(os.path.join(gif_frame_path, frame))
                         rect = pypdf.Rect(0, 0, img.width, img.height)
@@ -129,8 +155,31 @@ class DocumentConverter:
                         page.insert_image(rect, pixmap=img)
                 doc.save(pdf_path)
                 doc.close()
-                # Remove the gif frame folder
-                shutil.rmtree(gif_frame_path)
+                try:
+                    _mapped = image_path_set[1] in _gif_frame_dirs
+                    if _mapped:
+                        shutil.rmtree(gif_frame_path)
+                    else:
+                        _existed = _pre_existing.get(image_path_set[1], False)
+                        if not _existed:
+                            shutil.rmtree(gif_frame_path)
+                        else:
+                            try:
+                                entries = os.listdir(gif_frame_path)
+                            except OSError:
+                                entries = []
+                            for e in entries:
+                                if e.startswith(f"{image_path_set[1]}-") and e.endswith(
+                                    ".png"
+                                ):
+                                    try:
+                                        os.remove(os.path.join(gif_frame_path, e))
+                                    except OSError:
+                                        pass
+                except OSError as e:
+                    self.event_logger.info(
+                        f"[!] {lang.get_translation('error', self.locale)}: {e}"
+                    )
                 self.file_handler.post_process(image_path_set, pdf_path, delete)
         # Convert Movies to PDF, because we can
         for movie_path_set in file_paths[Category.MOVIE]:
@@ -359,7 +408,25 @@ class DocumentConverter:
                 except docx.image.exceptions.UnexpectedEndOfFileError as e:
                     self.event_logger.info(e)
 
-        gif_to_frames(output, file_paths, self.file_handler)
+        _preexist_office_dirs: dict = {}
+        try:
+            for _image_path_set in file_paths.get(Category.IMAGE, []):
+                if len(_image_path_set) == 3 and _image_path_set[2] == "gif":
+                    try:
+                        _base = os.path.join(output, _image_path_set[1])
+                        _preexist_office_dirs[_image_path_set[1]] = bool(
+                            os.path.exists(_base)
+                        )
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+        try:
+            _gif_frame_dirs = gif_to_frames(output, file_paths, self.file_handler) or {}
+        except Exception:
+            _gif_frame_dirs = {}
+        if not isinstance(_gif_frame_dirs, dict):
+            _gif_frame_dirs = {}
 
         for image_path_set in file_paths[Category.IMAGE]:
             out_path = self.file_handler._resolve_output_file_conflict(
@@ -368,16 +435,45 @@ class DocumentConverter:
 
             container = _new_container()
             if image_path_set[2] == "gif":
-                frame_dir = os.path.join(output, image_path_set[1])
-                for frame in tqdm(sorted(os.listdir(frame_dir))):
+                gif_frame_dir = _gif_frame_dirs.get(
+                    image_path_set[1], os.path.join(output, image_path_set[1])
+                )
+                try:
+                    _frames = sorted(os.listdir(gif_frame_dir))
+                except OSError:
+                    _frames = []
+                for frame in tqdm(_frames):
                     if not frame.endswith(".png"):
                         continue
                     page = _add_page(container)
-                    _place_img(page, os.path.join(frame_dir, frame), full_page=True)
+                    _place_img(page, os.path.join(gif_frame_dir, frame), full_page=True)
                     if format == "docx":
                         page.add_paragraph(f"Image: {frame}")
                         page.add_page_break()
-                shutil.rmtree(frame_dir)
+                try:
+                    if image_path_set[1] in _gif_frame_dirs:
+                        shutil.rmtree(gif_frame_dir)
+                    else:
+                        _existed = _preexist_office_dirs.get(image_path_set[1], False)
+                        if not _existed:
+                            shutil.rmtree(gif_frame_dir)
+                        else:
+                            try:
+                                entries = os.listdir(gif_frame_dir)
+                            except OSError:
+                                entries = []
+                            for e in entries:
+                                if e.startswith(f"{image_path_set[1]}-") and e.endswith(
+                                    ".png"
+                                ):
+                                    try:
+                                        os.remove(os.path.join(gif_frame_dir, e))
+                                    except OSError:
+                                        pass
+                except OSError as e:
+                    self.event_logger.info(
+                        f"[!] {lang.get_translation('error', self.locale)}: {e}"
+                    )
             else:
                 page = _add_page(container)
                 _place_img(
@@ -402,7 +498,6 @@ class DocumentConverter:
                 audio=False,
                 fps_source="tbr",
             )
-            digits = len(str(int(clip.duration * clip.fps)))
 
             for idx, frame in tqdm(
                 enumerate(clip.iter_frames(fps=clip.fps, dtype="uint8"))
@@ -448,15 +543,24 @@ class DocumentConverter:
                         for shape in slide.shapes:
                             if hasattr(shape, "image"):
                                 img = shape.image
-                                slide_img = os.path.join(
-                                    output,
-                                    f"{document_path_set[1]}-slide{slide.slide_id}.{img.ext}",
+                                slide_img_path = self.file_handler._resolve_output_file_conflict(
+                                    os.path.abspath(
+                                        os.path.join(
+                                            output,
+                                            f"{document_path_set[1]}-slide{slide.slide_id}.{img.ext}",
+                                        )
+                                    )
                                 )
-                                with open(slide_img, "wb") as f:
+                                with open(slide_img_path, "wb") as f:
                                     f.write(img.blob)
                                 doc.add_paragraph(f"Slide {slide.slide_id} Image:")
-                                doc.add_picture(slide_img, width=docx.shared.Inches(5))
-                                os.remove(slide_img)
+                                doc.add_picture(
+                                    slide_img_path, width=docx.shared.Inches(5)
+                                )
+                                try:
+                                    os.remove(slide_img_path)
+                                except OSError:
+                                    pass
                             if hasattr(shape, "text"):
                                 if shape.text != "":
                                     doc.add_paragraph(
@@ -479,14 +583,21 @@ class DocumentConverter:
                             xref = img[0]
                             pix = pdf.extract_image(xref)
                             img_bytes, img_ext = pix["image"], pix["ext"]
-                            tmp_img = os.path.join(
-                                output,
-                                f"{document_path_set[1]}-page{pnum + 1}-{i}.{img_ext}",
+                            tmp_img = self.file_handler._resolve_output_file_conflict(
+                                os.path.abspath(
+                                    os.path.join(
+                                        output,
+                                        f"{document_path_set[1]}-page{pnum + 1}-{i}.{img_ext}",
+                                    )
+                                )
                             )
                             with open(tmp_img, "wb") as f:
                                 f.write(img_bytes)
                             doc.add_picture(tmp_img, width=docx.shared.Inches(5))
-                            os.remove(tmp_img)
+                            try:
+                                os.remove(tmp_img)
+                            except OSError:
+                                pass
                         doc.add_page_break()
                 doc.save(out_path)
                 self.file_handler.post_process(document_path_set, out_path, delete)

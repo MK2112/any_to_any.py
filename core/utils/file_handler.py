@@ -8,6 +8,37 @@ import utils.language_support as lang
 from moviepy import VideoFileClip
 
 
+def resolve_out_dir_conflict(dir_path: str, timeout: float = 2.0) -> str:
+    # Return dir path not colliding with existing user data
+    candidate = os.path.abspath(dir_path)
+    if not os.path.exists(candidate):
+        return candidate
+    base = candidate
+    start_time = time.time()
+    suffix_counter = 1
+    while time.time() - start_time < timeout:
+        cand = f"{base}_{suffix_counter}"
+        if not os.path.exists(cand):
+            return cand
+        suffix_counter += 1
+    random_suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=5))
+    return f"{base}_{random_suffix}"
+
+
+def safe_output_dir(base_dir: str, timeout: float = 2.0) -> str:
+    # Single shared helper for all converters (C2). Returns a non-colliding
+    # directory path: base unchanged when free, else base_1/_2/... Never
+    # raises and never returns a non-string: falls back to base_dir so
+    # callers always get a usable path.
+    try:
+        resolved = resolve_out_dir_conflict(base_dir, timeout=timeout)
+        if isinstance(resolved, str) and resolved:
+            return resolved
+    except Exception:
+        pass
+    return base_dir
+
+
 class FileHandler:
     def __init__(self, event_logger: logging.Logger, locale: str = "English"):
         self.event_logger = event_logger
@@ -48,9 +79,16 @@ class FileHandler:
             suffix_counter += 1
         
         # Fallback: Use random alphanumeric string (5 characters seems more than enough)
-        random_suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=5))
+        random_suffix = "".join(
+            random.choices(string.ascii_lowercase + string.digits, k=5)
+        )
         fallback_name = f"{name}_{random_suffix}{ext}"
         return os.path.join(directory, fallback_name)
+
+    def _resolve_output_dir_conflict(self, dir_path: str) -> str:
+        # Instance wrapper for converters; delegates to the shared helper so
+        # timeout handling and fallback live in exactly one place.
+        return safe_output_dir(dir_path, timeout=self.CONFLICT_RESOLUTION_TIMEOUT)
 
     def post_process(
         self,
@@ -68,10 +106,7 @@ class FileHandler:
                     f'"{source_path}" -> "{resolved_out_path}"'
                 )
 
-            if (
-                os.path.isfile(resolved_out_path)
-                and self.metadata_callback is not None
-            ):
+            if os.path.isfile(resolved_out_path) and self.metadata_callback is not None:
                 try:
                     self.metadata_callback(
                         source_path, resolved_out_path, file_path_set[2]
@@ -81,7 +116,11 @@ class FileHandler:
                         f"Metadata handling skipped for {resolved_out_path}: {e}"
                     )
 
-            if delete and os.path.isfile(resolved_out_path) and os.path.isfile(source_path):
+            if (
+                delete
+                and os.path.isfile(resolved_out_path)
+                and os.path.isfile(source_path)
+            ):
                 try:
                     os.remove(source_path)
                     self.event_logger.info(

@@ -11,6 +11,8 @@ from io import BytesIO
 from moviepy import VideoFileClip
 from utils.category import Category
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from core.utils.file_handler import safe_output_dir as _safe_out_dir
+
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -31,7 +33,6 @@ _SAVE_FORMAT = {
 
 
 def _save_format(format: str) -> str:
-    # Returning the pillow save format name for target format string (jpg -> jpeg, heic -> HEIF)
     if format in _SAVE_FORMAT:
         return _SAVE_FORMAT[format]
     return format.upper()
@@ -44,12 +45,12 @@ def office_to_frames(
     delete: bool,
     file_handler,
     event_logger,
-) -> None:
-    # Utility function available beyond DocumentConverter scope
-    # Used e.g. in MovieConverter, placing it here makes it accessible easily
+) -> str | None:
+    # Extract imgs from office (docx, pptx), save as frames in specified format
     full_path = file_handler.join_back(doc_path_set)
-    output_dir = os.path.join(output, doc_path_set[1])
-    os.makedirs(output_dir, exist_ok=True)
+    out_dir = _safe_out_dir(os.path.join(output, doc_path_set[1]))
+    out_path = None
+    os.makedirs(out_dir, exist_ok=True)
     try:
         if doc_path_set[2] == "docx":
             doc = docx.Document(full_path)
@@ -58,12 +59,11 @@ def office_to_frames(
             ):
                 if "image" in rel.reltype:
                     img_bytes = rel.target_part.blob
-                    out_path = os.path.join(
-                        output_dir, f"{doc_path_set[1]}-{i}.{format}"
-                    )
+                    out_path = os.path.join(out_dir, f"{doc_path_set[1]}-{i}.{format}")
                     with open(out_path, "wb") as f:
                         f.write(img_bytes)
-            file_handler.post_process(doc_path_set, out_path, delete)
+            if out_path is not None:
+                file_handler.post_process(doc_path_set, out_path, delete)
         elif doc_path_set[2] == "pptx":
             prs = pptx.Presentation(full_path)
             img_count = 0
@@ -73,14 +73,16 @@ def office_to_frames(
                         image = shape.image
                         img_bytes = image.blob
                         out_path = os.path.join(
-                            output_dir, f"{doc_path_set[1]}-{img_count}.{format}"
+                            out_dir, f"{doc_path_set[1]}-{img_count}.{format}"
                         )
                         with open(out_path, "wb") as f:
                             f.write(img_bytes)
                         img_count += 1
-            file_handler.post_process(doc_path_set, out_path, delete)
+            if out_path is not None:
+                file_handler.post_process(doc_path_set, out_path, delete)
     except Exception as e:
         event_logger.error(e)
+    return out_dir
 
 
 def _max_workers() -> int:
@@ -92,7 +94,7 @@ def _max_workers() -> int:
         return 1
 
 
-def gif_to_frames(output: str, file_paths: dict, file_handler) -> None:
+def gif_to_frames(output: str, file_paths: dict, file_handler) -> dict:
     # Convert GIFs to frames, place those in a folder
     gifs = [
         image_path
@@ -101,11 +103,15 @@ def gif_to_frames(output: str, file_paths: dict, file_handler) -> None:
     ]
 
     if not gifs:
-        return
+        return {}
+
+    created: dict = {}
 
     def _extract_gif_frames(image_path_set: tuple):
-        out_dir = os.path.abspath(os.path.join(output, image_path_set[1]))
+        base_dir = os.path.abspath(os.path.join(output, image_path_set[1]))
+        out_dir = _safe_out_dir(base_dir)
         os.makedirs(out_dir, exist_ok=True)
+        created[image_path_set[1]] = out_dir
         clip = VideoFileClip(file_handler.join_back(image_path_set), audio=False)
         try:
             total_frames = int(clip.duration * clip.fps)
@@ -124,6 +130,7 @@ def gif_to_frames(output: str, file_paths: dict, file_handler) -> None:
     else:
         with ThreadPoolExecutor(max_workers=max_workers) as ex:
             list(ex.map(_extract_gif_frames, gifs))
+    return created
 
 
 class ImageConverter:
@@ -169,7 +176,7 @@ class ImageConverter:
                     self.file_handler.post_process(image_path_set, output, delete)
                     continue
 
-                # Ensure output directory exists (single images are placed directly in output)
+                # Ensure output dir exists (single images are placed directly in output)
                 os.makedirs(output, exist_ok=True)
 
                 out_dir = self._per_file_out_dir(image_path_set, input, output)
@@ -207,11 +214,12 @@ class ImageConverter:
         for doc_path_set in file_paths[Category.DOCUMENT]:
             if doc_path_set[2] == format:
                 continue
-            doc_out_dir = (
+            _base_doc_dir = (
                 os.path.join(doc_path_set[0], doc_path_set[1])
                 if input == output
                 else os.path.join(output, doc_path_set[1])
             )
+            doc_out_dir = _safe_out_dir(_base_doc_dir)
             if not os.path.exists(doc_out_dir):
                 try:
                     os.makedirs(doc_out_dir, exist_ok=True)
@@ -220,7 +228,9 @@ class ImageConverter:
                         f"[!] {lang.get_translation('error', self.locale)}: {e} - {lang.get_translation('set_out_dir', self.locale)} {input}"
                     )
                     output = input
-                    doc_out_dir = os.path.join(output, doc_path_set[1])
+                    doc_out_dir = _safe_out_dir(
+                        os.path.join(output, doc_path_set[1])
+                    )
                     os.makedirs(doc_out_dir, exist_ok=True)
             if doc_path_set[2] in ["docx", "pptx"]:
                 # Read all images from docx, write to os.path.join(self.output, doc_path_set[1])
@@ -268,7 +278,7 @@ class ImageConverter:
                 fps_source="tbr",
             )
             try:
-                movie_out_dir = (
+                movie_out_dir = _safe_out_dir(
                     os.path.join(movie_path_set[0], movie_path_set[1])
                     if input == output
                     else os.path.join(output, movie_path_set[1])
@@ -433,24 +443,27 @@ class ImageConverter:
                     os.path.join(output, f"{doc_path_set[1]}.{format}")
                 )
                 doc = pypdf.open(pdf_path)
-                if not os.path.exists(os.path.join(output, doc_path_set[1])):
+                bmp_frame_out_dir = _safe_out_dir(
+                    os.path.join(output, doc_path_set[1])
+                )
+                if not os.path.exists(bmp_frame_out_dir):
                     try:
-                        os.makedirs(
-                            os.path.join(output, doc_path_set[1]), exist_ok=True
-                        )
+                        os.makedirs(bmp_frame_out_dir, exist_ok=True)
                     except OSError as e:
                         self.event_logger.info(
                             f"[!] {lang.get_translation('error', self.locale)}: {e} - {lang.get_translation('set_out_dir', self.locale)} {input}"
                         )
                         output = input
+                        bmp_frame_out_dir = _safe_out_dir(
+                            os.path.join(output, doc_path_set[1])
+                        )
                 for i, page_num in enumerate(range(len(doc))):
                     pix = doc.load_page(page_num).get_pixmap()
                     img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
                     # Save each page as a separate BMP file
                     img.save(
                         os.path.join(
-                            output,
-                            doc_path_set[1],
+                            bmp_frame_out_dir,
                             f"{doc_path_set[1]}-{i:0{len(str(len(doc)))}}.{format}",
                         ),
                         format=format,
@@ -463,8 +476,8 @@ class ImageConverter:
         input: str,
         output: str,
         file_paths: dict,
-        supported_formats: dict,  # unused, aligns signature with to_frames, so keep it
-        framerate: int,
+        supported_formats: dict,  # unused, aligns signature with to_frames, keep
+        framerate: int,  # equally unused, same thing
         format: str,
         delete: bool,
     ) -> None:
@@ -477,17 +490,23 @@ class ImageConverter:
                     audio=False,
                     fps_source="tbr",
                 )
-                if not os.path.exists(os.path.join(output, movie_path_set[1])):
+                webp_frame_out_dir = _safe_out_dir(
+                    os.path.join(output, movie_path_set[1])
+                )
+                if not os.path.exists(webp_frame_out_dir):
                     try:
-                        os.makedirs(os.path.join(output, movie_path_set[1]))
+                        os.makedirs(webp_frame_out_dir)
                     except OSError as e:
                         self.event_logger.info(
                             f"[!] {lang.get_translation('error', self.locale)}: {e} - {lang.get_translation('set_out_dir', self.locale)} {input}"
                         )
                         output = input
+                        webp_frame_out_dir = _safe_out_dir(
+                            os.path.join(output, movie_path_set[1])
+                        )
                 img_path = os.path.abspath(
                     os.path.join(
-                        os.path.join(output, movie_path_set[1]),
+                        webp_frame_out_dir,
                         f"{movie_path_set[1]}-%{len(str(int(video.duration * video.fps)))}d.{format}",
                     )
                 )
@@ -594,24 +613,27 @@ class ImageConverter:
                     os.path.join(output, f"{doc_path_set[1]}.{format}")
                 )
                 doc = pypdf.open(pdf_path)
-                if not os.path.exists(os.path.join(output, doc_path_set[1])):
+                webp_pdf_frame_out_dir = _safe_out_dir(
+                    os.path.join(output, doc_path_set[1])
+                )
+                if not os.path.exists(webp_pdf_frame_out_dir):
                     try:
-                        os.makedirs(
-                            os.path.join(output, doc_path_set[1]), exist_ok=True
-                        )
+                        os.makedirs(webp_pdf_frame_out_dir, exist_ok=True)
                     except OSError as e:
                         self.event_logger.info(
                             f"[!] {lang.get_translation('error', self.locale)}: {e} - {lang.get_translation('set_out_dir', self.locale)} {input}"
                         )
                         output = input
+                        webp_pdf_frame_out_dir = _safe_out_dir(
+                            os.path.join(output, doc_path_set[1])
+                        )
                 for i, page_num in enumerate(range(len(doc))):
                     pix = doc.load_page(page_num).get_pixmap()
                     img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
                     # Save each page as a separate BMP file
                     img.save(
                         os.path.join(
-                            output,
-                            doc_path_set[1],
+                            webp_pdf_frame_out_dir,
                             f"{doc_path_set[1]}-{i:0{len(str(len(doc)))}}.{format}",
                         ),
                         format=format,
@@ -684,23 +706,24 @@ class ImageConverter:
                     os.path.join(output, f"{doc_path_set[1]}.{format}")
                 )
                 doc = pypdf.open(pdf_path)
-                if not os.path.exists(os.path.join(output, doc_path_set[1])):
+                heic_frame_out_dir = _safe_out_dir(os.path.join(output, doc_path_set[1]))
+                if not os.path.exists(heic_frame_out_dir):
                     try:
-                        os.makedirs(
-                            os.path.join(output, doc_path_set[1]), exist_ok=True
-                        )
+                        os.makedirs(heic_frame_out_dir, exist_ok=True)
                     except OSError as e:
                         self.event_logger.info(
                             f"[!] {lang.get_translation('error', self.locale)}: {e} - {lang.get_translation('set_out_dir', self.locale)} {input}"
                         )
                         output = input
+                        heic_frame_out_dir = _safe_out_dir(
+                            os.path.join(output, doc_path_set[1])
+                        )
                 for i, page_num in enumerate(range(len(doc))):
                     pix = doc.load_page(page_num).get_pixmap()
                     img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
                     img.save(
                         os.path.join(
-                            output,
-                            doc_path_set[1],
+                            heic_frame_out_dir,
                             f"{doc_path_set[1]}-{i:0{len(str(len(doc)))}}.{format}",
                         ),
                         format=_save_format(format),
