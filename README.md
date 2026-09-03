@@ -7,18 +7,6 @@
 
 ![screenshot](./img/Any-to-Any-Web.png)
 
-- **Convert** between a wide range of media formats (audio, video, image, document)
-- **Merge** video files with separate audio files
-- **Extract** audio tracks from video files
-- **Concatenate** multiple files of the same type (audio, video, images)
-- **Preserve, tag, and manage metadata** (ID3 tags, EXIF data, document properties)
-- Process **single files, entire directories (recursively if desired), or multiple specified inputs**
-- Merge or concatenate files **within individual directories or across multiple directories**
-- Offering a flexible **Command Line Interface**, a **Web Interface**, and a **Graphical User Interface (GUI)**
-- Control output quality and video framerate for the conversion
-- Automatically monitor a **"dropzone" directory** for new files and process them as they are dropped
-- Fast batch conversion with configurable **parallel processing** for audio and video conversions
-
 ## Setup
 
 1. **Clone/Download**:
@@ -48,7 +36,7 @@ The GUI is intended for users who want as much ease of use as possible without r
 - Merge, concatenate, or extract as easily as with the CLI/web
 - Multi-language support
 
-You can access the GUI via the pre-packaged binaries, or run it directly from source.
+You can access the GUI via the [pre-packaged binaries,](https://github.com/MK2112/any_to_any.py/releases/latest) or run it directly from source.
 
 **Install GUI-related additional dependencies:**
 ```bash
