@@ -480,6 +480,8 @@ def process_params() -> tuple:
 def index():
     # Retrieve language from session (from browser), default to 'en_US'
     lang_code = session.get("language", "en_US")
+    if lang_code not in lang.LANGUAGE_CODES:
+        lang_code = "en_US"
     translations = lang.get_all_translations(lang.LANGUAGE_CODES[lang_code])
     # Graceful fallback: any untranslated key resolves to its English text
     translations = {
