@@ -112,6 +112,7 @@ def build_executable():
         "--hidden-import=PyQt6",
         "--hidden-import=PIL",
         "--hidden-import=moviepy",
+        "--hidden-import=mutagen",
         "--collect-all=numpy",
         "--collect-all=imageio",
         "--hidden-import=imageio_ffmpeg",
