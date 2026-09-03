@@ -3,10 +3,11 @@ import re
 import time
 import shutil
 import logging
+import secrets
 import tempfile
 import threading
 import webbrowser
-import secrets
+
 import utils.language_support as lang
 
 from functools import wraps
@@ -14,17 +15,25 @@ from utils.version import VERSION
 from utils.category import Category
 from core.controller import Controller
 from datetime import datetime, timedelta
+from concurrent.futures import ThreadPoolExecutor
 from flask_uploads import UploadSet, configure_uploads, ALL
 from core.utils.resolution import available_resolutions, normalize_resolution
-from flask import Flask, render_template, request, send_file, jsonify, abort, session
+from flask import Flask, render_template, request, send_file, jsonify, abort, session, g
 
 # Web server providing a web interface
 # Extension to the CLI-based any_to_any.py
 app = Flask(__name__, template_folder=os.path.abspath("templates"))
 app.secret_key = os.urandom(32)
 
-# 16 GiB effective upload limit, adjust as needed
-app.config["MAX_CONTENT_LENGTH"] = 16 * 1024**3
+app.config.update(
+    MAX_CONTENT_LENGTH=5 * 1024**3, # 5 GiB max request size
+    MAX_UPLOAD_FILE_SIZE=5 * 1024**3,
+    MAX_UPLOAD_FILES=20,
+    WEB_MAX_WORKERS=2,
+    WEB_MAX_QUEUED_JOBS=8,
+    JOB_RETENTION_SECONDS=15 * 60,
+    JOB_CLEANUP_INTERVAL=60,
+)
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
@@ -33,10 +42,15 @@ _csrf_max_entries = 10000
 _csrf_ttl_seconds = 24 * 3600
 _csrf_lock = threading.Lock()
 
-_job_owners = {}
+_job_owners, _job_records = {}, {}
 _job_lock = threading.Lock()
-_JOB_ID_BYTES = 16
-_JOB_ID_RE = re.compile(r"^[a-f0-9]{32}$")
+_JOB_ID_BYTES, _JOB_ID_RE = 16, re.compile(r"^[a-f0-9]{32}$")
+_job_executor = ThreadPoolExecutor(
+    max_workers=app.config["WEB_MAX_WORKERS"], thread_name_prefix="conversion"
+)
+_job_slots = threading.BoundedSemaphore(
+    app.config["WEB_MAX_WORKERS"] + app.config["WEB_MAX_QUEUED_JOBS"]
+)
 
 
 def _job_owner_id() -> str:
@@ -70,7 +84,16 @@ def _create_job_storage() -> tuple[str, str, str]:
             raise
 
         with _job_lock:
-            _job_owners[job_id] = _job_owner_id()
+            owner_id = _job_owner_id()
+            _job_owners[job_id] = owner_id
+            _job_records[job_id] = {
+                "owner_id": owner_id,
+                "upload_dir": up_dir,
+                "converted_dir": cv_dir,
+                "created_at": time.time(),
+                "status": "queued",
+                "cleanup_lock": threading.Lock(),
+            }
         return job_id, up_dir, cv_dir
 
     raise RuntimeError("Could not allocate unique job storage")
@@ -85,6 +108,45 @@ def _job_is_authorized(job_id: str) -> bool:
     with _job_lock:
         job_owner = _job_owners.get(job_id)
     return job_owner is not None and secrets.compare_digest(job_owner, owner_id)
+
+
+def _get_job_record(job_id: str):
+    with _job_lock:
+        return _job_records.get(job_id)
+
+
+def _set_job_status(
+    job_id: str, status: str, completed_at: float = None
+) -> None:
+    with _job_lock:
+        rec = _job_records.get(job_id)
+        if rec is not None:
+            rec["status"] = status
+            rec["updated_at"] = time.time()
+            if completed_at is not None:
+                rec["completed_at"] = completed_at
+
+
+def _remove_job_record(job_id: str, record: dict = None) -> None:
+    with _job_lock:
+        current = _job_records.get(job_id)
+        if record is not None and current is not record:
+            return
+        _job_records.pop(job_id, None)
+        _job_owners.pop(job_id, None)
+    with progress_lock:
+        shared_progress_dict.pop(job_id, None)
+        _last_progress_cache.pop(job_id, None)
+
+
+def _cleanup_job_storage(job_id: str, record: dict = None) -> None:
+    record = record or _get_job_record(job_id)
+    if record is None:
+        return
+    with record["cleanup_lock"]:
+        shutil.rmtree(record["upload_dir"], ignore_errors=True)
+        shutil.rmtree(record["converted_dir"], ignore_errors=True)
+        _remove_job_record(job_id, record)
 
 
 def get_csrf_token():
@@ -122,6 +184,23 @@ def validate_csrf_token(token):
 @app.context_processor
 def inject_csrf_token():
     return {"csrf_token": get_csrf_token()}
+
+
+@app.before_request
+def reserve_conversion_slot():
+    # Reserve capacity before request.form/request.files causes Flask to parse
+    # and spool a multipart upload to disk.
+    if request.method == "POST" and request.path in {"/convert", "/merge", "/concat"}:
+        if not _job_slots.acquire(blocking=False):
+            abort(429, "Conversion queue is full")
+        g.conversion_slot_acquired = True
+
+
+@app.teardown_request
+def release_untransferred_conversion_slot(exception=None):
+    if getattr(g, "conversion_slot_acquired", False):
+        _job_slots.release()
+        g.conversion_slot_acquired = False
 
 
 # Security headers
@@ -202,13 +281,76 @@ shared_progress_dict = {}
 progress_lock = threading.Lock()
 _last_progress_cache = {}
 
+
+def _cleanup_expired_jobs() -> None:
+    now = time.time()
+    retentn = app.config["JOB_RETENTION_SECONDS"]
+    with _job_lock:
+        records = list(_job_records.items())
+
+    # Dir scan also removes abandoned storage left by process restart
+    for job_id, record in records:
+        completed_at = record.get("completed_at", record.get("updated_at", 0))
+        if (
+            record.get("status") in {"done", "error"}
+            and now - completed_at >= retentn
+        ):
+            _cleanup_job_storage(job_id, record)
+
+    prefixes = (
+        os.path.abspath(app.config["UPLOADED_FILES_DEST"]),
+        os.path.abspath(app.config["CONVERTED_FILES_DEST"]),
+    )
+    known_paths = {
+        os.path.abspath(path)
+        for _, record in records
+        for path in (record["upload_dir"], record["converted_dir"])
+    }
+
+    for base_path in prefixes:
+        parent = os.path.dirname(base_path)
+        prefix = os.path.basename(base_path) + "_"
+        try:
+            candidates = os.scandir(parent)
+        except OSError:
+            continue
+        with candidates:
+            for entry in candidates:
+                if not entry.name.startswith(prefix):
+                    continue
+                job_id = entry.name[len(prefix) :]
+                if not _JOB_ID_RE.fullmatch(job_id):
+                    continue
+                path = os.path.abspath(entry.path)
+                if path in known_paths:
+                    continue
+                try:
+                    if now - entry.stat().st_mtime >= retentn:
+                        shutil.rmtree(path, ignore_errors=True)
+                except OSError:
+                    continue
+
+
+def _job_cleanup_loop() -> None:
+    while True:
+        try:
+            _cleanup_expired_jobs()
+        except Exception:
+            app.logger.exception("Job cleanup failed")
+        time.sleep(app.config["JOB_CLEANUP_INTERVAL"])
+
+
 files = UploadSet("files", ALL)
 app.config["UPLOADED_FILES_DEST"] = "./uploads"
 app.config["CONVERTED_FILES_DEST"] = "./converted"
 configure_uploads(app, files)
 
+threading.Thread(
+    target=_job_cleanup_loop, name="job-cleanup", daemon=True
+).start()
+
 with app.app_context():
-    # Intended to help allocate memory early
+    # Helps allocate memory early
     _ = controller.supported_formats
 
 
@@ -224,30 +366,22 @@ def push_zip(source_path: str):
             # If source is a directory, zip its contents
             base_dir = os.path.dirname(source_path)
             dir_name = os.path.basename(source_path)
-
             # Create the zip file with the directory's contents
             shutil.make_archive(temp_path[:-4], "zip", base_dir, dir_name)
-
-            # Clean up the original directory
             shutil.rmtree(source_path, ignore_errors=True)
-
             # Set the download name based on the directory name
             download_name = f"any_to_any_-_{dir_name}.zip"
         else:
             # If source is a file, zip just that file
             file_name = os.path.basename(source_path)
-
-            # Create a temporary directory to hold the file
+            # Create a temp dir to hold file
             temp_dir = tempfile.mkdtemp()
             temp_file_path = os.path.join(temp_dir, file_name)
 
             try:
-                # Move the file to the temp directory
                 shutil.move(source_path, temp_file_path)
-
                 # Create the zip file with the single file
                 shutil.make_archive(temp_path[:-4], "zip", temp_dir)
-
                 # Set the download name based on the file name
                 download_name = f"any_to_any_-_{file_name}.zip"
             finally:
@@ -262,7 +396,7 @@ def push_zip(source_path: str):
             mimetype="application/zip",
         )
 
-        # Clean up the temp file after sending
+        # Clean up temp file after sending
         try:
             response.call_on_close(
                 lambda: os.unlink(temp_path) if os.path.exists(temp_path) else None
@@ -291,8 +425,24 @@ def process_params() -> tuple:
         fmt = None
     elif not fmt or fmt not in controller.supported_formats:
         abort(400, "Invalid format")
-    if not uploaded_files or len(uploaded_files) > 50:
-        abort(400, "No files or too many files")
+    max_files = app.config["MAX_UPLOAD_FILES"]
+    if not uploaded_files or len(uploaded_files) > max_files:
+        abort(400, f"No files or too many files (maximum {max_files})")
+
+    file_max_size = app.config["MAX_UPLOAD_FILE_SIZE"]
+    for uploaded_file in uploaded_files:
+        if not uploaded_file or not uploaded_file.filename:
+            continue
+        try:
+            current_position = uploaded_file.stream.tell()
+            uploaded_file.stream.seek(0, os.SEEK_END)
+            file_size = uploaded_file.stream.tell()
+            uploaded_file.stream.seek(current_position)
+        except (AttributeError, OSError):
+            file_size = uploaded_file.content_length or 0
+        if file_size > file_max_size:
+            abort(413, "Uploaded file exceeds the per-file size limit")
+
     # A resize-only job (no format change) is meaningless without a resolution
     if fmt is None and resolution is None:
         abort(400, "A resolution is required for resize-only mode")
@@ -303,10 +453,18 @@ def process_params() -> tuple:
         if resolution is None:
             abort(400, "Invalid resolution")
     conv_key, up_dir, cv_dir = _create_job_storage()
-    for file in uploaded_files:
-        if file and file.filename:
-            safe_name = re.sub(r"[^\w\.\-]", "_", file.filename)
-            file.save(os.path.join(up_dir, safe_name))
+    try:
+        saved_files = 0
+        for uploaded_file in uploaded_files:
+            if uploaded_file and uploaded_file.filename:
+                safe_name = re.sub(r"[^\w\.\-]", "_", uploaded_file.filename)
+                uploaded_file.save(os.path.join(up_dir, safe_name))
+                saved_files += 1
+        if saved_files == 0:
+            abort(400, "No files or empty filenames")
+    except Exception:
+        _cleanup_job_storage(conv_key)
+        raise
     return fmt, up_dir, cv_dir, conv_key, resolution
 
 
@@ -407,6 +565,7 @@ def send_to_backend(
                     "last_updated": time.time(),
                 }
 
+        _set_job_status(job_id, "processing")
         controller_instance.run(
             input_path_args=input_path_args,
             format=format,
@@ -430,6 +589,7 @@ def send_to_backend(
 
         if job_id and shared_dict is not None:
             with progress_lock:
+                completed_at = time.time()
                 shared_dict[job_id].update(
                     {
                         "progress": total_files * 100,
@@ -437,13 +597,15 @@ def send_to_backend(
                         "completed_files": total_files,
                         "progress_percent": 100,
                         "status": "done",
-                        "completed_at": time.time(),
-                        "last_updated": time.time(),
+                        "completed_at": completed_at,
+                        "last_updated": completed_at,
                     }
                 )
+            _set_job_status(job_id, "done", completed_at)
 
     except Exception as e:
         error_msg = str(e)
+        completed_at = time.time()
         if job_id and shared_dict is not None:
             with progress_lock:
                 if job_id in shared_dict:
@@ -451,10 +613,11 @@ def send_to_backend(
                         {
                             "status": "error",
                             "error": error_msg,
-                            "completed_at": time.time(),
-                            "last_updated": time.time(),
+                            "completed_at": completed_at,
+                            "last_updated": completed_at,
                         }
                     )
+        _set_job_status(job_id, "error", completed_at)
         raise
 
     finally:
@@ -476,18 +639,19 @@ def create_conversion_endpoint(merge: bool = False, concat: bool = False):
         if not csrf_token or not validate_csrf_token(csrf_token):
             abort(403, "Invalid CSRF token")
 
-        fmt, up_dir, cv_dir, job_id, resolution = process_params()
-        # New controller instance for this job
-        job_controller = create_controller(
-            job_id=job_id, shared_progress_dict=shared_progress_dict
-        )
-        # Merge/concat never apply a resolution; only conversions do
-        if merge or concat:
-            resolution = None
-        # Start conversion in background thread
-        thread = threading.Thread(
-            target=send_to_backend,
-            args=(
+        job_id = None
+        slot_transferred = False
+        try:
+            fmt, up_dir, cv_dir, job_id, resolution = process_params()
+            job_controller = create_controller(
+                job_id=job_id, shared_progress_dict=shared_progress_dict
+            )
+            # Merge/concat never apply a resolution; only conversions do
+            if merge or concat:
+                resolution = None
+
+            future = _job_executor.submit(
+                send_to_backend,
                 job_controller,
                 [up_dir],
                 fmt,
@@ -498,9 +662,17 @@ def create_conversion_endpoint(merge: bool = False, concat: bool = False):
                 merge,
                 concat,
                 resolution,
-            ),
-        )
-        thread.start()
+            )
+            future.add_done_callback(lambda _: _job_slots.release())
+            slot_transferred = True
+            g.conversion_slot_acquired = False
+        except Exception:
+            if not slot_transferred:
+                _job_slots.release()
+                g.conversion_slot_acquired = False
+            if job_id is not None:
+                _cleanup_job_storage(job_id)
+            raise
         # Return job_id so frontend can poll progress
         return jsonify({"job_id": job_id}), 202
 
@@ -602,7 +774,11 @@ def download_zip(job_id: str):
     if not _job_is_authorized(job_id):
         abort(404, "Job not found")
 
-    base_path = f"{app.config['CONVERTED_FILES_DEST']}_{job_id}"
+    record = _get_job_record(job_id)
+    if record is None or record.get("status") not in {"done", "error"}:
+        abort(409, "Conversion is not complete")
+
+    base_path = record["converted_dir"]
     if not os.path.exists(base_path):
         abort(404, "Output not found")
 
@@ -624,11 +800,7 @@ def download_zip(job_id: str):
         app.logger.error(f"Error processing output: {str(e)}")
         abort(500, f"Error processing file: {str(e)}")
 
-    with _job_lock:
-        _job_owners.pop(job_id, None)
-    with progress_lock:
-        shared_progress_dict.pop(job_id, None)
-        _last_progress_cache.pop(job_id, None)
+    _cleanup_job_storage(job_id)
     return response
 
 

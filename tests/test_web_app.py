@@ -15,6 +15,7 @@ def reset_web_globals():
         w._rate_limit.clear()
         w._csrf_tokens.clear()
         w._job_owners.clear()
+        w._job_records.clear()
     yield
     with w.progress_lock:
         w.shared_progress_dict.clear()
@@ -58,14 +59,14 @@ def _wait_for_call(mock_obj, timeout=10.0):
 
 def test_convert_returns_202_and_job_id(client, tmp_storage):
     # CSRF-validated upload spawning background job and returning its id for progress polling
-    token = _csrf_for(client)
+    tok = _csrf_for(client)
     with mock.patch.object(w, "send_to_backend") as mock_backend:
         resp = client.post(
             "/convert",
             data={
                 "files": [(io.BytesIO(b"pngdata"), "photo.png")],
                 "conversionType": "jpeg",
-                "csrf_token": token,
+                "csrf_token": tok,
             },
             content_type="multipart/form-data",
         )
@@ -82,14 +83,14 @@ def test_convert_returns_202_and_job_id(client, tmp_storage):
 
 def test_job_is_not_accessible_from_another_session(client, tmp_storage):
     # job_id is bound to the session that created it, and cannot be accessed from another session
-    token = _csrf_for(client)
+    tok = _csrf_for(client)
     with mock.patch.object(w, "send_to_backend"):
         response = client.post(
             "/convert",
             data={
                 "files": [(io.BytesIO(b"pngdata"), "photo.png")],
                 "conversionType": "jpeg",
-                "csrf_token": token,
+                "csrf_token": tok,
             },
             content_type="multipart/form-data",
         )
@@ -98,6 +99,119 @@ def test_job_is_not_accessible_from_another_session(client, tmp_storage):
     other_client = w.app.test_client()
     assert other_client.get(f"/progress/{job_id}").status_code == 404
     assert other_client.get(f"/download/{job_id}").status_code == 404
+
+
+def test_upload_file_count_is_bounded(client, tmp_storage):
+    # Reject requests with too many files, and does not create any job storage
+    tok = _csrf_for(client)
+    files = [
+        (io.BytesIO(b"pngdata"), f"photo-{index}.png")
+        for index in range(w.app.config["MAX_UPLOAD_FILES"] + 1)
+    ]
+
+    response = client.post(
+        "/convert",
+        data={"files": files, "conversionType": "jpeg", "csrf_token": tok},
+        content_type="multipart/form-data",
+    )
+
+    assert response.status_code == 400
+    assert not list(tmp_storage.glob("uploads_*"))
+    assert not list(tmp_storage.glob("converted_*"))
+
+
+def test_upload_file_size_is_bounded(client, tmp_storage, monkeypatch):
+    # Reject requests with too large files, doen't create job storage
+    tok = _csrf_for(client)
+    monkeypatch.setitem(w.app.config, "MAX_UPLOAD_FILE_SIZE", 4)
+
+    response = client.post(
+        "/convert",
+        data={
+            "files": [(io.BytesIO(b"12345"), "photo.png")],
+            "conversionType": "jpeg",
+            "csrf_token": tok,
+        },
+        content_type="multipart/form-data",
+    )
+
+    assert response.status_code == 413
+    assert not list(tmp_storage.glob("uploads_*"))
+    assert not list(tmp_storage.glob("converted_*"))
+
+
+def test_request_size_is_bounded_before_job_storage(client, tmp_storage, monkeypatch):
+    # Reject requests with too large total request size, doesn't create job storage
+    tok = _csrf_for(client)
+    monkeypatch.setitem(w.app.config, "MAX_CONTENT_LENGTH", 4)
+
+    response = client.post(
+        "/convert",
+        data={
+            "files": [(io.BytesIO(b"12345"), "photo.png")],
+            "conversionType": "jpeg",
+            "csrf_token": tok,
+        },
+        content_type="multipart/form-data",
+    )
+
+    assert response.status_code == 413
+    assert not list(tmp_storage.glob("uploads_*"))
+    assert not list(tmp_storage.glob("converted_*"))
+
+
+def test_conversion_queue_rejects_before_creating_job_storage(
+    client, tmp_storage, monkeypatch
+):
+    # Reject request before creating job storage on full conversion queue
+    tok = _csrf_for(client)
+    full_queue = mock.Mock()
+    full_queue.acquire.return_value = False
+    monkeypatch.setattr(w, "_job_slots", full_queue)
+
+    response = client.post(
+        "/convert",
+        data={
+            "files": [(io.BytesIO(b"pngdata"), "photo.png")],
+            "conversionType": "jpeg",
+            "csrf_token": tok,
+        },
+        content_type="multipart/form-data",
+    )
+
+    assert response.status_code == 429
+    assert not list(tmp_storage.glob("uploads_*"))
+    assert not list(tmp_storage.glob("converted_*"))
+    full_queue.acquire.assert_called_once_with(blocking=False)
+    full_queue.release.assert_not_called()
+
+
+def test_completed_job_storage_is_removed_after_retention(
+    client, tmp_storage, monkeypatch
+):
+    # Completed job storage removed after retention period
+    tok = _csrf_for(client)
+    with mock.patch.object(w, "send_to_backend"):
+        response = client.post(
+            "/convert",
+            data={
+                "files": [(io.BytesIO(b"pngdata"), "photo.png")],
+                "conversionType": "jpeg",
+                "csrf_token": tok,
+            },
+            content_type="multipart/form-data",
+        )
+    job_id = response.get_json()["job_id"]
+    record = w._get_job_record(job_id)
+    assert record is not None
+    record.update(status="done", completed_at=0)
+
+    monkeypatch.setitem(w.app.config, "JOB_RETENTION_SECONDS", 1)
+    w._cleanup_expired_jobs()
+
+    assert not (tmp_storage / f"uploads_{job_id}").exists()
+    assert not (tmp_storage / f"converted_{job_id}").exists()
+    assert w._get_job_record(job_id) is None
 
 
 def test_job_id_collision_does_not_merge_storage(client, tmp_storage, monkeypatch):
