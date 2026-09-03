@@ -13,7 +13,6 @@ def reset_web_globals():
         w.shared_progress_dict.clear()
         w._last_progress_cache.clear()
         w._rate_limit.clear()
-        w._csrf_tokens.clear()
         w._job_owners.clear()
         w._job_records.clear()
     yield
@@ -21,7 +20,6 @@ def reset_web_globals():
         w.shared_progress_dict.clear()
         w._last_progress_cache.clear()
         w._rate_limit.clear()
-        w._csrf_tokens.clear()
 
 
 @pytest.fixture
@@ -225,8 +223,14 @@ def test_job_id_collision_does_not_merge_storage(client, tmp_storage, monkeypatc
     (colliding_upload_dir / "existing.png").write_bytes(b"existing")
 
     token = _csrf_for(client)
+    # Only the job-id draws are pinned; CSRF rotation may draw further tokens
     generated_ids = iter([fixed_id, "b" * 32])
-    monkeypatch.setattr(w.secrets, "token_hex", lambda _: next(generated_ids))
+    real_token_hex = w.secrets.token_hex
+
+    def pinned_token_hex(_bytes):
+        return next(generated_ids, None) or real_token_hex(_bytes)
+
+    monkeypatch.setattr(w.secrets, "token_hex", pinned_token_hex)
     with mock.patch.object(w, "send_to_backend"):
         response = client.post(
             "/convert",
@@ -241,3 +245,76 @@ def test_job_id_collision_does_not_merge_storage(client, tmp_storage, monkeypatc
     assert response.get_json()["job_id"] == "b" * 32
     assert (colliding_upload_dir / "existing.png").read_bytes() == b"existing"
     assert (tmp_storage / "uploads_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb").is_dir()
+
+
+def _convert_post(client, tok):
+    # Small helper posting one image conversion with a CSRF token
+    return client.post(
+        "/convert",
+        data={
+            "files": [(io.BytesIO(b"pngdata"), "photo.png")],
+            "conversionType": "jpeg",
+            "csrf_token": tok,
+        },
+        content_type="multipart/form-data",
+    )
+
+
+def test_csrf_token_is_bound_to_the_session_not_the_ip(client, tmp_storage):
+    # Two clients share the same remote address (as NAT neighbours would), yet
+    # a token issued to one session must not validate from the other
+    tok = _csrf_for(client)
+    with mock.patch.object(w, "send_to_backend"):
+        response = _convert_post(client, tok)
+    assert response.status_code == 202
+
+    other_client = w.app.test_client()
+    uploads_before = sorted(p.name for p in tmp_storage.glob("uploads_*"))
+    assert other_client.post(
+        "/convert",
+        data={
+            "files": [(io.BytesIO(b"pngdata"), "photo.png")],
+            "conversionType": "jpeg",
+            "csrf_token": tok,
+        },
+        content_type="multipart/form-data",
+    ).status_code == 403
+    # A rejected request must not create any job storage
+    assert sorted(p.name for p in tmp_storage.glob("uploads_*")) == uploads_before
+
+
+def test_successful_submission_consumes_and_rotates_token(client, tmp_storage):
+    # Tokens are single-use: a successful submission returns a replacement and
+    # the consumed token no longer validates
+    first_tok = _csrf_for(client)
+    with mock.patch.object(w, "send_to_backend"):
+        response = _convert_post(client, first_tok)
+    assert response.status_code == 202
+    replacement = response.get_json()["csrf_token"]
+    assert replacement and replacement != first_tok
+
+    # Replaying the consumed token is rejected without spawning a job
+    assert _convert_post(client, first_tok).status_code == 403
+
+    # The issued replacement keeps working
+    with mock.patch.object(w, "send_to_backend"):
+        response = _convert_post(client, replacement)
+    assert response.status_code == 202
+    assert response.get_json()["csrf_token"] != replacement
+
+
+def test_set_language_requires_a_valid_csrf_token(client):
+    # A session-mutating POST without a token is rejected
+    assert client.post("/language", json={"language": "de_DE"}).status_code == 403
+
+    tok = _csrf_for(client)
+    response = client.post(
+        "/language", json={"language": "de_DE", "csrf_token": tok}
+    )
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["success"] is True
+    assert payload["language"] == "German"
+
+    # The choice is persisted in the session and served back on the next page
+    assert 'lang="de"' in client.get("/").get_data(as_text=True)

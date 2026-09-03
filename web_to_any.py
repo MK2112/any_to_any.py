@@ -37,10 +37,9 @@ app.config.update(
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
-_csrf_tokens = {}
-_csrf_max_entries = 10000
-_csrf_ttl_seconds = 24 * 3600
-_csrf_lock = threading.Lock()
+_CSRF_SESSION_KEY = "csrf_token"
+_CSRF_ISSUED_AT_KEY = "csrf_token_issued_at"
+_csrf_ttl_seconds = 24 * 3600  # idle age after which a token is re-issued
 
 _job_owners, _job_records = {}, {}
 _job_lock = threading.Lock()
@@ -150,35 +149,31 @@ def _cleanup_job_storage(job_id: str, record: dict = None) -> None:
 
 
 def get_csrf_token():
-    session_id = session.sid if hasattr(session, "sid") else request.remote_addr
-    now = time.time()
-    with _csrf_lock:
-        entry = _csrf_tokens.get(session_id)
-        if entry and now - entry["created_at"] < _csrf_ttl_seconds:
-            return entry["token"]
-        # Remove expired entries, cap size to bound memory (i.e. drop oldest)
-        if len(_csrf_tokens) >= _csrf_max_entries:
-            for sid in sorted(
-                _csrf_tokens, key=lambda s: _csrf_tokens[s]["created_at"]
-            )[: len(_csrf_tokens) // 10]:
-                _csrf_tokens.pop(sid, None)
-        token = secrets.token_hex(32)
-        _csrf_tokens[session_id] = {"token": token, "created_at": now}
-        return token
+    token = session.get(_CSRF_SESSION_KEY)
+    issued_at = session.get(_CSRF_ISSUED_AT_KEY)
+    if token and isinstance(issued_at, (int, float)):
+        if time.time() - issued_at < _csrf_ttl_seconds:
+            return token
+    return rotate_csrf_token()
 
 
 def validate_csrf_token(token):
-    session_id = session.sid if hasattr(session, "sid") else request.remote_addr
-    now = time.time()
-    with _csrf_lock:
-        entry = _csrf_tokens.get(session_id)
-        if (
-            entry
-            and now - entry["created_at"] < _csrf_ttl_seconds
-            and secrets.compare_digest(entry["token"], token)
-        ):
-            return True
-    return False
+    expected = session.get(_CSRF_SESSION_KEY)
+    issued_at = session.get(_CSRF_ISSUED_AT_KEY)
+    if not expected or not isinstance(issued_at, (int, float)):
+        return False
+    if time.time() - issued_at >= _csrf_ttl_seconds:
+        return False
+    return secrets.compare_digest(expected, token)
+
+
+def rotate_csrf_token():
+    # A validated request consumes the current token and
+    # the caller returns the replacement to the page
+    token = secrets.token_hex(32)
+    session[_CSRF_SESSION_KEY] = token
+    session[_CSRF_ISSUED_AT_KEY] = time.time()
+    return token
 
 
 @app.context_processor
@@ -673,8 +668,10 @@ def create_conversion_endpoint(merge: bool = False, concat: bool = False):
             if job_id is not None:
                 _cleanup_job_storage(job_id)
             raise
-        # Return job_id so frontend can poll progress
-        return jsonify({"job_id": job_id}), 202
+        return (
+            jsonify({"job_id": job_id, "csrf_token": rotate_csrf_token()}),
+            202,
+        )
 
     return endpoint
 
@@ -809,6 +806,9 @@ def set_language():
     # Web interface language is set via the browser, *not* via sys language
     # This POST helps retrieve client's language info
     data = request.get_json(silent=True) or {}
+    csrf_token = data.get("csrf_token") or request.headers.get("X-CSRF-Token")
+    if not csrf_token or not validate_csrf_token(csrf_token):
+        abort(403, "Invalid CSRF token")
     lang_code = data.get("language")
     if not lang_code:
         return {"success": False}, 400
@@ -820,7 +820,12 @@ def set_language():
     if lang_code and lang_code in lang.LANGUAGE_CODES:
         session["language"] = lang_code
         language = lang.LANGUAGE_CODES[lang_code]
-        return {"success": True, "lang_code": lang_code, "language": language}
+        return {
+            "success": True,
+            "lang_code": lang_code,
+            "language": language,
+            "csrf_token": rotate_csrf_token(),
+        }
     return {"success": False}, 400
 
 

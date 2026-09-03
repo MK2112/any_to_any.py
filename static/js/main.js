@@ -5,10 +5,14 @@ document.addEventListener('DOMContentLoaded', function() {
     // Only send if not already set in session (could check via a cookie or a hidden field)
     if (!window.sessionStorage.getItem('languageSet')) {
         var lang = navigator.language || navigator.userLanguage || 'en_US';
+        var csrfInput = document.querySelector('input[name="csrf_token"]');
         fetch('/language', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({language: lang.replace('-', '_')})
+            body: JSON.stringify({
+                language: lang.replace('-', '_'),
+                csrf_token: csrfInput ? csrfInput.value : ''
+            })
         }).then(function(response) {
             if (response.ok) {
                 window.sessionStorage.setItem('languageSet', '1');
@@ -155,7 +159,9 @@ function submitForm(endpoint) {
         if (!data.job_id) {
             throw new Error('No job ID received from server');
         }
-        // Start polling for progress
+        if (data.csrf_token && csrfInput) {
+            csrfInput.value = data.csrf_token;
+        }
         pollProgress(data.job_id);
     })
     .catch(error => {
@@ -165,7 +171,6 @@ function submitForm(endpoint) {
         console.error('Conversion error:', error);
     })
     .finally(() => {
-        // Reset file list
         uploadedFiles = [];
         document.getElementById('file-list').innerHTML = '';
     });
