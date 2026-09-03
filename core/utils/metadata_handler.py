@@ -4,6 +4,22 @@ import json
 from pathlib import Path
 from datetime import datetime
 
+_IMAGE_STRIP_FORMATS = {
+    "jpg": "JPEG",
+    "jpeg": "JPEG",
+    "png": "PNG",
+    "webp": "WEBP",
+    "tif": "TIFF",
+    "tiff": "TIFF",
+    "tga": "TGA",
+    "jpeg2000": "JPEG2000",
+    "heic": "HEIF",
+    "heif": "HEIF",
+    "avif": "AVIF",
+}
+
+_METADATA_FREE_FORMATS = frozenset({"bmp", "ico", "pcx", "ppm", "pgm", "pbm"})
+
 
 class MetadataHandler:
     # Manages metadata extraction, preservation, and tagging for converted files.
@@ -267,7 +283,7 @@ class MetadataHandler:
     def strip_metadata(self, file_path: str, file_type: str) -> bool:
         # Strip metadata from a file
         #  For audio: removes ID3 tags
-        #  For images: creates a copy without EXIF
+        #  For images: removes EXIF
         #  For documents: basic stripping support
         try:
             if file_type == "audio":
@@ -284,24 +300,154 @@ class MetadataHandler:
                 return False
 
             elif file_type == "image":
-                # For images, create a new image without EXIF
-                try:
-                    from PIL import Image
-
-                    with Image.open(file_path) as img:
-                        # Remove EXIF by converting and re-saving
-                        if hasattr(img, "info"):
-                            img.info.pop("exif", None)
-                        # Convert to RGB to strip metadata
-                        if img.mode != "RGB":
-                            img = img.convert("RGB")
-                        img.save(file_path, "JPEG", quality=95)
-                        return True
-                except Exception:
-                    return False
+                return self._strip_image_metadata(file_path)
 
         except Exception as e:
             self.event_logger.debug(f"Could not strip metadata from {file_path}: {e}")
             return False
 
         return False
+
+    def _strip_image_metadata(self, file_path: str) -> bool:
+        # Drop EXIF/XMP/comment metadata by re-encoding the image
+        try:
+            from PIL import Image
+
+            file_ext = Path(file_path).suffix.lower().lstrip(".")
+            if file_ext == "gif":
+                return self._strip_gif_metadata(file_path)
+            if file_ext in _METADATA_FREE_FORMATS:
+                return True
+            save_format = _IMAGE_STRIP_FORMATS.get(file_ext)
+            if save_format is None:
+                return False
+
+            tmp_path = f"{file_path}.strip.tmp"
+            try:
+                with Image.open(file_path) as img:
+                    if save_format == "JPEG" and img.mode not in (
+                        "L",
+                        "RGB",
+                        "CMYK",
+                        "YCbCr",
+                    ):
+                        img = img.convert("RGB")
+                    save_kwargs = {}
+                    if save_format == "JPEG":
+                        save_kwargs["quality"] = 95
+                    elif save_format == "WEBP":
+                        save_kwargs["lossless"] = True
+                    try:
+                        img.save(tmp_path, save_format, **save_kwargs)
+                    except (OSError, ValueError, KeyError):
+                        img.convert("RGB").save(
+                            tmp_path, save_format, **save_kwargs
+                        )
+                os.replace(tmp_path, file_path)
+                return True
+            finally:
+                if os.path.exists(tmp_path):
+                    try:
+                        os.remove(tmp_path)
+                    except OSError:
+                        pass
+        except Exception as e:
+            self.event_logger.debug(
+                f"Could not strip image metadata from {file_path}: {e}"
+            )
+            return False
+
+    def _strip_gif_metadata(self, file_path: str) -> bool:
+        # GIF metadata is in extension blocks,
+        # can be dropped without touching pixel data
+        try:
+            with open(file_path, "rb") as fh:
+                data = fh.read()
+        except OSError:
+            return False
+        cleaned = _drop_gif_metadata_blocks(data)
+        if cleaned is None:
+            return False
+        if cleaned == data:
+            return True
+        tmp_path = f"{file_path}.strip.tmp"
+        try:
+            with open(tmp_path, "wb") as fh:
+                fh.write(cleaned)
+            os.replace(tmp_path, file_path)
+            return True
+        except OSError:
+            return False
+        finally:
+            if os.path.exists(tmp_path):
+                try:
+                    os.remove(tmp_path)
+                except OSError:
+                    pass
+
+
+def _gif_sub_block_end(data: bytes, start: int) -> int:
+    # Return idx of first byte after GIF sub-blocks starting at start
+    pos = start
+    length = len(data)
+    while pos < length:
+        size = data[pos]
+        pos += 1
+        if size == 0:
+            return pos
+        pos += size
+    return -1
+
+
+def _drop_gif_metadata_blocks(data: bytes) -> bytes | None:
+    # Drop GIF extension blocks from GIF data
+    if not data.startswith(b"GIF8") or len(data) < 13:
+        return None
+
+    flags = data[10]
+    pos = 13
+    if flags & 0x80:
+        pos += 3 * (1 << ((flags & 0x07) + 1))
+    if pos > len(data):
+        return None
+
+    cleaned = bytearray(data[:pos])
+    while pos < len(data):
+        block_type = data[pos]
+        if block_type == 0x3B:
+            cleaned += data[pos:]
+            return bytes(cleaned)
+        if block_type == 0x21:
+            if pos + 1 >= len(data):
+                return None
+            label = data[pos + 1]
+            end = _gif_sub_block_end(data, pos + 2)
+            if end < 0:
+                return None
+            if label in (0x01, 0xFE):
+                pos = end
+                continue
+            if label == 0xFF:
+                if data[pos + 3 : pos + 14] == b"XMP DataXMP":
+                    pos = end
+                    continue
+            cleaned += data[pos:end]
+            pos = end
+            continue
+        if block_type == 0x2C:
+            if pos + 10 > len(data):
+                return None
+            packed = data[pos + 9]
+            end = pos + 10
+            if packed & 0x80:
+                end += 3 * (1 << ((packed & 0x07) + 1))
+            if end >= len(data):
+                return None
+            end = _gif_sub_block_end(data, end + 1)
+            if end < 0:
+                return None
+            cleaned += data[pos:end]
+            pos = end
+            continue
+        return None
+    return None

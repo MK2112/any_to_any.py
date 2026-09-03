@@ -462,3 +462,143 @@ class TestMetadataHandlerFileOperations:
         # Load and verify it's the new version
         loaded = metadata_handler.load_metadata(path2)
         assert loaded["tags"]["version"] == 2
+
+
+class TestImageMetadataStripping:
+    # Stripping metadata must keep file format and data intact
+    @staticmethod
+    def _with_exif():
+        from PIL import Image
+
+        exif = Image.Exif()
+        exif[0x010F] = b"secret make"  # Make tag
+        return exif
+
+    @staticmethod
+    def _inject_gif_metadata_blocks(data: bytes) -> bytes:
+        pos = data.index(b"\x2c")
+        comment = b"\x21\xfe" + bytes([5]) + b"hello" + b"\x00"
+        xmp = b"\x21\xff" + bytes([11]) + b"XMP DataXMP" + b"\x00"
+        return data[:pos] + comment + xmp + data[pos:]
+
+    def test_strip_png_keeps_container_and_alpha(self, metadata_handler, tmp_path):
+        # A .png must remain a real PNG after removal of metadata
+        from PIL import Image
+
+        png_file = tmp_path / "photo.png"
+        Image.new("RGBA", (6, 6), (10, 20, 30, 100)).save(
+            png_file, exif=self._with_exif()
+        )
+
+        result = metadata_handler.strip_metadata(str(png_file), "image")
+        assert result is True
+
+        with Image.open(png_file) as stripped:
+            assert stripped.format == "PNG"
+            assert stripped.mode == "RGBA"
+            assert "exif" not in stripped.info
+            assert stripped.getpixel((0, 0)) == (10, 20, 30, 100)
+
+    def test_strip_jpeg_drops_exif(self, metadata_handler, tmp_path):
+        from PIL import Image
+
+        jpg_file = tmp_path / "photo.jpg"
+        Image.new("RGB", (6, 6), "red").save(
+            jpg_file, "JPEG", exif=self._with_exif()
+        )
+
+        result = metadata_handler.strip_metadata(str(jpg_file), "image")
+        assert result is True
+
+        with Image.open(jpg_file) as stripped:
+            assert stripped.format == "JPEG"
+            assert "exif" not in stripped.info
+
+    def test_strip_webp_preserves_pixels_and_alpha(self, metadata_handler, tmp_path):
+        from PIL import Image
+
+        webp_file = tmp_path / "photo.webp"
+        Image.new("RGBA", (5, 5), (1, 2, 3, 200)).save(webp_file, lossless=True)
+
+        result = metadata_handler.strip_metadata(str(webp_file), "image")
+        assert result is True
+
+        with Image.open(webp_file) as stripped:
+            assert stripped.format == "WEBP"
+            assert stripped.mode == "RGBA"
+            assert stripped.getpixel((0, 0)) == (1, 2, 3, 200)
+
+    def test_strip_animated_gif_removes_metadata_only(self, metadata_handler, tmp_path):
+        # Stripping an animated GIF removes comments/XMP without affecting data or timing
+        from PIL import Image
+
+        gif_file = tmp_path / "anim.gif"
+        gif_orig = tmp_path / "anim_orig.gif"
+        frames = []
+        frame0 = Image.new("RGBA", (12, 12), (0, 0, 0, 0))
+        for x in range(4, 8):
+            for y in range(4, 8):
+                frame0.putpixel((x, y), (255, 0, 0, 255))
+        frames.append(frame0)
+        frames.append(Image.new("RGBA", (12, 12), (0, 0, 255, 255)))
+        frame2 = Image.new("RGBA", (12, 12), (0, 0, 0, 0))
+        for x in range(2, 5):
+            for y in range(2, 5):
+                frame2.putpixel((x, y), (0, 255, 0, 255))
+        frames.append(frame2)
+        frames[0].save(
+            gif_orig,
+            save_all=True,
+            append_images=frames[1:],
+            duration=[100, 200, 300],
+            loop=0,
+            disposal=[1, 2, 1],
+            transparency=0,
+        )
+        original = gif_orig.read_bytes()
+        gif_file.write_bytes(self._inject_gif_metadata_blocks(original))
+        result = metadata_handler.strip_metadata(str(gif_file), "image")
+        assert result is True
+        assert gif_file.read_bytes() == original
+
+        from PIL import ImageSequence
+
+        with Image.open(gif_file) as stripped:
+            assert stripped.n_frames == 3
+            durations = [
+                frame.info.get("duration")
+                for frame in ImageSequence.Iterator(stripped)
+            ]
+            assert durations == [100, 200, 300]
+
+    def test_strip_gif_without_metadata_leaves_file_untouched(
+        self, metadata_handler, tmp_path
+    ):
+        from PIL import Image
+
+        gif_file = tmp_path / "still.gif"
+        Image.new("RGB", (4, 4), "blue").save(gif_file)
+        before = gif_file.read_bytes()
+        result = metadata_handler.strip_metadata(str(gif_file), "image")
+        assert result is True
+        assert gif_file.read_bytes() == before
+
+    def test_strip_corrupt_image_fails_without_overwriting(
+        self, metadata_handler, tmp_path
+    ):
+        png_file = tmp_path / "broken.png"
+        png_file.write_bytes(b"not really a png")
+        before = png_file.read_bytes()
+        result = metadata_handler.strip_metadata(str(png_file), "image")
+        assert result is False
+        assert png_file.read_bytes() == before
+
+    def test_strip_unknown_image_extension_fails_cleanly(
+        self, metadata_handler, tmp_path
+    ):
+        odd_file = tmp_path / "photo.xyz"
+        odd_file.write_bytes(b"whatever")
+        before = odd_file.read_bytes()
+        result = metadata_handler.strip_metadata(str(odd_file), "image")
+        assert result is False
+        assert odd_file.read_bytes() == before
