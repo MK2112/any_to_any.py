@@ -402,8 +402,7 @@ class Controller:
         else:
             self.resolution = None
 
-        # Language setting if not set already
-        if language is not None and self.locale is None:
+        if language is not None:
             if re.match(r"^[a-z]{2}_[A-Z]{2}$", language) and language in list(
                 lang.LANGUAGE_CODES.keys()
             ):
