@@ -274,9 +274,17 @@ python any_to_any.py -i /path/to/input_dir -f mp3 --workers 4 --recursive
 ## Using Docker Compose (Quickstart)
 
 1. Navigate to the project directory: `cd any_to_any.py`
-2. Start the web interface: `docker-compose up`
-3. Open your browser and visit: `http://localhost:5000`
-4. To stop the container, press `CTRL+C`
+2. Create the shared folders that will hold uploads, conversions and CLI output:
+   `mkdir -p uploads converted out` (they are bind-mounted into the container,
+   which runs as the non-root user with UID `1000`, if your user has a
+   different UID, run `chown -R 1000:1000 uploads converted out` first)
+3. Start web interface: `docker-compose up`
+4. Visit: `http://localhost:5000`
+
+The web server runs under `gunicorn` and binds to `0.0.0.0` inside the
+container (configurable via the `Any2Any_HOST` / `Any2Any_PORT` environment
+variables). The container reports its health on port `5000`, and uploads/
+conversions are cleaned up automatically.
 
 To run subsequent times without rebuilding:
 ```bash

@@ -23,7 +23,7 @@ from flask import Flask, render_template, request, send_file, jsonify, abort, se
 # Web server providing a web interface
 # Extension to the CLI-based any_to_any.py
 app = Flask(__name__, template_folder=os.path.abspath("templates"))
-app.secret_key = os.urandom(32)
+app.secret_key = os.environ.get("SECRET_KEY") or os.urandom(32)
 
 app.config.update(
     MAX_CONTENT_LENGTH=5 * 1024**3, # 5 GiB max request size
@@ -213,12 +213,18 @@ def headers(response):
 log = logging.getLogger("werkzeug")
 log.setLevel(logging.ERROR)
 app.logger.setLevel(logging.ERROR)
+_loopback_hosts = ("127.0.0.1", "localhost", "::1")
+host = os.environ.get("Any2Any_HOST", "127.0.0.1")
 
-host = "127.0.0.1"
-port = 5000
+try:
+    port = int(os.environ.get("Any2Any_PORT", "5000"))
+except (TypeError, ValueError):
+    port = 5000
 
-_is_loopback = host.lower() in ("127.0.0.1", "localhost", "::1")
-app.config["SESSION_COOKIE_SECURE"] = not _is_loopback
+
+@app.before_request
+def _apply_session_cookie_security():
+    app.config["SESSION_COOKIE_SECURE"] = request.is_secure
 
 # Rate limiting
 _rate_limit = {}
@@ -264,8 +270,15 @@ def create_controller(
         job_id=job_id, shared_progress_dict=shared_progress_dict, is_web=True
     )
     controller.web_flag = True
-    controller.web_host = f"{'http' if host.lower() in ['127.0.0.1', 'localhost'] else 'https'}://{host}:{port}"
+    controller.web_host = _browser_url()
     return controller
+
+
+def _browser_url() -> str:
+    if host.lower() in ("0.0.0.0", "::"):
+        return f"http://127.0.0.1:{port}"
+    scheme = "http" if host.lower() in _loopback_hosts else "https"
+    return f"{scheme}://{host}:{port}"
 
 
 # Create default controller for the app

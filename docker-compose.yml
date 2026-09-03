@@ -13,6 +13,8 @@ services:
     environment:
       - FLASK_APP=web_to_any.py
       - PYTHONUNBUFFERED=1
+      - Any2Any_HOST=0.0.0.0
+      - Any2Any_PORT=5000
     stdin_open: true
     tty: true
     # Override to run CLI instead of web interface
