@@ -390,7 +390,6 @@ class MovieConverter:
                     )
                     video.write_videofile(
                         out_path,
-                        codec=codec[0],
                         fps=video.fps if framerate is None else framerate,
                         audio=True,
                         logger=self.prog_logger,
