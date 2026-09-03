@@ -484,6 +484,7 @@ class Controller:
                         None,
                         f"[!] {lang.get_translation('error', self.locale)}: {lang.get_translation('dropzone_diff', self.locale)}",
                     )
+                self.target_format = formats[0].lower() if formats else None
                 self.event_logger.info(
                     f"[>] {lang.get_translation('dropzone_active', self.locale)} {self.input}"
                 )
@@ -787,10 +788,13 @@ class Controller:
                         dropzone_controller.event_logger = self.event_logger
                         dropzone_controller.file_handler = self.file_handler
                         dropzone_controller.target_format = self.target_format
+                        dropzone_controller.page_ranges = self.page_ranges
+                        dropzone_controller.input = file_path
 
                         # Process the file
                         file_paths = dropzone_controller.file_handler.get_file_paths(
-                            file_path
+                            file_path,
+                            supported_formats=dropzone_controller._supported_formats,
                         )
                         if file_paths:
                             try:
