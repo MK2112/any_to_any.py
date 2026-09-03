@@ -764,6 +764,27 @@ class Controller:
 
     def watch_dropzone(self, watch_path: str) -> None:
         # Watch a directory for new files and process them automatically
+        def _wait_until_settled(
+            file_path: str, stable_window: float = 1.0
+        ) -> bool:
+            # Convert once file size has stopped changing
+            deadline = time.time() + 60.0
+            last_size, stable_since = None, None
+            while time.time() < deadline:
+                try:
+                    size = os.path.getsize(file_path)
+                except OSError:
+                    return False
+                if size != last_size:
+                    last_size, stable_since = size, time.time()
+                elif (
+                    stable_since is not None
+                    and time.time() - stable_since >= stable_window
+                ):
+                    return True
+                time.sleep(0.25)
+            return False
+
         def handle_file_event(event_type: str, file_path: str) -> None:
             if event_type == "created":
                 try:
@@ -771,6 +792,11 @@ class Controller:
                         f"[>] {lang.get_translation('dropzone_new_file', self.locale)}: {file_path}"
                     )
                     if os.path.isfile(file_path):
+                        if not _wait_until_settled(file_path):
+                            self.event_logger.info(
+                                f"[!] {lang.get_translation('skipping', self.locale)}: {file_path}"
+                            )
+                            return
                         # Create a temporary instance within, with distinct settings
                         dropzone_controller = self.__class__()
                         # Configure the instance with current settings
