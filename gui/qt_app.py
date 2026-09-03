@@ -129,6 +129,7 @@ class ConversionThread(QThread):
     progress_updated = pyqtSignal(dict)
     conversion_finished = pyqtSignal(str, str)  # job_id, output_dir
     error_occurred = pyqtSignal(str)
+    conversion_cancelled = pyqtSignal(str)  # job_id
 
     def __init__(
         self,
@@ -267,6 +268,7 @@ class ConversionThread(QThread):
                     }
                 )
                 worker.join(timeout=5.0)
+                self.conversion_cancelled.emit(self.job_id)
                 return
 
             worker.join(timeout=30.0)
@@ -1177,6 +1179,7 @@ class MainWindow(QMainWindow):
         self.current_thread.progress_updated.connect(self.update_progress)
         self.current_thread.conversion_finished.connect(self.conversion_completed)
         self.current_thread.error_occurred.connect(self.conversion_error)
+        self.current_thread.conversion_cancelled.connect(self.conversion_cancelled)
         self.conversion_threads[self.current_thread.job_id] = self.current_thread
         self.current_thread.start()
 
@@ -1283,6 +1286,16 @@ class MainWindow(QMainWindow):
             lang.get_translation("error", self.locale),
             f"{lang.get_translation('conversion_failed', self.locale)}: {error_message}",
         )
+
+    def conversion_cancelled(self, job_id):
+        # Cancel is a normal outcome: release the thread and re-enable the UI
+        self.conversion_threads.pop(job_id, None)
+        if self.current_thread is not None and self.current_thread.job_id == job_id:
+            self.current_thread = None
+        self.set_ui_enabled(True)
+        self.progress_bar.setValue(0)
+        self.progress_bar.setRange(0, 100)
+        self._schedule_progress_reset(2000)
 
     def _schedule_progress_reset(self, delay_ms):
         # Epoch-guarded reset: stale timers from a previous job must never
