@@ -1,4 +1,7 @@
 import os
+import shutil
+import subprocess
+import wave
 import pytest
 
 from datetime import datetime
@@ -6,6 +9,127 @@ from unittest import mock
 from unittest.mock import Mock, patch, MagicMock
 from core.controller import Controller
 from core.utils.metadata_handler import MetadataHandler
+
+
+AUDIO_CONTAINERS = ["mp3", "wav", "flac", "ogg", "m4a", "wma"]
+_AUDIO_CODECS = {
+    "mp3": ["libmp3lame"],
+    "flac": ["flac"],
+    "m4a": ["aac"],
+    "ogg": ["libvorbis", "vorbis"],
+    "wma": ["wmav2"],
+}
+
+requires_ffmpeg = pytest.mark.skipif(
+    shutil.which("ffmpeg") is None, reason="ffmpeg not available"
+)
+
+
+def _make_audio_file(directory, file_ext, name="tone"):
+    # Generate a small real audio file of the requested container with ffmpeg
+    src = directory / "source.wav"
+    with wave.open(str(src), "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(8000)
+        w.writeframes(b"\x00\x00" * 800)
+
+    out = directory / f"{name}.{file_ext}"
+    if file_ext == "wav":
+        out.write_bytes(src.read_bytes())
+        return out
+
+    for codec in _AUDIO_CODECS[file_ext]:
+        result = subprocess.run(
+            [
+                "ffmpeg",
+                "-y",
+                "-loglevel",
+                "error",
+                "-i",
+                str(src),
+                "-c:a",
+                codec,
+                str(out),
+            ],
+            capture_output=True,
+        )
+        if result.returncode == 0:
+            return out
+    pytest.skip(f"ffmpeg cannot encode {file_ext}")
+
+
+def _read_applied_tags(file_path, file_ext):
+    common_frames = {"title": "TIT2", "artist": "TPE1", "album": "TALB", "date": "TDRC"}
+    if file_ext in ("mp3", "wav"):
+        if file_ext == "mp3":
+            from mutagen.mp3 import MP3 as Loader
+        else:
+            from mutagen.wave import WAVE as Loader
+        id3 = Loader(file_path).tags
+        out = {}
+        for name, frame_id in common_frames.items():
+            frame = id3.get(frame_id)
+            if frame:
+                out[name] = str(frame.text[0])
+        for frame in id3.getall("TXXX"):
+            out[frame.desc] = str(frame.text[0])
+        return out
+
+    if file_ext in ("flac", "ogg"):
+        if file_ext == "flac":
+            from mutagen.flac import FLAC as Loader
+        else:
+            from mutagen.oggvorbis import OggVorbis as Loader
+        tags = Loader(file_path)
+        out = {}
+        for key in tags.keys():
+            values = tags[key]
+            out[key.lower()] = str(values[0] if isinstance(values, list) else values)
+        return out
+
+    if file_ext == "m4a":
+        from mutagen.mp4 import MP4
+
+        common_atoms = {
+            "title": "\xa9nam",
+            "artist": "\xa9ART",
+            "album": "\xa9alb",
+            "date": "\xa9day",
+        }
+        mp4 = MP4(file_path)
+        out = {}
+        for name, atom in common_atoms.items():
+            if atom in mp4:
+                out[name] = str(mp4[atom][0])
+        for key, values in mp4.items():
+            if key.startswith("----:"):
+                name = key.rsplit(":", 1)[-1]
+                payload = values[0]
+                out[name] = (
+                    bytes(payload).decode("utf-8")
+                    if isinstance(payload, bytes)
+                    else str(payload)
+                )
+        return out
+
+    from mutagen.asf import ASF
+
+    common_attrs = {
+        "title": "Title",
+        "artist": "Author",
+        "album": "WM/AlbumTitle",
+        "date": "WM/Year",
+    }
+    asf = ASF(file_path)
+    out = {}
+    for name, attr in common_attrs.items():
+        if attr in asf:
+            out[name] = str(asf[attr][0])
+    for key in asf.keys():
+        if key not in common_attrs.values():
+            out[key] = str(asf[key][0])
+    return out
 
 
 @pytest.fixture
@@ -284,6 +408,113 @@ class TestMetadataApplication:
             # Acceptable if mutagen not installed
             pass
 
+    @requires_ffmpeg
+    @pytest.mark.parametrize("file_ext", AUDIO_CONTAINERS)
+    def test_apply_metadata_writes_native_backend_tags(
+        self, metadata_handler, tmp_path, file_ext
+    ):
+        # Common tags must land on each container under its native backend
+        # (ID3 frames, Vorbis comments, MP4 atoms, ASF attributes) and custom
+        # tags must be written as well.
+        audio_file = _make_audio_file(tmp_path, file_ext, "tagged")
+        metadata = {
+            "format": "audio",
+            "tags": {
+                "title": "Night Train",
+                "artist": "Django Reinhardt",
+                "album": "Hot Club de France",
+                "date": "1934",
+            },
+            "custom_tags": {"project": "archive-42"},
+        }
+
+        result = metadata_handler.apply_metadata_to_file(str(audio_file), metadata)
+        assert result is True
+
+        written = _read_applied_tags(str(audio_file), file_ext)
+        expected = {
+            "title": "Night Train",
+            "artist": "Django Reinhardt",
+            "album": "Hot Club de France",
+            "date": "1934",
+            "project": "archive-42",
+        }
+        for name, value in expected.items():
+            assert written.get(name) == value, (file_ext, name, written)
+
+    @requires_ffmpeg
+    @pytest.mark.parametrize("file_ext", AUDIO_CONTAINERS)
+    def test_apply_metadata_skips_technical_tag_values(
+        self, metadata_handler, tmp_path, file_ext
+    ):
+        # Technical extraction values (duration/fps/nchannels) are not tags and
+        # must not be written to the file under any name.
+        audio_file = _make_audio_file(tmp_path, file_ext, "tech")
+        metadata = {
+            "format": "audio",
+            "tags": {
+                "title": "Only Title",
+                "duration": 180.5,
+                "fps": 48000,
+                "nchannels": 2,
+            },
+        }
+
+        result = metadata_handler.apply_metadata_to_file(str(audio_file), metadata)
+        assert result is True
+
+        written = _read_applied_tags(str(audio_file), file_ext)
+        assert written.get("title") == "Only Title"
+        assert "duration" not in written
+        assert "fps" not in written
+        assert "nchannels" not in written
+
+    @requires_ffmpeg
+    def test_apply_mp3_tags_readable_through_easyid3(self, metadata_handler, tmp_path):
+        # Regression: mp3 tags were previously written as raw ID3 frame ids
+        # through EasyID3, which rejects them, so nothing was ever applied.
+        from mutagen.easyid3 import EasyID3
+
+        audio_file = _make_audio_file(tmp_path, "mp3", "easy")
+        metadata = {
+            "format": "audio",
+            "tags": {"title": "Petit Fleur", "artist": "Sidney Bechet"},
+        }
+
+        result = metadata_handler.apply_metadata_to_file(str(audio_file), metadata)
+        assert result is True
+
+        easy = EasyID3(str(audio_file))
+        assert easy["title"] == ["Petit Fleur"]
+        assert easy["artist"] == ["Sidney Bechet"]
+
+    @requires_ffmpeg
+    def test_apply_metadata_without_tags_is_noop(self, metadata_handler, tmp_path):
+        # No taggable content means the file must be left untouched
+        audio_file = _make_audio_file(tmp_path, "flac", "plain")
+        before = audio_file.read_bytes()
+        metadata = {"format": "audio", "tags": {"duration": 0.1}, "custom_tags": {}}
+
+        result = metadata_handler.apply_metadata_to_file(str(audio_file), metadata)
+        assert result is False
+        assert audio_file.read_bytes() == before
+
+    @requires_ffmpeg
+    def test_apply_custom_tags_only(self, metadata_handler, tmp_path):
+        # A user-provided tag alone (no extracted tags) must reach the file
+        audio_file = _make_audio_file(tmp_path, "ogg", "custom_only")
+        metadata = {
+            "format": "audio",
+            "tags": {},
+            "custom_tags": {"project": "archive-42"},
+        }
+
+        result = metadata_handler.apply_metadata_to_file(str(audio_file), metadata)
+        assert result is True
+
+        written = _read_applied_tags(str(audio_file), "ogg")
+        assert written.get("project") == "archive-42"
+
 
 class TestMetadataStripping:
     def test_strip_metadata_nonexistent_file(self, metadata_handler):
@@ -503,9 +734,7 @@ class TestImageMetadataStripping:
         from PIL import Image
 
         jpg_file = tmp_path / "photo.jpg"
-        Image.new("RGB", (6, 6), "red").save(
-            jpg_file, "JPEG", exif=self._with_exif()
-        )
+        Image.new("RGB", (6, 6), "red").save(jpg_file, "JPEG", exif=self._with_exif())
 
         result = metadata_handler.strip_metadata(str(jpg_file), "image")
         assert result is True
@@ -566,8 +795,7 @@ class TestImageMetadataStripping:
         with Image.open(gif_file) as stripped:
             assert stripped.n_frames == 3
             durations = [
-                frame.info.get("duration")
-                for frame in ImageSequence.Iterator(stripped)
+                frame.info.get("duration") for frame in ImageSequence.Iterator(stripped)
             ]
             assert durations == [100, 200, 300]
 

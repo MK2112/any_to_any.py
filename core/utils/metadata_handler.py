@@ -20,6 +20,28 @@ _IMAGE_STRIP_FORMATS = {
 
 _METADATA_FREE_FORMATS = frozenset({"bmp", "ico", "pcx", "ppm", "pgm", "pbm"})
 
+# Tag names that every audio backend understands (extracted under these names
+# from the source file) and the native key each backend stores them under.
+_COMMON_AUDIO_TAGS = ("title", "artist", "album", "date")
+_ID3_COMMON_FRAMES = {
+    "title": "TIT2",
+    "artist": "TPE1",
+    "album": "TALB",
+    "date": "TDRC",
+}
+_MP4_COMMON_ATOMS = {
+    "title": "\xa9nam",
+    "artist": "\xa9ART",
+    "album": "\xa9alb",
+    "date": "\xa9day",
+}
+_ASF_COMMON_ATTRS = {
+    "title": "Title",
+    "artist": "Author",
+    "album": "WM/AlbumTitle",
+    "date": "WM/Year",
+}
+
 
 class MetadataHandler:
     # Manages metadata extraction, preservation, and tagging for converted files.
@@ -65,7 +87,9 @@ class MetadataHandler:
                 try:
                     tags = EasyID3(file_path)
                     for key, value in tags.items():
-                        metadata["tags"][key] = value[0] if isinstance(value, list) else value
+                        metadata["tags"][key] = (
+                            value[0] if isinstance(value, list) else value
+                        )
                 except Exception:
                     # File doesn't have ID3 tags or mutagen not available
                     pass
@@ -73,7 +97,9 @@ class MetadataHandler:
                 pass  # mutagen not installed
 
         except Exception as e:
-            self.event_logger.debug(f"Could not extract audio metadata from {file_path}: {e}")
+            self.event_logger.debug(
+                f"Could not extract audio metadata from {file_path}: {e}"
+            )
 
         return metadata
 
@@ -107,7 +133,9 @@ class MetadataHandler:
                             pass
 
         except Exception as e:
-            self.event_logger.debug(f"Could not extract image metadata from {file_path}: {e}")
+            self.event_logger.debug(
+                f"Could not extract image metadata from {file_path}: {e}"
+            )
 
         return metadata
 
@@ -122,8 +150,12 @@ class MetadataHandler:
         try:
             # File system metadata (universal)
             stat_info = os.stat(file_path)
-            metadata["tags"]["created"] = datetime.fromtimestamp(stat_info.st_ctime).isoformat()
-            metadata["tags"]["modified"] = datetime.fromtimestamp(stat_info.st_mtime).isoformat()
+            metadata["tags"]["created"] = datetime.fromtimestamp(
+                stat_info.st_ctime
+            ).isoformat()
+            metadata["tags"]["modified"] = datetime.fromtimestamp(
+                stat_info.st_mtime
+            ).isoformat()
             metadata["tags"]["size"] = stat_info.st_size
 
             # Format-specific metadata
@@ -170,7 +202,9 @@ class MetadataHandler:
                     self.event_logger.debug(f"Could not extract PPTX metadata: {e}")
 
         except Exception as e:
-            self.event_logger.debug(f"Could not extract document metadata from {file_path}: {e}")
+            self.event_logger.debug(
+                f"Could not extract document metadata from {file_path}: {e}"
+            )
 
         return metadata
 
@@ -183,9 +217,15 @@ class MetadataHandler:
         elif file_type == "document":
             return self.extract_document_metadata(file_path)
         else:
-            return {"format": file_type, "extracted_at": datetime.now().isoformat(), "tags": {}}
+            return {
+                "format": file_type,
+                "extracted_at": datetime.now().isoformat(),
+                "tags": {},
+            }
 
-    def save_metadata(self, file_path: str, metadata: dict, output_file_path: str) -> str:
+    def save_metadata(
+        self, file_path: str, metadata: dict, output_file_path: str
+    ) -> str:
         # Save metadata to a JSON file in the .metadata directory
         # Returns the path to the metadata JSON file
         if self.metadata_dir is None:
@@ -193,7 +233,9 @@ class MetadataHandler:
 
         # Create metadata filename based on output file
         output_filename = Path(output_file_path).stem
-        metadata_file = os.path.join(self.metadata_dir, f"{output_filename}.metadata.json")
+        metadata_file = os.path.join(
+            self.metadata_dir, f"{output_filename}.metadata.json"
+        )
 
         try:
             with open(metadata_file, "w", encoding="utf-8") as f:
@@ -226,57 +268,37 @@ class MetadataHandler:
             with open(metadata_file, "r", encoding="utf-8") as f:
                 return json.load(f)
         except Exception as e:
-            self.event_logger.debug(f"Could not load metadata from {metadata_file}: {e}")
+            self.event_logger.debug(
+                f"Could not load metadata from {metadata_file}: {e}"
+            )
             return {}
 
     def apply_metadata_to_file(self, output_file: str, metadata: dict) -> bool:
-        # Apply metadata tags back to the output file (when possible).
-        # Currently supporting ID3 tags for audio files
         file_ext = Path(output_file).suffix.lower().lstrip(".")
-        
-        if file_ext in ["mp3", "flac", "m4a", "ogg", "wma"]:
-            try:
-                from mutagen.easyid3 import EasyID3
-                from mutagen.wave import WAVE
-                from mutagen.flac import FLAC
+        common = {
+            key: value
+            for key, value in metadata.get("tags", {}).items()
+            if key in _COMMON_AUDIO_TAGS
+        }
+        custom = metadata.get("custom_tags") or {}
+        if not common and not custom:
+            return False
 
-                tags_dict = metadata.get("tags", {})
-                
-                try:
-                    if file_ext == "mp3":
-                        audio_tags = EasyID3(output_file)
-                    elif file_ext == "flac":
-                        audio_tags = FLAC(output_file)
-                    elif file_ext in ["m4a", "ogg", "wma"]:
-                        audio_tags = EasyID3(output_file)
-                    elif file_ext == "wav":
-                        audio_tags = WAVE(output_file)
-                    else:
-                        return False
+        try:
+            handler = {
+                "mp3": _apply_id3_tags,
+                "wav": _apply_id3_tags,
+                "flac": _apply_vorbis_tags,
+                "ogg": _apply_vorbis_tags,
+                "m4a": _apply_mp4_tags,
+                "wma": _apply_asf_tags,
+            }.get(file_ext)
 
-                    # Apply common tags if they exist in original
-                    tag_mapping = {
-                        "title": "TIT2",
-                        "artist": "TPE1",
-                        "album": "TALB",
-                        "date": "TDRC",
-                    }
-
-                    for src_key, dst_key in tag_mapping.items():
-                        if src_key in tags_dict:
-                            try:
-                                audio_tags[dst_key] = str(tags_dict[src_key])
-                            except Exception:
-                                pass
-
-                    audio_tags.save()
-                    return True
-                except Exception as e:
-                    self.event_logger.debug(f"Could not apply ID3 tags to {output_file}: {e}")
-                    return False
-            except ImportError:
-                # mutagen not installed
-                return False
+            if handler is not None:
+                return handler(output_file, file_ext, common, custom)
+        except Exception as e:
+            self.event_logger.debug(f"Could not apply tags to {output_file}: {e}")
+            return False
 
         return False
 
@@ -340,9 +362,7 @@ class MetadataHandler:
                     try:
                         img.save(tmp_path, save_format, **save_kwargs)
                     except (OSError, ValueError, KeyError):
-                        img.convert("RGB").save(
-                            tmp_path, save_format, **save_kwargs
-                        )
+                        img.convert("RGB").save(tmp_path, save_format, **save_kwargs)
                 os.replace(tmp_path, file_path)
                 return True
             finally:
@@ -451,3 +471,73 @@ def _drop_gif_metadata_blocks(data: bytes) -> bytes | None:
             continue
         return None
     return None
+
+
+def _apply_id3_tags(file_path: str, file_ext: str, common: dict, custom: dict) -> bool:
+    from mutagen.id3 import TIT2, TPE1, TALB, TDRC, TXXX
+
+    frame_cls = {"TIT2": TIT2, "TPE1": TPE1, "TALB": TALB, "TDRC": TDRC}
+    if file_ext == "mp3":
+        from mutagen.mp3 import MP3 as Loader
+    else:
+        from mutagen.wave import WAVE as Loader
+
+    audio = Loader(file_path)
+    if audio.tags is None:
+        audio.add_tags()
+    tags = audio.tags
+    for key, text in common.items():
+        frame_id = _ID3_COMMON_FRAMES[key]
+        tags.delall(frame_id)
+        tags.add(frame_cls[frame_id](encoding=3, text=[str(text)]))
+    for key, text in custom.items():
+        desc = str(key)
+        tags.delall(f"TXXX:{desc}")
+        tags.add(TXXX(encoding=3, desc=desc, text=[str(text)]))
+    audio.save()
+    return True
+
+
+def _apply_vorbis_tags(
+    file_path: str, file_ext: str, common: dict, custom: dict
+) -> bool:
+    # Write tags into flac/ogg using Vorbis comments
+    if file_ext == "flac":
+        from mutagen.flac import FLAC as Loader
+    else:
+        from mutagen.oggvorbis import OggVorbis as Loader
+
+    audio = Loader(file_path)
+    for key, text in list(common.items()) + list(custom.items()):
+        try:
+            audio[str(key)] = str(text)
+        except Exception:
+            pass
+    audio.save()
+    return True
+
+
+def _apply_mp4_tags(file_path: str, file_ext: str, common: dict, custom: dict) -> bool:
+    # Write tags into m4a using MP4 atoms (signature adapted, keep file_ext)
+    from mutagen.mp4 import MP4
+
+    audio = MP4(file_path)
+    for key, text in common.items():
+        audio[_MP4_COMMON_ATOMS[key]] = str(text)
+    for key, text in custom.items():
+        audio[f"----:com.apple.iTunes:{key}"] = [str(text).encode("utf-8")]
+    audio.save()
+    return True
+
+
+def _apply_asf_tags(file_path: str, file_ext: str, common: dict, custom: dict) -> bool:
+    # Write tags into wma using ASF (signature adapted, keep file_ext)
+    from mutagen.asf import ASF
+
+    audio = ASF(file_path)
+    for key, text in common.items():
+        audio[_ASF_COMMON_ATTRS[key]] = str(text)
+    for key, text in custom.items():
+        audio[str(key)] = str(text)
+    audio.save()
+    return True
