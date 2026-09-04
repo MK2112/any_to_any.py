@@ -133,6 +133,21 @@ def gif_to_frames(output: str, file_paths: dict, file_handler) -> dict:
     return created
 
 
+def _save_clip_frames(
+    clip: VideoFileClip, out_dir: str, base_name: str, fmt: str
+) -> str | None:
+    # Return path of last frame written, or None for a clip without frames
+    os.makedirs(out_dir, exist_ok=True)
+    num_digits = len(str(int(clip.duration * clip.fps)))
+    last_frame = None
+    for i, frame in enumerate(clip.iter_frames(fps=clip.fps, dtype="uint8")):
+        last_frame = os.path.join(out_dir, f"{base_name}-{i:0{num_digits}d}.{fmt}")
+        Image.fromarray(frame).convert("RGB").save(
+            last_frame, format=_save_format(fmt)
+        )
+    return last_frame
+
+
 class ImageConverter:
     def __init__(
         self, file_handler, prog_logger, event_logger, locale: str = "English"
@@ -293,7 +308,7 @@ class ImageConverter:
                 img_path = os.path.abspath(
                     os.path.join(
                         movie_out_dir,
-                        f"{movie_path_set[1]}-%{len(str(int(video.duration * video.fps)))}d.{format}",
+                        f"{movie_path_set[1]}-%0{len(str(int(video.duration * video.fps)))}d.{format}",
                     )
                 )
                 video.write_images_sequence(
@@ -336,16 +351,20 @@ class ImageConverter:
                     audio=False,
                     fps_source="tbr",
                 )
-                bmp_path = os.path.join(output, f"{movie_path_set[1]}.{format}")
-                # Split video into individual bmp frame images at original framerate
-                for _, frame in enumerate(
-                    video.iter_frames(fps=video.fps, dtype="uint8")
-                ):
-                    frame.save(
-                        f"{bmp_path}-%{len(str(int(video.duration * video.fps)))}d.{format}",
-                        format=format,
+                try:
+                    movie_bmp_out_dir = _safe_out_dir(
+                        os.path.join(movie_path_set[0], movie_path_set[1])
+                        if input == output
+                        else os.path.join(output, movie_path_set[1])
                     )
-                self.file_handler.post_process(movie_path_set, bmp_path, delete)
+                    # Split video into individual bmp frame images at original framerate
+                    bmp_frame_path = _save_clip_frames(
+                        video, movie_bmp_out_dir, movie_path_set[1], format
+                    )
+                finally:
+                    video.close()
+                if bmp_frame_path is not None:
+                    self.file_handler.post_process(movie_path_set, bmp_frame_path, delete)
             else:
                 self.event_logger.info(
                     f'[!] {lang.get_translation("skipping", self.locale)} "{self.file_handler.join_back(movie_path_set)}" - {lang.get_translation("audio_only_video", self.locale)}'
@@ -410,17 +429,17 @@ class ImageConverter:
                 continue
             elif image_path_set[2] == "gif":
                 clip = VideoFileClip(self.file_handler.join_back(image_path_set))
-                for _, frame in enumerate(
-                    clip.iter_frames(fps=clip.fps, dtype="uint8")
-                ):
-                    frame_path = os.path.join(
-                        output,
-                        f"{image_path_set[1]}-%{len(str(int(clip.duration * clip.fps)))}d.{format}",
+                try:
+                    gif_frame_out_dir = _safe_out_dir(
+                        os.path.abspath(os.path.join(output, image_path_set[1]))
                     )
-                    Image.fromarray(frame).convert("RGB").save(
-                        frame_path, format=format
+                    frame_path = _save_clip_frames(
+                        clip, gif_frame_out_dir, image_path_set[1], format
                     )
-                self.file_handler.post_process(image_path_set, frame_path, delete)
+                finally:
+                    clip.close()
+                if frame_path is not None:
+                    self.file_handler.post_process(image_path_set, frame_path, delete)
             else:
                 # Handle unsupported file types here
                 self.event_logger.info(
@@ -507,7 +526,7 @@ class ImageConverter:
                 img_path = os.path.abspath(
                     os.path.join(
                         webp_frame_out_dir,
-                        f"{movie_path_set[1]}-%{len(str(int(video.duration * video.fps)))}d.{format}",
+                        f"{movie_path_set[1]}-%0{len(str(int(video.duration * video.fps)))}d.{format}",
                     )
                 )
                 video.write_images_sequence(
@@ -579,17 +598,17 @@ class ImageConverter:
                 continue
             elif image_path_set[2] == "gif":
                 clip = VideoFileClip(self.file_handler.join_back(image_path_set))
-                for _, frame in enumerate(
-                    clip.iter_frames(fps=clip.fps, dtype="uint8")
-                ):
-                    frame_path = os.path.join(
-                        output,
-                        f"{image_path_set[1]}-%{len(str(int(clip.duration * clip.fps)))}d.{format}",
+                try:
+                    gif_frame_out_dir = _safe_out_dir(
+                        os.path.abspath(os.path.join(output, image_path_set[1]))
                     )
-                    Image.fromarray(frame).convert("RGB").save(
-                        frame_path, format=format
+                    frame_path = _save_clip_frames(
+                        clip, gif_frame_out_dir, image_path_set[1], format
                     )
-                self.file_handler.post_process(image_path_set, frame_path, delete)
+                finally:
+                    clip.close()
+                if frame_path is not None:
+                    self.file_handler.post_process(image_path_set, frame_path, delete)
             else:
                 # Handle unsupported file types here
                 self.event_logger.info(
