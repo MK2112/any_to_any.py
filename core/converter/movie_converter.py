@@ -170,7 +170,9 @@ class MovieConverter:
                     )
                     audio = video.audio
                     if resolution is not None:
-                        video = video.resized(new_size=parse_resolution(resolution))
+                        resized = video.resized(new_size=parse_resolution(resolution))
+                        video.close()
+                        video = resized
                     video.write_videofile(
                         out_path_local,
                         fps=video.fps if framerate is None else framerate,
@@ -387,7 +389,9 @@ class MovieConverter:
                     fps_source="tbr",
                 )
                 if resolution is not None:
-                    video = video.resized(new_size=parse_resolution(resolution))
+                    resized = video.resized(new_size=parse_resolution(resolution))
+                    video.close()
+                    video = resized
                 try:
                     video.write_videofile(
                         out_path,

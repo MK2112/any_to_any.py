@@ -170,11 +170,19 @@ class FileHandler:
             raise
 
     def has_visuals(self, file_path_set: tuple) -> bool:
+        clip = None
         try:
-            VideoFileClip(self.join_back(file_path_set)).iter_frames()
+            clip = VideoFileClip(self.join_back(file_path_set))
+            clip.iter_frames()
             return True
         except Exception as _:
             pass
+        finally:
+            if clip is not None:
+                try:
+                    clip.close()
+                except Exception:
+                    pass
         return False
 
     def get_file_paths(
