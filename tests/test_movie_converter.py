@@ -275,3 +275,53 @@ def test_to_movie_gif_plus_png_and_jpg(mock_vfc, mock_converter):
             assert len(concat_args) == 2
             # GIF individual conversion still happens
             mock_vfc.assert_called_once()
+
+
+@patch("core.converter.movie_converter.office_to_frames")
+@patch("core.converter.movie_converter.ImageClip")
+@patch("core.converter.movie_converter.concatenate_videoclips")
+@patch("core.converter.movie_converter.shutil.rmtree")
+@patch("core.converter.movie_converter.os.makedirs")
+def test_to_movie_docx_frames_become_clips_case_insensitive(
+    mock_makedirs, mock_rmtree, mock_concat, mock_imageclip, mock_office,
+    mock_converter,
+):
+    mock_office.return_value = "/out/doc"
+    final_clip = MagicMock()
+    mock_concat.return_value = final_clip
+
+    with patch("core.converter.movie_converter.os.listdir") as mock_listdir:
+        mock_listdir.return_value = [
+            "doc-10.jpeg",
+            "doc-2.jpeg",
+            "doc-1.JPEG",
+            "notes.txt",
+        ]
+        mock_converter.to_movie(
+            input="in",
+            output="out",
+            recursive=False,
+            file_paths={
+                Category.IMAGE: [],
+                Category.MOVIE: [],
+                Category.DOCUMENT: [("dir", "doc", "docx")],
+            },
+            format="mp4",
+            framerate=24,
+            codec="libx264",
+            delete=True,
+        )
+
+    # .JPEG is matched case-insensitively and each frame is loaded as a clip
+    assert mock_imageclip.call_count == 3
+    loaded_paths = [c.args[0] for c in mock_imageclip.call_args_list]
+    assert loaded_paths == [
+        "/out/doc/doc-1.JPEG",
+        "/out/doc/doc-2.jpeg",
+        "/out/doc/doc-10.jpeg",
+    ]
+    concat_args = mock_concat.call_args[0][0]
+    assert len(concat_args) == 3
+    assert all(not isinstance(c, str) for c in concat_args)
+    final_clip.write_videofile.assert_called_once()
+    final_clip.close.assert_called_once()
