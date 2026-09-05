@@ -267,13 +267,15 @@ class ImageConverter:
                         f"{doc_path_set[1]}-%0{len(str(total_pages))}d.{format}",
                     )
                 )
+                img_file = None
                 for page_num in range(total_pages):
                     pix = pdf_document[page_num].get_pixmap()
                     img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
                     img_file = img_path_pattern % (page_num + 1)
                     img.save(img_file, _save_format(format))
                 pdf_document.close()
-                self.file_handler.post_process(doc_path_set, img_path_pattern, delete)
+                if img_file is not None:
+                    self.file_handler.post_process(doc_path_set, img_file, delete)
 
         # Audio cant be image-framed, movies certrainly can
         def _movie_to_frames(movie_path_set: tuple):
@@ -311,10 +313,12 @@ class ImageConverter:
                         f"{movie_path_set[1]}-%0{len(str(int(video.duration * video.fps)))}d.{format}",
                     )
                 )
-                video.write_images_sequence(
+                frame_names = video.write_images_sequence(
                     img_path, fps=video.fps, logger=self.prog_logger
                 )
-                return (movie_path_set, img_path)
+                return (
+                    (movie_path_set, frame_names[-1]) if frame_names else None
+                )
             finally:
                 video.close()
 
@@ -529,11 +533,14 @@ class ImageConverter:
                         f"{movie_path_set[1]}-%0{len(str(int(video.duration * video.fps)))}d.{format}",
                     )
                 )
-                video.write_images_sequence(
+                frame_names = video.write_images_sequence(
                     img_path, fps=video.fps, logger=self.prog_logger
                 )
                 video.close()
-                self.file_handler.post_process(movie_path_set, img_path, delete)
+                if frame_names:
+                    self.file_handler.post_process(
+                        movie_path_set, frame_names[-1], delete
+                    )
             else:
                 self.event_logger.info(
                     f'[!] {lang.get_translation("skipping", self.locale)} "{self.file_handler.join_back(movie_path_set)}" - {lang.get_translation("audio_only_video", self.locale)}'

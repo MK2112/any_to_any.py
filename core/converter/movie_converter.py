@@ -26,6 +26,15 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 
+def _sort_frame_filenames(filenames: list) -> list:
+    # Order extracted frame file names by the numeric index in their stem
+    def _key(filename: str) -> tuple:
+        index = os.path.splitext(filename)[0].rsplit("-", 1)[-1]
+        return (0, int(index)) if index.isdigit() else (1, filename)
+
+    return sorted(filenames, key=_key)
+
+
 class MovieConverter:
     def __init__(
         self, file_handler, prog_logger, event_logger, locale: str = "English"
@@ -243,12 +252,19 @@ class MovieConverter:
                     pics = [
                         image
                         for image in os.listdir(frames_dir)
-                        if image.endswith(".jpeg")
+                        if image.lower().endswith(".jpeg")
                     ]
                 except OSError:
                     pics = []
+                pics = _sort_frame_filenames(pics)
                 if len(pics) > 0:
-                    final_clip = concatenate_videoclips(pics, method="compose")
+                    image_clips = [
+                        ImageClip(os.path.join(frames_dir, pic)).with_duration(
+                            (1 / framerate) if framerate is not None else 1 / 24
+                        )
+                        for pic in pics
+                    ]
+                    final_clip = concatenate_videoclips(image_clips, method="compose")
                     out_path = self.file_handler._resolve_output_file_conflict(
                         os.path.abspath(
                             os.path.join(output, f"{doc_path_set[1]}.{format}")
