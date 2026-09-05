@@ -881,14 +881,14 @@ class ImageConverter:
                     ):
                         self.prog_logger.bars_callback("video_gif", "index", i, i - 1)
 
+                    video.close()
+                    self.file_handler.post_process(movie_path_set, gif_path, delete)
                 except Exception as e:
                     if hasattr(self, "prog_logger"):
                         self.prog_logger.log(
                             f"Error converting video {movie_path_set} to GIF: {str(e)}"
                         )
                     raise  # Maintain original error handling
-                video.close()
-                self.file_handler.post_process(movie_path_set, gif_path, delete)
             else:
                 self.event_logger.info(
                     f'[!] {lang.get_translation("skipping", self.locale)} "{self.file_handler.join_back(movie_path_set)}" - {lang.get_translation("audio_only_video", self.locale)}'
@@ -912,7 +912,7 @@ class ImageConverter:
                         gif_path,
                         save_all=True,
                         append_images=images[1:],
-                        duration=(len(images) * 1000 // len(doc))
+                        duration=(len(images) * 1000 // len(images))
                         // (12 if framerate is None else framerate),
                         loop=0,
                     )
@@ -929,7 +929,7 @@ class ImageConverter:
                     doc = docx.Document(input_path)
                     for rel in doc.part.rels.values():
                         if "image" in rel.reltype:
-                            img = Image.open(rel.target_part.blob)
+                            img = Image.open(BytesIO(rel.target_part.blob))
                             images.append(img.convert("RGB"))
                     frame_count = len(doc.paragraphs) or 1
                 else:
