@@ -137,6 +137,59 @@ def test_to_protocol_hls(mock_run, mock_converter):
     mock_converter.file_handler.post_process.assert_called()
 
 
+@patch("core.converter.movie_converter.subprocess.run")
+def test_to_protocol_hls_master_playlist(mock_run, mock_converter, tmp_path):
+    # master.m3u8 must reference each real rendition playlist, BANDWIDTH must include audio, ffmpeg must not block overwriting
+    movie = ("dir", "sample", "mp4")
+    mock_converter.file_handler.join_back.return_value = "dir/sample.mp4"
+    mock_run.return_value = MagicMock(stdout="ok", stderr="")
+
+    mock_converter.to_protocol(
+        output=str(tmp_path),
+        file_paths={Category.MOVIE: [movie]},
+        supported_formats={Category.PROTOCOLS: {"hls": True}},
+        protocol=["hls"],
+        delete=False,
+    )
+
+    master = tmp_path / "mp4_hls" / "master.m3u8"
+    assert master.exists()
+    content = master.read_text()
+    assert "426x240/426x240.m3u8" in content
+    assert "1920x1080/1920x1080.m3u8" in content
+    # 426x240 rung: 400k video + 64k audio = 464000 b/s
+    assert "#EXT-X-STREAM-INF:BANDWIDTH=464000,RESOLUTION=426x240" in content
+    cmd = mock_run.call_args[0][0]
+    assert "-y" in cmd
+    assert "0:a?" in cmd
+
+
+@patch("core.converter.movie_converter.subprocess.run")
+def test_to_protocol_hls_resolution_single_rendition(
+    mock_run, mock_converter, tmp_path
+):
+    # --resolution narrows the HLS ladder to the matching rung only
+    movie = ("dir", "sample", "mp4")
+    mock_converter.file_handler.join_back.return_value = "dir/sample.mp4"
+    mock_run.return_value = MagicMock(stdout="ok", stderr="")
+
+    mock_converter.to_protocol(
+        output=str(tmp_path),
+        file_paths={Category.MOVIE: [movie]},
+        supported_formats={Category.PROTOCOLS: {"hls": True}},
+        protocol=["hls"],
+        resolution="1280x720",
+        delete=False,
+    )
+
+    master = tmp_path / "mp4_hls" / "master.m3u8"
+    assert master.exists()
+    content = master.read_text()
+    assert "1280x720/1280x720.m3u8" in content
+    assert "426x240" not in content
+    assert "1920x1080" not in content
+
+
 @patch("core.converter.movie_converter.subprocess.run", side_effect=Exception("fail"))
 def test_to_protocol_dash_fails(mock_run, mock_converter):
     movie = ("dir", "video", "mp4")

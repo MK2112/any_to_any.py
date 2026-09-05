@@ -439,6 +439,7 @@ class MovieConverter:
         supported_formats: dict,  # self._supported_formats
         protocol: list,
         delete: bool,
+        resolution: str = None,
     ) -> None:
         # Convert movie files into adaptive streaming formats HLS (.m3u8) or DASH (.mpd).
         if protocol[0] not in list(supported_formats[Category.PROTOCOLS].keys()):
@@ -466,6 +467,8 @@ class MovieConverter:
                     ("1280x720", "2800k", "128k"),
                     ("1920x1080", "5000k", "192k"),
                 ]
+                if resolution is not None:
+                    renditions = [r for r in renditions if r[0] == resolution]
                 variant_playlist = "#EXTM3U\n"
                 cmd = ["ffmpeg", "-y", "-i", input_file]
 
@@ -484,7 +487,7 @@ class MovieConverter:
                         "-map",
                         "0:v:0",
                         "-map",
-                        "0:a:0",
+                        "0:a?",
                         "-c:v",
                         "h264",
                         "-b:v",
@@ -510,7 +513,7 @@ class MovieConverter:
                         ),
                     ]
                     cmd += stream
-                    variant_playlist += f"#EXT-X-STREAM-INF:BANDWIDTH={int(v_bitrate[:-1]) * 1000},RESOLUTION={resolution}\n{i}.m3u8\n"
+                    variant_playlist += f"#EXT-X-STREAM-INF:BANDWIDTH={(int(v_bitrate[:-1]) + int(a_bitrate[:-1])) * 1000},RESOLUTION={resolution}\n{resolution}/{resolution}.m3u8\n"
                 self.event_logger.info(
                     f"[>] {lang.get_translation('get_hls_master', self.locale)} {self.file_handler.join_back(movie_path_set)}"
                 )

@@ -751,6 +751,7 @@ class Controller:
                     self.target_format
                 ],
                 delete=self.delete,
+                resolution=self.resolution,
             )
         elif self.page_ranges is not None:
             self.split(file_paths, self.page_ranges)
