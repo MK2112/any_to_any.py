@@ -38,6 +38,19 @@ def _save_format(format: str) -> str:
     return format.upper()
 
 
+def _write_office_frame(img_bytes: bytes, out_path: str, format: str) -> None:
+    target = _save_format(format)
+    try:
+        with Image.open(BytesIO(img_bytes)) as img:
+            if img.format != target:
+                img.convert("RGB").save(out_path, format=target)
+                return
+    except Exception:
+        pass
+    with open(out_path, "wb") as f:
+        f.write(img_bytes)
+
+
 def office_to_frames(
     doc_path_set: tuple,
     format: str,
@@ -60,8 +73,7 @@ def office_to_frames(
                 if "image" in rel.reltype:
                     img_bytes = rel.target_part.blob
                     out_path = os.path.join(out_dir, f"{doc_path_set[1]}-{i}.{format}")
-                    with open(out_path, "wb") as f:
-                        f.write(img_bytes)
+                    _write_office_frame(img_bytes, out_path, format)
             if out_path is not None:
                 file_handler.post_process(doc_path_set, out_path, delete)
         elif doc_path_set[2] == "pptx":
@@ -75,8 +87,7 @@ def office_to_frames(
                         out_path = os.path.join(
                             out_dir, f"{doc_path_set[1]}-{img_count}.{format}"
                         )
-                        with open(out_path, "wb") as f:
-                            f.write(img_bytes)
+                        _write_office_frame(img_bytes, out_path, format)
                         img_count += 1
             if out_path is not None:
                 file_handler.post_process(doc_path_set, out_path, delete)
