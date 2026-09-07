@@ -119,4 +119,8 @@ BURMESE = {
     "resize_only": "အရွယ်အစားသာ ပြောင်းလဲရန်",
     "resolution_required": "အရွယ်အစားပြောင်းလဲရန် ရုပ်ထွက်အရည်အသွေးကို ရွေးချယ်ပါ။",
     "resize_only_movies_required": "အရွယ်အစားသာ ပြောင်းလဲရန် အပ်လုဒ်လုပ်ထားသော ဗီဒီယိုဖိုင်များ လိုအပ်ပါသည်။",
+    "metadata_label": "မက်တာဒေတာ",
+    "update_available_title": "အပ်ဒိတ်ရရှိနိုင်ပါပြီ",
+    "update_available_text": "ဗားရှင်း [latest] ကို GitHub တွင် ရရှိနိုင်ပါပြီ။",
+    "update_available_info": "လက်ရှိတွင် ဗားရှင်း [current] ကို အသုံးပြုနေပါသည်။ Release စာမျက်နှာသို့ သွားလိုပါသလား။",
 }

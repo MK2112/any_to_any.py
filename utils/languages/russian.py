@@ -119,4 +119,8 @@ RUSSIAN = {
     "resize_only": "Только изменить размер",
     "resolution_required": "Выберите разрешение для изменения размера.",
     "resize_only_movies_required": "Для изменения только размера необходимо загрузить видеофайлы.",
+    "metadata_label": "Метаданные",
+    "update_available_title": "Доступно обновление",
+    "update_available_text": "Версия [latest] доступна на GitHub.",
+    "update_available_info": "Вы используете версию [current]. Хотите перейти на страницу релизов?",
 }

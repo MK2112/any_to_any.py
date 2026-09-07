@@ -119,4 +119,8 @@ VIETNAMESE = {
     "resize_only": "Chỉ thay đổi kích thước",
     "resolution_required": "Chọn độ phân giải để thay đổi kích thước.",
     "resize_only_movies_required": "Chỉ thay đổi kích thước yêu cầu các tệp video đã tải lên.",
+    "metadata_label": "Siêu dữ liệu",
+    "update_available_title": "Có bản cập nhật",
+    "update_available_text": "Phiên bản [latest] hiện có trên GitHub.",
+    "update_available_info": "Bạn đang sử dụng phiên bản [current]. Bạn có muốn truy cập trang bản phát hành không?",
 }

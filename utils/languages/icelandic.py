@@ -119,4 +119,8 @@ ICELANDIC = {
     "resize_only": "Aðeins breyta stærð",
     "resolution_required": "Veldu upplausn til að breyta stærð.",
     "resize_only_movies_required": "Aðeins stærðarbreyting krefst upphlaðinna myndbandaskráa.",
+    "metadata_label": "Lýsigögn",
+    "update_available_title": "Uppfærsla í boði",
+    "update_available_text": "Útgáfa [latest] er í boði á GitHub.",
+    "update_available_info": "Þú ert að nota útgáfu [current]. Viltu fara á útgáfusíðuna?",
 }

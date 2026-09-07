@@ -119,4 +119,8 @@ MALAY = {
     "resize_only": "Ubah saiz sahaja",
     "resolution_required": "Pilih resolusi untuk diubah saiz.",
     "resize_only_movies_required": "Ubah saiz sahaja memerlukan fail video yang dimuat naik.",
+    "metadata_label": "Metadata",
+    "update_available_title": "Kemas Kini Tersedia",
+    "update_available_text": "Versi [latest] tersedia di GitHub.",
+    "update_available_info": "Anda sedang menggunakan versi [current]. Adakah anda ingin melawat halaman keluaran?",
 }

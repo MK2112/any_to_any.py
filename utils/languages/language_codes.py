@@ -39,7 +39,7 @@ LANGUAGE_CODES = {
     "ur_PK": "Urdu",
     "sw_TZ": "Swahili",
     "sw_KE": "Swahili",
-    "pa_IN": "Punjabi (India)",
+    "pa_IN": "Punjabi (Indian)",
     "pa_PK": "Punjabi (Pakistan)",
     "tl_PH": "Tagalog",
     "my_MM": "Burmese",

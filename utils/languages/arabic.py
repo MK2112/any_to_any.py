@@ -119,4 +119,8 @@ ARABIC = {
     "resize_only": "تغيير الحجم فقط",
     "resolution_required": "حدد دقة لتغيير حجمها.",
     "resize_only_movies_required": "يتطلب تغيير الحجم فقط ملفات فيديو مرفوعة.",
+    "metadata_label": "البيانات الوصفية",
+    "update_available_title": "يتوفر تحديث",
+    "update_available_text": "الإصدار [latest] متاح على GitHub.",
+    "update_available_info": "أنت تستخدم الإصدار [current]. هل ترغب في زيارة صفحة الإصدارات؟",
 }

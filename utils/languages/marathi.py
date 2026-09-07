@@ -119,4 +119,8 @@ MARATHI = {
     "resize_only": "फक्त आकार बदला",
     "resolution_required": "आकार बदलण्यासाठी रिझोल्यूशन निवडा.",
     "resize_only_movies_required": "फक्त आकार बदलण्यासाठी अपलोड केलेल्या व्हिडिओ फाइल्स आवश्यक आहेत.",
+    "metadata_label": "मेटाडेटा",
+    "update_available_title": "अपडेट उपलब्ध आहे",
+    "update_available_text": "आवृत्ती [latest] GitHub वर उपलब्ध आहे.",
+    "update_available_info": "तुम्ही सध्या [current] आवृत्ती वापरत आहात. तुम्हाला रिलीज पेजला भेट द्यायची आहे का?",
 }

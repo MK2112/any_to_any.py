@@ -119,4 +119,8 @@ CZECH = {
     "resize_only": "Pouze změnit velikost",
     "resolution_required": "Vyberte rozlišení pro změnu velikosti.",
     "resize_only_movies_required": "Pouze změna velikosti vyžaduje nahrané videosoubory.",
+    "metadata_label": "Metadata",
+    "update_available_title": "Je k dispozici aktualizace",
+    "update_available_text": "Verze [latest] je k dispozici na GitHubu.",
+    "update_available_info": "Používáte verzi [current]. Chcete navštívit stránku s vydáními?",
 }

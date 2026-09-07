@@ -119,4 +119,8 @@ SLOVAK = {
     "resize_only": "Iba zmeniť veľkosť",
     "resolution_required": "Vyberte rozlíšenie, na ktoré chcete zmeniť veľkosť.",
     "resize_only_movies_required": "Iba zmena veľkosti vyžaduje nahrané videosúbory.",
+    "metadata_label": "Metadáta",
+    "update_available_title": "Je k dispozícii aktualizácia",
+    "update_available_text": "Verzia [latest] je dostupná na GitHube.",
+    "update_available_info": "Používate verziu [current]. Chcete navštíviť stránku vydaní?",
 }

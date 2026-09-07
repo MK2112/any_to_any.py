@@ -119,4 +119,8 @@ URDU = {
     "resize_only": "صرف سائز تبدیل کریں",
     "resolution_required": "سائز تبدیل کرنے کے لیے ریزولوشن منتخب کریں۔",
     "resize_only_movies_required": "صرف سائز تبدیل کرنے کے لیے اپ لوڈ کردہ ویڈیو فائلیں درکار ہیں۔",
+    "metadata_label": "میٹا ڈیٹا",
+    "update_available_title": "اپ ڈیٹ دستیاب ہے",
+    "update_available_text": "ورژن [latest] GitHub پر دستیاب ہے۔",
+    "update_available_info": "آپ اس وقت ورژن [current] استعمال کر رہے ہیں۔ کیا آپ ریلیز پیج پر جانا چاہیں گے؟",
 }

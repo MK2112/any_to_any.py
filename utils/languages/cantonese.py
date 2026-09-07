@@ -119,4 +119,8 @@ CANTONESE = {
     "resize_only": "只調整大小",
     "resolution_required": "請選擇要調整大小嘅解像度。",
     "resize_only_movies_required": "只調整大小需要上載影片檔案。",
+    "metadata_label": "中繼資料",
+    "update_available_title": "有更新可用",
+    "update_available_text": "GitHub 而家有 [latest] 版本可以用。",
+    "update_available_info": "你而家用緊 [current] 版本。要唔要去發佈頁面睇下？",
 }

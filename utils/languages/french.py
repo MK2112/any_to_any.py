@@ -119,4 +119,8 @@ FRENCH = {
     "resize_only": "Redimensionner uniquement",
     "resolution_required": "Sélectionnez une résolution à redimensionner.",
     "resize_only_movies_required": "Le redimensionnement uniquement nécessite des fichiers vidéo importés.",
+    "metadata_label": "Métadonnées",
+    "update_available_title": "Mise à jour disponible",
+    "update_available_text": "La version [latest] est disponible sur GitHub.",
+    "update_available_info": "Vous utilisez actuellement la version [current]. Voulez-vous consulter la page des versions ?",
 }

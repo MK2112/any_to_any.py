@@ -119,4 +119,8 @@ TAMIL = {
     "resize_only": "அளவை மட்டும் மாற்றவும்",
     "resolution_required": "அளவை மாற்ற தெளிவுத்திறனைத் தேர்ந்தெடுக்கவும்.",
     "resize_only_movies_required": "அளவை மட்டும் மாற்ற பதிவேற்றப்பட்ட வீடியோ கோப்புகள் தேவை.",
+    "metadata_label": "மெட்டாடேட்டா",
+    "update_available_title": "புதுப்பிப்பு உள்ளது",
+    "update_available_text": "[latest] பதிப்பு GitHub-ல் கிடைக்கிறது.",
+    "update_available_info": "நீங்கள் தற்போது [current] பதிப்பைப் பயன்படுத்துகிறீர்கள். வெளியீடுகள் பக்கத்தைப் பார்வையிட விரும்புகிறீர்களா?",
 }

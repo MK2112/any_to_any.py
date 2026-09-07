@@ -119,4 +119,8 @@ DANISH = {
     "resize_only": "Skift kun størrelse",
     "resolution_required": "Vælg en opløsning, der skal ændres til.",
     "resize_only_movies_required": "Ændring af størrelse kræver uploadede videofiler.",
+    "metadata_label": "Metadata",
+    "update_available_title": "Opdatering tilgængelig",
+    "update_available_text": "Version [latest] er tilgængelig på GitHub.",
+    "update_available_info": "Du kører i øjeblikket version [current]. Vil du besøge versionssiden?",
 }

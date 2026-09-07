@@ -119,4 +119,8 @@ TAGALOG = {
     "resize_only": "Baguhin lang ang laki",
     "resolution_required": "Pumili ng resolusyon na babaguhin ang laki.",
     "resize_only_movies_required": "Ang pagbabago lang ng laki ay nangangailangan ng mga na-upload na video file.",
+    "metadata_label": "Metadata",
+    "update_available_title": "May Available na Update",
+    "update_available_text": "Available sa GitHub ang bersyon [latest].",
+    "update_available_info": "Ginagamit mo ngayon ang bersyon [current]. Gusto mo bang bisitahin ang releases page?",
 }

@@ -119,4 +119,8 @@ DUTCH = {
     "resize_only": "Alleen formaat wijzigen",
     "resolution_required": "Selecteer een resolutie om het formaat te wijzigen.",
     "resize_only_movies_required": "Alleen het formaat wijzigen vereist geüploade videobestanden.",
+    "metadata_label": "Metagegevens",
+    "update_available_title": "Update beschikbaar",
+    "update_available_text": "Versie [latest] is beschikbaar op GitHub.",
+    "update_available_info": "U gebruikt momenteel versie [current]. Wilt u de releasepagina bezoeken?",
 }

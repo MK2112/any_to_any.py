@@ -119,4 +119,8 @@ MANDARIN_TRADITIONAL = {
     "resize_only": "僅調整大小",
     "resolution_required": "請選擇要調整大小的解析度。",
     "resize_only_movies_required": "僅調整大小需要上傳影片檔案。",
+    "metadata_label": "中繼資料",
+    "update_available_title": "有可用的更新",
+    "update_available_text": "GitHub 上已有 [latest] 版本可用。",
+    "update_available_info": "您目前正在使用 [current] 版本。要前往發行頁面嗎？",
 }

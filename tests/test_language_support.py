@@ -5,6 +5,9 @@ import utils.language_support as lang
 
 def test_get_system_language_handles_none_locale(monkeypatch):
     monkeypatch.setattr(lang.locale, "getlocale", lambda: (None, None))
+    monkeypatch.setattr(lang.locale, "getdefaultlocale", lambda: (None, None))
+    for var in ("LANGUAGE", "LC_ALL", "LC_MESSAGES", "LANG"):
+        monkeypatch.delenv(var, raising=False)
     assert lang.get_system_language() == "English"
 
 

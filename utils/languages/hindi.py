@@ -119,4 +119,8 @@ HINDI = {
     "resize_only": "केवल आकार बदलें",
     "resolution_required": "आकार बदलने के लिए रिज़ॉल्यूशन चुनें।",
     "resize_only_movies_required": "केवल आकार बदलने के लिए अपलोड की गई वीडियो फ़ाइलें आवश्यक हैं।",
+    "metadata_label": "मेटाडेटा",
+    "update_available_title": "अपडेट उपलब्ध है",
+    "update_available_text": "संस्करण [latest] GitHub पर उपलब्ध है।",
+    "update_available_info": "आप वर्तमान में संस्करण [current] चला रहे हैं। क्या आप रिलीज़ पेज पर जाना चाहेंगे?",
 }

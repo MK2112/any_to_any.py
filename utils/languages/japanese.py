@@ -119,4 +119,8 @@ JAPANESE = {
     "resize_only": "サイズ変更のみ",
     "resolution_required": "サイズ変更する解像度を選択してください。",
     "resize_only_movies_required": "サイズ変更のみを使用するには、動画ファイルをアップロードしてください。",
+    "metadata_label": "メタデータ",
+    "update_available_title": "アップデートがあります",
+    "update_available_text": "GitHub でバージョン [latest] が利用可能です。",
+    "update_available_info": "現在 [current] を実行しています。リリースページに移動しますか？",
 }

@@ -119,4 +119,8 @@ CROATIAN = {
     "resize_only": "Samo promijeni veličinu",
     "resolution_required": "Odaberite razlučivost za promjenu veličine.",
     "resize_only_movies_required": "Samo promjena veličine zahtijeva učitane videodatoteke.",
+    "metadata_label": "Metapodaci",
+    "update_available_title": "Dostupno ažuriranje",
+    "update_available_text": "Verzija [latest] dostupna je na GitHubu.",
+    "update_available_info": "Trenutačno koristite verziju [current]. Želite li posjetiti stranicu izdanja?",
 }

@@ -119,4 +119,8 @@ GREEK = {
     "resize_only": "Αλλαγή μεγέθους μόνο",
     "resolution_required": "Επιλέξτε ανάλυση για αλλαγή μεγέθους.",
     "resize_only_movies_required": "Η αλλαγή μεγέθους απαιτεί μεταφορτωμένα αρχεία βίντεο.",
+    "metadata_label": "Μεταδεδομένα",
+    "update_available_title": "Διαθέσιμη ενημέρωση",
+    "update_available_text": "Η έκδοση [latest] είναι διαθέσιμη στο GitHub.",
+    "update_available_info": "Χρησιμοποιείτε την έκδοση [current]. Θέλετε να επισκεφθείτε τη σελίδα εκδόσεων;",
 }

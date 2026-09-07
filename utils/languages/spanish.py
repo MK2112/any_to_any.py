@@ -119,4 +119,8 @@ SPANISH = {
     "resize_only": "Solo redimensionar",
     "resolution_required": "Selecciona una resolución para redimensionar.",
     "resize_only_movies_required": "El redimensionamiento únicamente requiere archivos de vídeo subidos.",
+    "metadata_label": "Metadatos",
+    "update_available_title": "Actualización disponible",
+    "update_available_text": "La versión [latest] está disponible en GitHub.",
+    "update_available_info": "Estás usando la versión [current]. ¿Quieres visitar la página de versiones?",
 }

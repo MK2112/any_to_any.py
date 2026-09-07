@@ -119,4 +119,8 @@ PUNJABI_INDIAN = {
     "resize_only": "ਸਿਰਫ਼ ਆਕਾਰ ਬਦਲੋ",
     "resolution_required": "ਆਕਾਰ ਬਦਲਣ ਲਈ ਰੈਜ਼ੋਲਿਊਸ਼ਨ ਚੁਣੋ।",
     "resize_only_movies_required": "ਸਿਰਫ਼ ਆਕਾਰ ਬਦਲਣ ਲਈ ਅੱਪਲੋਡ ਕੀਤੀਆਂ ਵੀਡੀਓ ਫ਼ਾਈਲਾਂ ਲੋੜੀਂਦੀਆਂ ਹਨ।",
+    "metadata_label": "ਮੈਟਾਡਾਟਾ",
+    "update_available_title": "ਅੱਪਡੇਟ ਉਪਲਬਧ ਹੈ",
+    "update_available_text": "ਵਰਜਨ [latest] GitHub 'ਤੇ ਉਪਲਬਧ ਹੈ।",
+    "update_available_info": "ਤੁਸੀਂ ਇਸ ਵੇਲੇ ਵਰਜਨ [current] ਚਲਾ ਰਹੇ ਹੋ। ਕੀ ਤੁਸੀਂ ਰਿਲੀਜ਼ ਪੇਜ 'ਤੇ ਜਾਣਾ ਚਾਹੋਗੇ?",
 }

@@ -119,4 +119,8 @@ BULGARIAN = {
     "resize_only": "Само промяна на размера",
     "resolution_required": "Изберете разделителна способност за промяна на размера.",
     "resize_only_movies_required": "Само промяната на размера изисква качени видеофайлове.",
+    "metadata_label": "Метаданни",
+    "update_available_title": "Налична е актуализация",
+    "update_available_text": "Версия [latest] е налична в GitHub.",
+    "update_available_info": "Използвате версия [current]. Искате ли да посетите страницата с изданията?",
 }

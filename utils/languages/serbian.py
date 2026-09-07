@@ -119,4 +119,8 @@ SERBIAN = {
     "resize_only": "Samo promeni veličinu",
     "resolution_required": "Izaberite rezoluciju za promenu veličine.",
     "resize_only_movies_required": "Samo promena veličine zahteva otpremljene video datoteke.",
+    "metadata_label": "Metapodaci",
+    "update_available_title": "Dostupno ažuriranje",
+    "update_available_text": "Verzija [latest] je dostupna na GitHubu.",
+    "update_available_info": "Trenutno koristite verziju [current]. Želite li posetiti stranicu izdanja?",
 }

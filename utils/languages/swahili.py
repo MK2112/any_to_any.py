@@ -119,4 +119,8 @@ SWAHILI = {
     "resize_only": "Badilisha ukubwa pekee",
     "resolution_required": "Chagua azimio la kubadilisha ukubwa.",
     "resize_only_movies_required": "Kubadilisha ukubwa pekee kunahitaji faili za video zilizopakiwa.",
+    "metadata_label": "Metadata",
+    "update_available_title": "Sasisho Linapatikana",
+    "update_available_text": "Toleo la [latest] linapatikana kwenye GitHub.",
+    "update_available_info": "Unatumia toleo la [current]. Je, ungependa kutembelea ukurasa wa matoleo?",
 }

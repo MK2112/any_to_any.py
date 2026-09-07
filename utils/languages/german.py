@@ -119,4 +119,8 @@ GERMAN = {
     "resize_only": "Nur Größe ändern",
     "resolution_required": "Wählen Sie eine Auflösung aus.",
     "resize_only_movies_required": "Für „Nur Größe ändern“ müssen Videodateien hochgeladen sein.",
+    "metadata_label": "Metadaten",
+    "update_available_title": "Update verfügbar",
+    "update_available_text": "Version [latest] ist auf GitHub verfügbar.",
+    "update_available_info": "Sie verwenden derzeit Version [current]. Möchten Sie die Release-Seite aufrufen?",
 }

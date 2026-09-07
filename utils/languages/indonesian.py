@@ -119,4 +119,8 @@ INDONESIAN = {
     "resize_only": "Hanya ubah ukuran",
     "resolution_required": "Pilih resolusi untuk diubah ukurannya.",
     "resize_only_movies_required": "Hanya ubah ukuran memerlukan file video yang diunggah.",
+    "metadata_label": "Metadata",
+    "update_available_title": "Pembaruan Tersedia",
+    "update_available_text": "Versi [latest] tersedia di GitHub.",
+    "update_available_info": "Anda sedang menggunakan versi [current]. Apakah Anda ingin mengunjungi halaman rilis?",
 }

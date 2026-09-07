@@ -119,4 +119,8 @@ ROMANIAN = {
     "resize_only": "Doar redimensionare",
     "resolution_required": "Selectează o rezoluție pentru redimensionare.",
     "resize_only_movies_required": "Redimensionarea necesită fișiere video încărcate.",
+    "metadata_label": "Metadate",
+    "update_available_title": "Actualizare disponibilă",
+    "update_available_text": "Versiunea [latest] este disponibilă pe GitHub.",
+    "update_available_info": "Folosiți versiunea [current]. Doriți să vizitați pagina versiunilor?",
 }

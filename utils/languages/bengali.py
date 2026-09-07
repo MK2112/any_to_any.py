@@ -119,4 +119,8 @@ BENGALI = {
     "resize_only": "শুধু আকার পরিবর্তন করুন",
     "resolution_required": "আকার পরিবর্তনের জন্য একটি রেজোলিউশন নির্বাচন করুন।",
     "resize_only_movies_required": "শুধু আকার পরিবর্তনের জন্য আপলোড করা ভিডিও ফাইল প্রয়োজন।",
+    "metadata_label": "মেটাডেটা",
+    "update_available_title": "আপডেট উপলভ্য",
+    "update_available_text": "[latest] সংস্করণটি GitHub-এ উপলভ্য।",
+    "update_available_info": "আপনি বর্তমানে [current] সংস্করণটি ব্যবহার করছেন। আপনি কি রিলিজ পেজে যেতে চান?",
 }

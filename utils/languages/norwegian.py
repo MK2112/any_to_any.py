@@ -119,4 +119,8 @@ NORWEGIAN = {
     "resize_only": "Endre størrelse",
     "resolution_required": "Velg en oppløsning som skal endres.",
     "resize_only_movies_required": "Endring av størrelse krever opplastede videofiler.",
+    "metadata_label": "Metadata",
+    "update_available_title": "Oppdatering tilgjengelig",
+    "update_available_text": "Versjon [latest] er tilgjengelig på GitHub.",
+    "update_available_info": "Du kjører for øyeblikket versjon [current]. Vil du besøke utgivelsessiden?",
 }

@@ -119,4 +119,8 @@ FINNISH = {
     "resize_only": "Muuta vain kokoa",
     "resolution_required": "Valitse resoluutio, jonka kokoa muutetaan.",
     "resize_only_movies_required": "Pelkkä koon muuttaminen edellyttää ladattuja videotiedostoja.",
+    "metadata_label": "Metatiedot",
+    "update_available_title": "Päivitys saatavilla",
+    "update_available_text": "Versio [latest] on saatavilla GitHubissa.",
+    "update_available_info": "Käytät tällä hetkellä versiota [current]. Haluatko siirtyä julkaisut-sivulle?",
 }

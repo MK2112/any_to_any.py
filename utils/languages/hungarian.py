@@ -119,4 +119,8 @@ HUNGARIAN = {
     "resize_only": "Csak átméretezés",
     "resolution_required": "Válasszon felbontást az átméretezéshez.",
     "resize_only_movies_required": "A csak átméretezés feltöltött videofájlokat igényel.",
+    "metadata_label": "Metaadatok",
+    "update_available_title": "Frissítés érhető el",
+    "update_available_text": "A [latest] verzió elérhető a GitHubon.",
+    "update_available_info": "Jelenleg a [current] verziót használja. Szeretné meglátogatni a kiadások oldalát?",
 }

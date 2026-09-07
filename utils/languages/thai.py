@@ -119,4 +119,8 @@ THAI = {
     "resize_only": "ปรับขนาดเท่านั้น",
     "resolution_required": "เลือกความละเอียดเพื่อปรับขนาด",
     "resize_only_movies_required": "การปรับขนาดเท่านั้นต้องใช้ไฟล์วิดีโอที่อัปโหลด",
+    "metadata_label": "ข้อมูลเมตา",
+    "update_available_title": "มีอัปเดต",
+    "update_available_text": "เวอร์ชัน [latest] พร้อมใช้งานบน GitHub",
+    "update_available_info": "ขณะนี้คุณกำลังใช้เวอร์ชัน [current] ต้องการไปที่หน้ารุ่นที่เผยแพร่หรือไม่?",
 }

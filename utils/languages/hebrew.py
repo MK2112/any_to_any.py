@@ -119,4 +119,8 @@ HEBREW = {
     "resize_only": "שינוי גודל בלבד",
     "resolution_required": "בחר רזולוציה לשינוי הגודל.",
     "resize_only_movies_required": "שינוי גודל בלבד דורש קובצי וידאו שהועלו.",
+    "metadata_label": "מטא-נתונים",
+    "update_available_title": "עדכון זמין",
+    "update_available_text": "גרסה [latest] זמינה ב-GitHub.",
+    "update_available_info": "אתה משתמש כעת בגרסה [current]. האם תרצה לבקר בדף הגרסאות?",
 }

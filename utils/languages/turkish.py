@@ -119,4 +119,8 @@ TURKISH = {
     "resize_only": "Yalnızca boyutlandır",
     "resolution_required": "Boyutlandırmak için bir çözünürlük seçin.",
     "resize_only_movies_required": "Yalnızca boyutlandırma, yüklenmiş video dosyaları gerektirir.",
+    "metadata_label": "Meta Veriler",
+    "update_available_title": "Güncelleme Mevcut",
+    "update_available_text": "[latest] sürümü GitHub'da mevcut.",
+    "update_available_info": "Şu anda [current] sürümünü kullanıyorsunuz. Sürümler sayfasını ziyaret etmek ister misiniz?",
 }

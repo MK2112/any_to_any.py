@@ -119,4 +119,8 @@ SWEDISH = {
     "resize_only": "Ändra endast storlek",
     "resolution_required": "Välj en upplösning att ändra storlek till.",
     "resize_only_movies_required": "Ändring av storlek kräver uppladdade videofiler.",
+    "metadata_label": "Metadata",
+    "update_available_title": "Uppdatering tillgänglig",
+    "update_available_text": "Version [latest] finns tillgänglig på GitHub.",
+    "update_available_info": "Du kör för närvarande version [current]. Vill du besöka versionssidan?",
 }

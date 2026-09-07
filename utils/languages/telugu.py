@@ -119,4 +119,8 @@ TELUGU = {
     "resize_only": "పరిమాణాన్ని మాత్రమే మార్చండి",
     "resolution_required": "పరిమాణం మార్చడానికి రిజల్యూషన్‌ను ఎంచుకోండి.",
     "resize_only_movies_required": "పరిమాణాన్ని మాత్రమే మార్చడానికి అప్‌లోడ్ చేసిన వీడియో ఫైళ్లు అవసరం.",
+    "metadata_label": "మెటాడేటా",
+    "update_available_title": "నవీకరణ అందుబాటులో ఉంది",
+    "update_available_text": "వెర్షన్ [latest] GitHubలో అందుబాటులో ఉంది.",
+    "update_available_info": "మీరు ప్రస్తుతం వెర్షన్ [current]ని ఉపయోగిస్తున్నారు. మీరు విడుదలల పేజీని సందర్శించాలనుకుంటున్నారా?",
 }

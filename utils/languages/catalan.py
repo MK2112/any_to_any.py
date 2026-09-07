@@ -119,4 +119,8 @@ CATALAN = {
     "resize_only": "Només canvia la mida",
     "resolution_required": "Selecciona una resolució per canviar la mida.",
     "resize_only_movies_required": "El canvi de mida requereix fitxers de vídeo pujats.",
+    "metadata_label": "Metadades",
+    "update_available_title": "Actualització disponible",
+    "update_available_text": "La versió [latest] està disponible a GitHub.",
+    "update_available_info": "Esteu utilitzant la versió [current]. Voleu visitar la pàgina de versions?",
 }

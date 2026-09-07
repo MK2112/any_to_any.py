@@ -119,4 +119,8 @@ KOREAN = {
     "resize_only": "크기만 변경",
     "resolution_required": "크기를 변경할 해상도를 선택하세요.",
     "resize_only_movies_required": "크기만 변경하려면 동영상 파일을 업로드해야 합니다.",
+    "metadata_label": "메타데이터",
+    "update_available_title": "업데이트 가능",
+    "update_available_text": "GitHub에서 버전 [latest]을(를) 사용할 수 있습니다.",
+    "update_available_info": "현재 버전 [current]을(를) 사용하고 있습니다. 릴리스 페이지로 이동하시겠습니까?",
 }

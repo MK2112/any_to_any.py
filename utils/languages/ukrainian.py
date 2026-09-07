@@ -119,4 +119,8 @@ UKRAINIAN = {
     "resize_only": "Лише змінити розмір",
     "resolution_required": "Виберіть роздільну здатність для зміни розміру.",
     "resize_only_movies_required": "Для зміни лише розміру потрібно завантажити відеофайли.",
+    "metadata_label": "Метадані",
+    "update_available_title": "Доступне оновлення",
+    "update_available_text": "Версія [latest] доступна на GitHub.",
+    "update_available_info": "Ви використовуєте версію [current]. Бажаєте перейти на сторінку релізів?",
 }

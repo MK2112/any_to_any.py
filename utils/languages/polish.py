@@ -119,4 +119,8 @@ POLISH = {
     "resize_only": "Tylko zmiana rozmiaru",
     "resolution_required": "Wybierz rozdzielczość do zmiany rozmiaru.",
     "resize_only_movies_required": "Opcja tylko zmiany rozmiaru wymaga przesłanych plików wideo.",
+    "metadata_label": "Metadane",
+    "update_available_title": "Dostępna aktualizacja",
+    "update_available_text": "Wersja [latest] jest dostępna na GitHubie.",
+    "update_available_info": "Korzystasz obecnie z wersji [current]. Czy chcesz przejść do strony wydań?",
 }

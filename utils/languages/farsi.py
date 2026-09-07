@@ -119,4 +119,8 @@ FARSI = {
     "resize_only": "فقط تغییر اندازه",
     "resolution_required": "وضوح تصویر موردنظر برای تغییر اندازه را انتخاب کنید.",
     "resize_only_movies_required": "تغییر اندازه فقط به فایل‌های ویدیویی بارگذاری‌شده نیاز دارد.",
+    "metadata_label": "فراداده",
+    "update_available_title": "به‌روزرسانی موجود است",
+    "update_available_text": "نسخه [latest] در GitHub در دسترس است.",
+    "update_available_info": "شما در حال استفاده از نسخه [current] هستید. آیا می‌خواهید از صفحه انتشار بازدید کنید؟",
 }
