@@ -1469,28 +1469,6 @@ any_to_any.py {VERSION}
 
 https://github.com/MK2112/any_to_any.py
 
-Features:
-- Drag-and-drop files or folders into the list
-- Select output format and destination directory
-- Pick a target resolution (movies/codecs/protocols only)
-- 'Keep original' + resolution resizes without changing formats
-- Split PDFs by page ranges, e.g. '1-3,8-end'
-- Set framerate (0 = auto), quality, and worker threads
-- Preserve or strip metadata (ID3 tags, EXIF, document properties)
-- Check merge/concatenate/recursive/delete options
-- Click Convert to start, Cancel to stop
-
-Options:
-- Framerate: Set target framerate (0 = keep original)
-- Quality: High/Medium/Low for audio bitrate
-- Workers: Parallel conversion threads (up to CPU count - 1)
-- Recursive: Include files from subfolders
-- Delete: Remove original files after conversion
-- Split Pages: Appears when PDF is the target; splits PDF inputs by page ranges
-- Resolution: Appears for movie targets; choices adapt to the selected format
-- Metadata: Default keeps output as-is, Preserve archives tags as JSON,
-  Strip removes metadata for privacy
-
 Keyboard shortcuts:
 - Ctrl+O: Add Files
 - Ctrl+Shift+A: Add Folder
