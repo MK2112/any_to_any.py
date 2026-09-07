@@ -9,7 +9,7 @@ import platform
 import threading
 import subprocess
 from pathlib import Path
-from PyQt6.QtCore import Qt, QObject, QThread, pyqtSignal, QTimer
+from PyQt6.QtCore import Qt, QObject, QThread, pyqtSignal, QTimer, QLocale
 from PyQt6.QtGui import QShortcut, QKeySequence, QIcon, QPixmap, QPainter, QColor
 from PyQt6.QtWidgets import (
     QApplication,
@@ -106,6 +106,29 @@ def tr_key(key, locale=None):
     if text is None:
         text = lang.TRANSLATIONS["English"].get(key, key)
     return text
+
+
+def get_gui_system_locale():
+    # Qt reads OS display language directly
+    # (Windows Settings, Linux desktop session),
+    # (more reliable at GUI startup than Python's locale),
+    # fallback to the stdlib/env detection otherwise
+    try:
+        qname = QLocale.system().name()
+        if qname:
+            resolved = lang.resolve_language_tag(qname)
+            if resolved:
+                return resolved
+        try:
+            for ui_lang in QLocale.system().uiLanguages():
+                resolved = lang.resolve_language_tag(ui_lang)
+                if resolved:
+                    return resolved
+        except Exception:
+            pass
+    except Exception:
+        pass
+    return lang.get_system_language()
 
 
 class UpdateCheckBridge(QObject):
@@ -327,7 +350,7 @@ class DropListWidget(QListWidget):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.controller = Controller(locale=lang.get_system_language(), is_web=True)
+        self.controller = Controller(locale=get_gui_system_locale(), is_web=True)
         self.locale = self.controller.locale
         self._file_paths_set = set()  # Performance: O(1) duplicate checking
         self.conversion_threads = {}
@@ -367,8 +390,6 @@ class MainWindow(QMainWindow):
             formats[cat_name] = sorted(list(mapping.keys()))
         return formats
 
-    # ---- Drag & drop -----------------------------------------------------
-
     @staticmethod
     def _expand_paths(paths):
         files_to_add = []
@@ -406,8 +427,6 @@ class MainWindow(QMainWindow):
         if files_to_add:
             self.add_files_batch(files_to_add)
         event.accept()
-
-    # ---- File list management -------------------------------------------
 
     def add_files_batch(self, files):
         # Aggregator: adds multiple files with a single UI update, skipping
@@ -491,8 +510,6 @@ class MainWindow(QMainWindow):
             )
             return
         self._open_file_location(output_dir)
-
-    # ---- Resolution support ---------------------------------------------
 
     def _resolution_ladder_for_target(self, target_format):
         # Allowed resolutions for a movie/codec/protocol target, largest first
@@ -579,8 +596,6 @@ class MainWindow(QMainWindow):
 
     def _on_format_changed(self):
         self._update_mode_dependent_ui()
-
-    # ---- UI construction --------------------------------------------------
 
     def init_ui(self):
         self.last_dir = str(Path.home())
@@ -818,8 +833,6 @@ class MainWindow(QMainWindow):
         # Initialize dependent controls once everything exists
         self._update_mode_dependent_ui()
 
-    # ---- File actions -----------------------------------------------------
-
     def clear_all_files(self):
         self.file_list.clear()
         self._file_paths_set.clear()
@@ -992,8 +1005,6 @@ class MainWindow(QMainWindow):
             self._update_file_count()
             self._update_mode_dependent_ui()
 
-    # ---- Split helpers ----------------------------------------------------
-
     @staticmethod
     def _is_valid_split_pattern(pattern):
         # Mirrors the backend's page-range grammar ('1-3,8-end', 'rest', also
@@ -1013,8 +1024,6 @@ class MainWindow(QMainWindow):
             if end_token.isdigit() and int(end_token) < int(match.group(1)):
                 return False
         return True
-
-    # ---- Conversion -------------------------------------------------------
 
     def start_conversion(self):
         if self.current_thread is not None and self.current_thread.isRunning():
@@ -1400,12 +1409,15 @@ def main():
     update_bridge = UpdateCheckBridge()
 
     def prompt_update(latest):
+        locale = window.locale
         msg = QMessageBox()
         msg.setIcon(QMessageBox.Icon.Information)
-        msg.setWindowTitle("Update Available")
-        msg.setText(f"Version {latest} is available on GitHub.")
+        msg.setWindowTitle(tr_key("update_available_title", locale))
+        msg.setText(
+            tr_key("update_available_text", locale).replace("[latest]", latest)
+        )
         msg.setInformativeText(
-            f"You are running version {VERSION}. Would you like to visit the releases page?"
+            tr_key("update_available_info", locale).replace("[current]", VERSION)
         )
         msg.setStandardButtons(
             QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel
