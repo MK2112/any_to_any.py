@@ -151,7 +151,14 @@ class MovieConverter:
                 logger=self.prog_logger,
             )
             final_clip.close()
-            self.file_handler.post_process(image_path_set, out_path, delete)
+            merged_sources = sorted(
+                (s for s in file_paths[Category.IMAGE] if s[2] in non_gif_keys),
+                key=lambda s: s[1],
+            )
+            for i, src in enumerate(merged_sources):
+                self.file_handler.post_process(
+                    src, out_path, delete, show_status=(i == 0)
+                )
 
         # Movie to different movie (parallel per file)
         def _movie_to_movie(movie_path_set: tuple):
