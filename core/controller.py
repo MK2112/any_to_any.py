@@ -33,9 +33,8 @@ from moviepy import (
 
 
 class Controller:
-    # Taking an input directory of files, convert them to a multitude of formats.
-    # Interact with the script using the command line arguments or the web interface.
-    # Run via any_to_any.py script (see README.md).
+    # Taking an input dir of files, converting them to specified or inferred target formats
+    # Trigger via any_to_any.py script (see README.md)
     def __init__(
         self, job_id=None, shared_progress_dict=None, locale=None, is_web: bool = False
     ):
@@ -255,14 +254,10 @@ class Controller:
             format
             for formats in self._supported_formats.values()
             for format in formats.keys()
-        ]
-
-        # Flags if run triggered in web interface
-        self.web_flag = False
-        # Web interface host address
-        self.web_host = None
-        # Quality step indicators
-        self.high, self.medium, self.low = "high", "medium", "low"
+        ]        
+        self.web_flag = False  # Flags if run triggered in web interface
+        self.web_host = None  # Web interface host address
+        self.high, self.medium, self.low = "high", "medium", "low" # Quality step indicators
 
         # Metadata handling flags
         self.preserve_meta = False
@@ -319,7 +314,6 @@ class Controller:
     ) -> None:
         # Convert media files to defined formats or
         # merge or concatenate, according to the arguments
-
         # Set environment for worker count
         if workers is not None:
             try:
@@ -525,24 +519,20 @@ class Controller:
                 if self.output is None or was_none:
                     self.output = os.path.dirname(input_path)
                     was_none = True
-                # Initialize metadata directory if preservation is enabled
                 if self.preserve_meta or self.custom_tags:
                     self.metadata_handler.set_metadata_dir(str(self.output))
-                # Validate the requested resolution against the target formats
                 if self.resolution is not None:
                     self._validate_resolution(file_paths, formats)
-                # Process each format sequentially
                 for fmt in formats:
                     self.target_format = fmt.lower() if fmt else None
                     self.process_file_paths(file_paths)
-                # Resize without converting (keep the input file format)
                 if not formats and self.resolution is not None:
                     self.target_format = None
                     self.process_file_paths(file_paths)
                 if self.merging or self.concatenating:
                     self.process_file_paths(file_paths)
                 # Split-only jobs carry neither format, resolution nor merge/
-                # concat flags; dispatch them so page_ranges get processed
+                # concat flags, dispatch them so page_ranges get processed
                 if (
                     not formats
                     and self.resolution is None
@@ -558,20 +548,13 @@ class Controller:
         if across:
             if self.output is None:
                 self.output = os.path.dirname(input_paths[0])
-
-            # Initialize metadata directory if preservation is enabled
             if self.preserve_meta or self.custom_tags:
                 self.metadata_handler.set_metadata_dir(str(self.output))
-
-            # Validate the requested resolution against the target formats
             if self.resolution is not None:
                 self._validate_resolution(file_paths, formats)
-
-            # Process each format sequentially
             for fmt in formats:
                 self.target_format = fmt.lower() if fmt else None
                 self.process_file_paths(file_paths)
-            # Resize without converting (keep the input file format)
             if not formats and self.resolution is not None:
                 self.target_format = None
                 self.process_file_paths(file_paths)
@@ -657,7 +640,7 @@ class Controller:
                     f"{', '.join(available)}.",
                 )
 
-        # Canonical form is used from here on
+        # Canonical form used from here on
         self.resolution = requested
 
     def _resize_movies(self, file_paths: dict) -> None:
@@ -764,13 +747,12 @@ class Controller:
             )
 
     def watch_dropzone(self, watch_path: str) -> None:
-        # Watch a directory for new files and process them automatically
-        def _wait_until_settled(
-            file_path: str, stable_window: float = 1.0
-        ) -> bool:
+        # Watch a directory for new files, process them automatically
+        def _wait_until_settled(file_path: str, stable_window: float = 1.0) -> bool:
             # Convert once file size has stopped changing
             deadline = time.time() + 60.0
-            last_size, stable_since = None, None
+            last_size = None
+            stable_since = None
             while time.time() < deadline:
                 try:
                     size = os.path.getsize(file_path)
@@ -818,7 +800,6 @@ class Controller:
                         dropzone_controller.page_ranges = self.page_ranges
                         dropzone_controller.input = file_path
 
-                        # Process the file
                         file_paths = dropzone_controller.file_handler.get_file_paths(
                             file_path,
                             supported_formats=dropzone_controller._supported_formats,
@@ -836,7 +817,6 @@ class Controller:
                     )
 
         try:
-            # Validate watch path
             watch_path = os.path.abspath(watch_path)
             if not os.path.exists(watch_path):
                 self.event_logger.error(
@@ -856,7 +836,6 @@ class Controller:
                 f"[>] {lang.get_translation('watch_stop', self.locale)}"
             )
 
-            # Start directory watcher with error handling
             with DirectoryWatcher(watch_path, handle_file_event) as watcher:
                 watcher.watch()
 
@@ -903,14 +882,10 @@ class Controller:
                 metadata = self.metadata_handler.extract_metadata(
                     input_file_path, file_type
                 )
-
-                # Add custom tags if provided
                 if self.custom_tags:
                     metadata = self.metadata_handler.add_custom_tags(
                         metadata, self.custom_tags
                     )
-
-                # Save metadata to JSON file
                 self.metadata_handler.save_metadata(
                     input_file_path, metadata, output_file_path
                 )
@@ -1092,11 +1067,10 @@ class Controller:
                 concat_pdfs = list(pdfs)
 
             if len(srts) > 0:
-                # Set up manual progress tracking for SRT concatenation
+                # Manual progress tracking for SRT concatenation
                 if hasattr(self.prog_logger, "job_id") and self.prog_logger.job_id:
                     total_srts = len(srts)
                     for i, doc_path_set in enumerate(srts):
-                        # Update progress manually
                         if (
                             hasattr(self.prog_logger, "shared_progress_dict")
                             and self.prog_logger.shared_progress_dict
@@ -1139,7 +1113,7 @@ class Controller:
         processed_files = 0
 
         for files, out_path in consumed_groups:
-            # Skip branches that did not run or produced nothing
+            # Skip branches that did not run / produced nothing
             if not files or out_path is None:
                 continue
             for i, file_path in enumerate(files):
@@ -1192,7 +1166,6 @@ class Controller:
         processed_movies = 0
 
         for movie_path_set in file_paths[Category.MOVIE]:
-            # Manual progress update for merge operations
             if hasattr(self.prog_logger, "job_id") and self.prog_logger.job_id:
                 if (
                     hasattr(self.prog_logger, "shared_progress_dict")
@@ -1217,7 +1190,7 @@ class Controller:
             # Try to find a corresponding audio file in the input set
             # (e.g. "-1 path1 -2 path2 -n pathn")
             if across:
-                # Allow matching audio from any input directory
+                # Allow matching audio from any input dir
                 audio_fit = next(
                     (
                         audio_set
@@ -1227,7 +1200,7 @@ class Controller:
                     None,
                 )
             else:
-                # Only match audio from the same directory as the video
+                # Only match audio from the same dir as the video
                 audio_fit = next(
                     (
                         audio_set
@@ -1250,7 +1223,6 @@ class Controller:
 
             if audio_fit is not None:
                 found_audio = True
-                # Merge movie and audio file
                 audio = None
                 video = None
                 try:

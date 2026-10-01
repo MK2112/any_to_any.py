@@ -1156,7 +1156,7 @@ class MainWindow(QMainWindow):
             # Merging/concatenating never applies a resolution (web parity)
             resolution = None
 
-        # Disable UI during conversion
+        # Disable UI while converting (except cancel button)
         self.set_ui_enabled(False)
         self.status_label.setText(
             lang.get_translation("preparing_conversion", self.locale)
@@ -1166,7 +1166,7 @@ class MainWindow(QMainWindow):
         self._progress_epoch += 1
 
         # Start conversion thread
-        self._conversion_start_time = time.time()  # For ETA
+        self._conversion_start_time = time.time()  # ETA
         self.current_thread = ConversionThread(
             input_files,
             run_format,
@@ -1297,7 +1297,7 @@ class MainWindow(QMainWindow):
         )
 
     def conversion_cancelled(self, job_id):
-        # Cancel is a normal outcome: release the thread and re-enable the UI
+        # Cancel is normal outcome: release thread, re-enable UI
         self.conversion_threads.pop(job_id, None)
         if self.current_thread is not None and self.current_thread.job_id == job_id:
             self.current_thread = None
@@ -1307,8 +1307,8 @@ class MainWindow(QMainWindow):
         self._schedule_progress_reset(2000)
 
     def _schedule_progress_reset(self, delay_ms):
-        # Epoch-guarded reset: stale timers from a previous job must never
-        # clobber the bar of a conversion started in the meantime.
+        # Epoch-guarded reset: stale timers from previous job must never
+        # clobber the bar of a conversion started in meantime
         epoch = self._progress_epoch
         QTimer.singleShot(delay_ms, lambda: self._reset_progress(epoch))
 
@@ -1376,8 +1376,8 @@ class MainWindow(QMainWindow):
         if dlg.exec():
             self.locale = dlg.selected_locale
             save_settings({"last_dir": self.last_dir, "locale": self.locale})
-            # Preserve the current selection across the UI rebuild; the set
-            # must be cleared too, otherwise re-adding would be deduped away
+            # Preserve current selection across UI rebuild
+            # Set must be cleared too, otherwise re-adding would be deduped away
             current_files = [
                 self.file_list.item(i).data(Qt.ItemDataRole.UserRole)
                 for i in range(self.file_list.count())
@@ -1401,8 +1401,8 @@ def main():
     if icon_path.is_file():
         app.setWindowIcon(QIcon(str(icon_path)))
 
-    # The update check performs network I/O; running it asynchronously keeps
-    # startup instant regardless of connectivity.
+    # Update check performs network I/O; running it asynchronously keeps
+    # startup instant regardless of connectivity
     window = MainWindow()
     window.show()
 

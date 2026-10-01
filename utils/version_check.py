@@ -11,7 +11,7 @@ def check_for_update():
         latest = response.json().get("tag_name", "").replace("v", "")
         if not latest:
             return None
-        # Expecting "1.2.3", "1.2.3-pre", "1.2.3-whatnot", latter two shouldn't trigger
+        # Expecting either of format ["1.2.3", "1.2.3-pre", "1.2.3-whatnot"] where latter two should not trigger
         if "-" in latest:
             return None
         local_parts = [int(x) for x in VERSION.split("-")[0].split(".")]

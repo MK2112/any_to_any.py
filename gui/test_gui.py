@@ -287,7 +287,7 @@ def test_help_dialog_creation(qapp):
 
 def test_format_combo_has_keep_original_entry(main_window):
     assert main_window.format_combo.itemData(0) == "original"
-    # Default selection is a category header, forcing an explicit choice
+    # Default selection is category header, forcing explicit choice
     assert main_window.format_combo.currentData() is None
 
 

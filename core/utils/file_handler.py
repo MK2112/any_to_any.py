@@ -195,7 +195,7 @@ class FileHandler:
         supported_formats = supported_formats or {}
         # Get media files from input dir
         def process_file(file_path: str) -> tuple:
-            # Dissect "path/to/file.txt" into [path/to, file, txt]
+            # Dissect "path/to/file.txt" into ["path/to", "file", "txt"]
             base_name, file_type = os.path.splitext(file_path)
             file_type = file_type[1:].lower()
             file_name = os.path.basename(base_name)
@@ -216,7 +216,7 @@ class FileHandler:
             f"[>] {lang.get_translation('scanning', self.locale)}: {input}"
         )
 
-        # Check if file_paths is an empty dict
+        # Check if file_paths is empty dict
         if len(file_paths) == 0:
             file_paths = {category: [] for category in supported_formats}
 

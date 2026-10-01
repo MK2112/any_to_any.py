@@ -8,7 +8,7 @@ from watchdog.events import FileSystemEventHandler
 
 
 class DirectoryWatcher:
-    # Watches for file system events in a directory and its subdirectories
+    # Watches for file system events in a dir + subdirs
     def __init__(
         self, watch_path: str, event_handler: Callable, recursive: bool = True
     ):

@@ -20,8 +20,8 @@ _IMAGE_STRIP_FORMATS = {
 
 _METADATA_FREE_FORMATS = frozenset({"bmp", "ico", "pcx", "ppm", "pgm", "pbm"})
 
-# Tag names that every audio backend understands (extracted under these names
-# from the source file) and the native key each backend stores them under.
+# Tag names understood by every audio backend (extracted under these names
+# from the source file) and native key each backend stores them under
 _COMMON_AUDIO_TAGS = ("title", "artist", "album", "date")
 _ID3_COMMON_FRAMES = {
     "title": "TIT2",
@@ -44,15 +44,15 @@ _ASF_COMMON_ATTRS = {
 
 
 class MetadataHandler:
-    # Manages metadata extraction, preservation, and tagging for converted files.
-    # Supports ID3 (audio), EXIF (images), and custom tags.
+    # Metadata extraction, preservation, and tagging for converted files
+    # ID3 (audio), EXIF (images), and custom tags
     def __init__(self, event_logger, locale: str = "English"):
         self.event_logger = event_logger
         self.locale = locale
         self.metadata_dir = None
 
     def set_metadata_dir(self, output_dir: str) -> None:
-        # Set the directory where metadata JSON files will be stored
+        # Set dir to store metadata JSON files
         self.metadata_dir = os.path.join(output_dir, ".metadata")
         os.makedirs(self.metadata_dir, exist_ok=True)
 
@@ -91,8 +91,7 @@ class MetadataHandler:
                             value[0] if isinstance(value, list) else value
                         )
                 except Exception:
-                    # File doesn't have ID3 tags or mutagen not available
-                    pass
+                    pass  # File doesn't have ID3 tags or mutagen not available
             except ImportError:
                 pass  # mutagen not installed
 
@@ -116,13 +115,12 @@ class MetadataHandler:
             from PIL.ExifTags import TAGS
 
             with Image.open(file_path) as img:
-                # Basic image info
                 metadata["tags"]["width"] = img.width
                 metadata["tags"]["height"] = img.height
                 metadata["tags"]["format"] = img.format
                 metadata["tags"]["mode"] = img.mode
 
-                # Extract EXIF data if available
+                # Extract EXIF data, if available
                 if hasattr(img, "_getexif") and img._getexif() is not None:
                     exif_data = img._getexif()
                     for tag_id, value in exif_data.items():
@@ -226,8 +224,8 @@ class MetadataHandler:
     def save_metadata(
         self, file_path: str, metadata: dict, output_file_path: str
     ) -> str:
-        # Save metadata to a JSON file in the .metadata directory
-        # Returns the path to the metadata JSON file
+        # Save metadata to JSON file in .metadata dir
+        # Returns path to metadata JSON file
         if self.metadata_dir is None:
             return None
 
@@ -304,12 +302,11 @@ class MetadataHandler:
 
     def strip_metadata(self, file_path: str, file_type: str) -> bool:
         # Strip metadata from a file
-        #  For audio: removes ID3 tags
-        #  For images: removes EXIF
-        #  For documents: basic stripping support
+        #  Removes ID3 tags for audio,
+        #  Removes EXIF for images,
+        #  Some basic stripping support for documents
         try:
             if file_type == "audio":
-                # For audio, we'll just remove ID3 tags
                 try:
                     from mutagen import File as MutagenFile
 
@@ -331,7 +328,7 @@ class MetadataHandler:
         return False
 
     def _strip_image_metadata(self, file_path: str) -> bool:
-        # Drop EXIF/XMP/comment metadata by re-encoding the image
+        # Drop EXIF/XMP/comment metadata by re-encoding image
         try:
             from PIL import Image
 
