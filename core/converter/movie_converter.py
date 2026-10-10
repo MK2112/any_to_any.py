@@ -27,11 +27,9 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 
 def _sort_frame_filenames(filenames: list) -> list:
-    # Order extracted frame file names by the numeric index in their stem
     def _key(filename: str) -> tuple:
         index = os.path.splitext(filename)[0].rsplit("-", 1)[-1]
         return (0, int(index)) if index.isdigit() else (1, filename)
-
     return sorted(filenames, key=_key)
 
 
@@ -56,8 +54,6 @@ class MovieConverter:
         delete: bool,
         resolution: str = None,
     ) -> None:
-        # Convert to movie with specified format
-        # Determine worker count
         try:
             env_workers = int(os.environ.get("Any2Any_MAX_WORKERS", "1"))
             env_workers = 1 if env_workers < 1 else env_workers
@@ -65,7 +61,6 @@ class MovieConverter:
                 os.cpu_count() - 1 if env_workers >= os.cpu_count() else env_workers
             )
         except ValueError:
-            # If this variable doesn't exist, flag wasn't invoked: Default to 1
             env_workers = 1
 
         # Helper for per-GIF conversion to video
@@ -169,22 +164,23 @@ class MovieConverter:
                 os.path.abspath(os.path.join(output, f"{movie_path_set[1]}.{format}"))
             )
 
-            video, audio = None, None
+            video = None
+            audio = None
+            video_clip = None
             try:
                 if self.file_handler.has_visuals(movie_path_set):
                     video = VideoFileClip(
                         self.file_handler.join_back(movie_path_set), audio=True
                     )
-                    audio = video.audio
                     if resolution is not None:
-                        resized = video.resized(new_size=parse_resolution(resolution))
-                        video.close()
-                        video = resized
+                        video = video.resized(
+                            new_size=parse_resolution(resolution)
+                        )
                     video.write_videofile(
                         out_path_local,
                         fps=video.fps if framerate is None else framerate,
                         codec=codec,
-                        audio=bool(audio),
+                        audio=video.audio is not None,
                         logger=self.prog_logger,
                     )
                 else:
@@ -216,10 +212,23 @@ class MovieConverter:
                         return None
                 return (movie_path_set, out_path_local)
             finally:
-                if audio:
-                    audio.close()
-                if video:
-                    video.close()
+                # video.close() also closes its attached audio, so closing
+                # all three is safe (close() is idempotent).
+                if video_clip is not None:
+                    try:
+                        video_clip.close()
+                    except Exception:
+                        pass
+                if video is not None:
+                    try:
+                        video.close()
+                    except Exception:
+                        pass
+                if audio is not None:
+                    try:
+                        audio.close()
+                    except Exception:
+                        pass
 
         movie_items = list(file_paths[Category.MOVIE])
         if len(movie_items) == 1:
@@ -396,9 +405,7 @@ class MovieConverter:
                     fps_source="tbr",
                 )
                 if resolution is not None:
-                    resized = video.resized(new_size=parse_resolution(resolution))
-                    video.close()
-                    video = resized
+                    video = video.resized(new_size=parse_resolution(resolution))
                 try:
                     video.write_videofile(
                         out_path,
