@@ -180,7 +180,7 @@ class FileHandler:
         clip = None
         try:
             clip = VideoFileClip(self.join_back(file_path_set))
-            clip.iter_frames()
+            next(clip.iter_frames())
             return True
         except Exception as _:
             pass
