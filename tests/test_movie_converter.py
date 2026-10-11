@@ -152,7 +152,7 @@ def test_to_protocol_hls_master_playlist(mock_run, mock_converter, tmp_path):
         delete=False,
     )
 
-    master = tmp_path / "mp4_hls" / "master.m3u8"
+    master = tmp_path / "sample_hls" / "master.m3u8"
     assert master.exists()
     content = master.read_text()
     assert "426x240/426x240.m3u8" in content
@@ -182,12 +182,60 @@ def test_to_protocol_hls_resolution_single_rendition(
         delete=False,
     )
 
-    master = tmp_path / "mp4_hls" / "master.m3u8"
+    master = tmp_path / "sample_hls" / "master.m3u8"
     assert master.exists()
     content = master.read_text()
     assert "1280x720/1280x720.m3u8" in content
     assert "426x240" not in content
     assert "1920x1080" not in content
+
+
+@patch("core.converter.movie_converter.subprocess.run")
+def test_to_protocol_hls_out_dirs_use_basename_not_extension(
+    mock_run, mock_converter, tmp_path
+):
+    # Ensure output dir is named using basename of input file, without extension
+    mock_run.return_value = MagicMock(stdout="ok", stderr="")
+    mock_converter.file_handler.join_back.side_effect = (
+        lambda ps: f"{ps[0]}/{ps[1]}.{ps[2]}"
+    )
+
+    mock_converter.to_protocol(
+        output=str(tmp_path),
+        file_paths={
+            Category.MOVIE: [("d1", "clip_a", "mp4"), ("d2", "clip_b", "mp4")]
+        },
+        supported_formats={Category.PROTOCOLS: {"hls": True}},
+        protocol=["hls"],
+        delete=False,
+    )
+
+    assert (tmp_path / "clip_a_hls" / "master.m3u8").exists()
+    assert (tmp_path / "clip_b_hls" / "master.m3u8").exists()
+    assert not (tmp_path / "mp4_hls").exists()
+
+
+@patch("core.converter.movie_converter.subprocess.run")
+def test_to_protocol_hls_unknown_resolution_fails_loudly(
+    mock_run, mock_converter, tmp_path
+):
+    # If a resolution is specified whily not matching any rung in HLS ladder, raise ValueError + output no files
+    movie = ("dir", "sample", "mp4")
+    mock_converter.file_handler.join_back.return_value = "dir/sample.mp4"
+    mock_run.return_value = MagicMock(stdout="ok", stderr="")
+
+    with pytest.raises(ValueError, match="2560x1440"):
+        mock_converter.to_protocol(
+            output=str(tmp_path),
+            file_paths={Category.MOVIE: [movie]},
+            supported_formats={Category.PROTOCOLS: {"hls": True}},
+            protocol=["hls"],
+            resolution="2560x1440",
+            delete=False,
+        )
+
+    mock_run.assert_not_called()
+    assert not (tmp_path / "sample_hls" / "master.m3u8").exists()
 
 
 @patch("core.converter.movie_converter.subprocess.run", side_effect=Exception("fail"))

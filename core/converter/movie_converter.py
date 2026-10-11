@@ -473,7 +473,7 @@ class MovieConverter:
 
         for movie_path_set in file_paths[Category.MOVIE]:
             input_file = os.path.abspath(self.file_handler.join_back(movie_path_set))
-            base_name = os.path.splitext(movie_path_set[-1])[0]
+            base_name = movie_path_set[1]
             current_out_dir = os.path.abspath(
                 os.path.join(output, f"{base_name}_{protocol[0]}")
             )
@@ -490,7 +490,17 @@ class MovieConverter:
                     ("1920x1080", "5000k", "192k"),
                 ]
                 if resolution is not None:
-                    renditions = [r for r in renditions if r[0] == resolution]
+                    matching = [r for r in renditions if r[0] == resolution]
+                    if not matching:
+                        available = ", ".join(r[0] for r in renditions)
+                        end_with_msg(
+                            self.event_logger,
+                            ValueError,
+                            f"[!] {lang.get_translation('error', self.locale)}: "
+                            f"Resolution '{resolution}' is not supported for 'hls'. "
+                            f"Available resolutions for 'hls': {available}.",
+                        )
+                    renditions = matching
                 variant_playlist = "#EXTM3U\n"
                 cmd = ["ffmpeg", "-y", "-i", input_file]
 
