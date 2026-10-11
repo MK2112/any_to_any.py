@@ -1271,6 +1271,7 @@ class MainWindow(QMainWindow):
 
         self._schedule_progress_reset(2000)
         self._prune_missing_sources()
+        self.clear_all_files()
 
         QMessageBox.information(
             self,

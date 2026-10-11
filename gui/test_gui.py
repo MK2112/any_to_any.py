@@ -754,5 +754,20 @@ def test_save_settings_merges_existing_keys():
         save_settings(original)
 
 
+def test_conversion_completed_clears_file_list(main_window, tmp_path):
+    from unittest.mock import patch
+
+    f = tmp_path / "a.mp4"
+    f.touch()
+    main_window.add_file_to_list(str(f))
+    assert main_window.file_list.count() == 1
+
+    with patch("gui.qt_app.QMessageBox.information"):
+        main_window.conversion_completed("job1", str(tmp_path))
+
+    assert main_window.file_list.count() == 0
+    assert len(main_window._file_paths_set) == 0
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
