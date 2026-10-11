@@ -13,7 +13,11 @@ from core.utils.exit import end_with_msg
 from core.utils.resolution import parse_resolution
 from core.converter.image_converter import office_to_frames
 from core.utils.file_handler import safe_output_dir as _safe_out_dir
-from core.utils.file_handler import sort_frame_filenames, worker_count_for
+from core.utils.file_handler import (
+    effective_fps,
+    sort_frame_filenames,
+    worker_count_for,
+)
 
 
 from moviepy import (
@@ -71,7 +75,7 @@ class MovieConverter:
                 clip.write_videofile(
                     out_path,
                     codec=codec,
-                    fps=clip.fps if framerate is None else framerate,
+                    fps=effective_fps(clip.fps, framerate),
                     audio=False,
                     logger=self.prog_logger,
                 )
@@ -165,7 +169,7 @@ class MovieConverter:
                         )
                     video.write_videofile(
                         out_path_local,
-                        fps=video.fps if framerate is None else framerate,
+                        fps=effective_fps(video.fps, framerate),
                         codec=codec,
                         audio=video.audio is not None,
                         logger=self.prog_logger,
@@ -404,7 +408,7 @@ class MovieConverter:
                     video.write_videofile(
                         out_path,
                         codec=codec[0],
-                        fps=video.fps if framerate is None else framerate,
+                        fps=effective_fps(video.fps, framerate),
                         audio=video.audio is not None,
                         logger=self.prog_logger,
                     )
@@ -418,7 +422,7 @@ class MovieConverter:
                     )
                     video.write_videofile(
                         out_path,
-                        fps=video.fps if framerate is None else framerate,
+                        fps=effective_fps(video.fps, framerate),
                         audio=video.audio is not None,
                         logger=self.prog_logger,
                     )

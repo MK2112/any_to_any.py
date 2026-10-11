@@ -3,7 +3,7 @@ import sys
 import utils.language_support as lang
 
 from utils.category import Category
-from core.utils.file_handler import worker_count_for
+from core.utils.file_handler import effective_fps, worker_count_for
 from moviepy import AudioFileClip, VideoFileClip
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -58,7 +58,7 @@ class AudioConverter:
                         out_path,
                         codec=codec,
                         bitrate=bitrate,
-                        fps=audio.fps
+                        fps=effective_fps(audio.fps, default=self.default_audio_fps)
                         if format != "g722"
                         else 16000,  # g722 clamps to 16kHz
                         logger=self.prog_logger,

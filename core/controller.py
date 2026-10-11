@@ -17,7 +17,7 @@ from core.utils.resolution import (
 from core.utils.exit import end_with_msg
 from core.converter.audio_converter import AudioConverter
 from core.converter.movie_converter import MovieConverter
-from core.utils.file_handler import FileHandler
+from core.utils.file_handler import FileHandler, effective_fps
 from core.converter.image_converter import ImageConverter
 from core.converter.doc_converter import DocumentConverter
 from core.utils.directory_watcher import DirectoryWatcher
@@ -1033,7 +1033,7 @@ class Controller:
             video_out_path = os.path.join(self.output, f"concatenated_video.{format}")
             concat_vid.write_videofile(
                 video_out_path,
-                fps=concat_vid.fps if self.framerate is None else self.framerate,
+                fps=effective_fps(concat_vid.fps, self.framerate),
                 codec=self._supported_formats[Category.MOVIE][format][0],
                 logger=self.prog_logger,
             )
@@ -1315,7 +1315,7 @@ class Controller:
                     )
                     video.write_videofile(
                         merged_out_path,
-                        fps=video.fps if self.framerate is None else self.framerate,
+                        fps=effective_fps(video.fps, self.framerate),
                         codec=self._supported_formats[Category.MOVIE][
                             movie_path_set[2]
                         ][0],

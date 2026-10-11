@@ -239,3 +239,31 @@ def test_concat_srt_rerun_overwrites_instead_of_appending(
 
     assert first == second
     assert second.count("-->") == 4
+
+
+def test_concat_movie_none_fps_falls_back_to_default(
+    controller_instance, tmp_path
+):
+    """concat() must not pass fps=None to write_videofile, but fall back to"""
+    controller_instance.output = str(tmp_path)
+    controller_instance.delete = False
+    controller_instance.framerate = None
+    with mock.patch(
+        "core.controller.VideoFileClip"
+    ) as mock_vfc, mock.patch(
+        "core.controller.concatenate_videoclips"
+    ) as mock_concat:
+        mock_vfc.return_value = mock.MagicMock(fps=24)
+        composite = mock.MagicMock(fps=None)
+        mock_concat.return_value = composite
+        controller_instance.concat(
+            {
+                Category.AUDIO: [],
+                Category.MOVIE: [("/d/", "m1", "mp4"), ("/d/", "m2", "mp4")],
+                Category.IMAGE: [],
+                Category.DOCUMENT: [],
+            },
+            format="mp4",
+        )
+    written_fps = composite.write_videofile.call_args[1]["fps"]
+    assert written_fps == 24

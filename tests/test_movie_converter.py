@@ -456,3 +456,30 @@ def test_to_movie_docx_frames_become_clips_case_insensitive(
     assert all(not isinstance(c, str) for c in concat_args)
     final_clip.write_videofile.assert_called_once()
     final_clip.close.assert_called_once()
+
+
+@patch("core.converter.movie_converter.VideoFileClip")
+def test_to_movie_gif_none_fps_falls_back_to_default(
+    mock_vfc, mock_converter
+):
+    mock_clip = MagicMock(fps=None)
+    mock_vfc.return_value = mock_clip
+    mock_converter.file_handler.join_back.return_value = "dir/anim.gif"
+
+    mock_converter.to_movie(
+        input="in",
+        output="out",
+        recursive=False,
+        file_paths={
+            Category.IMAGE: [("dir", "anim", "gif")],
+            Category.MOVIE: [],
+            Category.DOCUMENT: [],
+        },
+        format="mp4",
+        framerate=None,
+        codec="libx264",
+        delete=False,
+    )
+
+    written_fps = mock_clip.write_videofile.call_args[1]["fps"]
+    assert written_fps == 24

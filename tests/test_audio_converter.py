@@ -766,3 +766,20 @@ class TestMovieToAudioEdgeCases:
 
         el.info.assert_called_once()
         fh.post_process.assert_not_called()
+
+
+class TestAudioNoneFpsFallback:
+    @patch("core.converter.audio_converter.AudioFileClip")
+    def test_none_sample_rate_falls_back_to_default(self, mock_clip):
+        fh = Mock()
+        setup_file_handler_mock(fh)
+        conv = AudioConverter(fh, Mock(), Mock())
+        mock_audio = Mock(fps=None)
+        mock_audio.fps = None
+        mock_clip.return_value = mock_audio
+        fh.join_back.return_value = "/d/a.wav"
+        paths = {Category.AUDIO: [("/d", "a", "wav")], Category.MOVIE: []}
+        conv.to_audio(paths, "mp3", "mp3", False, "128k", "/in", "/out", False)
+
+        written_fps = mock_audio.write_audiofile.call_args[1]["fps"]
+        assert written_fps == 48000

@@ -102,6 +102,13 @@ def worker_count_for(file_handler, default: int = 1) -> int:
     return resolve_worker_count(default)
 
 
+def effective_fps(clip_fps, requested=None, default: int = 24):
+    # Resolve the frame rate for write_videofile/write_audiofile
+    if requested is not None:
+        return requested
+    return clip_fps if clip_fps else default
+
+
 class FileHandler:
     def __init__(self, event_logger: logging.Logger, locale: str = "English"):
         self.event_logger = event_logger

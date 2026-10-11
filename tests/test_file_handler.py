@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 
 from core.utils.file_handler import (
     FileHandler,
+    effective_fps,
     resolve_worker_count,
     sort_frame_filenames,
     worker_count_for,
@@ -138,3 +139,19 @@ def test_controller_run_snapshots_workers_without_env(
         )
     assert controller_instance.file_handler.max_workers == 2
     assert "Any2Any_MAX_WORKERS" not in os.environ
+
+
+def test_effective_fps_requested_wins():
+    assert effective_fps(None, 30) == 30
+    assert effective_fps(24, 30) == 30
+
+
+def test_effective_fps_falls_back_to_clip_then_default():
+    assert effective_fps(29.97, None) == 29.97
+    assert effective_fps(None, None) == 24
+    assert effective_fps(0, None) == 24
+
+
+def test_effective_fps_custom_default_for_audio():
+    # Audio sample rates use their own default, not 24 fps video
+    assert effective_fps(None, None, default=48000) == 48000
