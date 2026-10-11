@@ -157,12 +157,20 @@ class DocumentConverter:
                 doc.close()
                 try:
                     _mapped = image_path_set[1] in _gif_frame_dirs
+                    # Never remove a dir outside output or output itself
+                    _abs_frame = os.path.abspath(gif_frame_path)
+                    _abs_out = os.path.abspath(output)
+                    _contained = _abs_frame != _abs_out and _abs_frame.startswith(
+                        _abs_out + os.sep
+                    )
                     if _mapped:
-                        shutil.rmtree(gif_frame_path)
+                        if _contained:
+                            shutil.rmtree(gif_frame_path)
                     else:
                         _existed = _pre_existing.get(image_path_set[1], False)
                         if not _existed:
-                            shutil.rmtree(gif_frame_path)
+                            if _contained:
+                                shutil.rmtree(gif_frame_path)
                         else:
                             try:
                                 entries = os.listdir(gif_frame_path)
@@ -451,12 +459,20 @@ class DocumentConverter:
                         page.add_paragraph(f"Image: {frame}")
                         page.add_page_break()
                 try:
+                    # Never remove dir outside output or output itself
+                    _abs_frame = os.path.abspath(gif_frame_dir)
+                    _abs_out = os.path.abspath(output)
+                    _contained = _abs_frame != _abs_out and _abs_frame.startswith(
+                        _abs_out + os.sep
+                    )
                     if image_path_set[1] in _gif_frame_dirs:
-                        shutil.rmtree(gif_frame_dir)
+                        if _contained:
+                            shutil.rmtree(gif_frame_dir)
                     else:
                         _existed = _preexist_office_dirs.get(image_path_set[1], False)
                         if not _existed:
-                            shutil.rmtree(gif_frame_dir)
+                            if _contained:
+                                shutil.rmtree(gif_frame_dir)
                         else:
                             try:
                                 entries = os.listdir(gif_frame_dir)

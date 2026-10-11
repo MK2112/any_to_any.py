@@ -41,6 +41,7 @@ def resolve_out_dir_conflict(dir_path: str, timeout: float = 2.0) -> str:
         if _claim_name(cand):
             return cand
         suffix_counter += 1
+        time.sleep(0.001)
     claim_t0 = time.time() # Fallback to another run for alphanumeric suffixes
     while time.time() - claim_t0 < timeout:
         random_suffix = "".join(
@@ -49,18 +50,24 @@ def resolve_out_dir_conflict(dir_path: str, timeout: float = 2.0) -> str:
         cand = f"{base_dir}_{random_suffix}"
         if _claim_name(cand):
             return cand
-    return candidat_dir
+        time.sleep(0.001)
+    # Callers rmtree() result, handing back candidat_dir here would delete user data
+    for _ in range(100):
+        random_suffix = "".join(
+            random.choices(string.ascii_lowercase + string.digits, k=8)
+        )
+        cand = f"{base_dir}_{random_suffix}"
+        if _claim_name(cand):
+            return cand
+    raise FileExistsError(f"Could not resolve a free directory for {base_dir}")
 
 
 def safe_output_dir(base_dir: str, timeout: float = 2.0) -> str:
-    # Returns a non-colliding directory path: base unchanged when free, else base_1/_2/...
-    try:
-        resolved = resolve_out_dir_conflict(base_dir, timeout=timeout)
-        if isinstance(resolved, str) and resolved:
-            return resolved
-    except Exception:
-        pass
-    return base_dir
+    # Return non-colliding dir path: base unchanged when free, else base_1/_2/... or base_<random>
+    resolved = resolve_out_dir_conflict(base_dir, timeout=timeout)
+    if isinstance(resolved, str) and resolved:
+        return resolved
+    raise FileExistsError(f"Could not resolve a free directory for {base_dir}")
 
 
 class FileHandler:

@@ -308,6 +308,7 @@ class MovieConverter:
                 # Never reuse output/<basename> as scratch (C2): it may hold
                 # pre-existing user data which rmtree would then delete.
                 scratch_dir = _safe_out_dir(os.path.join(output, doc_path_set[1]))
+                scratch_owned = not os.path.exists(scratch_dir)
                 if not os.path.exists(scratch_dir):
                     try:
                         os.makedirs(scratch_dir, exist_ok=True)
@@ -319,6 +320,7 @@ class MovieConverter:
                         scratch_dir = _safe_out_dir(
                             os.path.join(output, doc_path_set[1])
                         )
+                        scratch_owned = not os.path.exists(scratch_dir)
                         os.makedirs(scratch_dir, exist_ok=True)
                 try:
                     for i, page_num in tqdm(enumerate(range(len(doc)))):
@@ -357,13 +359,15 @@ class MovieConverter:
                     )
                     final_clip.close()
                 finally:
-                    # Remove only the scratch dir we resolved/created (C2).
-                    # It is conflict-resolved, never a pre-existing user dir,
-                    # so rmtree is safe. Keep the call unconditional so mocked
-                    # unit tests (makedirs mocked, dir never really created)
-                    # still observe the cleanup.
                     try:
-                        shutil.rmtree(scratch_dir)
+                        _abs_scratch = os.path.abspath(scratch_dir)
+                        _abs_out = os.path.abspath(output)
+                        if (
+                            scratch_owned
+                            and _abs_scratch != _abs_out
+                            and _abs_scratch.startswith(_abs_out + os.sep)
+                        ):
+                            shutil.rmtree(scratch_dir)
                     except OSError as e:
                         self.event_logger.info(
                             f"[!] {lang.get_translation('error', self.locale)}: {e}"
