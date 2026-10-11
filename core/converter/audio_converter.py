@@ -3,6 +3,7 @@ import sys
 import utils.language_support as lang
 
 from utils.category import Category
+from core.utils.file_handler import worker_count_for
 from moviepy import AudioFileClip, VideoFileClip
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -30,19 +31,7 @@ class AudioConverter:
         output: str,
         delete: bool,
     ) -> None:
-        try:
-            # Decide worker count with env variable if present
-            # Prob most elegant in this setting
-            env_workers = max(
-                1,
-                min(
-                    int(os.environ.get("Any2Any_MAX_WORKERS", "1")),
-                    os.cpu_count() - 1,
-                ),
-            )
-        except ValueError:
-            # If this variable doesn't exist, flag wasn't invoked: Default to 1
-            env_workers = 1
+        env_workers = worker_count_for(self.file_handler)
 
         # Helper, converts a single audio file
         def _convert_audio_file(audio_path_set: tuple):

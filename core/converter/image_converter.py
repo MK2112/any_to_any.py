@@ -10,6 +10,7 @@ from tqdm import tqdm
 from io import BytesIO
 from moviepy import VideoFileClip
 from utils.category import Category
+from core.utils.file_handler import worker_count_for
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from core.utils.file_handler import safe_output_dir as _safe_out_dir
 
@@ -96,13 +97,8 @@ def office_to_frames(
     return out_dir
 
 
-def _max_workers() -> int:
-    try:
-        _cpu = os.cpu_count()
-        _cpu = _cpu if isinstance(_cpu, int) else 2
-        return max(1, min(int(os.environ.get("Any2Any_MAX_WORKERS", "1")), _cpu - 1))
-    except (ValueError, TypeError):
-        return 1
+def _max_workers(file_handler=None) -> int:
+    return worker_count_for(file_handler)
 
 
 def gif_to_frames(output: str, file_paths: dict, file_handler) -> dict:
@@ -134,7 +130,7 @@ def gif_to_frames(output: str, file_paths: dict, file_handler) -> dict:
         finally:
             clip.close()
 
-    max_workers = _max_workers()
+    max_workers = _max_workers(file_handler)
     if len(gifs) == 1 or max_workers == 1:
         for g in gifs:
             _extract_gif_frames(g)
@@ -333,7 +329,7 @@ class ImageConverter:
             finally:
                 video.close()
 
-        max_workers = _max_workers()
+        max_workers = _max_workers(self.file_handler)
         movie_items = list(file_paths[Category.MOVIE])
         if len(movie_items) <= 1 or max_workers == 1:
             for m in movie_items:
@@ -412,7 +408,7 @@ class ImageConverter:
                 img.convert("RGB").save(bmp_path, format=format)
             return (image_path_set, bmp_path)
 
-        max_workers = _max_workers()
+        max_workers = _max_workers(self.file_handler)
         if len(convertible_images) <= 1 or max_workers == 1:
             for image_path_set in convertible_images:
                 src, bmp_path = _convert_image_to_bmp(image_path_set)
@@ -585,7 +581,7 @@ class ImageConverter:
                 img.convert("RGB").save(webp_path, format=format)
             return (image_path_set, webp_path)
 
-        max_workers = _max_workers()
+        max_workers = _max_workers(self.file_handler)
         if len(convertible_images) <= 1 or max_workers == 1:
             for image_path_set in convertible_images:
                 src, webp_path = _convert_image_to_webp(image_path_set)
@@ -714,7 +710,7 @@ class ImageConverter:
                 img.save(heic_path, format=_save_format(format))
             return (ips, heic_path)
 
-        max_workers = _max_workers()
+        max_workers = _max_workers(self.file_handler)
         if len(convertible_images) <= 1 or max_workers == 1:
             for ips in convertible_images:
                 src, heic_path = _convert_image(ips)

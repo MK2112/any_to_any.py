@@ -363,12 +363,11 @@ class Controller:
     ) -> None:
         # Convert media files to defined formats or
         # merge or concatenate, according to the arguments
-        # Set environment for worker count
         if workers is not None:
             try:
                 # worker value must be >= 1, fallback to 1 if not
-                os.environ["Any2Any_MAX_WORKERS"] = str(max(1, int(workers or 1)))
-            except Exception:
+                self.file_handler.max_workers = max(1, int(workers or 1))
+            except (TypeError, ValueError):
                 pass
 
         # Derive list structure from comma-separated formats in string, proceed with list only

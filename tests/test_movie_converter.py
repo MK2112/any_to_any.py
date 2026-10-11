@@ -1,3 +1,5 @@
+import os
+
 import pytest
 
 from utils.category import Category
@@ -305,6 +307,34 @@ def test_to_movie_gif_excluded_from_merged_video(
     # Only the jpg (non-gif) should be passed to concatenate_videoclips
     concat_args = mock_concat.call_args[0][0]
     assert len(concat_args) == 1, "GIF should be excluded from merged clip"
+
+
+@patch("core.converter.movie_converter.VideoFileClip")
+def test_to_movie_gifs_single_cpu_does_not_crash(
+    mock_vfc, mock_converter, monkeypatch
+):
+    monkeypatch.setattr(os, "cpu_count", lambda: 1)
+    monkeypatch.delenv("Any2Any_MAX_WORKERS", raising=False)
+    mock_clip = MagicMock()
+    mock_vfc.return_value = mock_clip
+    mock_converter.file_handler.join_back.side_effect = ["dir/a.gif", "dir/b.gif"]
+
+    mock_converter.to_movie(
+        input="in",
+        output="out",
+        recursive=False,
+        file_paths={
+            Category.IMAGE: [("dir", "a", "gif"), ("dir", "b", "gif")],
+            Category.MOVIE: [],
+            Category.DOCUMENT: [],
+        },
+        format="mp4",
+        framerate=24,
+        codec="libx264",
+        delete=False,
+    )
+
+    assert mock_clip.write_videofile.call_count == 2
 
 
 @patch("core.converter.movie_converter.VideoFileClip")

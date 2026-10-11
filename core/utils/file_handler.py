@@ -80,12 +80,35 @@ def sort_frame_filenames(filenames: list) -> list:
     return sorted(filenames, key=_key)
 
 
+def resolve_worker_count(default: int = 1) -> int:
+    try:
+        requested = int(os.environ.get("Any2Any_MAX_WORKERS", str(default)))
+    except (TypeError, ValueError):
+        requested = default
+    requested = max(1, requested)
+    try:
+        cpu = os.cpu_count()
+    except Exception:
+        cpu = None
+    if isinstance(cpu, int):
+        requested = min(requested, max(1, cpu - 1))
+    return max(1, requested)
+
+
+def worker_count_for(file_handler, default: int = 1) -> int:
+    snapshot = getattr(file_handler, "max_workers", None)
+    if isinstance(snapshot, int) and not isinstance(snapshot, bool):
+        return max(1, snapshot)
+    return resolve_worker_count(default)
+
+
 class FileHandler:
     def __init__(self, event_logger: logging.Logger, locale: str = "English"):
         self.event_logger = event_logger
         self.locale = locale
         self.CONFLICT_RESOLUTION_TIMEOUT = 2.0  # numeric suffix loop attempt time in s
         self.metadata_callback = None
+        self.max_workers = resolve_worker_count()
 
     def join_back(self, file_path_set: tuple) -> str:
         # Join back the file path set to a concurrent path

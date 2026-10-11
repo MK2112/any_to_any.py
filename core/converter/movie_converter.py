@@ -13,7 +13,7 @@ from core.utils.exit import end_with_msg
 from core.utils.resolution import parse_resolution
 from core.converter.image_converter import office_to_frames
 from core.utils.file_handler import safe_output_dir as _safe_out_dir
-from core.utils.file_handler import sort_frame_filenames
+from core.utils.file_handler import sort_frame_filenames, worker_count_for
 
 
 from moviepy import (
@@ -48,14 +48,7 @@ class MovieConverter:
         delete: bool,
         resolution: str = None,
     ) -> None:
-        try:
-            env_workers = int(os.environ.get("Any2Any_MAX_WORKERS", "1"))
-            env_workers = 1 if env_workers < 1 else env_workers
-            env_workers = (
-                os.cpu_count() - 1 if env_workers >= os.cpu_count() else env_workers
-            )
-        except ValueError:
-            env_workers = 1
+        env_workers = worker_count_for(self.file_handler)
 
         # Helper for per-GIF conversion to video
         def _gif_to_video(image_path_set: tuple):
