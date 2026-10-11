@@ -32,6 +32,55 @@ from moviepy import (
 )
 
 
+_SRT_TIMESTAMP_RE = re.compile(
+    r"(\d{1,3}):(\d{2}):(\d{2})[,.](\d{1,3})"
+    r"\s*-->\s*"
+    r"(\d{1,3}):(\d{2}):(\d{2})[,.](\d{1,3})"
+)
+
+
+def _srt_to_ms(hours: str, minutes: str, seconds: str, millis: str) -> int:
+    # "00:00:01,500" -> 1500 (millis may carry 1-3 digits)
+    return (
+        (int(hours) * 3600 + int(minutes) * 60 + int(seconds)) * 1000
+        + int(millis.ljust(3, "0")[:3])
+    )
+
+
+def _format_srt_timestamp(ms: int) -> str:
+    ms = max(0, ms)
+    hours, rem = divmod(ms, 3600000)
+    minutes, rem = divmod(rem, 60000)
+    seconds, ms = divmod(rem, 1000)
+    return f"{hours:02d}:{minutes:02d}:{seconds:02d},{ms:03d}"
+
+
+def _parse_srt_entries(content: str) -> list:
+    # Split SRT content into [(start_ms, end_ms, [text lines])]
+    entries = []
+    for block in re.split(r"\r?\n\s*\r?\n", content.strip()):
+        lines = block.strip().splitlines()
+        if not lines:
+            continue
+        if "-->" in lines[0]:
+            ts_line, text = lines[0], lines[1:]
+        elif len(lines) >= 2 and "-->" in lines[1]:
+            ts_line, text = lines[1], lines[2:]
+        else:
+            continue
+        match = _SRT_TIMESTAMP_RE.search(ts_line)
+        if not match:
+            continue
+        groups = match.groups()
+        start = _srt_to_ms(*groups[:4])
+        end = _srt_to_ms(*groups[4:])
+        text = [line.rstrip() for line in text]
+        while text and not text[-1].strip():
+            text.pop()
+        entries.append((start, end, text))
+    return entries
+
+
 class Controller:
     # Taking an input dir of files, converting them to specified or inferred target formats
     # Trigger via any_to_any.py script (see README.md)
@@ -1090,16 +1139,25 @@ class Controller:
                                             "last_updated": time.time(),
                                         }
                                     )
-
+                combined = []
+                offset = 0
                 for doc_path_set in srts:
-                    # Produce a single srt file
                     srt_path = self.file_handler.join_back(doc_path_set)
-                    with open(srt_path, "r") as srt_file:
+                    with open(srt_path, "r", encoding="utf-8-sig") as srt_file:
                         srt_content = srt_file.read()
-                    # Insert the SRT content into the concatenated file
-                    with open(srt_out_path, "a") as srt_file:
-                        srt_file.write(srt_content)
-                        srt_file.write("\n")
+                    entries = _parse_srt_entries(srt_content)
+                    for start, end, text in entries:
+                        combined.append((start + offset, end + offset, text))
+                    if entries:
+                        offset += max(end for _, end, _ in entries)
+                with open(srt_out_path, "w", encoding="utf-8") as srt_file:
+                    blocks = [
+                        f"{i}\n"
+                        f"{_format_srt_timestamp(start)} --> {_format_srt_timestamp(end)}\n"
+                        + "\n".join(text)
+                        for i, (start, end, text) in enumerate(combined, 1)
+                    ]
+                    srt_file.write("\n\n".join(blocks) + "\n" if blocks else "")
                 concat_srts = list(srts)
 
         consumed_groups = [

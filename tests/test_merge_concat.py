@@ -123,3 +123,62 @@ def test_concat_ignores_non_pdf_docs(controller_instance, tmp_path):
     )
 
     assert (out / "concatenated_subtitles.srt").exists()
+
+
+def _srt_paths(tmp_path):
+    srt1 = tmp_path / "sub1.srt"
+    srt1.write_text(
+        "1\n00:00:01,000 --> 00:00:02,000\nHello\n\n"
+        "2\n00:00:03,000 --> 00:00:04,000\nWorld\n\n"
+    )
+    srt2 = tmp_path / "sub2.srt"
+    srt2.write_text(
+        "1\n00:00:01,500 --> 00:00:02,500\nFoo\n\n"
+        "2\n00:00:03,500 --> 00:00:05,000\nBar\n\n"
+    )
+    return [
+        ((str(tmp_path) + "/"), "sub1", "srt"),
+        ((str(tmp_path) + "/"), "sub2", "srt"),
+    ]
+
+
+def _concat_srts(controller_instance, tmp_path):
+    out = tmp_path / "out"
+    out.mkdir(exist_ok=True)
+    controller_instance.output = str(out)
+    controller_instance.delete = False
+    controller_instance.concat(
+        {
+            Category.AUDIO: [],
+            Category.MOVIE: [],
+            Category.IMAGE: [],
+            Category.DOCUMENT: _srt_paths(tmp_path),
+        }
+    )
+    return out / "concatenated_subtitles.srt"
+
+
+def test_concat_srt_renumbers_and_offsets_timestamps(
+    controller_instance, tmp_path
+):
+    """SRT concat must renumber entries sequentially and shift each file
+    past the previous file's end (sub2 starts at 00:00:04,000)."""
+    merged = _concat_srts(controller_instance, tmp_path)
+
+    assert merged.read_text() == (
+        "1\n00:00:01,000 --> 00:00:02,000\nHello\n\n"
+        "2\n00:00:03,000 --> 00:00:04,000\nWorld\n\n"
+        "3\n00:00:05,500 --> 00:00:06,500\nFoo\n\n"
+        "4\n00:00:07,500 --> 00:00:09,000\nBar\n"
+    )
+
+
+def test_concat_srt_rerun_overwrites_instead_of_appending(
+    controller_instance, tmp_path
+):
+    """Re-running concat must rewrite the output, not append to it."""
+    first = _concat_srts(controller_instance, tmp_path).read_text()
+    second = _concat_srts(controller_instance, tmp_path).read_text()
+
+    assert first == second
+    assert second.count("-->") == 4
