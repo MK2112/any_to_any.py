@@ -372,7 +372,11 @@ class Controller:
 
         # Derive list structure from comma-separated formats in string, proceed with list only
         if isinstance(format, str):
-            formats = [fmt.strip() for fmt in format.split(",")] if format else []
+            formats = (
+                [fmt.strip() for fmt in format.split(",") if fmt.strip()]
+                if format
+                else []
+            )
         elif isinstance(format, list):
             formats = format
         else:

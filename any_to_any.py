@@ -167,14 +167,26 @@ if __name__ == "__main__":
         parser.error(
             f"{lang.get_translation('merge_concat_error', controller.locale)}"
         )
+
+    if args["framerate"] is not None and args["framerate"] < 1:
+        parser.error(
+            f"--framerate must be a positive integer (got {args['framerate']})"
+        )
+
+    _cpu_count = os.cpu_count() or 1
+    _max_workers = max(1, _cpu_count - 1)
+    if args["workers"] < 1 or args["workers"] > _max_workers:
+        parser.error(
+            f"--workers must be between 1 and {_max_workers} "
+            f"(got {args['workers']})"
+        )
     
     if args["web"]:
         subprocess.run([sys.executable, "./web_to_any.py"])
     else:
-        # Parse multiple formats if comma-separated
         formats = []
         if args["format"]:
-            formats = [fmt.strip() for fmt in args["format"].split(",")]
+            formats = [fmt.strip() for fmt in args["format"].split(",") if fmt.strip()]
         
         # Run main function with parsed arguments
         controller.run(

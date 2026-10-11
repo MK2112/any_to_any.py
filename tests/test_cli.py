@@ -66,3 +66,73 @@ def test_cli_workers_flag_recognized(tmp_path):
     combined = (result.stdout + "\n" + result.stderr).lower()
     assert "unrecognized arguments" not in combined
     assert result.returncode in (0, 1)
+
+
+def _script_path():
+    return os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "any_to_any.py")
+    )
+
+
+@pytest.mark.parametrize("bad_workers", ["0", "-5"])
+def test_cli_workers_below_range_rejected(tmp_path, bad_workers):
+    # --workers below 1 must fail fast with an argparse error (exit 2)
+    result = subprocess.run(
+        [sys.executable, _script_path(), "-i", str(tmp_path), "--workers", bad_workers],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 2
+    assert "--workers" in (result.stdout + result.stderr)
+
+
+def test_cli_workers_huge_rejected(tmp_path):
+    # Far above cpu_count - 1 must fail
+    huge = (os.cpu_count() or 1) * 1000 + 100
+    result = subprocess.run(
+        [
+            sys.executable,
+            _script_path(),
+            "-i",
+            str(tmp_path),
+            "--workers",
+            str(huge),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 2
+    assert "--workers" in (result.stdout + result.stderr)
+
+
+@pytest.mark.parametrize("bad_fps", ["0", "-5"])
+def test_cli_framerate_not_positive_rejected(tmp_path, bad_fps):
+    # Negative/zero framerates must fail fast
+    result = subprocess.run(
+        [
+            sys.executable,
+            _script_path(),
+            "-i",
+            str(tmp_path),
+            "-f",
+            "mp4",
+            "--framerate",
+            bad_fps,
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 2
+    assert "--framerate" in (result.stdout + result.stderr)
+
+
+def test_cli_trailing_comma_format_no_empty_target(tmp_path):
+    # "-f mp3," must behave like "-f mp3"
+    result = subprocess.run(
+        [sys.executable, _script_path(), "-i", str(tmp_path), "-f", "mp3,"],
+        capture_output=True,
+        text=True,
+    )
+    combined = (result.stdout + "\n" + result.stderr).lower()
+    assert "unrecognized arguments" not in combined
+    assert result.returncode in (0, 1)
