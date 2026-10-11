@@ -13,6 +13,7 @@ from core.utils.exit import end_with_msg
 from core.utils.resolution import parse_resolution
 from core.converter.image_converter import office_to_frames
 from core.utils.file_handler import safe_output_dir as _safe_out_dir
+from core.utils.file_handler import sort_frame_filenames
 
 
 from moviepy import (
@@ -24,13 +25,6 @@ from moviepy import (
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-
-
-def _sort_frame_filenames(filenames: list) -> list:
-    def _key(filename: str) -> tuple:
-        index = os.path.splitext(filename)[0].rsplit("-", 1)[-1]
-        return (0, int(index)) if index.isdigit() else (1, filename)
-    return sorted(filenames, key=_key)
 
 
 class MovieConverter:
@@ -274,7 +268,7 @@ class MovieConverter:
                     ]
                 except OSError:
                     pics = []
-                pics = _sort_frame_filenames(pics)
+                pics = sort_frame_filenames(pics)
                 if len(pics) > 0:
                     image_clips = [
                         ImageClip(os.path.join(frames_dir, pic)).with_duration(
@@ -343,7 +337,7 @@ class MovieConverter:
                     doc.close()
 
                     # Convert the JPEG files to a video
-                    image_files = sorted(image_files)
+                    image_files = sort_frame_filenames(image_files)
                     image_clips = [
                         ImageClip(os.path.join(scratch_dir, img)).with_duration(
                             (1 / framerate) if framerate is not None else 1 / 24

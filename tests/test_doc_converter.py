@@ -614,3 +614,41 @@ def test_parse_page_ranges_rest_after_range(document_converter):
     # 'rest' after a specific range should pick up after highest end
     res = document_converter._parse_page_ranges("1-2,rest", 5)
     assert res == [(1, 2), (3, 5)]
+
+
+class TestDocumentConverterGifFrameOrder:
+    def test_to_pdf_gif_frames_processed_in_numeric_order(
+        self, document_converter, temp_output_dir
+    ):
+        frame_dir = os.path.join(temp_output_dir, "anim")
+        os.makedirs(frame_dir)
+        for name in ("anim-10.png", "anim-2.png", "anim-1.png"):
+            open(os.path.join(frame_dir, name), "wb").close()
+
+        with patch(
+            "core.converter.doc_converter.gif_to_frames"
+        ) as mock_gif_to_frames, patch(
+            "core.converter.doc_converter.pypdf.open"
+        ) as mock_pypdf_open, patch(
+            "core.converter.doc_converter.pypdf.Pixmap"
+        ) as mock_pixmap:
+            mock_gif_to_frames.return_value = {"anim": frame_dir}
+            mock_pypdf_open.return_value = MagicMock()
+            mock_pixmap.return_value = MagicMock(width=100, height=100)
+            document_converter.to_pdf(
+                temp_output_dir,
+                {
+                    Category.IMAGE: [("dir", "anim", "gif")],
+                    Category.MOVIE: [],
+                    Category.DOCUMENT: [],
+                },
+                "pdf",
+                False,
+            )
+
+        seen = [c.args[0] for c in mock_pixmap.call_args_list]
+        assert seen == [
+            os.path.join(frame_dir, "anim-1.png"),
+            os.path.join(frame_dir, "anim-2.png"),
+            os.path.join(frame_dir, "anim-10.png"),
+        ]

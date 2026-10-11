@@ -18,6 +18,7 @@ from utils.category import Category
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import inch
 from reportlab.lib.pagesizes import A4
+from core.utils.file_handler import sort_frame_filenames
 from core.converter.image_converter import gif_to_frames
 from core.utils.file_handler import safe_output_dir as _safe_out_dir
 
@@ -144,7 +145,7 @@ class DocumentConverter:
 
                 doc = pypdf.open()
                 try:
-                    _frames = sorted(os.listdir(gif_frame_path))
+                    _frames = sort_frame_filenames(os.listdir(gif_frame_path))
                 except OSError:
                     _frames = []
                 for frame in _frames:
@@ -447,7 +448,7 @@ class DocumentConverter:
                     image_path_set[1], os.path.join(output, image_path_set[1])
                 )
                 try:
-                    _frames = sorted(os.listdir(gif_frame_dir))
+                    _frames = sort_frame_filenames(os.listdir(gif_frame_dir))
                 except OSError:
                     _frames = []
                 for frame in tqdm(_frames):

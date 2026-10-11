@@ -70,6 +70,16 @@ def safe_output_dir(base_dir: str, timeout: float = 2.0) -> str:
     raise FileExistsError(f"Could not resolve a free directory for {base_dir}")
 
 
+def sort_frame_filenames(filenames: list) -> list:
+    # Order extracted frame file names by the numeric index in their stem,
+    # Names without a numeric suffix sort after, by name
+    def _key(filename: str) -> tuple:
+        index = os.path.splitext(filename)[0].rsplit("-", 1)[-1]
+        return (0, int(index)) if index.isdigit() else (1, filename)
+
+    return sorted(filenames, key=_key)
+
+
 class FileHandler:
     def __init__(self, event_logger: logging.Logger, locale: str = "English"):
         self.event_logger = event_logger
