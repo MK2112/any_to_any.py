@@ -610,6 +610,30 @@ class TestMovieConverterResolution:
         for call in mock_clip.write_videofile.call_args_list:
             assert call.kwargs["audio"] is False
 
+    @patch("core.converter.movie_converter.VideoFileClip")
+    def test_to_codec_recursive_uses_container_extension(
+        self, mock_vfc, mock_converter
+    ):
+        mock_clip = MagicMock()
+        mock_clip.audio = MagicMock()
+        mock_clip.fps = 24
+        mock_vfc.return_value = mock_clip
+        mock_converter.file_handler.has_visuals.return_value = True
+        mock_converter.file_handler.join_back.return_value = "same/video.mp4"
+        mock_converter.to_codec(
+            input="same",
+            output="same",
+            format="h264",
+            recursive=True,
+            file_paths={Category.MOVIE: [("same", "video", "mp4")]},
+            framerate=None,
+            codec=("libx264", "mkv"),
+            delete=False,
+        )
+
+        written = mock_clip.write_videofile.call_args[0][0]
+        assert written.endswith(os.path.join("same", "video_h264.mkv"))
+
 
 def test_cli_resolution_flag_recognized(tmp_path):
     script_path = os.path.abspath(

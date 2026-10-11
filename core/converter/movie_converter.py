@@ -384,7 +384,10 @@ class MovieConverter:
                 )
             else:
                 out_path = os.path.abspath(
-                    os.path.join(codec_path_set[0], f"{codec_path_set[1]}.{format}")
+                    os.path.join(
+                        codec_path_set[0],
+                        f"{codec_path_set[1]}_{format}.{codec[1]}",
+                    )
                 )
 
             out_path = self.file_handler._resolve_output_file_conflict(out_path)
