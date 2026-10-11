@@ -1,10 +1,10 @@
 import sys
 
 def end_with_msg(event_logger, exception: Exception, msg: str) -> None:
-    # Single point of exit in the entire application
+    # Single point of fatal exit
     if exception is not None:
         event_logger.warning(msg)
         raise exception(msg)
     else:
         event_logger.info(msg)
-        sys.exit(0)
+        sys.exit(1)
