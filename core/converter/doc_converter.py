@@ -227,7 +227,9 @@ class DocumentConverter:
                     os.path.abspath(os.path.join(output, f"{doc_path_set[1]}.{format}"))
                 )
 
-                with open(self.file_handler.join_back(doc_path_set), "r") as srt_file:
+                with open(
+                    self.file_handler.join_back(doc_path_set), "r", encoding="utf-8-sig"
+                ) as srt_file:
                     srt_content = srt_file.read()
 
                 # Insert the SRT content into the PDF
@@ -552,10 +554,14 @@ class DocumentConverter:
                     for slide in tqdm(
                         presentation.slides, desc=f"{document_path_set[1]}"
                     ):
-                        if slide.shapes.title.text != "":
+                        title = slide.shapes.title
+                        title_text = (
+                            title.text if title is not None and title.text else ""
+                        )
+                        if title_text != "":
                             # Add title to the document
                             doc.add_paragraph(
-                                f"Slide {slide.slide_id} Title: {slide.shapes.title.text}"
+                                f"Slide {slide.slide_id} Title: {title_text}"
                             )
                         for shape in slide.shapes:
                             if hasattr(shape, "image"):
@@ -712,12 +718,10 @@ class DocumentConverter:
         if page_ranges.lower() in ["all", "rest"]:
             return None  # [(1, total_pages)], we don't need that, skip that
 
-        ranges = []
-        for delim in [",", ";"]:
-            # Split by comma or semicolon
-            if delim in page_ranges:
-                ranges = [r.strip() for r in page_ranges.split(delim)]
-                break
+        # Split on both comma and semicolon, "1-2,3-4;5-6" keeps every range just alike
+        ranges = [
+            r.strip() for r in page_ranges.replace(";", ",").split(",") if r.strip()
+        ]
         if not ranges:
             # No delimiters found
             ranges = [page_ranges.strip()]

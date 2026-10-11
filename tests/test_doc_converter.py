@@ -652,3 +652,96 @@ class TestDocumentConverterGifFrameOrder:
             os.path.join(frame_dir, "anim-2.png"),
             os.path.join(frame_dir, "anim-10.png"),
         ]
+
+
+class TestDocumentConverterPptxTitle:
+    def test_pptx_titleless_slide_does_not_crash(self, tmp_path):
+        from pptx import Presentation
+
+        from core.utils.file_handler import FileHandler
+
+        prs = Presentation()
+        slide = prs.slides.add_slide(prs.slide_layouts[6])
+        assert slide.shapes.title is None
+        prs.save(str(tmp_path / "deck.pptx"))
+        out = tmp_path / "out"
+        out.mkdir()
+        file_handler = FileHandler(event_logger=MagicMock(), locale="English")
+        converter = DocumentConverter(file_handler, MagicMock(), MagicMock())
+        converter.to_office(
+            str(out),
+            {
+                Category.IMAGE: [],
+                Category.MOVIE: [],
+                Category.DOCUMENT: [(str(tmp_path) + "/", "deck", "pptx")],
+            },
+            "docx",
+            False,
+        )
+
+        assert (out / "deck.docx").exists()
+
+
+class TestDocumentConverterSrtEncoding:
+    def test_srt_to_pdf_non_ascii_under_ascii_locale(self, tmp_path):
+        # True regression test: under an ASCII locale, bare open() raises
+        # UnicodeDecodeError on non-ASCII subtitles while explicit utf-8-sig
+        # reads them fine.
+        import subprocess
+        import sys
+        import textwrap
+
+        repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+        (tmp_path / "subs.srt").write_bytes(
+            "1\n00:00:01,000 --> 00:00:02,000\nHéllo wörld\n\n".encode("utf-8")
+        )
+        out = tmp_path / "out"
+        out.mkdir()
+        doc_tuple = repr([(str(tmp_path) + "/", "subs", "srt")])
+        script = textwrap.dedent(
+            f"""
+            import sys
+            sys.path.insert(0, {repo_root!r})
+            from unittest.mock import MagicMock
+            from utils.category import Category
+            from core.converter.doc_converter import DocumentConverter
+            from core.utils.file_handler import FileHandler
+            fh = FileHandler(event_logger=MagicMock(), locale="English")
+            conv = DocumentConverter(fh, MagicMock(), MagicMock())
+            conv.to_pdf(
+                {str(out)!r},
+                {{Category.IMAGE: [], Category.MOVIE: [],
+                  Category.DOCUMENT: {doc_tuple}}},
+                "pdf",
+                False,
+            )
+            print("OK")
+            """
+        )
+        env = dict(os.environ)
+        env.update(
+            {
+                "PYTHONUTF8": "0",
+                "LC_ALL": "C",
+                "LANG": "C",
+                "LANGUAGE": "C",
+                "PYTHONCOERCECLOCALE": "0",
+            }
+        )
+        proc = subprocess.run(
+            [sys.executable, "-c", script],
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=120,
+        )
+        assert proc.returncode == 0, proc.stderr
+        assert (out / "subs.pdf").exists()
+
+
+def test_parse_page_ranges_mixed_delimiters(document_converter):
+    assert document_converter._parse_page_ranges("1-2,3-4;5-6", 10) == [
+        (1, 2),
+        (3, 4),
+        (5, 6),
+    ]
