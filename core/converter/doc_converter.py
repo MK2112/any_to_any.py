@@ -342,6 +342,7 @@ class DocumentConverter:
                     ],
                     capture_output=True,
                     text=True,
+                    timeout=300,
                 )
 
                 if os.path.exists(out_path) and os.path.getsize(out_path) > 0:
@@ -360,6 +361,7 @@ class DocumentConverter:
                         ["ffmpeg", "-i", input_path, "-c:s", format, out_path],
                         capture_output=True,
                         text=True,
+                        timeout=300,
                     )
                     if os.path.exists(out_path) and os.path.getsize(out_path) > 0:
                         self.event_logger.info(

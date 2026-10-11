@@ -483,3 +483,90 @@ def test_to_movie_gif_none_fps_falls_back_to_default(
 
     written_fps = mock_clip.write_videofile.call_args[1]["fps"]
     assert written_fps == 24
+
+
+@patch("core.converter.movie_converter.ImageClip")
+@patch("core.converter.movie_converter.AudioFileClip")
+def test_to_movie_audio_only_placeholder_is_720p(
+    mock_audio, mock_imageclip, mock_converter
+):
+    # Audio-only inputs render over a black placeholder frame
+    mock_converter.file_handler.has_visuals.return_value = False
+    mock_converter.file_handler.join_back.return_value = "dir/song.mp3"
+    mock_audio.return_value.duration = 5.0
+    mock_converter.to_movie(
+        input="in",
+        output="out",
+        recursive=False,
+        file_paths={
+            Category.IMAGE: [],
+            Category.MOVIE: [("dir", "song", "mp3")],
+            Category.DOCUMENT: [],
+        },
+        format="mp4",
+        framerate=24,
+        codec="libx264",
+        delete=False,
+    )
+
+    assert mock_imageclip.call_args[0][0].shape == (720, 1280, 3)
+
+
+@patch("core.converter.movie_converter.ImageClip")
+@patch("core.converter.movie_converter.AudioFileClip")
+def test_to_codec_audio_only_placeholder_is_720p(
+    mock_audio, mock_imageclip, mock_converter
+):
+    mock_converter.file_handler.has_visuals.return_value = False
+    mock_converter.file_handler.join_back.return_value = "dir/song.mp4"
+    mock_audio.return_value.duration = 5.0
+    mock_converter.to_codec(
+        input="in",
+        output="out",
+        format="h264",
+        recursive=False,
+        file_paths={Category.MOVIE: [("dir", "song", "mp4")]},
+        framerate=24,
+        codec=("libx264", "mkv"),
+        delete=False,
+    )
+
+    assert mock_imageclip.call_args[0][0].shape == (720, 1280, 3)
+
+
+@patch("core.converter.movie_converter.subprocess.run")
+def test_to_protocol_hls_uses_libx264_and_scale_filter(
+    mock_run, mock_converter, tmp_path
+):
+    # The HLS ladder must use the real libx264 encoder
+    mock_converter.file_handler.join_back.return_value = "dir/sample.mp4"
+    mock_run.return_value = MagicMock(stdout="ok", stderr="")
+
+    mock_converter.to_protocol(
+        output=str(tmp_path),
+        file_paths={Category.MOVIE: [("dir", "sample", "mp4")]},
+        supported_formats={Category.PROTOCOLS: {"hls": True}},
+        protocol=["hls"],
+        delete=False,
+    )
+
+    cmd = mock_run.call_args[0][0]
+    assert "libx264" in cmd
+    assert "-vf" in cmd
+    assert "scale=640:360" in cmd
+    assert "-s" not in cmd
+
+
+@patch("core.converter.movie_converter.subprocess.run")
+def test_run_command_applies_timeout(mock_run, mock_converter):
+    mock_run.return_value = MagicMock(stdout="", stderr="")
+    mock_converter._run_command(["ffmpeg", "-version"])
+    assert mock_run.call_args[1]["timeout"] == 3600
+
+
+@patch("core.converter.movie_converter.subprocess.run")
+def test_run_command_timeout_surfaces_as_runtime_error(mock_run, mock_converter):
+    import subprocess
+    mock_run.side_effect = subprocess.TimeoutExpired(["ffmpeg"], 3600)
+    with pytest.raises(RuntimeError, match="[Tt]imed out"):
+        mock_converter._run_command(["ffmpeg"])

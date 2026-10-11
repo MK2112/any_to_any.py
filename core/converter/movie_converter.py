@@ -30,6 +30,10 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+_AUDIO_PLACEHOLDER_WIDTH = 1280
+_AUDIO_PLACEHOLDER_HEIGHT = 720
+_FFMPEG_TIMEOUT_SECONDS = 3600
+
 
 class MovieConverter:
     def __init__(
@@ -179,7 +183,16 @@ class MovieConverter:
                         audio = AudioFileClip(
                             self.file_handler.join_back(movie_path_set)
                         )
-                        video_clip = ImageClip(np.zeros((720, 1280, 3), dtype=np.uint8))
+                        video_clip = ImageClip(
+                            np.zeros(
+                                (
+                                    _AUDIO_PLACEHOLDER_HEIGHT,
+                                    _AUDIO_PLACEHOLDER_WIDTH,
+                                    3,
+                                ),
+                                dtype=np.uint8,
+                            )
+                        )
                         if resolution is not None:
                             video_clip = video_clip.resized(
                                 new_size=parse_resolution(resolution)
@@ -431,9 +444,12 @@ class MovieConverter:
                 # Audio-only video file
                 audio = AudioFileClip(self.file_handler.join_back(codec_path_set))
                 # Create new VideoClip with audio only
-                clip = ImageClip(np.zeros((16, 16, 3), dtype=np.uint8)).with_duration(
-                    audio.duration
-                )
+                clip = ImageClip(
+                    np.zeros(
+                        (_AUDIO_PLACEHOLDER_HEIGHT, _AUDIO_PLACEHOLDER_WIDTH, 3),
+                        dtype=np.uint8,
+                    )
+                ).with_duration(audio.duration)
                 if resolution is not None:
                     clip = clip.resized(new_size=parse_resolution(resolution))
                 clip = clip.with_audio(audio)
@@ -509,17 +525,18 @@ class MovieConverter:
                     self.event_logger.info(
                         f"[>] {lang.get_translation('get_hls', self.locale)} {self.file_handler.join_back(movie_path_set)}: {resolution} at {v_bitrate} video, {a_bitrate} audio"
                     )
+                    width, height = resolution.split("x")
                     stream = [
                         "-map",
                         "0:v:0",
                         "-map",
                         "0:a?",
                         "-c:v",
-                        "h264",
+                        "libx264",
                         "-b:v",
                         v_bitrate,
-                        "-s",
-                        resolution,
+                        "-vf",
+                        f"scale={width}:{height}",
                         "-c:a",
                         "aac",
                         "-b:a",
@@ -608,7 +625,9 @@ class MovieConverter:
                         f"{lang.get_translation('dash_fail', self.locale)} {e}",
                     )
 
-    def _run_command(self, command: list) -> None:
+    def _run_command(self, command: list, timeout: int = None) -> None:
+        if timeout is None:
+            timeout = _FFMPEG_TIMEOUT_SECONDS
         try:
             _ = subprocess.run(
                 command,
@@ -616,7 +635,11 @@ class MovieConverter:
                 stderr=subprocess.PIPE,
                 check=True,
                 text=True,
+                timeout=timeout,
             )
+        except subprocess.TimeoutExpired as e:
+            error_msg = f"Error: {' '.join(command)}\n\nTimed out after {timeout}s"
+            raise RuntimeError(error_msg) from e
         except subprocess.CalledProcessError as e:
             error_msg = f"Error: {' '.join(command)}\n\nSTDOUT:\n{e.stdout}\n\nSTDERR:\n{e.stderr}"
             raise RuntimeError(error_msg)
