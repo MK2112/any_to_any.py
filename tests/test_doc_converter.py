@@ -8,7 +8,7 @@ import pymupdf as pypdf
 
 from utils.category import Category
 from core.converter.doc_converter import DocumentConverter
-from tests.test_fixtures import setup_file_handler_mock
+from tests.test_fixtures import controller_instance, setup_file_handler_mock
 from unittest.mock import Mock, patch, mock_open, MagicMock
 
 
@@ -495,6 +495,59 @@ class TestDocumentConverterPdfSplitting:
 
         part1.close()
         part2.close()
+
+
+class TestDocumentConverterSplitWarnings:
+    def _make_pdf(self, path, pages):
+        doc = pypdf.open()
+        for i in range(pages):
+            doc.new_page().insert_text((72, 72), f"Page {i + 1}")
+        doc.save(path)
+        doc.close()
+
+    def test_split_pdf_invalid_ranges_warns_and_produces_nothing(
+        self, document_converter, mock_event_logger, temp_output_dir
+    ):
+        pdf_path = os.path.join(temp_output_dir, "test.pdf")
+        self._make_pdf(pdf_path, 3)
+        document_converter.file_handler.join_back.return_value = pdf_path
+
+        document_converter.split_pdf(
+            output=temp_output_dir,
+            doc_path_set=(temp_output_dir, "test", "pdf"),
+            page_ranges="999",
+            delete=False,
+            format="pdf",
+        )
+
+        mock_event_logger.warning.assert_called()
+        assert os.listdir(temp_output_dir) == ["test.pdf"]
+
+    def test_split_pdf_multi_range_post_processes_all_outputs(
+        self, document_converter, temp_output_dir
+    ):
+        pdf_path = os.path.join(temp_output_dir, "test.pdf")
+        self._make_pdf(pdf_path, 5)
+        document_converter.file_handler.join_back.return_value = pdf_path
+
+        document_converter.split_pdf(
+            output=temp_output_dir,
+            doc_path_set=(temp_output_dir, "test", "pdf"),
+            page_ranges="1-2,3-5",
+            delete=False,
+            format="pdf",
+        )
+
+        assert document_converter.file_handler.post_process.call_count == 2
+
+
+def test_controller_split_non_pdf_warns(controller_instance, caplog):
+    with caplog.at_level("WARNING"):
+        controller_instance.split(
+            {Category.DOCUMENT: [("/tmp/", "notes", "docx")]},
+            page_ranges="1-2",
+        )
+    assert "skipping" in caplog.text.lower()
 
 
 class TestDocumentConverterIntegration:

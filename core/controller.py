@@ -974,6 +974,12 @@ class Controller:
                     delete=self.delete,
                     page_ranges=page_ranges,
                 )
+            else:
+                self.event_logger.warning(
+                    f"[!] split: only PDF splitting is supported, skipping "
+                    f'"{doc_path_set[1]}.{doc_path_set[2]}" - '
+                    f"{lang.get_translation('skipping', self.locale)}"
+                )
 
     def concat(self, file_paths: dict, format: str = None) -> None:
         # Concat files of same type (img/movie/audio) back to back

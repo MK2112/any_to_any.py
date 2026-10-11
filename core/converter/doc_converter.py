@@ -632,23 +632,40 @@ class DocumentConverter:
         # delete: bool - delete the original document after completion
         # format: str - format of the document
         doc_path = self.file_handler.join_back(doc_path_set)
+        if format != "pdf":
+            self.event_logger.warning(
+                f"[!] split: unsupported format '{format}' for "
+                f'"{doc_path_set[1]}.{doc_path_set[2]}" - '
+                f"{lang.get_translation('skipping', self.locale)}"
+            )
+            return
         if format == "pdf":
             # Open the PDF document
             pdf = pypdf.open(doc_path)
             total_pages = len(pdf)
             if total_pages == 0:
                 pdf.close()
+                self.event_logger.warning(
+                    f"[!] split: no pages in "
+                    f'"{doc_path_set[1]}.{doc_path_set[2]}" - '
+                    f"{lang.get_translation('skipping', self.locale)}"
+                )
                 return
             # Parse page_ranges into a list of tuples
             parsed_ranges = self._parse_page_ranges(page_ranges, total_pages)
-
-            # None means any splitting efforts would be futile, skip
             if parsed_ranges is None:
                 pdf.close()
+                self.event_logger.warning(
+                    f"[!] split: no valid page ranges in '{page_ranges}' for "
+                    f'"{doc_path_set[1]}.{doc_path_set[2]}" '
+                    f"({total_pages} pages) - "
+                    f"{lang.get_translation('skipping', self.locale)}"
+                )
                 return
 
             # Create output directory if it doesn't exist
             os.makedirs(output, exist_ok=True)
+            split_outputs = []
             for i, (start, end) in enumerate(parsed_ranges):
                 new_pdf = pypdf.open()
                 new_pdf.insert_pdf(pdf, from_page=start - 1, to_page=end - 1)
@@ -667,12 +684,18 @@ class DocumentConverter:
                 # Save the new PDF
                 new_pdf.save(out_path)
                 new_pdf.close()
+                split_outputs.append(out_path)
                 self.event_logger.info(
                     f"[>] {lang.get_translation('split_produced', self.locale)}: {out_path}"
                 )
             # Close source PDF
             pdf.close()
-            self.file_handler.post_process(doc_path_set, out_path, delete)
+            # Post-process every split part, not just the last one, so
+            # metadata hooks and delete accounting cover all outputs.
+            for i, split_path in enumerate(split_outputs):
+                self.file_handler.post_process(
+                    doc_path_set, split_path, delete, show_status=(i == 0)
+                )
 
     def _parse_page_ranges(
         self, page_ranges: str, total_pages: int
