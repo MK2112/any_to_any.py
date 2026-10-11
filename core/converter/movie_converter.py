@@ -415,7 +415,7 @@ class MovieConverter:
                         out_path,
                         codec=codec[0],
                         fps=video.fps if framerate is None else framerate,
-                        audio=True,
+                        audio=video.audio is not None,
                         logger=self.prog_logger,
                     )
                 except Exception as _:
@@ -429,7 +429,7 @@ class MovieConverter:
                     video.write_videofile(
                         out_path,
                         fps=video.fps if framerate is None else framerate,
-                        audio=True,
+                        audio=video.audio is not None,
                         logger=self.prog_logger,
                     )
                 video.close()

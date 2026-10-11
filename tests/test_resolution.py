@@ -585,6 +585,31 @@ class TestMovieConverterResolution:
         resized_clip.write_videofile.assert_called_once()
         resized_clip.close.assert_called_once()
 
+    @patch("core.converter.movie_converter.VideoFileClip")
+    def test_to_codec_silent_video_writes_without_audio(
+        self, mock_vfc, mock_converter
+    ):
+        mock_clip = MagicMock()
+        mock_clip.audio = None
+        mock_clip.fps = 24
+        mock_clip.write_videofile.side_effect = [Exception("codec fail"), None]
+        mock_vfc.return_value = mock_clip
+        mock_converter.file_handler.has_visuals.return_value = True
+        mock_converter.file_handler.join_back.return_value = "dir/silent.mp4"
+        mock_converter.to_codec(
+            input="in",
+            output="out",
+            format="h264",
+            recursive=False,
+            file_paths={Category.MOVIE: [("dir", "silent", "mp4")]},
+            framerate=None,
+            codec=("libx264", "mkv"),
+            delete=False,
+        )
+        assert mock_clip.write_videofile.call_count == 2
+        for call in mock_clip.write_videofile.call_args_list:
+            assert call.kwargs["audio"] is False
+
 
 def test_cli_resolution_flag_recognized(tmp_path):
     script_path = os.path.abspath(
