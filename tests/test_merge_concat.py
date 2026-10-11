@@ -1,4 +1,7 @@
+import os
+
 import pytest
+import utils.language_support as lang
 from unittest import mock
 from utils.category import Category
 from tests.test_fixtures import (
@@ -123,6 +126,60 @@ def test_concat_ignores_non_pdf_docs(controller_instance, tmp_path):
     )
 
     assert (out / "concatenated_subtitles.srt").exists()
+
+
+def test_concat_mismatched_format_no_false_success(
+    controller_instance, tmp_path, caplog
+):
+    """concat() with a format matching no present category must not log
+    concat_success (previously it reported success having done nothing)"""
+    out = tmp_path / "out"
+    out.mkdir()
+    controller_instance.output = str(out)
+    controller_instance.delete = False
+
+    controller_instance.concat(
+        {
+            Category.AUDIO: [],
+            Category.MOVIE: [(str(tmp_path) + "/", "video", "mp4")],
+            Category.IMAGE: [],
+            Category.DOCUMENT: [],
+        },
+        format="mp3",
+    )
+
+    assert list(out.iterdir()) == []
+    success = lang.get_translation("concat_success", controller_instance.locale)
+    assert success not in caplog.text
+    assert "nothing to concatenate" in caplog.text
+
+
+def test_merge_does_not_overwrite_existing_output(controller_instance, tmp_path):
+    """merge() must conflict-resolve its output instead of silently
+    overwriting a previous merge of the same inputs"""
+    out = tmp_path / "out"
+    out.mkdir()
+    existing = out / "clip_merged.mp4"
+    existing.write_bytes(b"original")
+    controller_instance.output = str(out)
+    controller_instance.delete = False
+    controller_instance.framerate = 24
+
+    video_clip = mock.MagicMock()
+    video_clip.with_audio.return_value = video_clip
+    with mock.patch(
+        "core.controller.VideoFileClip", return_value=video_clip
+    ), mock.patch("core.controller.AudioFileClip"):
+        controller_instance.merge(
+            {
+                Category.MOVIE: [(str(tmp_path) + "/", "clip", "mp4")],
+                Category.AUDIO: [(str(tmp_path) + "/", "clip", "mp3")],
+            }
+        )
+
+    written = video_clip.write_videofile.call_args[0][0]
+    assert os.path.abspath(written) != os.path.abspath(str(existing))
+    assert existing.read_bytes() == b"original"
 
 
 def _srt_paths(tmp_path):

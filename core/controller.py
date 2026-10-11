@@ -1168,6 +1168,15 @@ class Controller:
             (concat_srts, srt_out_path),
         ]
         total_categories = sum(len(files) for files, _ in consumed_groups)
+
+        if total_categories == 0:
+            detail = f" for format '{format}'" if format is not None else ""
+            self.event_logger.warning(
+                f"[!] concat: nothing to concatenate{detail} - "
+                f"{lang.get_translation('skipping', self.locale)}"
+            )
+            return
+
         processed_files = 0
 
         for files, out_path in consumed_groups:
@@ -1287,8 +1296,13 @@ class Controller:
                     video = VideoFileClip(self.file_handler.join_back(movie_path_set))
                     audio = AudioFileClip(self.file_handler.join_back(audio_fit))
                     video = video.with_audio(audio)
-                    merged_out_path = os.path.join(
-                        self.output, f"{movie_path_set[1]}_merged.{movie_path_set[2]}"
+                    merged_out_path = (
+                        self.file_handler._resolve_output_file_conflict(
+                            os.path.join(
+                                self.output,
+                                f"{movie_path_set[1]}_merged.{movie_path_set[2]}",
+                            )
+                        )
                     )
                     video.write_videofile(
                         merged_out_path,
