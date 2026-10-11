@@ -516,6 +516,75 @@ class TestMovieConverterResolution:
         mock_clip.resized.assert_called_once_with(new_size=(1280, 720))
         resized_clip.write_videofile.assert_called_once()
 
+    @patch("core.converter.movie_converter.VideoFileClip")
+    def test_to_movie_resolution_writes_resized_clip_without_closing_source(
+        self, mock_vfc, mock_converter
+    ):
+        # The resized clip must be the one written (with its own audio flag)
+        # and closed. Source must be left alone.
+        mock_clip = MagicMock()
+        resized_clip = MagicMock()
+        resized_clip.fps = 24
+        mock_clip.audio = MagicMock()
+        resized_clip.audio = None
+        mock_clip.resized.return_value = resized_clip
+        mock_vfc.return_value = mock_clip
+        mock_converter.file_handler.has_visuals.return_value = True
+        mock_converter.file_handler.join_back.return_value = "dir/video.mp4"
+
+        mock_converter.to_movie(
+            input="in",
+            output="out",
+            recursive=False,
+            file_paths={
+                Category.IMAGE: [],
+                Category.MOVIE: [("dir", "video", "mp4")],
+                Category.DOCUMENT: [],
+            },
+            format="mp4",
+            framerate=None,
+            codec="libx264",
+            delete=False,
+            resolution="1280x720",
+        )
+
+        mock_clip.resized.assert_called_once_with(new_size=(1280, 720))
+        mock_clip.write_videofile.assert_not_called()
+        mock_clip.close.assert_not_called()
+        resized_clip.write_videofile.assert_called_once()
+        # Audio flag must reflect/indicate resized clip (None -> False, if pre-sized held audio)
+        _, kwargs = resized_clip.write_videofile.call_args
+        assert kwargs["audio"] is False
+        resized_clip.close.assert_called_once()
+
+    @patch("core.converter.movie_converter.VideoFileClip")
+    def test_to_codec_resolution_writes_resized_clip_without_closing_source(
+        self, mock_vfc, mock_converter
+    ):
+        mock_clip = MagicMock()
+        resized_clip = MagicMock()
+        resized_clip.fps = 24
+        mock_clip.resized.return_value = resized_clip
+        mock_vfc.return_value = mock_clip
+        mock_converter.file_handler.has_visuals.return_value = True
+        mock_converter.file_handler.join_back.return_value = "dir/video.mp4"
+        mock_converter.to_codec(
+            input="in",
+            output="out",
+            format="h264",
+            recursive=False,
+            file_paths={Category.MOVIE: [("dir", "video", "mp4")]},
+            framerate=None,
+            codec=("libx264", "mkv"),
+            delete=False,
+            resolution="1280x720",
+        )
+        mock_clip.resized.assert_called_once_with(new_size=(1280, 720))
+        mock_clip.write_videofile.assert_not_called()
+        mock_clip.close.assert_not_called()
+        resized_clip.write_videofile.assert_called_once()
+        resized_clip.close.assert_called_once()
+
 
 def test_cli_resolution_flag_recognized(tmp_path):
     script_path = os.path.abspath(
