@@ -570,3 +570,145 @@ def test_run_command_timeout_surfaces_as_runtime_error(mock_run, mock_converter)
     mock_run.side_effect = subprocess.TimeoutExpired(["ffmpeg"], 3600)
     with pytest.raises(RuntimeError, match="[Tt]imed out"):
         mock_converter._run_command(["ffmpeg"])
+
+
+@patch("core.converter.movie_converter.ImageClip")
+@patch("core.converter.movie_converter.concatenate_videoclips")
+def test_to_movie_includes_all_supported_image_formats(
+    mock_concat, mock_imageclip, mock_converter
+):
+    img_clip = MagicMock()
+    mock_imageclip.return_value.with_duration.return_value = img_clip
+    final_clip = MagicMock()
+    mock_concat.return_value = final_clip
+
+    pics = [
+        ("dir", "a", "tiff"),
+        ("dir", "b", "tga"),
+        ("dir", "c", "heic"),
+        ("dir", "d", "ppm"),
+        ("dir", "e", "ico"),
+    ]
+    mock_converter.file_handler.join_back.side_effect = (
+        lambda s: f"{s[0]}/{s[1]}.{s[2]}"
+    )
+
+    mock_converter.to_movie(
+        input="in",
+        output="out",
+        recursive=False,
+        file_paths={
+            Category.IMAGE: pics,
+            Category.MOVIE: [],
+            Category.DOCUMENT: [],
+        },
+        format="mp4",
+        framerate=24,
+        codec="libx264",
+        delete=True,
+    )
+
+    assert mock_imageclip.call_count == len(pics)
+    concat_args = mock_concat.call_args[0][0]
+    assert len(concat_args) == len(pics)
+    processed = [
+        c.args[0]
+        for c in mock_converter.file_handler.post_process.call_args_list
+    ]
+    assert processed == pics
+
+
+@patch("core.converter.movie_converter.ImageClip")
+@patch("core.converter.movie_converter.concatenate_videoclips")
+def test_to_movie_unreadable_image_is_skipped(
+    mock_concat, mock_imageclip, mock_converter
+):
+    # A file that cannot be opened as an image must not abort the merge,
+    # and must not be deleted or reported as converted
+    img_clip = MagicMock()
+    good_clip = MagicMock()
+    good_clip.with_duration.return_value = img_clip
+    final_clip = MagicMock()
+    mock_concat.return_value = final_clip
+
+    def make_clip(path):
+        if path.endswith(".tiff"):
+            raise OSError("cannot identify image file")
+        return good_clip
+
+    mock_imageclip.side_effect = make_clip
+    mock_converter.file_handler.join_back.side_effect = (
+        lambda s: f"{s[0]}/{s[1]}.{s[2]}"
+    )
+
+    damaged = ("dir", "damaged", "tiff")
+    fine = ("dir", "fine", "png")
+    mock_converter.to_movie(
+        input="in",
+        output="out",
+        recursive=False,
+        file_paths={
+            Category.IMAGE: [damaged, fine],
+            Category.MOVIE: [],
+            Category.DOCUMENT: [],
+        },
+        format="mp4",
+        framerate=24,
+        codec="libx264",
+        delete=True,
+    )
+
+    concat_args = mock_concat.call_args[0][0]
+    assert len(concat_args) == 1
+    processed = [
+        c.args[0]
+        for c in mock_converter.file_handler.post_process.call_args_list
+    ]
+    assert processed == [fine]
+    mock_converter.event_logger.error.assert_called()
+
+
+def test_to_movie_merges_png_and_tiff_end_to_end(tmp_path):
+    import logging
+    from PIL import Image
+    from core.utils.file_handler import FileHandler
+    from utils.prog_logger import ProgLogger
+
+    logger = logging.getLogger("m6-e2e")
+    file_handler = FileHandler(logger, "English")
+    converter = MovieConverter(file_handler, ProgLogger(), logger, "English")
+
+    pics = []
+    for name, ext in (("a", "png"), ("b", "tiff")):
+        Image.new("RGB", (32, 32), "red").save(tmp_path / f"{name}.{ext}")
+        pics.append((str(tmp_path) + os.sep, name, ext))
+
+    out = tmp_path / "out"
+    out.mkdir()
+
+    converter.to_movie(
+        input=str(tmp_path),
+        output=str(out),
+        recursive=False,
+        file_paths={
+            Category.IMAGE: pics,
+            Category.MOVIE: [],
+            Category.DOCUMENT: [],
+        },
+        format="mp4",
+        framerate=2,
+        codec="libx264",
+        delete=True,
+    )
+
+    merged = out / "merged.mp4"
+    assert merged.exists()
+
+    from moviepy import VideoFileClip
+
+    with VideoFileClip(str(merged)) as clip:
+        frame_total = sum(1 for _ in clip.iter_frames())
+    assert frame_total == 2
+
+    assert not (tmp_path / "a.png").exists()
+    assert not (tmp_path / "b.tiff").exists()
