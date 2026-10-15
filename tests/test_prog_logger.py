@@ -1,3 +1,4 @@
+import threading
 import utils.prog_logger as prog_mod
 
 from utils.prog_logger import ProgLogger
@@ -115,7 +116,8 @@ def test_bars_callback_completion_marks_done(monkeypatch):
     assert logger.tqdm_bar is None
     assert shared["job-3"]["status"] == "done"
     assert shared["job-3"]["progress_percent"] == 100
-    assert shared["job-3"]["eta_seconds"] == 0
+    assert shared["job-3"]        # One lock per instance, reused for every shared-dict update so that
+        # parallel conversions sharing this logger are actually serialized["eta_seconds"] == 0
 
 
 def test_bars_callback_zero_total_avoids_division_by_zero(monkeypatch):
@@ -143,3 +145,78 @@ def test_set_error_sets_error_state():
 def test_set_error_without_job_does_nothing():
     logger = ProgLogger(job_id=None, shared_progress_dict={})
     logger.set_error("irrelevant")  # Must not raise
+
+
+class TrackingLock:
+    def __init__(self):
+        self._real = threading.Lock()
+        self.entries = 0
+
+    def __enter__(self):
+        self.entries += 1
+        return self._real.__enter__()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        return self._real.__exit__(exc_type, exc_val, exc_tb)
+
+
+class CountingLockFactory:
+    def __init__(self):
+        self.created = []
+
+    def Lock(self):
+        lock = TrackingLock()
+        self.created.append(lock)
+        return lock
+
+
+def test_prog_logger_creates_one_lock_and_reuses_it(monkeypatch):
+    monkeypatch.setattr(prog_mod, "tqdm", MockTqdm)
+    factory = CountingLockFactory()
+    monkeypatch.setattr(prog_mod, "threading", factory)
+
+    shared = {}
+    logger = ProgLogger(job_id="job-lock", shared_progress_dict=shared)
+    assert len(factory.created) == 1
+    lock = factory.created[0]
+    assert logger._lock is lock
+
+    logger.bars.clear()
+    logger.bars["encode"] = {"total": 10}
+    times = iter([10.0, 10.2, 10.4])
+    monkeypatch.setattr(prog_mod.time, "time", lambda: next(times))
+
+    logger.bars_callback("encode", "index", 5, old_value=0)
+    logger.bars_callback("encode", "index", 10, old_value=5)
+
+    assert factory.created == [lock]
+    assert shared["job-lock"]["status"] == "done"
+    assert lock.entries >= 3
+
+    entries_before = lock.entries
+    logger.set_error("boom")
+    assert lock.entries == entries_before + 1
+    assert shared["job-lock"]["status"] == "error"
+    assert shared["job-lock"]["error"] == "boom"
+
+
+def test_prog_logger_web_mode_reuses_single_lock(monkeypatch):
+    factory = CountingLockFactory()
+    monkeypatch.setattr(prog_mod, "threading", factory)
+
+    shared = {"job-web": {"total_files": 2}}
+    logger = ProgLogger(
+        job_id="job-web", shared_progress_dict=shared, is_web=True
+    )
+    assert len(factory.created) == 1
+    lock = factory.created[0]
+    assert logger._lock is lock
+
+    logger.bars.clear()
+    logger.bars["bar"] = {"total": 10}
+
+    logger.bars_callback("bar", "index", 5, old_value=0)
+    logger.bars_callback("bar", "index", 10, old_value=5)
+
+    assert factory.created == [lock]
+    assert shared["job-web"]["completed_files"] == 1

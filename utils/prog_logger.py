@@ -17,6 +17,7 @@ class ProgLogger(ProgressBarLogger):
         self.shared_progress_dict = shared_progress_dict
         self.is_web = is_web
         self.completed_files = 0
+        self._lock = threading.Lock()
         if self.job_id and self.shared_progress_dict is not None:
             self.shared_progress_dict[self.job_id] = {
                 "progress": 0,
@@ -81,7 +82,7 @@ class ProgLogger(ProgressBarLogger):
 
             # Initialize web progress info
             if self.job_id and self.shared_progress_dict is not None:
-                with threading.Lock():
+                with self._lock:
                     self.shared_progress_dict[self.job_id] = {
                         "progress": 0,
                         "total": total,
@@ -122,7 +123,7 @@ class ProgLogger(ProgressBarLogger):
             ):  # Update at most 10 times per second
                 self.last_print_time = current_time
                 if self.job_id and self.shared_progress_dict is not None:
-                    with threading.Lock():
+                    with self._lock:
                         if self.job_id in self.shared_progress_dict:
                             self.shared_progress_dict[self.job_id].update(
                                 {
@@ -149,7 +150,7 @@ class ProgLogger(ProgressBarLogger):
             elapsed_snapshot = self.start_time # Capture elapsed time before resetting
             self.tqdm_bar, self.start_time, self.last_print_time = None, None, None
             if self.job_id and self.shared_progress_dict is not None:
-                with threading.Lock():
+                with self._lock:
                     if self.job_id in self.shared_progress_dict:
                         total_elapsed = None
                         if elapsed_snapshot is not None:
@@ -176,9 +177,10 @@ class ProgLogger(ProgressBarLogger):
 
     def set_error(self, error_msg):
         if self.job_id and self.shared_progress_dict is not None:
-            self.shared_progress_dict[self.job_id].update(
-                {"status": "error", "error": error_msg}
-            )
+            with self._lock:
+                self.shared_progress_dict[self.job_id].update(
+                    {"status": "error", "error": error_msg}
+                )
 
     def _update_web_progress(self, bar, value, current_time):
         if self.job_id is None or self.shared_progress_dict is None:
@@ -196,7 +198,7 @@ class ProgLogger(ProgressBarLogger):
         )
         overall_percent = int((cumulative_progress / total_units) * 100)
 
-        with threading.Lock():
+        with self._lock:
             if self.job_id in self.shared_progress_dict:
                 self.shared_progress_dict[self.job_id].update(
                     {
@@ -213,7 +215,7 @@ class ProgLogger(ProgressBarLogger):
 
         if value >= total:
             self.completed_files = min(self.completed_files + 1, total_files)
-            with threading.Lock():
+            with self._lock:
                 if self.job_id in self.shared_progress_dict:
                     self.shared_progress_dict[self.job_id].update(
                         {"completed_files": self.completed_files}
