@@ -5,7 +5,6 @@ import tempfile
 from pathlib import Path
 from unittest.mock import Mock, patch, mock_open, MagicMock
 
-# Add the project root to the Python path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from utils.category import Category
@@ -556,3 +555,131 @@ class TestHeicToBmpAndWebp:
             delete=False,
         )
         assert (tmp_path / "photo.webp").exists()
+
+
+class TestDeleteAndLogAfterFrameConversion:
+    """-d must remove sources and a converted log must be emitted."""
+
+    def _converter(self, logger_name):
+        import logging
+        from core.utils.file_handler import FileHandler
+
+        event_logger = logging.getLogger(logger_name)
+        file_handler = FileHandler(event_logger, "English")
+        return ImageConverter(file_handler, MagicMock(), event_logger, "English")
+
+    def test_gif_to_frames_delete_source_and_log(self, tmp_path, caplog, monkeypatch):
+        import logging
+
+        caplog.set_level(logging.INFO)
+        converter = self._converter("gif-delete-test")
+
+        src = tmp_path / "anim.gif"
+        src.touch()
+        frame_dir = tmp_path / "anim_frames"
+        frame_dir.mkdir()
+        (frame_dir / "anim-0.png").touch()
+        (frame_dir / "anim-1.png").touch()
+
+        monkeypatch.setattr(
+            "core.converter.image_converter.gif_to_frames",
+            lambda output, file_paths, file_handler: {"anim": str(frame_dir)},
+        )
+
+        converter.to_frames(
+            input=str(tmp_path),
+            output=str(tmp_path),
+            file_paths={
+                Category.IMAGE: [(str(tmp_path) + os.sep, "anim", "gif")],
+                Category.MOVIE: [],
+                Category.DOCUMENT: [],
+                Category.AUDIO: [],
+            },
+            supported_formats={Category.IMAGE: ["png"]},
+            framerate=None,
+            format="png",
+            delete=True,
+        )
+
+        assert not src.exists()
+        assert str(frame_dir / "anim-1.png") in caplog.text
+
+    @pytest.mark.parametrize(
+        "method,format", [("to_bmp", "bmp"), ("to_webp", "webp")]
+    )
+    def test_pdf_to_frames_delete_source_and_log(
+        self, tmp_path, caplog, method, format
+    ):
+        import logging
+        import pymupdf
+
+        caplog.set_level(logging.INFO)
+        converter = self._converter(f"pdf-{format}-delete-test")
+
+        src = tmp_path / "pages.pdf"
+        pdf = pymupdf.open()
+        pdf.new_page(width=72, height=72)
+        pdf.new_page(width=72, height=72)
+        pdf.save(str(src))
+        pdf.close()
+
+        out = tmp_path / "out"
+        out.mkdir()
+
+        getattr(converter, method)(
+            input=str(tmp_path),
+            output=str(out),
+            file_paths={
+                Category.DOCUMENT: [(str(tmp_path) + os.sep, "pages", "pdf")],
+                Category.IMAGE: [],
+                Category.MOVIE: [],
+                Category.AUDIO: [],
+            },
+            supported_formats={Category.DOCUMENT: [format]},
+            framerate=None,
+            format=format,
+            delete=True,
+        )
+
+        assert not src.exists()
+        frames = sorted((out / "pages").glob(f"*.{format}"))
+        assert frames
+        assert frames[-1].name in caplog.text
+
+    def test_images_to_gif_delete_sources_and_log(self, tmp_path, caplog):
+        import logging
+        from PIL import Image
+
+        caplog.set_level(logging.INFO)
+        converter = self._converter("images-gif-delete-test")
+
+        first = tmp_path / "a.png"
+        second = tmp_path / "b.png"
+        Image.new("RGB", (8, 8), "red").save(first)
+        Image.new("RGB", (8, 8), "blue").save(second)
+
+        out = tmp_path / "out"
+        out.mkdir()
+
+        converter.to_gif(
+            input=str(tmp_path),
+            output=str(out),
+            file_paths={
+                Category.IMAGE: [
+                    (str(tmp_path) + os.sep, "a", "png"),
+                    (str(tmp_path) + os.sep, "b", "png"),
+                ],
+                Category.MOVIE: [],
+                Category.DOCUMENT: [],
+                Category.AUDIO: [],
+            },
+            supported_formats={Category.IMAGE: ["gif"]},
+            framerate=None,
+            format="gif",
+            delete=True,
+        )
+
+        assert (out / "merged.gif").exists()
+        assert not first.exists()
+        assert not second.exists()
+        assert "merged.gif" in caplog.text

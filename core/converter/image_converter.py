@@ -185,7 +185,7 @@ class ImageConverter:
         format = "jpeg" if format == "jpg" else format
 
         # Handle GIF files first
-        gif_to_frames(output, file_paths, self.file_handler)
+        gif_frames = gif_to_frames(output, file_paths, self.file_handler)
 
         # Process regular image files
         for image_path_set in file_paths[Category.IMAGE]:
@@ -194,8 +194,19 @@ class ImageConverter:
                     continue
 
                 if image_path_set[2] == "gif":
-                    # gif_to_frames already processed these
-                    self.file_handler.post_process(image_path_set, output, delete)
+                    frame_dir = gif_frames.get(
+                        image_path_set[1], os.path.join(output, image_path_set[1])
+                    )
+                    try:
+                        frames = sorted(os.listdir(frame_dir))
+                    except OSError:
+                        frames = []
+                    if frames:
+                        self.file_handler.post_process(
+                            image_path_set,
+                            os.path.join(frame_dir, frames[-1]),
+                            delete,
+                        )
                     continue
 
                 # Ensure output dir exists (single images are placed directly in output)
@@ -227,7 +238,8 @@ class ImageConverter:
             except Exception as e:
                 self.event_logger.error(
                     f"[!] {lang.get_translation('error', self.locale)} "
-                    f"converting {self.file_handler.join_back(image_path_set)}: {str(e)}"
+                    f"converting {self.file_handler.join_back(image_path_set)}: {str(e)}"                    # gif_to_frames already extracted the frames; report the
+                    # last frame (and delete the source when requested)
                 )
                 # Don't delete source file if conversion failed
                 delete = False
@@ -241,7 +253,8 @@ class ImageConverter:
                 if input == output
                 else os.path.join(output, doc_path_set[1])
             )
-            doc_out_dir = _safe_out_dir(_base_doc_dir)
+            doc_out_dir = _safe_out_dir(_base_doc_dir)                    # gif_to_frames already extracted the frames; report the
+                    # last frame (and delete the source when requested)
             if not os.path.exists(doc_out_dir):
                 try:
                     os.makedirs(doc_out_dir, exist_ok=True)
@@ -469,9 +482,6 @@ class ImageConverter:
                 )
             if doc_path_set[2] == "pdf":
                 pdf_path = self.file_handler.join_back(doc_path_set)
-                bmp_path = os.path.abspath(
-                    os.path.join(output, f"{doc_path_set[1]}.{format}")
-                )
                 doc = pypdf.open(pdf_path)
                 bmp_frame_out_dir = _safe_out_dir(
                     os.path.join(output, doc_path_set[1])
@@ -487,19 +497,19 @@ class ImageConverter:
                         bmp_frame_out_dir = _safe_out_dir(
                             os.path.join(output, doc_path_set[1])
                         )
+                last_frame = None
                 for i, page_num in enumerate(range(len(doc))):
                     pix = doc.load_page(page_num).get_pixmap()
                     img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
                     # Save each page as a separate BMP file
-                    img.save(
-                        os.path.join(
-                            bmp_frame_out_dir,
-                            f"{doc_path_set[1]}-{i:0{len(str(len(doc)))}}.{format}",
-                        ),
-                        format=format,
+                    last_frame = os.path.join(
+                        bmp_frame_out_dir,
+                        f"{doc_path_set[1]}-{i:0{len(str(len(doc)))}}.{format}",
                     )
+                    img.save(last_frame, format=format)
                 doc.close()
-                self.file_handler.post_process(doc_path_set, bmp_path, delete)
+                if last_frame is not None:
+                    self.file_handler.post_process(doc_path_set, last_frame, delete)
 
     def to_webp(
         self,
@@ -642,9 +652,6 @@ class ImageConverter:
                 )
             if doc_path_set[2] == "pdf":
                 pdf_path = self.file_handler.join_back(doc_path_set)
-                webp_path = os.path.abspath(
-                    os.path.join(output, f"{doc_path_set[1]}.{format}")
-                )
                 doc = pypdf.open(pdf_path)
                 webp_pdf_frame_out_dir = _safe_out_dir(
                     os.path.join(output, doc_path_set[1])
@@ -660,31 +667,31 @@ class ImageConverter:
                         webp_pdf_frame_out_dir = _safe_out_dir(
                             os.path.join(output, doc_path_set[1])
                         )
+                last_frame = None
                 for i, page_num in enumerate(range(len(doc))):
                     pix = doc.load_page(page_num).get_pixmap()
                     img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-                    # Save each page as a separate BMP file
-                    img.save(
-                        os.path.join(
-                            webp_pdf_frame_out_dir,
-                            f"{doc_path_set[1]}-{i:0{len(str(len(doc)))}}.{format}",
-                        ),
-                        format=format,
+                    # Each page reincarnates into a separate webp file
+                    last_frame = os.path.join(
+                        webp_pdf_frame_out_dir,
+                        f"{doc_path_set[1]}-{i:0{len(str(len(doc)))}}.{format}",
                     )
+                    img.save(last_frame, format=format)
                 doc.close()
-                self.file_handler.post_process(doc_path_set, webp_path, delete)
+                if last_frame is not None:
+                    self.file_handler.post_process(doc_path_set, last_frame, delete)
 
     def to_heic(
         self,
         input: str,
         output: str,
         file_paths: dict,
-        supported_formats: dict,  # unused, aligns signature with to_frames, so keep it
+        supported_formats: dict,  # unused, aligns signature with to_frames
         framerate: int,
         format: str,
         delete: bool,
     ) -> None:
-        # Convert still images, PDF and office documents to HEIF/HEIC/AVIF, not moviees tho
+        # Convert still images, PDF, office docs to HEIF/HEIC/AVIF, not movies tho
         if pillow_heif is None:
             self.event_logger.error(
                 f"[!] {lang.get_translation('error', self.locale)}: "
@@ -735,9 +742,6 @@ class ImageConverter:
                 )
             if doc_path_set[2] == "pdf":
                 pdf_path = self.file_handler.join_back(doc_path_set)
-                heic_path = os.path.abspath(
-                    os.path.join(output, f"{doc_path_set[1]}.{format}")
-                )
                 doc = pypdf.open(pdf_path)
                 heic_frame_out_dir = _safe_out_dir(os.path.join(output, doc_path_set[1]))
                 if not os.path.exists(heic_frame_out_dir):
@@ -751,18 +755,18 @@ class ImageConverter:
                         heic_frame_out_dir = _safe_out_dir(
                             os.path.join(output, doc_path_set[1])
                         )
+                last_frame = None
                 for i, page_num in enumerate(range(len(doc))):
                     pix = doc.load_page(page_num).get_pixmap()
                     img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-                    img.save(
-                        os.path.join(
-                            heic_frame_out_dir,
-                            f"{doc_path_set[1]}-{i:0{len(str(len(doc)))}}.{format}",
-                        ),
-                        format=_save_format(format),
+                    last_frame = os.path.join(
+                        heic_frame_out_dir,
+                        f"{doc_path_set[1]}-{i:0{len(str(len(doc)))}}.{format}",
                     )
+                    img.save(last_frame, format=_save_format(format))
                 doc.close()
-                self.file_handler.post_process(doc_path_set, heic_path, delete)
+                if last_frame is not None:
+                    self.file_handler.post_process(doc_path_set, last_frame, delete)
 
     def to_gif(
         self,
@@ -777,6 +781,7 @@ class ImageConverter:
         # All images in the input directory are merged into one gif
         if len(file_paths[Category.IMAGE]) > 0:
             images = []
+            participants = []
             total_images = len(file_paths[Category.IMAGE])
             processed = 0
 
@@ -805,6 +810,7 @@ class ImageConverter:
                             self.file_handler.join_back(image_path_set)
                         ) as image:
                             images.append(image.convert("RGB"))
+                        participants.append(image_path_set)
                         processed += 1
 
                         # Update progress after each image
@@ -846,6 +852,15 @@ class ImageConverter:
                     ):
                         self.prog_logger.bars_callback(
                             "gif", "index", total_images, total_images - 1
+                        )
+                    # Report the merged gif (and remove the participating
+                    # source images when requested) only after it was written
+                    for idx, participant in enumerate(participants):
+                        self.file_handler.post_process(
+                            participant,
+                            output_path,
+                            delete,
+                            show_status=(idx == 0),
                         )
                 except Exception as e:
                     if hasattr(self, "prog_logger"):
