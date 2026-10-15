@@ -29,7 +29,11 @@ def resolution_allowed(
     supported_formats_category: dict, format: str, resolution: str
 ) -> bool:
     # Check if given resolution is allowed for given format
-    return resolution in available_resolutions(supported_formats_category, format)
+    resolutions = supported_formats_category.get(format)
+    if not resolutions:
+        return False
+    allowed = next((item for item in resolutions if isinstance(item, frozenset)), None)
+    return resolution in allowed if allowed else False
 
 
 def resolution_size(resolution: str) -> tuple:

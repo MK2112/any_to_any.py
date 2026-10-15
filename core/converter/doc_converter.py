@@ -43,6 +43,63 @@ class DocumentConverter:
         self.event_logger = event_logger
         self.locale = locale
 
+    def _gif_frame_dirs_for(self, output: str, file_paths: dict) -> tuple:
+        pre_existing: dict = {}
+        try:
+            for _ips in file_paths.get(Category.IMAGE, []):
+                if len(_ips) == 3 and _ips[2] == "gif":
+                    try:
+                        _base = os.path.join(output, _ips[1])
+                        pre_existing[_ips[1]] = bool(os.path.exists(_base))
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+        try:
+            gif_frame_dirs = gif_to_frames(output, file_paths, self.file_handler) or {}
+        except Exception:
+            gif_frame_dirs = {}
+        if not isinstance(gif_frame_dirs, dict):
+            gif_frame_dirs = {}
+        return gif_frame_dirs, pre_existing
+
+    def _cleanup_gif_frame_dir(
+        self,
+        gif_frame_dir: str,
+        gif_name: str,
+        output: str,
+        mapped: bool,
+        pre_existing: bool,
+    ) -> None:
+        try:
+            _abs_frame = os.path.abspath(gif_frame_dir)
+            _abs_out = os.path.abspath(output)
+            _contained = _abs_frame != _abs_out and _abs_frame.startswith(
+                _abs_out + os.sep
+            )
+            if mapped:
+                if _contained:
+                    shutil.rmtree(gif_frame_dir)
+            else:
+                if not pre_existing:
+                    if _contained:
+                        shutil.rmtree(gif_frame_dir)
+                else:
+                    try:
+                        entries = os.listdir(gif_frame_dir)
+                    except OSError:
+                        entries = []
+                    for e in entries:
+                        if e.startswith(f"{gif_name}-") and e.endswith(".png"):
+                            try:
+                                os.remove(os.path.join(gif_frame_dir, e))
+                            except OSError:
+                                pass
+        except OSError as e:
+            self.event_logger.info(
+                f"[!] {lang.get_translation('error', self.locale)}: {e}"
+            )
+
     def to_markdown(
         self, output: str, file_paths: dict, format: str, delete: bool
     ) -> None:
@@ -96,27 +153,10 @@ class DocumentConverter:
     def to_pdf(self, output: str, file_paths: dict, format: str, delete: bool) -> None:
         # Convert GIFs to Frames using to_frames
         # Produces a folder with gif frame for each gif
-        _pre_existing: dict = {}
-        try:
-            for _ips in file_paths.get(Category.IMAGE, []):
-                if len(_ips) == 3 and _ips[2] == "gif":
-                    try:
-                        _base = os.path.join(output, _ips[1])
-                        _pre_existing[_ips[1]] = bool(os.path.exists(_base))
-                    except Exception:
-                        pass
-        except Exception:
-            pass
-        try:
-            _gif_frame_dirs = gif_to_frames(output, file_paths, self.file_handler) or {}
-        except Exception:
-            _gif_frame_dirs = {}
-        if not isinstance(_gif_frame_dirs, dict):
-            _gif_frame_dirs = {}
+        _gif_frame_dirs, _pre_existing = self._gif_frame_dirs_for(output, file_paths)
 
         # Convert Images to PDF
         for image_path_set in file_paths[Category.IMAGE]:
-            pdf_path = ""
             if image_path_set[2] != "gif":
                 doc = pypdf.open()
                 img = pypdf.Pixmap(self.file_handler.join_back(image_path_set))
@@ -156,67 +196,53 @@ class DocumentConverter:
                         page.insert_image(rect, pixmap=img)
                 doc.save(pdf_path)
                 doc.close()
-                try:
-                    _mapped = image_path_set[1] in _gif_frame_dirs
-                    # Never remove a dir outside output or output itself
-                    _abs_frame = os.path.abspath(gif_frame_path)
-                    _abs_out = os.path.abspath(output)
-                    _contained = _abs_frame != _abs_out and _abs_frame.startswith(
-                        _abs_out + os.sep
-                    )
-                    if _mapped:
-                        if _contained:
-                            shutil.rmtree(gif_frame_path)
-                    else:
-                        _existed = _pre_existing.get(image_path_set[1], False)
-                        if not _existed:
-                            if _contained:
-                                shutil.rmtree(gif_frame_path)
-                        else:
-                            try:
-                                entries = os.listdir(gif_frame_path)
-                            except OSError:
-                                entries = []
-                            for e in entries:
-                                if e.startswith(f"{image_path_set[1]}-") and e.endswith(
-                                    ".png"
-                                ):
-                                    try:
-                                        os.remove(os.path.join(gif_frame_path, e))
-                                    except OSError:
-                                        pass
-                except OSError as e:
-                    self.event_logger.info(
-                        f"[!] {lang.get_translation('error', self.locale)}: {e}"
-                    )
+                self._cleanup_gif_frame_dir(
+                    gif_frame_path,
+                    image_path_set[1],
+                    output,
+                    image_path_set[1] in _gif_frame_dirs,
+                    _pre_existing.get(image_path_set[1], False),
+                )
                 self.file_handler.post_process(image_path_set, pdf_path, delete)
         # Convert Movies to PDF, because we can
         for movie_path_set in file_paths[Category.MOVIE]:
-            if self.file_handler.has_visuals(movie_path_set):
+            try:
                 clip = VideoFileClip(
                     self.file_handler.join_back(movie_path_set),
                     audio=False,
                     fps_source="tbr",
                 )
-                pdf_path = self.file_handler._resolve_output_file_conflict(
-                    os.path.abspath(
-                        os.path.join(output, f"{movie_path_set[1]}.{format}")
-                    )
-                )
+            except Exception:
+                clip = None
+            if clip is None or not self.file_handler.has_visuals(
+                movie_path_set, clip=clip
+            ):
+                if clip is not None:
+                    clip.close()
+                continue
+            pdf_path = self.file_handler._resolve_output_file_conflict(
+                os.path.abspath(os.path.join(output, f"{movie_path_set[1]}.{format}"))
+            )
 
-                doc = pypdf.open()
-                for _, frame in tqdm(
-                    enumerate(clip.iter_frames(fps=clip.fps, dtype="uint8")),
-                ):
-                    h, w = frame.shape[:2]
-                    pix = pypdf.Pixmap(pypdf.csRGB, w, h, frame.tobytes(), stride=w * 3)
-                    rect = pypdf.Rect(0, 0, w, h)
-                    page = doc.new_page(width=rect.width, height=rect.height)
-                    page.insert_image(rect, pixmap=pix)
-                doc.save(pdf_path)
-                doc.close()
-                clip.close()
-                self.file_handler.post_process(movie_path_set, pdf_path, delete)
+            doc = pypdf.open()
+            total_frames = max(1, int(clip.duration * clip.fps))
+            for frame_index, frame in enumerate(
+                tqdm(clip.iter_frames(fps=clip.fps, dtype="uint8")), 1
+            ):
+                self.prog_logger.update_shared(
+                    f"{movie_path_set[1]} ({frame_index}/{total_frames})",
+                    frame_index,
+                    total_frames,
+                )
+                h, w = frame.shape[:2]
+                pix = pypdf.Pixmap(pypdf.csRGB, w, h, frame.tobytes(), stride=w * 3)
+                rect = pypdf.Rect(0, 0, w, h)
+                page = doc.new_page(width=rect.width, height=rect.height)
+                page.insert_image(rect, pixmap=pix)
+            doc.save(pdf_path)
+            doc.close()
+            clip.close()
+            self.file_handler.post_process(movie_path_set, pdf_path, delete)
         # Convert Documents to PDF
         for doc_path_set in file_paths[Category.DOCUMENT]:
             if doc_path_set[2] == "pdf":
@@ -311,7 +337,6 @@ class DocumentConverter:
                     c.showPage()
                     c.setFont("Helvetica", 10)
                     y = top_margin
-
         c.save()
 
     def to_subtitles(
@@ -323,13 +348,12 @@ class DocumentConverter:
             out_path = self.file_handler._resolve_output_file_conflict(
                 os.path.abspath(os.path.join(output, f"{movie_path_set[1]}.srt"))
             )
-
             self.event_logger.info(
                 f"[>] {lang.get_translation('extract_subtitles', self.locale)} '{input_path}'"
             )
             try:
-                # Use FFmpeg to extract subtitles
-                _ = subprocess.run(
+                # Outsource this to ffmpeg for subtitle extraction
+                subprocess.run(
                     [
                         "ffmpeg",
                         "-i",
@@ -357,7 +381,7 @@ class DocumentConverter:
                     self.event_logger.info(
                         f"[!] {lang.get_translation('extract_subtitles_alt', self.locale)}"
                     )
-                    _ = subprocess.run(
+                    subprocess.run(
                         ["ffmpeg", "-i", input_path, "-c:s", format, out_path],
                         capture_output=True,
                         text=True,
@@ -421,25 +445,7 @@ class DocumentConverter:
                 except docx.image.exceptions.UnexpectedEndOfFileError as e:
                     self.event_logger.info(e)
 
-        _preexist_office_dirs: dict = {}
-        try:
-            for _image_path_set in file_paths.get(Category.IMAGE, []):
-                if len(_image_path_set) == 3 and _image_path_set[2] == "gif":
-                    try:
-                        _base = os.path.join(output, _image_path_set[1])
-                        _preexist_office_dirs[_image_path_set[1]] = bool(
-                            os.path.exists(_base)
-                        )
-                    except Exception:
-                        pass
-        except Exception:
-            pass
-        try:
-            _gif_frame_dirs = gif_to_frames(output, file_paths, self.file_handler) or {}
-        except Exception:
-            _gif_frame_dirs = {}
-        if not isinstance(_gif_frame_dirs, dict):
-            _gif_frame_dirs = {}
+        _gif_frame_dirs, _pre_existing = self._gif_frame_dirs_for(output, file_paths)
 
         for image_path_set in file_paths[Category.IMAGE]:
             out_path = self.file_handler._resolve_output_file_conflict(
@@ -455,7 +461,12 @@ class DocumentConverter:
                     _frames = sort_frame_filenames(os.listdir(gif_frame_dir))
                 except OSError:
                     _frames = []
-                for frame in tqdm(_frames):
+                for frame_index, frame in enumerate(tqdm(_frames), 1):
+                    self.prog_logger.update_shared(
+                        f"{image_path_set[1]} ({frame_index}/{len(_frames)})",
+                        frame_index,
+                        len(_frames),
+                    )
                     if not frame.endswith(".png"):
                         continue
                     page = _add_page(container)
@@ -463,38 +474,13 @@ class DocumentConverter:
                     if format == "docx":
                         page.add_paragraph(f"Image: {frame}")
                         page.add_page_break()
-                try:
-                    # Never remove dir outside output or output itself
-                    _abs_frame = os.path.abspath(gif_frame_dir)
-                    _abs_out = os.path.abspath(output)
-                    _contained = _abs_frame != _abs_out and _abs_frame.startswith(
-                        _abs_out + os.sep
-                    )
-                    if image_path_set[1] in _gif_frame_dirs:
-                        if _contained:
-                            shutil.rmtree(gif_frame_dir)
-                    else:
-                        _existed = _preexist_office_dirs.get(image_path_set[1], False)
-                        if not _existed:
-                            if _contained:
-                                shutil.rmtree(gif_frame_dir)
-                        else:
-                            try:
-                                entries = os.listdir(gif_frame_dir)
-                            except OSError:
-                                entries = []
-                            for e in entries:
-                                if e.startswith(f"{image_path_set[1]}-") and e.endswith(
-                                    ".png"
-                                ):
-                                    try:
-                                        os.remove(os.path.join(gif_frame_dir, e))
-                                    except OSError:
-                                        pass
-                except OSError as e:
-                    self.event_logger.info(
-                        f"[!] {lang.get_translation('error', self.locale)}: {e}"
-                    )
+                self._cleanup_gif_frame_dir(
+                    gif_frame_dir,
+                    image_path_set[1],
+                    output,
+                    image_path_set[1] in _gif_frame_dirs,
+                    _pre_existing.get(image_path_set[1], False),
+                )
             else:
                 page = _add_page(container)
                 _place_img(
@@ -506,7 +492,19 @@ class DocumentConverter:
             self.file_handler.post_process(image_path_set, out_path, delete)
 
         for movie_path_set in file_paths[Category.MOVIE]:
-            if not self.file_handler.has_visuals(movie_path_set):
+            try:
+                clip = VideoFileClip(
+                    self.file_handler.join_back(movie_path_set),
+                    audio=False,
+                    fps_source="tbr",
+                )
+            except Exception:
+                clip = None
+            if clip is None or not self.file_handler.has_visuals(
+                movie_path_set, clip=clip
+            ):
+                if clip is not None:
+                    clip.close()
                 continue
 
             out_path = self.file_handler._resolve_output_file_conflict(
@@ -514,15 +512,15 @@ class DocumentConverter:
             )
 
             container = _new_container()
-            clip = VideoFileClip(
-                self.file_handler.join_back(movie_path_set),
-                audio=False,
-                fps_source="tbr",
-            )
-
+            total_frames = max(1, int(clip.duration * clip.fps))
             for idx, frame in tqdm(
                 enumerate(clip.iter_frames(fps=clip.fps, dtype="uint8"))
             ):
+                self.prog_logger.update_shared(
+                    f"{movie_path_set[1]} ({idx + 1}/{total_frames})",
+                    idx + 1,
+                    total_frames,
+                )
                 buf = io.BytesIO()
                 Image.fromarray(frame).save(buf, format="PNG")
                 buf.seek(0)
@@ -553,9 +551,15 @@ class DocumentConverter:
                 if document_path_set[2] == "pptx":
                     pptx_path = self.file_handler.join_back(document_path_set)
                     presentation = pptx.Presentation(pptx_path)
-                    for slide in tqdm(
-                        presentation.slides, desc=f"{document_path_set[1]}"
+                    slides = presentation.slides
+                    for slide_index, slide in enumerate(
+                        tqdm(slides, desc=f"{document_path_set[1]}"), 1
                     ):
+                        self.prog_logger.update_shared(
+                            f"{document_path_set[1]} ({slide_index}/{len(slides)})",
+                            slide_index,
+                            len(slides),
+                        )
                         title = slide.shapes.title
                         title_text = (
                             title.text if title is not None and title.text else ""
@@ -594,7 +598,13 @@ class DocumentConverter:
                         doc.add_page_break()
                 elif document_path_set[2] == "pdf":
                     pdf = pypdf.open(self.file_handler.join_back(document_path_set))
-                    for pnum in tqdm(range(len(pdf))):
+                    total_pages = len(pdf)
+                    for pnum in tqdm(range(total_pages)):
+                        self.prog_logger.update_shared(
+                            f"{document_path_set[1]} ({pnum + 1}/{total_pages})",
+                            pnum + 1,
+                            total_pages,
+                        )
                         page = pdf.load_page(pnum)
                         txt = page.get_text().strip()
                         if txt:
@@ -648,63 +658,51 @@ class DocumentConverter:
                 f"{lang.get_translation('skipping', self.locale)}"
             )
             return
-        if format == "pdf":
-            # Open the PDF document
-            pdf = pypdf.open(doc_path)
-            total_pages = len(pdf)
-            if total_pages == 0:
-                pdf.close()
-                self.event_logger.warning(
-                    f"[!] split: no pages in "
-                    f'"{doc_path_set[1]}.{doc_path_set[2]}" - '
-                    f"{lang.get_translation('skipping', self.locale)}"
-                )
-                return
-            # Parse page_ranges into a list of tuples
-            parsed_ranges = self._parse_page_ranges(page_ranges, total_pages)
-            if parsed_ranges is None:
-                pdf.close()
-                self.event_logger.warning(
-                    f"[!] split: no valid page ranges in '{page_ranges}' for "
-                    f'"{doc_path_set[1]}.{doc_path_set[2]}" '
-                    f"({total_pages} pages) - "
-                    f"{lang.get_translation('skipping', self.locale)}"
-                )
-                return
-
-            # Create output directory if it doesn't exist
-            os.makedirs(output, exist_ok=True)
-            split_outputs = []
-            for i, (start, end) in enumerate(parsed_ranges):
-                new_pdf = pypdf.open()
-                new_pdf.insert_pdf(pdf, from_page=start - 1, to_page=end - 1)
-                # Generate output filename
-                if len(parsed_ranges) == 1:
-                    out_filename = f"{doc_path_set[1]}_{start}-{end}.{format}"
-                else:
-                    out_filename = (
-                        f"{doc_path_set[1]}_split_{i + 1}_{start}-{end}.{format}"
-                    )
-
-                out_path = self.file_handler._resolve_output_file_conflict(
-                    os.path.abspath(os.path.join(output, out_filename))
-                )
-
-                # Save the new PDF
-                new_pdf.save(out_path)
-                new_pdf.close()
-                split_outputs.append(out_path)
-                self.event_logger.info(
-                    f"[>] {lang.get_translation('split_produced', self.locale)}: {out_path}"
-                )
-            # Close source PDF
+        pdf = pypdf.open(doc_path)
+        total_pages = len(pdf)
+        if total_pages == 0:
             pdf.close()
-            # Post-process every split part, not just the last one, so
-            # metadata hooks and delete accounting cover all outputs.
-            for i, split_path in enumerate(split_outputs):
-                self.file_handler.post_process(
-                    doc_path_set, split_path, delete, show_status=(i == 0)
-                )
+            self.event_logger.warning(
+                f"[!] split: no pages in "
+                f'"{doc_path_set[1]}.{doc_path_set[2]}" - '
+                f"{lang.get_translation('skipping', self.locale)}"
+            )
+            return
+        # Parse page_ranges right into list of tuples
+        parsed_ranges = self._parse_page_ranges(page_ranges, total_pages)
+        if parsed_ranges is None:
+            pdf.close()
+            self.event_logger.warning(
+                f"[!] split: no valid page ranges in '{page_ranges}' for "
+                f'"{doc_path_set[1]}.{doc_path_set[2]}" '
+                f"({total_pages} pages) - "
+                f"{lang.get_translation('skipping', self.locale)}"
+            )
+            return
+
+        os.makedirs(output, exist_ok=True)
+        split_outputs = []
+        for i, (start, end) in enumerate(parsed_ranges):
+            new_pdf = pypdf.open()
+            new_pdf.insert_pdf(pdf, from_page=start - 1, to_page=end - 1)
+            if len(parsed_ranges) == 1:
+                out_filename = f"{doc_path_set[1]}_{start}-{end}.{format}"
+            else:
+                out_filename = f"{doc_path_set[1]}_split_{i + 1}_{start}-{end}.{format}"
+            out_path = self.file_handler._resolve_output_file_conflict(
+                os.path.abspath(os.path.join(output, out_filename))
+            )
+            new_pdf.save(out_path)
+            new_pdf.close()
+            split_outputs.append(out_path)
+            self.event_logger.info(
+                f"[>] {lang.get_translation('split_produced', self.locale)}: {out_path}"
+            )
+        pdf.close()
+        for i, split_path in enumerate(split_outputs):
+            self.file_handler.post_process(
+                doc_path_set, split_path, delete, show_status=(i == 0)
+            )
 
     def _parse_page_ranges(
         self, page_ranges: str, total_pages: int

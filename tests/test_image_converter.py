@@ -852,3 +852,50 @@ class TestOfficeDocFrameDirClaim:
         assert (out / "report" / "keep.txt").read_text() == "user data"
         assert list((out / "report_1").glob("*.png"))
         assert not (out / "report_2").exists()
+
+
+class TestManualProgressReporting:
+    # Manual (tqdm) loops have to report progress to shared dict (for GUI/web to react to)
+
+    def test_pdf_to_frames_reports_each_page(self, tmp_path):
+        import logging
+        import pymupdf
+        from core.utils.file_handler import FileHandler
+        from utils.prog_logger import ProgLogger
+
+        src = tmp_path / "pages.pdf"
+        pdf = pymupdf.open()
+        for _ in range(4):
+            pdf.new_page(width=72, height=72)
+        pdf.save(str(src))
+        pdf.close()
+
+        shared = {}
+        prog_logger = ProgLogger(
+            job_id="job-pdf-frames", shared_progress_dict=shared, is_web=True
+        )
+        file_handler = FileHandler(logging.getLogger("pdf-frames-progress"), "English")
+        converter = ImageConverter(file_handler, prog_logger, MagicMock(), "English")
+
+        out = tmp_path / "out"
+        out.mkdir()
+
+        converter.to_bmp(
+            input=str(tmp_path),
+            output=str(out),
+            file_paths={
+                Category.DOCUMENT: [(str(tmp_path) + os.sep, "pages", "pdf")],
+                Category.IMAGE: [],
+                Category.MOVIE: [],
+                Category.AUDIO: [],
+            },
+            supported_formats={Category.DOCUMENT: ["bmp"]},
+            framerate=None,
+            format="bmp",
+            delete=False,
+        )
+
+        state = shared["job-pdf-frames"]
+        assert state["total"] == 4
+        assert state["progress"] == 4
+        assert state["status"] == "pages (4/4)"

@@ -122,3 +122,59 @@ def test_watch_dropzone_file_instead_of_dir(controller_instance, tmp_path, caplo
         lang.get_translation("watch_not_dir", converter.locale).lower()
         in caplog.text.lower()
     )
+
+
+def test_watch_dropzone_reuses_one_controller(
+    controller_instance, tmp_path, monkeypatch
+):
+    import core.controller as controller_module
+
+    watch_dir = tmp_path / "watch"
+    watch_dir.mkdir()
+    new_file = watch_dir / "new.mp3"
+    new_file.write_bytes(b"\x00" * 64)
+
+    captured = {}
+
+    class FakeWatcher:
+        def __init__(self, path, handler):
+            captured["handler"] = handler
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            return False
+
+        def watch(self):
+            captured["handler"]("created", str(new_file))
+            captured["handler"]("created", str(new_file))
+
+    monkeypatch.setattr(controller_module, "DirectoryWatcher", FakeWatcher)
+
+    fake_clock = {"now": 0.0}
+
+    def fake_time():
+        fake_clock["now"] += 2.0
+        return fake_clock["now"]
+
+    monkeypatch.setattr(controller_module.time, "time", fake_time)
+    monkeypatch.setattr(controller_module.time, "sleep", lambda _: None)
+
+    created_controllers = []
+    real_init = controller_module.Controller.__init__
+
+    def tracking_init(self, *args, **kwargs):
+        real_init(self, *args, **kwargs)
+        created_controllers.append(self)
+
+    monkeypatch.setattr(controller_module.Controller, "__init__", tracking_init)
+
+    converter = setup_converter(controller_instance, str(tmp_path / "out"))
+    converter.target_format = "mp3"
+    converter.page_ranges = None
+    converter.resolution = None
+    converter.watch_dropzone(str(watch_dir))
+
+    assert len(created_controllers) == 1
+    assert created_controllers[0].input == str(new_file)

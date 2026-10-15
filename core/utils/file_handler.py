@@ -7,6 +7,7 @@ import logging
 import utils.language_support as lang
 
 from moviepy import VideoFileClip
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 _RESOLUTION_LOCK = threading.Lock()
@@ -42,7 +43,7 @@ def resolve_out_dir_conflict(dir_path: str, timeout: float = 2.0) -> str:
             return cand
         suffix_counter += 1
         time.sleep(0.001)
-    claim_t0 = time.time() # Fallback to another run for alphanumeric suffixes
+    claim_t0 = time.time()  # Fallback to another run for alphanumeric suffixes
     while time.time() - claim_t0 < timeout:
         random_suffix = "".join(
             random.choices(string.ascii_lowercase + string.digits, k=5)
@@ -109,6 +110,15 @@ def effective_fps(clip_fps, requested=None, default: int = 24):
     return clip_fps if clip_fps else default
 
 
+def run_parallel(items, fn, max_workers):
+    items = list(items)
+    if len(items) <= 1 or max_workers <= 1:
+        return [fn(item) for item in items]
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [executor.submit(fn, item) for item in items]
+        return [future.result() for future in as_completed(futures)]
+
+
 class FileHandler:
     def __init__(self, event_logger: logging.Logger, locale: str = "English"):
         self.event_logger = event_logger
@@ -119,9 +129,21 @@ class FileHandler:
 
     def join_back(self, file_path_set: tuple) -> str:
         # Join back the file path set to a concurrent path
-        return os.path.abspath(
+        path = os.path.abspath(
             f"{file_path_set[0]}{file_path_set[1]}.{file_path_set[2]}"
         )
+        if not os.path.isfile(path):
+            # Extensions get normalized to lowercase during scanning
+            # We have to recover the original spelling on case-sensitive filesystems (e.g. DEMO.MP3)
+            target = f"{file_path_set[1]}.{file_path_set[2]}".lower()
+            try:
+                for entry in os.listdir(file_path_set[0]):
+                    candidate = os.path.join(file_path_set[0], entry)
+                    if entry.lower() == target and os.path.isfile(candidate):
+                        return os.path.abspath(candidate)
+            except OSError:
+                pass
+        return path
 
     def _resolve_output_file_conflict(self, output_path: str) -> str:
         # Resolve filename conflicts when output file already exists.
@@ -132,15 +154,15 @@ class FileHandler:
 
         if _claim_name(output_path):
             return output_path
-        
+
         # Split the output path into directory, name, and extension
         directory = os.path.dirname(output_path)
         filename = os.path.basename(output_path)
         name, ext = os.path.splitext(filename)
-        
+
         cand_t0 = time.time()
         suffix_counter = 1
-        
+
         # Numeric suffixes with timeout
         while time.time() - cand_t0 < self.CONFLICT_RESOLUTION_TIMEOUT:
             candidate_name = f"{name}_{suffix_counter}{ext}"
@@ -215,7 +237,7 @@ class FileHandler:
                         f"[!] {lang.get_translation('error', self.locale)}: "
                         f'{lang.get_translation("could_not_remove", self.locale)} "{source_path}": {str(e)}'
                     )
-            
+
             return resolved_out_path
 
         except Exception as e:
@@ -224,16 +246,17 @@ class FileHandler:
             )
             raise
 
-    def has_visuals(self, file_path_set: tuple) -> bool:
-        clip = None
+    def has_visuals(self, file_path_set: tuple, clip=None) -> bool:
+        close_clip = clip is None
         try:
-            clip = VideoFileClip(self.join_back(file_path_set))
+            if clip is None:
+                clip = VideoFileClip(self.join_back(file_path_set))
             next(clip.iter_frames())
             return True
         except Exception as _:
             pass
         finally:
-            if clip is not None:
+            if close_clip and clip is not None:
                 try:
                     clip.close()
                 except Exception:

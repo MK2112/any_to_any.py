@@ -2,26 +2,26 @@ import os
 import re
 import time
 import logging
-import threading
 import pymupdf as pypdf
 import utils.language_support as lang
 
 from pathlib import Path
+from typing import ClassVar
 from utils.category import Category
+from core.utils.exit import end_with_msg
 from utils.prog_logger import ProgLogger
+from core.utils.metadata_handler import MetadataHandler
+from core.utils.directory_watcher import DirectoryWatcher
+from core.converter.audio_converter import AudioConverter
+from core.converter.movie_converter import MovieConverter
+from core.converter.image_converter import ImageConverter
+from core.converter.doc_converter import DocumentConverter
+from core.utils.file_handler import FileHandler, effective_fps
 from core.utils.resolution import (
     available_resolutions,
     normalize_resolution,
     resolution_allowed,
 )
-from core.utils.exit import end_with_msg
-from core.converter.audio_converter import AudioConverter
-from core.converter.movie_converter import MovieConverter
-from core.utils.file_handler import FileHandler, effective_fps
-from core.converter.image_converter import ImageConverter
-from core.converter.doc_converter import DocumentConverter
-from core.utils.directory_watcher import DirectoryWatcher
-from core.utils.metadata_handler import MetadataHandler
 from moviepy import (
     AudioFileClip,
     VideoFileClip,
@@ -83,6 +83,30 @@ def _parse_srt_entries(content: str) -> list:
 class Controller:
     # Taking an input dir of files, converting them to specified or inferred target formats
     # Trigger via any_to_any.py script (see README.md)
+
+    _STD_RES = (
+        "3840x2160",
+        "2560x1440",
+        "1920x1080",
+        "1280x720",
+        "854x480",
+        "640x360",
+        "426x240",
+    )
+    _RES_ALIASES: ClassVar[dict] = {
+        "4k": "3840x2160",
+        "1440p": "2560x1440",
+        "1080p": "1920x1080",
+        "720p": "1280x720",
+        "480p": "854x480",
+        "360p": "640x360",
+        "240p": "426x240",
+    }
+    _RES_ALL = frozenset(_STD_RES)  # <= 3840x2160
+    _RES_HD = frozenset(_STD_RES[2:])  # <= 1920x1080
+    _RES_SD = frozenset(_STD_RES[4:])  # <= 854x480
+    _RES_HLS = frozenset({"426x240", "640x360", "854x480", "1280x720", "1920x1080"})
+
     def __init__(
         self, job_id=None, shared_progress_dict=None, locale=None, is_web: bool = False
     ):
@@ -111,33 +135,6 @@ class Controller:
         )
         self.image_converter = ImageConverter(
             self.file_handler, self.prog_logger, self.event_logger, self.locale
-        )
-
-        self._STD_RES = (
-            "3840x2160",
-            "2560x1440",
-            "1920x1080",
-            "1280x720",
-            "854x480",
-            "640x360",
-            "426x240",
-        )
-
-        self._RES_ALIASES = {
-            "4k": "3840x2160",
-            "1440p": "2560x1440",
-            "1080p": "1920x1080",
-            "720p": "1280x720",
-            "480p": "854x480",
-            "360p": "640x360",
-            "240p": "426x240",
-        }
-
-        self._RES_ALL = frozenset(self._STD_RES)  # <= 3840x2160
-        self._RES_HD = frozenset(self._STD_RES[2:])  # <= 1920x1080
-        self._RES_SD = frozenset(self._STD_RES[4:])  # <= 854x480
-        self._RES_HLS = frozenset(
-            {"426x240", "640x360", "854x480", "1280x720", "1920x1080"}
         )
 
         # Dictionary of supported formats and respective information
@@ -296,6 +293,11 @@ class Controller:
         self._fmt_protocol_keys = set(
             self._supported_formats[Category.PROTOCOLS].keys()
         )
+        self._format_category = {
+            fmt: category.value
+            for category, formats in self._supported_formats.items()
+            for fmt in formats
+        }
 
         # Used in CLI information output
         self.supported_formats = [
@@ -303,7 +305,6 @@ class Controller:
             for formats in self._supported_formats.values()
             for format in formats.keys()
         ]
-        self.web_flag = False  # Flags if run triggered in web interface
         self.web_host = None  # Web interface host address
         self.high, self.medium, self.low = (
             "high",
@@ -461,8 +462,8 @@ class Controller:
             self.resolution = None
 
         if language is not None:
-            if re.match(r"^[a-z]{2}_[A-Z]{2}$", language) and language in list(
-                lang.LANGUAGE_CODES.keys()
+            if re.match(r"^[a-z]{2}_[A-Z]{2}$", language) and language in (
+                lang.LANGUAGE_CODES
             ):
                 self.locale = lang.LANGUAGE_CODES[language]
             else:
@@ -512,6 +513,10 @@ class Controller:
 
         file_paths = {}
         was_none, found_files = False, False
+        # With explicit formats, resolution validation does
+        # not depend on the per-input file sets -> validate once
+        if formats and self.resolution is not None:
+            self._validate_resolution(file_paths, formats)
         for input_path in input_paths:
             input_path = os.path.abspath(input_path)
             try:
@@ -587,28 +592,10 @@ class Controller:
                     was_none = True
                 if self.preserve_meta or self.custom_tags:
                     self.metadata_handler.set_metadata_dir(str(self.output))
-                if self.resolution is not None:
+                if not formats and self.resolution is not None:
                     self._validate_resolution(file_paths, formats)
-                for fmt in formats:
-                    self.target_format = fmt.lower() if fmt else None
-                    self.process_file_paths(file_paths)
-                if not formats and (
-                    self.merging or self.concatenating or self.resolution is not None
-                ):
-                    self.target_format = None
-                    self.process_file_paths(file_paths)
-                # Split-only jobs carry neither format, resolution nor merge/
-                # concat flags, dispatch them so page_ranges get processed
-                if (
-                    not formats
-                    and self.resolution is None
-                    and not self.merging
-                    and not self.concatenating
-                    and self.page_ranges is not None
-                ):
-                    self.target_format = None
-                    self.process_file_paths(file_paths)
-                found_files = len(file_paths) > 0 if not found_files else found_files
+                self._dispatch_targets(file_paths, formats)
+                found_files = found_files or bool(file_paths)
                 file_paths = {}
 
         if across:
@@ -616,25 +603,9 @@ class Controller:
                 self.output = os.path.dirname(input_paths[0])
             if self.preserve_meta or self.custom_tags:
                 self.metadata_handler.set_metadata_dir(str(self.output))
-            if self.resolution is not None:
+            if not formats and self.resolution is not None:
                 self._validate_resolution(file_paths, formats)
-            for fmt in formats:
-                self.target_format = fmt.lower() if fmt else None
-                self.process_file_paths(file_paths)
-            if not formats and (
-                self.merging or self.concatenating or self.resolution is not None
-            ):
-                self.target_format = None
-                self.process_file_paths(file_paths)
-            if (
-                not formats
-                and self.resolution is None
-                and not self.merging
-                and not self.concatenating
-                and self.page_ranges is not None
-            ):
-                self.target_format = None
-                self.process_file_paths(file_paths)
+            self._dispatch_targets(file_paths, formats)
 
         if (across and len(file_paths) == 0) or not found_files:
             self.event_logger.warning(
@@ -644,6 +615,29 @@ class Controller:
         self.event_logger.info(
             f"[+] {lang.get_translation('job_finished', self.locale)}"
         )
+
+    def _dispatch_targets(self, file_paths: dict, formats: list) -> None:
+        # Dispatch one conversion foeach requested format, then merge/concat and
+        # split-only jobs when no format was given
+        for fmt in formats:
+            self.target_format = fmt.lower() if fmt else None
+            self.process_file_paths(file_paths)
+        if not formats and (
+            self.merging or self.concatenating or self.resolution is not None
+        ):
+            self.target_format = None
+            self.process_file_paths(file_paths)
+        # Split-only jobs don't carry format, resolution or merge/
+        # concat flags -> ensure page_ranges get processed
+        if (
+            not formats
+            and self.resolution is None
+            and not self.merging
+            and not self.concatenating
+            and self.page_ranges is not None
+        ):
+            self.target_format = None
+            self.process_file_paths(file_paths)
 
     def _validate_resolution(self, file_paths: dict, formats: list = None) -> None:
         # Ensure the requested resolution is valid for every effective target
@@ -845,24 +839,6 @@ class Controller:
                                 f"[!] {lang.get_translation('skipping', self.locale)}: {file_path}"
                             )
                             return
-                        # Create a temporary instance within, with distinct settings
-                        dropzone_controller = self.__class__()
-                        # Configure the instance with current settings
-                        dropzone_controller.output = self.output
-                        dropzone_controller.delete = (
-                            True  # Delete original files after processing
-                        )
-                        dropzone_controller.locale = self.locale
-                        dropzone_controller.framerate = self.framerate
-                        dropzone_controller.quality = self.quality
-                        dropzone_controller.merging = self.merging
-                        dropzone_controller.concatenating = self.concatenating
-                        dropzone_controller.recursive = True
-                        dropzone_controller.resolution = self.resolution
-                        dropzone_controller.event_logger = self.event_logger
-                        dropzone_controller.file_handler = self.file_handler
-                        dropzone_controller.target_format = self.target_format
-                        dropzone_controller.page_ranges = self.page_ranges
                         dropzone_controller.input = file_path
 
                         file_paths = dropzone_controller.file_handler.get_file_paths(
@@ -901,6 +877,22 @@ class Controller:
                 f"[>] {lang.get_translation('watch_stop', self.locale)}"
             )
 
+            # Per-event controller with distinct settings
+            dropzone_controller = self.__class__()
+            dropzone_controller.output = self.output
+            dropzone_controller.delete = True  # Delete original files after processing
+            dropzone_controller.locale = self.locale
+            dropzone_controller.framerate = self.framerate
+            dropzone_controller.quality = self.quality
+            dropzone_controller.merging = self.merging
+            dropzone_controller.concatenating = self.concatenating
+            dropzone_controller.recursive = True
+            dropzone_controller.resolution = self.resolution
+            dropzone_controller.event_logger = self.event_logger
+            dropzone_controller.file_handler = self.file_handler
+            dropzone_controller.target_format = self.target_format
+            dropzone_controller.page_ranges = self.page_ranges
+
             with DirectoryWatcher(watch_path, handle_file_event) as watcher:
                 watcher.watch()
 
@@ -917,10 +909,7 @@ class Controller:
     def _category_for_format(self, source_format: str) -> str | None:
         # Map file format ('mp3', 'png') back to category
         # Returns e.g. 'audio' or 'image'
-        for category, formats in self._supported_formats.items():
-            if source_format in formats:
-                return category.value
-        return None
+        return self._format_category.get(source_format)
 
     def _metadata_hook(
         self, input_file_path: str, output_file_path: str, source_format: str
@@ -968,20 +957,7 @@ class Controller:
 
     def split(self, file_paths: dict, page_ranges) -> None:
         for doc_path_set in file_paths[Category.DOCUMENT]:
-            if (
-                hasattr(self.prog_logger, "shared_progress_dict")
-                and self.prog_logger.shared_progress_dict
-            ):
-                with threading.Lock():
-                    if self.prog_logger.job_id in self.prog_logger.shared_progress_dict:
-                        self.prog_logger.shared_progress_dict[
-                            self.prog_logger.job_id
-                        ].update(
-                            {
-                                "status": f"splitting {doc_path_set[1]}",
-                                "last_updated": time.time(),
-                            }
-                        )
+            self.prog_logger.update_shared(f"splitting {doc_path_set[1]}")
             if doc_path_set[2] == "pdf":
                 self.doc_converter.split_pdf(
                     output=self.output,
@@ -1103,32 +1079,15 @@ class Controller:
             )
             srts = [srt for srt in srts if srt is not None]  # Filter out None values
 
-            if len(pdfs) > 0:
+            if pdfs:
                 # Produce a single pdf file
                 # Set up manual progress tracking for PDF concatenation
-                if hasattr(self.prog_logger, "job_id") and self.prog_logger.job_id:
-                    total_pdfs = len(pdfs)
-                    for i, doc_path_set in enumerate(pdfs):
-                        # Update progress manually since PDF operations don't have built-in progress
-                        if (
-                            hasattr(self.prog_logger, "shared_progress_dict")
-                            and self.prog_logger.shared_progress_dict
-                        ):
-                            with threading.Lock():
-                                if (
-                                    self.prog_logger.job_id
-                                    in self.prog_logger.shared_progress_dict
-                                ):
-                                    self.prog_logger.shared_progress_dict[
-                                        self.prog_logger.job_id
-                                    ].update(
-                                        {
-                                            "progress": i,
-                                            "total": total_pdfs,
-                                            "status": f"processing PDF {i + 1}/{total_pdfs}",
-                                            "last_updated": time.time(),
-                                        }
-                                    )
+                total_pdfs = len(pdfs)
+                for i, _ in enumerate(pdfs):
+                    # Update progress manually since PDF operations don't have built-in progress
+                    self.prog_logger.update_shared(
+                        f"processing PDF {i + 1}/{total_pdfs}", i, total_pdfs
+                    )
 
                 doc = pypdf.open()
                 for doc_path_set in pdfs:
@@ -1140,30 +1099,13 @@ class Controller:
                 doc.close()
                 concat_pdfs = list(pdfs)
 
-            if len(srts) > 0:
+            if srts:
                 # Manual progress tracking for SRT concatenation
-                if hasattr(self.prog_logger, "job_id") and self.prog_logger.job_id:
-                    total_srts = len(srts)
-                    for i, doc_path_set in enumerate(srts):
-                        if (
-                            hasattr(self.prog_logger, "shared_progress_dict")
-                            and self.prog_logger.shared_progress_dict
-                        ):
-                            with threading.Lock():
-                                if (
-                                    self.prog_logger.job_id
-                                    in self.prog_logger.shared_progress_dict
-                                ):
-                                    self.prog_logger.shared_progress_dict[
-                                        self.prog_logger.job_id
-                                    ].update(
-                                        {
-                                            "progress": i,
-                                            "total": total_srts,
-                                            "status": f"processing SRT {i + 1}/{total_srts}",
-                                            "last_updated": time.time(),
-                                        }
-                                    )
+                total_srts = len(srts)
+                for i, _ in enumerate(srts):
+                    self.prog_logger.update_shared(
+                        f"processing SRT {i + 1}/{total_srts}", i, total_srts
+                    )
                 combined = []
                 offset = 0
                 for doc_path_set in srts:
@@ -1209,26 +1151,11 @@ class Controller:
             if not files or out_path is None:
                 continue
             for i, file_path in enumerate(files):
-                if hasattr(self.prog_logger, "job_id") and self.prog_logger.job_id:
-                    if (
-                        hasattr(self.prog_logger, "shared_progress_dict")
-                        and self.prog_logger.shared_progress_dict
-                    ):
-                        with threading.Lock():
-                            if (
-                                self.prog_logger.job_id
-                                in self.prog_logger.shared_progress_dict
-                            ):
-                                self.prog_logger.shared_progress_dict[
-                                    self.prog_logger.job_id
-                                ].update(
-                                    {
-                                        "progress": processed_files,
-                                        "total": total_categories,
-                                        "status": f"post-processing files ({processed_files + 1}/{total_categories})",
-                                        "last_updated": time.time(),
-                                    }
-                                )
+                self.prog_logger.update_shared(
+                    f"post-processing files ({processed_files + 1}/{total_categories})",
+                    processed_files,
+                    total_categories,
+                )
 
                 self.file_handler.post_process(
                     file_path, out_path, self.delete, show_status=(i == 0)
@@ -1256,61 +1183,33 @@ class Controller:
             )
 
         processed_movies = 0
+        audio_index = {}
+        for audio_set in file_paths[Category.AUDIO]:
+            key = audio_set[1] if across else (audio_set[0], audio_set[1])
+            audio_index.setdefault(key, audio_set)
+        audio_members = set(file_paths[Category.AUDIO])
 
         for movie_path_set in file_paths[Category.MOVIE]:
-            if hasattr(self.prog_logger, "job_id") and self.prog_logger.job_id:
-                if (
-                    hasattr(self.prog_logger, "shared_progress_dict")
-                    and self.prog_logger.shared_progress_dict
-                ):
-                    with threading.Lock():
-                        if (
-                            self.prog_logger.job_id
-                            in self.prog_logger.shared_progress_dict
-                        ):
-                            self.prog_logger.shared_progress_dict[
-                                self.prog_logger.job_id
-                            ].update(
-                                {
-                                    "progress": processed_movies,
-                                    "total": total_movies,
-                                    "status": f"merging video {processed_movies + 1}/{total_movies}",
-                                    "last_updated": time.time(),
-                                }
-                            )
+            self.prog_logger.update_shared(
+                f"merging video {processed_movies + 1}/{total_movies}",
+                processed_movies,
+                total_movies,
+            )
 
             # Try to find a corresponding audio file in the input set
             # (e.g. "-1 path1 -2 path2 -n pathn")
-            if across:
-                # Allow matching audio from any input dir
-                audio_fit = next(
-                    (
-                        audio_set
-                        for audio_set in file_paths[Category.AUDIO]
-                        if audio_set[1] == movie_path_set[1]
-                    ),
-                    None,
-                )
-            else:
-                # Only match audio from the same dir as the video
-                audio_fit = next(
-                    (
-                        audio_set
-                        for audio_set in file_paths[Category.AUDIO]
-                        if audio_set[1] == movie_path_set[1]
-                        and audio_set[0] == movie_path_set[0]
-                    ),
-                    None,
-                )
+            audio_fit = audio_index.get(
+                movie_path_set[1] if across else (movie_path_set[0], movie_path_set[1])
+            )
 
             # If not found, look for a matching audio file in the video's directory
             if audio_fit is None:
                 video_dir = movie_path_set[0]
                 video_basename = movie_path_set[1]
                 for ext in audio_exts:
-                    candidate = os.path.join(video_dir, f"{video_basename}.{ext}")
-                    if os.path.isfile(candidate):
-                        audio_fit = (video_dir, video_basename, ext)
+                    candidate = (video_dir, video_basename, ext)
+                    if os.path.isfile(self.file_handler.join_back(candidate)):
+                        audio_fit = candidate
                         break
 
             if audio_fit is not None:
@@ -1352,7 +1251,7 @@ class Controller:
                     movie_path_set, merged_out_path, self.delete
                 )
                 # Only delete the audio file if it was in the input set, not if just found in dir
-                if audio_fit in file_paths[Category.AUDIO]:
+                if audio_fit in audio_members:
                     self.file_handler.post_process(
                         audio_fit, merged_out_path, self.delete, show_status=False
                     )
@@ -1364,21 +1263,5 @@ class Controller:
                 f"[!] {lang.get_translation('no_audio_movie_match', self.locale)}"
             )
 
-        # Final progress update
-        if hasattr(self.prog_logger, "job_id") and self.prog_logger.job_id:
-            if (
-                hasattr(self.prog_logger, "shared_progress_dict")
-                and self.prog_logger.shared_progress_dict
-            ):
-                with threading.Lock():
-                    if self.prog_logger.job_id in self.prog_logger.shared_progress_dict:
-                        self.prog_logger.shared_progress_dict[
-                            self.prog_logger.job_id
-                        ].update(
-                            {
-                                "progress": total_movies,
-                                "total": total_movies,
-                                "status": "merge completed",
-                                "last_updated": time.time(),
-                            }
-                        )
+        # Final prog update
+        self.prog_logger.update_shared("merge completed", total_movies, total_movies)

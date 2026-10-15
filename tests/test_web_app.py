@@ -326,3 +326,24 @@ def test_set_language_requires_a_valid_csrf_token(client):
 
     # The choice is persisted in the session and served back on the next page
     assert 'lang="de"' in client.get("/").get_data(as_text=True)
+
+
+def test_open_browser_quietly_discards_browser_output(monkeypatch):
+    # Handle Chromium-based browsers sometimes vomiting handoff/zygote noise into stdout/stderr
+    captured = {}
+
+    def fake_popen(cmd, **kwargs):
+        captured["cmd"] = cmd
+        captured["kwargs"] = kwargs
+        return mock.Mock()
+
+    monkeypatch.setattr(w.subprocess, "Popen", fake_popen)
+    w._open_browser_quietly("http://127.0.0.1:5000")
+
+    assert captured["cmd"][-1] == "http://127.0.0.1:5000"
+    assert captured["cmd"][1] == "-c"
+    assert "webbrowser.open" in captured["cmd"][2]
+    assert captured["kwargs"]["stdin"] is w.subprocess.DEVNULL
+    assert captured["kwargs"]["stdout"] is w.subprocess.DEVNULL
+    assert captured["kwargs"]["stderr"] is w.subprocess.DEVNULL
+    assert captured["kwargs"]["start_new_session"] is True

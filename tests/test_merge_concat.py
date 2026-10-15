@@ -183,6 +183,34 @@ def test_merge_does_not_overwrite_existing_output(controller_instance, tmp_path)
     assert existing.read_bytes() == b"original"
 
 
+def test_merge_finds_audio_with_capitalized_extension(controller_instance, tmp_path):
+    # Directory search for a matching audio file must resolve
+    # case-normalized extensions to their on-disk spelling (e.g. clip.MP3)
+    out = tmp_path / "out"
+    out.mkdir()
+    controller_instance.output = str(out)
+    controller_instance.delete = False
+    controller_instance.framerate = 24
+
+    audio_path = tmp_path / "clip.MP3"
+    audio_path.write_bytes(b"\x00" * 128)
+
+    video_clip = mock.MagicMock()
+    video_clip.with_audio.return_value = video_clip
+    with (
+        mock.patch("core.controller.VideoFileClip", return_value=video_clip),
+        mock.patch("core.controller.AudioFileClip") as mock_audio,
+    ):
+        controller_instance.merge(
+            {
+                Category.MOVIE: [(str(tmp_path) + "/", "clip", "mp4")],
+                Category.AUDIO: [],
+            }
+        )
+
+    mock_audio.assert_called_once_with(str(audio_path))
+
+
 def _srt_paths(tmp_path):
     srt1 = tmp_path / "sub1.srt"
     srt1.write_text(

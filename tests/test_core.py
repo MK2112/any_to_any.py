@@ -41,6 +41,17 @@ def test_join_back_method(controller_instance, test_input_folder):
     )
 
 
+def test_join_back_recovers_capitalized_extension(controller_instance, tmp_path):
+    source = tmp_path / "Recovery - High Alert DEMO.MP3"
+    source.write_bytes(b"\x00" * 128)
+    file_paths = controller_instance.file_handler.get_file_paths(
+        input=str(tmp_path), supported_formats=controller_instance._supported_formats
+    )
+    audio_set = file_paths[Category.AUDIO][0]
+    assert audio_set[2] == "mp3"
+    assert controller_instance.file_handler.join_back(audio_set) == str(source)
+
+
 def test_multi_input_no_output_does_not_crash(controller_instance, tmp_path):
     d1 = tmp_path / "dir1"
     d2 = tmp_path / "dir2"

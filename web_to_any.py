@@ -1,12 +1,13 @@
 import os
 import re
+import sys
 import time
 import shutil
 import logging
 import secrets
 import tempfile
 import threading
-import webbrowser
+import subprocess
 
 import utils.language_support as lang
 
@@ -27,7 +28,7 @@ app = Flask(__name__, template_folder=os.path.join(_BASE_DIR, "templates"))
 app.secret_key = os.environ.get("SECRET_KEY") or os.urandom(32)
 
 app.config.update(
-    MAX_CONTENT_LENGTH=5 * 1024**3, # 5 GiB max request size
+    MAX_CONTENT_LENGTH=5 * 1024**3,  # 5 GiB max request size
     MAX_UPLOAD_FILE_SIZE=5 * 1024**3,
     MAX_UPLOAD_FILES=20,
     WEB_MAX_WORKERS=2,
@@ -115,9 +116,7 @@ def _get_job_record(job_id: str):
         return _job_records.get(job_id)
 
 
-def _set_job_status(
-    job_id: str, status: str, completed_at: float = None
-) -> None:
+def _set_job_status(job_id: str, status: str, completed_at: float = None) -> None:
     with _job_lock:
         rec = _job_records.get(job_id)
         if rec is not None:
@@ -127,6 +126,12 @@ def _set_job_status(
                 rec["completed_at"] = completed_at
 
 
+def _forget_progress(job_id: str) -> None:
+    with progress_lock:
+        shared_progress_dict.pop(job_id, None)
+        _last_progress_cache.pop(job_id, None)
+
+
 def _remove_job_record(job_id: str, record: dict = None) -> None:
     with _job_lock:
         current = _job_records.get(job_id)
@@ -134,9 +139,7 @@ def _remove_job_record(job_id: str, record: dict = None) -> None:
             return
         _job_records.pop(job_id, None)
         _job_owners.pop(job_id, None)
-    with progress_lock:
-        shared_progress_dict.pop(job_id, None)
-        _last_progress_cache.pop(job_id, None)
+    _forget_progress(job_id)
 
 
 def _cleanup_job_storage(job_id: str, record: dict = None) -> None:
@@ -147,6 +150,17 @@ def _cleanup_job_storage(job_id: str, record: dict = None) -> None:
         shutil.rmtree(record["upload_dir"], ignore_errors=True)
         shutil.rmtree(record["converted_dir"], ignore_errors=True)
         _remove_job_record(job_id, record)
+
+
+def _require_csrf(data: dict = None) -> None:
+    # Validate CSRF token from a POST request
+    csrf_token = (
+        (data or {}).get("csrf_token")
+        or request.form.get("csrf_token")
+        or request.headers.get("X-CSRF-Token")
+    )
+    if not csrf_token or not validate_csrf_token(csrf_token):
+        abort(403, "Invalid CSRF token")
 
 
 def get_csrf_token():
@@ -227,6 +241,7 @@ except (TypeError, ValueError):
 def _apply_session_cookie_security():
     app.config["SESSION_COOKIE_SECURE"] = request.is_secure
 
+
 # Rate limiting
 _rate_limit = {}
 _max_ips = 10000
@@ -270,7 +285,6 @@ def create_controller(
     controller = Controller(
         job_id=job_id, shared_progress_dict=shared_progress_dict, is_web=True
     )
-    controller.web_flag = True
     controller.web_host = _browser_url()
     return controller
 
@@ -300,10 +314,7 @@ def _cleanup_expired_jobs() -> None:
     # Dir scan also removes abandoned storage left by process restart
     for job_id, record in records:
         completed_at = record.get("completed_at", record.get("updated_at", 0))
-        if (
-            record.get("status") in {"done", "error"}
-            and now - completed_at >= retentn
-        ):
+        if record.get("status") in {"done", "error"} and now - completed_at >= retentn:
             _cleanup_job_storage(job_id, record)
 
     prefixes = (
@@ -354,9 +365,7 @@ app.config["UPLOADED_FILES_DEST"] = os.path.join(_BASE_DIR, "uploads")
 app.config["CONVERTED_FILES_DEST"] = os.path.join(_BASE_DIR, "converted")
 configure_uploads(app, files)
 
-threading.Thread(
-    target=_job_cleanup_loop, name="job-cleanup", daemon=True
-).start()
+threading.Thread(target=_job_cleanup_loop, name="job-cleanup", daemon=True).start()
 
 with app.app_context():
     # Helps allocate memory early
@@ -500,22 +509,25 @@ def index():
         )
     # Only movie formats, codecs and protocols accept resizing. Expose the per
     # format allowed resolutions so the UI can constrain the choices up front.
-    resized_formats = {}
-    movie_resolutions = {}
-    for fmt in controller._fmt_movie_keys:
-        resolved = available_resolutions(
-            controller._supported_formats[Category.MOVIE], fmt
-        )
-        movie_resolutions[fmt] = resolved
-        resized_formats[fmt] = resolved
-    for fmt in controller._fmt_codec_keys:
-        resized_formats[fmt] = available_resolutions(
-            controller._supported_formats[Category.MOVIE_CODECS], fmt
-        )
-    for fmt in controller._fmt_protocol_keys:
-        resized_formats[fmt] = available_resolutions(
-            controller._supported_formats[Category.PROTOCOLS], fmt
-        )
+    movie_resolutions = {
+        fmt: available_resolutions(controller._supported_formats[Category.MOVIE], fmt)
+        for fmt in controller._fmt_movie_keys
+    }
+    resized_formats = {
+        **movie_resolutions,
+        **{
+            fmt: available_resolutions(
+                controller._supported_formats[Category.MOVIE_CODECS], fmt
+            )
+            for fmt in controller._fmt_codec_keys
+        },
+        **{
+            fmt: available_resolutions(
+                controller._supported_formats[Category.PROTOCOLS], fmt
+            )
+            for fmt in controller._fmt_protocol_keys
+        },
+    }
     return render_template(
         "index.html",
         title=f"any_to_any.py {VERSION}",
@@ -554,13 +566,8 @@ def send_to_backend(
     input_dir = input_path_args[0] if input_path_args else None
     total_files = 0
     if input_dir and os.path.isdir(input_dir):
-        total_files = len(
-            [
-                f
-                for f in os.listdir(input_dir)
-                if os.path.isfile(os.path.join(input_dir, f))
-            ]
-        )
+        with os.scandir(input_dir) as it:
+            total_files = sum(1 for entry in it if entry.is_file())
 
     try:
         if job_id and shared_dict is not None:
@@ -632,23 +639,15 @@ def send_to_backend(
         raise
 
     finally:
-        if (
-            input_path_args
-            and len(input_path_args) > 0
-            and os.path.exists(input_path_args[0])
-        ):
+        if input_path_args and os.path.exists(input_path_args[0]):
             shutil.rmtree(input_path_args[0], ignore_errors=True)
 
 
 def create_conversion_endpoint(merge: bool = False, concat: bool = False):
     @_rate_check(max_req=30, window=3600)
     def endpoint():
-        csrf_token = request.form.get("csrf_token") or request.headers.get(
-            "X-CSRF-Token"
-        )
-        # Validating the CSRF token for all POST requests
-        if not csrf_token or not validate_csrf_token(csrf_token):
-            abort(403, "Invalid CSRF token")
+        # Validate the CSRF token for all POST requests
+        _require_csrf()
 
         job_id = None
         slot_transferred = False
@@ -758,16 +757,14 @@ def get_progress(job_id: str):
             cumulative_prog = current_prog
 
         current_time = time.time()
-        for jid in list(shared_progress_dict.keys()):
-            job = shared_progress_dict[jid]
-            if (
-                job.get("status") in ["done", "error"]
-                and (current_time - job.get("completed_at", 0)) > 300
-            ):
-                del shared_progress_dict[jid]
-                _last_progress_cache.pop(jid, None)
+        expired_job_ids = [
+            jid
+            for jid, job in shared_progress_dict.items()
+            if job.get("status") in ["done", "error"]
+            and (current_time - job.get("completed_at", 0)) > 300
+        ]
 
-        return jsonify(
+        response = jsonify(
             {
                 "progress": cumulative_prog if total_n_files > 1 else current_prog,
                 "total": total_n_files * 100,
@@ -778,6 +775,10 @@ def get_progress(job_id: str):
                 "completed_files": completed_files,
             }
         )
+
+    for jid in expired_job_ids:
+        _forget_progress(jid)
+    return response
 
 
 @app.route("/download/<job_id>", methods=["GET"])
@@ -822,9 +823,7 @@ def set_language():
     # Web interface language is set via the browser, *not* via sys language
     # This POST helps retrieve client's language info
     data = request.get_json(silent=True) or {}
-    csrf_token = data.get("csrf_token") or request.headers.get("X-CSRF-Token")
-    if not csrf_token or not validate_csrf_token(csrf_token):
-        abort(403, "Invalid CSRF token")
+    _require_csrf(data)
     lang_code = data.get("language")
     if not lang_code:
         return {"success": False}, 400
@@ -845,6 +844,22 @@ def set_language():
     return {"success": False}, 400
 
 
+def _open_browser_quietly(url: str) -> None:
+    # Launch default browser (I don't care about their output)
+    subprocess.Popen(
+        [
+            sys.executable,
+            "-c",
+            "import sys, webbrowser; webbrowser.open(sys.argv[1])",
+            url,
+        ],
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=True,
+    )
+
+
 if __name__ == "__main__":
-    webbrowser.open(controller.web_host)
+    _open_browser_quietly(controller.web_host)
     app.run(debug=False, host=host, port=port)

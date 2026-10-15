@@ -121,8 +121,8 @@ class MetadataHandler:
                 metadata["tags"]["mode"] = img.mode
 
                 # Extract EXIF data, if available
-                if hasattr(img, "_getexif") and img._getexif() is not None:
-                    exif_data = img._getexif()
+                exif_data = img._getexif() if hasattr(img, "_getexif") else None
+                if exif_data is not None:
                     for tag_id, value in exif_data.items():
                         tag_name = TAGS.get(tag_id, tag_id)
                         try:
@@ -208,18 +208,18 @@ class MetadataHandler:
 
     def extract_metadata(self, file_path: str, file_type: str) -> dict:
         # Extract metadata based on file type
-        if file_type == "audio":
-            return self.extract_audio_metadata(file_path)
-        elif file_type == "image":
-            return self.extract_image_metadata(file_path)
-        elif file_type == "document":
-            return self.extract_document_metadata(file_path)
-        else:
-            return {
-                "format": file_type,
-                "extracted_at": datetime.now().isoformat(),
-                "tags": {},
-            }
+        extractor = {
+            "audio": self.extract_audio_metadata,
+            "image": self.extract_image_metadata,
+            "document": self.extract_document_metadata,
+        }.get(file_type)
+        if extractor is not None:
+            return extractor(file_path)
+        return {
+            "format": file_type,
+            "extracted_at": datetime.now().isoformat(),
+            "tags": {},
+        }
 
     def save_metadata(
         self, file_path: str, metadata: dict, output_file_path: str

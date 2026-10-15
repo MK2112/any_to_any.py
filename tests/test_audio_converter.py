@@ -267,9 +267,10 @@ class TestAudioConverter:
         audio_converter.to_audio(
             file_paths, "mp3", "mp3", False, "128k", "/input", "/output", "no"
         )
-
-        # Should use AudioFileClip instead of VideoFileClip
-        mock_video_clip.assert_not_called()
+        mock_video_clip.assert_called_once_with(
+            "/path/to/audio_only.mkv", audio=True, fps_source="tbr"
+        )
+        mock_video_clip.return_value.close.assert_called_once()
         mock_audio_clip.assert_called_with("/path/to/audio_only.mkv")
         mock_audio.write_audiofile.assert_called()
         mock_audio.close.assert_called()
@@ -408,7 +409,9 @@ def test_to_audio_single_file_triggers_post_process(monkeypatch, tmp_path):
     mock_clip = MagicMock()
     mock_clip.fps = 44100
     mock_clip.write_audiofile = MagicMock()
-    monkeypatch.setattr("core.converter.audio_converter.AudioFileClip", lambda path: mock_clip)
+    monkeypatch.setattr(
+        "core.converter.audio_converter.AudioFileClip", lambda path: mock_clip
+    )
 
     conv.to_audio(
         file_paths,
@@ -532,7 +535,7 @@ class TestEnvWorkers:
         fh.join_back.side_effect = [f"/d/a{i}.wav" for i in range(3)]
         paths = {Category.AUDIO: items, Category.MOVIE: []}
         conv.to_audio(paths, "mp3", "mp3", False, "128k", "/in", "/out", False)
-        assert mock_clip.call_count == 3 # All three files should have been opened
+        assert mock_clip.call_count == 3  # All three files should have been opened
 
 
 class TestG722Clamping:

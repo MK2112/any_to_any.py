@@ -15,18 +15,16 @@ from core.converter.image_converter import office_to_frames
 from core.utils.file_handler import safe_output_dir as _safe_out_dir
 from core.utils.file_handler import (
     effective_fps,
+    run_parallel,
     sort_frame_filenames,
     worker_count_for,
 )
-
-
 from moviepy import (
     VideoFileClip,
     ImageClip,
     AudioFileClip,
     concatenate_videoclips,
 )
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -43,6 +41,62 @@ class MovieConverter:
         self.prog_logger = prog_logger
         self.event_logger = event_logger
         self.locale = locale
+
+    def _write_audio_only(
+        self,
+        out_path: str,
+        audio,
+        codec: str,
+        framerate: int,
+        resolution: str = None,
+    ):
+        # (Audio-only) Placeholder (black) video carries the audio track
+        clip = ImageClip(
+            np.zeros(
+                (_AUDIO_PLACEHOLDER_HEIGHT, _AUDIO_PLACEHOLDER_WIDTH, 3),
+                dtype=np.uint8,
+            )
+        )
+        if resolution is not None:
+            clip = clip.resized(new_size=parse_resolution(resolution))
+        clip = clip.with_duration(audio.duration)
+        clip = clip.with_fps(24 if framerate is None else framerate)
+        clip = clip.with_audio(audio)
+        clip.write_videofile(
+            out_path,
+            codec=codec,
+            fps=24 if framerate is None else framerate,
+            audio=True,
+            logger=self.prog_logger,
+        )
+        return clip
+
+    def _frames_to_movie(
+        self,
+        frames_dir: str,
+        image_files: list,
+        out_path: str,
+        codec: str,
+        framerate: int,
+    ) -> None:
+        # Stitch frame sequence together as movie
+        image_files = sort_frame_filenames(image_files)
+        image_clips = [
+            ImageClip(os.path.join(frames_dir, img)).with_duration(
+                (1 / framerate) if framerate is not None else 1 / 24
+            )
+            for img in image_files
+        ]
+        final_clip = concatenate_videoclips(image_clips, method="compose")
+        try:
+            final_clip.write_videofile(
+                out_path,
+                fps=24 if framerate is None else framerate,
+                codec=codec,
+                logger=self.prog_logger,
+            )
+        finally:
+            final_clip.close()
 
     def to_movie(
         self,
@@ -110,23 +164,12 @@ class MovieConverter:
 
         all_pics.sort(key=lambda item: item[1][1])
 
-        if len(gif_paths) == 1:
-            res = _gif_to_video(gif_paths[0])
-            if res is not None:
-                src, out_path = res
-                self.file_handler.post_process(src, out_path, delete)
-        elif len(gif_paths) > 1:
-            with ThreadPoolExecutor(max_workers=env_workers) as ex:
-                futures = [ex.submit(_gif_to_video, g) for g in gif_paths]
-                for fut in as_completed(futures):
-                    res = fut.result()
-                    if res is None:
-                        continue
-                    src, out_path = res
-                    self.file_handler.post_process(src, out_path, delete)
+        for res in filter(None, run_parallel(gif_paths, _gif_to_video, env_workers)):
+            src, out_path = res
+            self.file_handler.post_process(src, out_path, delete)
 
         # Pics to movie, exclude gifs, already individually converted
-        if len(all_pics) > 0:
+        if all_pics:
             final_clip = concatenate_videoclips(
                 [clip for clip, _ in all_pics], method="compose"
             )
@@ -161,14 +204,17 @@ class MovieConverter:
             audio = None
             video_clip = None
             try:
-                if self.file_handler.has_visuals(movie_path_set):
+                try:
                     video = VideoFileClip(
                         self.file_handler.join_back(movie_path_set), audio=True
                     )
+                except Exception:
+                    video = None
+                if video is not None and self.file_handler.has_visuals(
+                    movie_path_set, clip=video
+                ):
                     if resolution is not None:
-                        video = video.resized(
-                            new_size=parse_resolution(resolution)
-                        )
+                        video = video.resized(new_size=parse_resolution(resolution))
                     video.write_videofile(
                         out_path_local,
                         fps=effective_fps(video.fps, framerate),
@@ -177,35 +223,15 @@ class MovieConverter:
                         logger=self.prog_logger,
                     )
                 else:
+                    if video is not None:
+                        video.close()
+                        video = None
                     try:
                         audio = AudioFileClip(
                             self.file_handler.join_back(movie_path_set)
                         )
-                        video_clip = ImageClip(
-                            np.zeros(
-                                (
-                                    _AUDIO_PLACEHOLDER_HEIGHT,
-                                    _AUDIO_PLACEHOLDER_WIDTH,
-                                    3,
-                                ),
-                                dtype=np.uint8,
-                            )
-                        )
-                        if resolution is not None:
-                            video_clip = video_clip.resized(
-                                new_size=parse_resolution(resolution)
-                            )
-                        duration = audio.duration
-                        video_clip = video_clip.with_duration(duration)
-                        video_clip = video_clip.with_fps(
-                            24 if framerate is None else framerate
-                        )
-                        video_clip = video_clip.with_audio(audio)
-                        video_clip.write_videofile(
-                            out_path_local,
-                            codec=codec,
-                            audio=True,
-                            logger=self.prog_logger,
+                        video_clip = self._write_audio_only(
+                            out_path_local, audio, codec, framerate, resolution
                         )
                     except Exception as _:
                         self.event_logger.info(
@@ -232,21 +258,12 @@ class MovieConverter:
                     except Exception:
                         pass
 
-        movie_items = list(file_paths[Category.MOVIE])
-        if len(movie_items) == 1:
-            res = _movie_to_movie(movie_items[0])
-            if res is not None:
-                src, out_path = res
-                self.file_handler.post_process(src, out_path, delete)
-        elif len(movie_items) > 1:
-            with ThreadPoolExecutor(max_workers=env_workers) as ex:
-                futures = [ex.submit(_movie_to_movie, m) for m in movie_items]
-                for fut in as_completed(futures):
-                    res = fut.result()
-                    if res is None:
-                        continue
-                    src, out_path = res
-                    self.file_handler.post_process(src, out_path, delete)
+        for res in filter(
+            None,
+            run_parallel(file_paths[Category.MOVIE], _movie_to_movie, env_workers),
+        ):
+            src, out_path = res
+            self.file_handler.post_process(src, out_path, delete)
 
         # Document to movie (because why the hell not)
         for doc_path_set in file_paths[Category.DOCUMENT]:
@@ -262,6 +279,7 @@ class MovieConverter:
                     delete,
                     self.file_handler,
                     self.event_logger,
+                    prog_logger=self.prog_logger,
                 )
                 if not isinstance(frames_dir, str) or not frames_dir:
                     frames_dir = os.path.join(output, doc_path_set[1])
@@ -276,28 +294,13 @@ class MovieConverter:
                     ]
                 except OSError:
                     pics = []
-                pics = sort_frame_filenames(pics)
-                if len(pics) > 0:
-                    image_clips = [
-                        ImageClip(os.path.join(frames_dir, pic)).with_duration(
-                            (1 / framerate) if framerate is not None else 1 / 24
-                        )
-                        for pic in pics
-                    ]
-                    final_clip = concatenate_videoclips(image_clips, method="compose")
+                if pics:
                     out_path = self.file_handler._resolve_output_file_conflict(
                         os.path.abspath(
                             os.path.join(output, f"{doc_path_set[1]}.{format}")
                         )
                     )
-
-                    final_clip.write_videofile(
-                        out_path,
-                        fps=24 if framerate is None else framerate,
-                        codec=codec,
-                        logger=self.prog_logger,
-                    )
-                    final_clip.close()
+                    self._frames_to_movie(frames_dir, pics, out_path, codec, framerate)
                     self.file_handler.post_process(doc_path_set, out_path, delete)
             elif doc_path_set[2] == "pdf":
                 pdf_path = self.file_handler.join_back(doc_path_set)
@@ -325,7 +328,13 @@ class MovieConverter:
                         scratch_owned = not os.path.exists(scratch_dir)
                         os.makedirs(scratch_dir, exist_ok=True)
                 try:
-                    for i, page_num in tqdm(enumerate(range(len(doc)))):
+                    total_pages = len(doc)
+                    for i, page_num in tqdm(enumerate(range(total_pages))):
+                        self.prog_logger.update_shared(
+                            f"{doc_path_set[1]} ({i + 1}/{total_pages})",
+                            i + 1,
+                            total_pages,
+                        )
                         pix = doc.load_page(page_num).get_pixmap()
                         img = Image.frombytes(
                             "RGB", [pix.width, pix.height], pix.samples
@@ -335,31 +344,19 @@ class MovieConverter:
                         img.save(
                             os.path.join(
                                 scratch_dir,
-                                f"{doc_path_set[1]}-{i:0{len(str(len(doc)))}}.jpeg",
+                                f"{doc_path_set[1]}-{i:0{len(str(total_pages))}}.jpeg",
                             ),
                             format="JPEG",
                         )
                         image_files.append(
-                            f"{doc_path_set[1]}-{i:0{len(str(len(doc)))}}.jpeg"
+                            f"{doc_path_set[1]}-{i:0{len(str(total_pages))}}.jpeg"
                         )
                     doc.close()
 
                     # Convert the JPEG files to a video
-                    image_files = sort_frame_filenames(image_files)
-                    image_clips = [
-                        ImageClip(os.path.join(scratch_dir, img)).with_duration(
-                            (1 / framerate) if framerate is not None else 1 / 24
-                        )
-                        for img in image_files
-                    ]
-                    final_clip = concatenate_videoclips(image_clips, method="compose")
-                    final_clip.write_videofile(
-                        movie_path,
-                        fps=24 if framerate is None else framerate,
-                        codec=codec,
-                        logger=self.prog_logger,
+                    self._frames_to_movie(
+                        scratch_dir, image_files, movie_path, codec, framerate
                     )
-                    final_clip.close()
                 finally:
                     try:
                         _abs_scratch = os.path.abspath(scratch_dir)
@@ -407,12 +404,17 @@ class MovieConverter:
 
             out_path = self.file_handler._resolve_output_file_conflict(out_path)
 
-            if self.file_handler.has_visuals(codec_path_set):
+            try:
                 video = VideoFileClip(
                     self.file_handler.join_back(codec_path_set),
                     audio=True,
                     fps_source="tbr",
                 )
+            except Exception:
+                video = None
+            if video is not None and self.file_handler.has_visuals(
+                codec_path_set, clip=video
+            ):
                 if resolution is not None:
                     video = video.resized(new_size=parse_resolution(resolution))
                 try:
@@ -439,24 +441,12 @@ class MovieConverter:
                     )
                 video.close()
             else:
+                if video is not None:
+                    video.close()
                 # Audio-only video file
                 audio = AudioFileClip(self.file_handler.join_back(codec_path_set))
-                # Create new VideoClip with audio only
-                clip = ImageClip(
-                    np.zeros(
-                        (_AUDIO_PLACEHOLDER_HEIGHT, _AUDIO_PLACEHOLDER_WIDTH, 3),
-                        dtype=np.uint8,
-                    )
-                ).with_duration(audio.duration)
-                if resolution is not None:
-                    clip = clip.resized(new_size=parse_resolution(resolution))
-                clip = clip.with_audio(audio)
-                clip.write_videofile(
-                    out_path,
-                    codec=codec[0],
-                    fps=24 if framerate is None else framerate,
-                    audio=True,
-                    logger=self.prog_logger,
+                clip = self._write_audio_only(
+                    out_path, audio, codec[0], framerate, resolution
                 )
                 clip.close()
                 audio.close()
@@ -627,7 +617,7 @@ class MovieConverter:
         if timeout is None:
             timeout = _FFMPEG_TIMEOUT_SECONDS
         try:
-            _ = subprocess.run(
+            subprocess.run(
                 command,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,

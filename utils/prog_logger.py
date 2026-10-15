@@ -1,3 +1,4 @@
+import sys
 import time
 import threading
 from tqdm import tqdm
@@ -46,17 +47,14 @@ class ProgLogger(ProgressBarLogger):
     def bars_callback(self, bar, attr, value, old_value=None):
         current_time = time.time()
 
-        # Initialize if this is the first time we're seeing this bar
         if bar not in self.bars:
             return
 
-        # Only process index updates for progress tracking
         if attr != "index":
             return
 
         if self.is_web:
             self._update_web_progress(bar, value, current_time)
-            return
 
         # Reset per new bar to ensure progress shows across multiple conversions
         if self.current_bar != bar:
@@ -67,7 +65,7 @@ class ProgLogger(ProgressBarLogger):
             self.last_print_time = None
             self.current_bar = bar
 
-        # Initialize progress tracking if this is the first update
+        # Init progress tracking if this is a first update
         if self.start_time is None:
             self.start_time = current_time
             self.last_print_time = self.start_time
@@ -75,13 +73,19 @@ class ProgLogger(ProgressBarLogger):
                 "total", 100
             )  # Default to this if total not available
 
-            # Initialize tqdm progress bar
             self.tqdm_bar = tqdm(
-                total=total, unit="chunks", dynamic_ncols=True, leave=False
+                total=total,
+                unit="chunks",
+                dynamic_ncols=True,
+                leave=False,
+                disable=True if sys.stderr is None else None,
             )
 
-            # Initialize web progress info
-            if self.job_id and self.shared_progress_dict is not None:
+            if (
+                not self.is_web
+                and self.job_id
+                and self.shared_progress_dict is not None
+            ):
                 with self._lock:
                     self.shared_progress_dict[self.job_id] = {
                         "progress": 0,
@@ -119,7 +123,7 @@ class ProgLogger(ProgressBarLogger):
 
             # Update web progress, but not too frequently to reduce overhead
             if (
-                current_time - self.last_print_time >= 0.1
+                not self.is_web and current_time - self.last_print_time >= 0.1
             ):  # Update at most 10 times per second
                 self.last_print_time = current_time
                 if self.job_id and self.shared_progress_dict is not None:
@@ -147,9 +151,13 @@ class ProgLogger(ProgressBarLogger):
         # Handle bar completion
         if value >= total and self.tqdm_bar:
             self.tqdm_bar.close()
-            elapsed_snapshot = self.start_time # Capture elapsed time before resetting
+            elapsed_snapshot = self.start_time  # Capture elapsed time before resetting
             self.tqdm_bar, self.start_time, self.last_print_time = None, None, None
-            if self.job_id and self.shared_progress_dict is not None:
+            if (
+                not self.is_web
+                and self.job_id
+                and self.shared_progress_dict is not None
+            ):
                 with self._lock:
                     if self.job_id in self.shared_progress_dict:
                         total_elapsed = None
@@ -175,6 +183,18 @@ class ProgLogger(ProgressBarLogger):
                             }
                         )
 
+    def update_shared(self, status: str, progress=None, total=None) -> None:
+        if not (self.job_id and self.shared_progress_dict):
+            return
+        update = {"status": status, "last_updated": time.time()}
+        if progress is not None:
+            update["progress"] = progress
+        if total is not None:
+            update["total"] = total
+        with self._lock:
+            if self.job_id in self.shared_progress_dict:
+                self.shared_progress_dict[self.job_id].update(update)
+
     def set_error(self, error_msg):
         if self.job_id and self.shared_progress_dict is not None:
             with self._lock:
@@ -188,7 +208,6 @@ class ProgLogger(ProgressBarLogger):
 
         total = self.bars.get(bar, {}).get("total", 100)
         progress_percent = int((value / total) * 100) if total > 0 else 0
-
         total_files = self.shared_progress_dict.get(self.job_id, {}).get(
             "total_files", 1
         )

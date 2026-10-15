@@ -3,9 +3,12 @@ import sys
 import utils.language_support as lang
 
 from utils.category import Category
-from core.utils.file_handler import effective_fps, worker_count_for
 from moviepy import AudioFileClip, VideoFileClip
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from core.utils.file_handler import (
+    effective_fps,
+    run_parallel,
+    worker_count_for,
+)
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -79,23 +82,12 @@ class AudioConverter:
                 if audio is not None:
                     audio.close()
 
-        audio_items = list(file_paths[Category.AUDIO])
-        if len(audio_items) <= 1:
-            # Fallback to sequential for 0/1 items
-            result = _convert_audio_file(audio_items[0]) if audio_items else None
-            if result is not None:
-                src, out_path = result
-                self.file_handler.post_process(src, out_path, delete)
-        else:
-            max_workers = env_workers if env_workers > 1 else 1
-            with ThreadPoolExecutor(max_workers=max_workers) as ex:
-                futures = [ex.submit(_convert_audio_file, a) for a in audio_items]
-                for fut in as_completed(futures):
-                    res = fut.result()
-                    if res is None:
-                        continue
-                    src, out_path = res
-                    self.file_handler.post_process(src, out_path, delete)
+        for res in filter(
+            None,
+            run_parallel(file_paths[Category.AUDIO], _convert_audio_file, env_workers),
+        ):
+            src, out_path = res
+            self.file_handler.post_process(src, out_path, delete)
 
         # Movie to audio conversion
         def _extract_from_movie(movie_path_set: tuple):
@@ -105,12 +97,17 @@ class AudioConverter:
 
             video, audio = None, None
             try:
-                if self.file_handler.has_visuals(movie_path_set):
+                try:
                     video = VideoFileClip(
                         self.file_handler.join_back(movie_path_set),
                         audio=True,
                         fps_source="tbr",
                     )
+                except Exception:
+                    video = None
+                if video is not None and self.file_handler.has_visuals(
+                    movie_path_set, clip=video
+                ):
                     audio = video.audio
                     # Check if audio was found
                     if audio is None:
@@ -128,6 +125,9 @@ class AudioConverter:
                         logger=self.prog_logger,
                     )
                 else:
+                    if video is not None:
+                        video.close()
+                        video = None
                     try:
                         # AudioFileClip works for audio-only video files
                         audio = AudioFileClip(
@@ -160,18 +160,9 @@ class AudioConverter:
                 except Exception:
                     pass
 
-        movie_items = list(file_paths[Category.MOVIE])
-        if len(movie_items) <= 1:
-            res = _extract_from_movie(movie_items[0]) if movie_items else None
-            if res is not None:
-                src, out_path = res
-                self.file_handler.post_process(src, out_path, delete)
-        else:
-            with ThreadPoolExecutor(max_workers=env_workers) as ex:
-                futures = [ex.submit(_extract_from_movie, m) for m in movie_items]
-                for fut in as_completed(futures):
-                    res = fut.result()
-                    if res is None:
-                        continue
-                    src, out_path = res
-                    self.file_handler.post_process(src, out_path, delete)
+        for res in filter(
+            None,
+            run_parallel(file_paths[Category.MOVIE], _extract_from_movie, env_workers),
+        ):
+            src, out_path = res
+            self.file_handler.post_process(src, out_path, delete)

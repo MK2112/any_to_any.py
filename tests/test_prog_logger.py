@@ -8,11 +8,14 @@ from utils.prog_logger import ProgLogger
 
 
 class MockTqdm:
-    def __init__(self, total=None, unit=None, dynamic_ncols=None, leave=None):
+    def __init__(
+        self, total=None, unit=None, dynamic_ncols=None, leave=None, disable=None
+    ):
         self.total = total
         self.unit = unit
         self.dynamic_ncols = dynamic_ncols
         self.leave = leave
+        self.disable = disable
         self.updated = []
         self.closed = False
 
@@ -116,8 +119,7 @@ def test_bars_callback_completion_marks_done(monkeypatch):
     assert logger.tqdm_bar is None
     assert shared["job-3"]["status"] == "done"
     assert shared["job-3"]["progress_percent"] == 100
-    assert shared["job-3"]        # One lock per instance, reused for every shared-dict update so that
-        # parallel conversions sharing this logger are actually serialized["eta_seconds"] == 0
+    assert shared["job-3"]["eta_seconds"] == 0
 
 
 def test_bars_callback_zero_total_avoids_division_by_zero(monkeypatch):
@@ -201,6 +203,7 @@ def test_prog_logger_creates_one_lock_and_reuses_it(monkeypatch):
 
 
 def test_prog_logger_web_mode_reuses_single_lock(monkeypatch):
+    monkeypatch.setattr(prog_mod, "tqdm", MockTqdm)
     factory = CountingLockFactory()
     monkeypatch.setattr(prog_mod, "threading", factory)
 
@@ -220,3 +223,29 @@ def test_prog_logger_web_mode_reuses_single_lock(monkeypatch):
 
     assert factory.created == [lock]
     assert shared["job-web"]["completed_files"] == 1
+
+
+def test_bars_callback_web_mode_shows_console_bar_without_done_write(monkeypatch):
+    monkeypatch.setattr(prog_mod, "tqdm", MockTqdm)
+    shared = {}
+    logger = ProgLogger(
+        job_id="job-web-bar", shared_progress_dict=shared, is_web=True
+    )
+    logger.bars.clear()
+    logger.bars["bar"] = {"total": 4}
+
+    times = iter([10.0, 10.2])
+    monkeypatch.setattr(prog_mod.time, "time", lambda: next(times))
+
+    logger.bars_callback("bar", "index", 2, old_value=0)
+    bar = logger.tqdm_bar
+    assert bar is not None
+    assert bar.total == 4
+    assert bar.updated == [2]
+
+    logger.bars_callback("bar", "index", 4, old_value=2)
+    assert logger.tqdm_bar is None
+    assert bar.closed is True
+    assert bar.updated == [2, 2]
+    assert shared["job-web-bar"]["completed_files"] == 1
+    assert shared["job-web-bar"]["status"] == "processing"

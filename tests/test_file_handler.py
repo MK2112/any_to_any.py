@@ -40,11 +40,29 @@ def test_has_visuals_false_when_no_decodable_frame(mock_vfc):
     clip.close.assert_called_once()
 
 
-@patch(
-    "core.utils.file_handler.VideoFileClip", side_effect=OSError("no video stream")
-)
+@patch("core.utils.file_handler.VideoFileClip", side_effect=OSError("no video stream"))
 def test_has_visuals_false_when_open_fails(mock_vfc):
     assert _handler().has_visuals(("dir", "audio", "mp3")) is False
+
+
+@patch("core.utils.file_handler.VideoFileClip")
+def test_has_visuals_reuses_passed_clip_without_closing_it(mock_vfc):
+    clip = MagicMock()
+    clip.iter_frames.return_value = iter([MagicMock()])
+
+    assert _handler().has_visuals(("dir", "video", "mp4"), clip=clip) is True
+    mock_vfc.assert_not_called()
+    clip.close.assert_not_called()
+
+
+@patch("core.utils.file_handler.VideoFileClip")
+def test_has_visuals_false_for_passed_clip_without_frames(mock_vfc):
+    clip = MagicMock()
+    clip.iter_frames.return_value = iter([])
+
+    assert _handler().has_visuals(("dir", "audio", "mp4"), clip=clip) is False
+    mock_vfc.assert_not_called()
+    clip.close.assert_not_called()
 
 
 def test_sort_frame_filenames_numeric_order():
