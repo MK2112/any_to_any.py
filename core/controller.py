@@ -387,14 +387,23 @@ class Controller:
         )
 
         input_paths = []
+        starts_new_path = False
 
         for arg in input_path_args:
-            if not input_paths:
-                input_paths.append(arg)
+            # "-N" token starts a new input path
+            marker = re.match(r"^-\d+(?:\s+(.+))?$", arg)
+            if marker:
+                trailing = marker.group(1)
+                if trailing:
+                    input_paths.append(trailing.strip())
+                    starts_new_path = False
+                else:
+                    starts_new_path = True
                 continue
 
-            if arg.startswith("-") and arg[1:].isdigit():
-                input_paths.append(arg[2:])
+            if starts_new_path or not input_paths:
+                input_paths.append(arg)
+                starts_new_path = False
                 continue
 
             previous = input_paths[-1]

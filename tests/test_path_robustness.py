@@ -116,6 +116,94 @@ def test_output_directory_creation(controller, tmp_path):
     assert out_dir.is_dir()
 
 
+def test_numbered_markers_split_multiple_directories(controller, tmp_path):
+    # -i -1 /path/one -2 /path/two :: The "-N" markers must start a new input
+    dir1 = tmp_path / "dir1"
+    dir2 = tmp_path / "dir2"
+    dir1.mkdir()
+    dir2.mkdir()
+    (dir1 / "one.mp3").touch()
+    (dir2 / "two.mp3").touch()
+
+    out_dir = tmp_path / "out"
+    controller.run(
+        input_path_args=["-1", str(dir1), "-2", str(dir2)],
+        format="wav",
+        output=str(out_dir),
+        framerate=None,
+        quality=None,
+        split=None,
+        merge=False,
+        concat=False,
+        delete=False,
+        across=False,
+        recursive=False,
+        dropzone=False,
+        language=None,
+        workers=1,
+    )
+
+    assert controller.audio_converter.to_audio.call_count == 2
+    assert out_dir.exists()
+
+
+def test_multi_digit_marker_starts_new_path(controller, tmp_path):
+    dir_a = tmp_path / "a"
+    dir_b = tmp_path / "b"
+    dir_a.mkdir()
+    dir_b.mkdir()
+    (dir_a / "one.mp3").touch()
+    (dir_b / "two.mp3").touch()
+
+    out_dir = tmp_path / "out"
+    controller.run(
+        input_path_args=["-1", str(dir_a), "-12", str(dir_b)],
+        format="wav",
+        output=str(out_dir),
+        framerate=None,
+        quality=None,
+        split=None,
+        merge=False,
+        concat=False,
+        delete=False,
+        across=False,
+        recursive=False,
+        dropzone=False,
+        language=None,
+        workers=1,
+    )
+
+    assert controller.audio_converter.to_audio.call_count == 2
+    assert out_dir.exists()
+
+
+def test_numbered_marker_before_single_path(controller, tmp_path):
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
+    (input_dir / "test.mp3").touch()
+
+    out_dir = tmp_path / "out"
+    controller.run(
+        input_path_args=["-1", str(input_dir)],
+        format="wav",
+        output=str(out_dir),
+        framerate=None,
+        quality=None,
+        split=None,
+        merge=False,
+        concat=False,
+        delete=False,
+        across=False,
+        recursive=False,
+        dropzone=False,
+        language=None,
+        workers=1,
+    )
+
+    assert controller.audio_converter.to_audio.called
+    assert out_dir.exists()
+
+
 def test_file_handler_dissection(controller):
     # Assert FileHandler's ability to split paths correctly
     file_info = ("/tmp/test/", "file.some.ext", "mp3")
