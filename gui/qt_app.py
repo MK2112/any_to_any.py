@@ -790,17 +790,22 @@ class MainWindow(QMainWindow):
 
         # Progress section
         progress_layout = QVBoxLayout()
-        progress_label = QLabel(lang.get_translation("progress", self.locale) + ":")
+        self.progress_label = QLabel(
+            lang.get_translation("progress", self.locale) + ":"
+        )
         self.progress_bar = QProgressBar()
         self.progress_bar.setTextVisible(True)
         self.progress_bar.setRange(0, 100)
         self.progress_bar.setValue(0)
         self.status_label = QLabel()
         self.status_label.setWordWrap(True)
-        progress_layout.addWidget(progress_label)
+        progress_layout.addWidget(self.progress_label)
         progress_layout.addWidget(self.progress_bar)
         progress_layout.addWidget(self.status_label)
         layout.addLayout(progress_layout)
+
+        # Progress UI appears during active conversion
+        self._set_progress_visible(False)
 
         # Action buttons
         action_layout = QHBoxLayout()
@@ -1158,6 +1163,7 @@ class MainWindow(QMainWindow):
 
         # Disable UI while converting (except cancel button)
         self.set_ui_enabled(False)
+        self._set_progress_visible(True)
         self.status_label.setText(
             lang.get_translation("preparing_conversion", self.locale)
         )
@@ -1313,12 +1319,19 @@ class MainWindow(QMainWindow):
         epoch = self._progress_epoch
         QTimer.singleShot(delay_ms, lambda: self._reset_progress(epoch))
 
+    def _set_progress_visible(self, visible):
+        self.progress_label.setVisible(visible)
+        self.progress_bar.setVisible(visible)
+        self.status_label.setVisible(visible)
+
     def _reset_progress(self, epoch):
         if epoch != self._progress_epoch:
             return
         self.progress_bar.setValue(0)
         self.progress_bar.setRange(0, 100)
         self.progress_bar.setStyleSheet("")
+        self.status_label.clear()
+        self._set_progress_visible(False)
 
     def set_ui_enabled(self, enabled):
         for widget in [
