@@ -551,7 +551,9 @@ class Controller:
 
             # Recursion
             if self.recursive:
-                if any(entry.is_dir() for entry in os.scandir(self.input)):
+                with os.scandir(self.input) as it:
+                    has_subdirs = any(entry.is_dir() for entry in it)
+                if has_subdirs:
                     file_paths = {}
                     for root, _, files in os.walk(self.input):
                         try:

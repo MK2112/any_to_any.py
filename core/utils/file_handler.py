@@ -159,7 +159,15 @@ class FileHandler:
             candidate_path = os.path.join(directory, fallback_name)
             if _claim_name(candidate_path):
                 return candidate_path
-        return output_path
+        # Last-ditch attempt
+        for _ in range(100):
+            random_suffix = "".join(
+                random.choices(string.ascii_lowercase + string.digits, k=8)
+            )
+            candidate_path = os.path.join(directory, f"{name}_{random_suffix}{ext}")
+            if _claim_name(candidate_path):
+                return candidate_path
+        raise FileExistsError(f"Could not resolve a free filename for {output_path}")
 
     def _resolve_output_dir_conflict(self, dir_path: str) -> str:
         return safe_output_dir(dir_path, timeout=self.CONFLICT_RESOLUTION_TIMEOUT)

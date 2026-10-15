@@ -1,3 +1,4 @@
+import os
 import pytest
 from utils.category import Category
 from tests.test_fixtures import controller_instance, test_input_folder
@@ -65,3 +66,61 @@ def test_multi_input_no_output_does_not_crash(controller_instance, tmp_path):
             language=None,
             workers=1,
         )
+
+
+def test_recursive_run_closes_scandir_iterator(controller_instance, tmp_path, monkeypatch):
+    root = tmp_path / "src1"
+    (root / "sub").mkdir(parents=True)
+    (root / "sub" / "note.txt").write_text("not media")
+    other = tmp_path / "src2"
+    other.mkdir()
+    (other / "note2.txt").write_text("not media")
+
+    real_scandir = os.scandir
+    created = []
+
+    class RecordingScandir:
+        def __init__(self, path):
+            self.path = os.fspath(path)
+            self._inner = real_scandir(path)
+            self.closed = False
+            created.append(self)
+
+        def __iter__(self):
+            return self
+
+        def __next__(self):
+            return next(self._inner)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            self.close()
+
+        def close(self):
+            self.closed = True
+            self._inner.close()
+
+    monkeypatch.setattr(os, "scandir", RecordingScandir)
+
+    controller_instance.run(
+        input_path_args=[str(root), str(other)],
+        format=None,
+        output=str(tmp_path / "out"),
+        framerate=None,
+        quality=None,
+        split=None,
+        merge=False,
+        concat=False,
+        delete=False,
+        across=False,
+        recursive=True,
+        dropzone=False,
+        language=None,
+        workers=1,
+    )
+
+    for path in (str(root), str(other)):
+        direct = next(s for s in created if s.path == path)
+        assert direct.closed

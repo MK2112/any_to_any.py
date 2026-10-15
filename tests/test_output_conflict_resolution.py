@@ -271,3 +271,23 @@ class TestConflictResolutionIntegration:
 
         assert resolved2 == os.path.join(str(output_dir), "result_2.mp4")
         assert output_path != resolved1 != resolved2
+
+
+class TestOutputConflictResolutionExhausted:
+    def test_raises_instead_of_returning_conflicting_path(
+        self, controller_instance, tmp_path, monkeypatch
+    ):
+        handler = controller_instance.file_handler
+        handler.CONFLICT_RESOLUTION_TIMEOUT = 0.01
+
+        existing = tmp_path / "song.mp3"
+        existing.write_text("user data")
+
+        monkeypatch.setattr(
+            "core.utils.file_handler._claim_name", lambda candidate: False
+        )
+
+        with pytest.raises(FileExistsError):
+            handler._resolve_output_file_conflict(str(existing))
+
+        assert existing.read_text() == "user data"
