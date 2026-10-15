@@ -41,9 +41,8 @@ _SRT_TIMESTAMP_RE = re.compile(
 
 def _srt_to_ms(hours: str, minutes: str, seconds: str, millis: str) -> int:
     # "00:00:01,500" -> 1500 (millis may carry 1-3 digits)
-    return (
-        (int(hours) * 3600 + int(minutes) * 60 + int(seconds)) * 1000
-        + int(millis.ljust(3, "0")[:3])
+    return (int(hours) * 3600 + int(minutes) * 60 + int(seconds)) * 1000 + int(
+        millis.ljust(3, "0")[:3]
     )
 
 
@@ -303,10 +302,14 @@ class Controller:
             format
             for formats in self._supported_formats.values()
             for format in formats.keys()
-        ]        
+        ]
         self.web_flag = False  # Flags if run triggered in web interface
         self.web_host = None  # Web interface host address
-        self.high, self.medium, self.low = "high", "medium", "low" # Quality step indicators
+        self.high, self.medium, self.low = (
+            "high",
+            "medium",
+            "low",
+        )  # Quality step indicators
 
         # Metadata handling flags
         self.preserve_meta = False
@@ -1010,12 +1013,14 @@ class Controller:
                     for audio_path_set in file_paths[Category.AUDIO]
                 ]
             )
-            format = "mp3" if format is None else format
-            audio_out_path = os.path.join(self.output, f"concatenated_audio.{format}")
+            audio_format = format if format is not None else "mp3"
+            audio_out_path = os.path.join(
+                self.output, f"concatenated_audio.{audio_format}"
+            )
             concat_audio.write_audiofile(
                 audio_out_path,
-                codec=self._supported_formats[Category.AUDIO][format],
-                bitrate=self._audio_bitrate(format, self.quality)
+                codec=self._supported_formats[Category.AUDIO][audio_format],
+                bitrate=self._audio_bitrate(audio_format, self.quality)
                 if self.quality is not None
                 else getattr(concat_audio, "bitrate", "192k"),
                 logger=self.prog_logger,
@@ -1038,12 +1043,14 @@ class Controller:
                 ],
                 method="compose",
             )
-            format = "mp4" if format is None else format
-            video_out_path = os.path.join(self.output, f"concatenated_video.{format}")
+            video_format = format if format is not None else "mp4"
+            video_out_path = os.path.join(
+                self.output, f"concatenated_video.{video_format}"
+            )
             concat_vid.write_videofile(
                 video_out_path,
                 fps=effective_fps(concat_vid.fps, self.framerate),
-                codec=self._supported_formats[Category.MOVIE][format][0],
+                codec=self._supported_formats[Category.MOVIE][video_format][0],
                 logger=self.prog_logger,
             )
             concat_vid.close()
@@ -1054,20 +1061,19 @@ class Controller:
             format is None or format in self._supported_formats[Category.IMAGE]
         ):
             gif_out_path = os.path.join(self.output, "concatenated_image.gif")
+            gif_fps = self.framerate if self.framerate is not None else 12
             concatenated_image = clips_array(
                 [
                     [
                         ImageClip(
                             self.file_handler.join_back(image_path_set)
-                        ).with_duration(
-                            1 / 12 if self.framerate is None else 1 / self.framerate
-                        )
+                        ).with_duration(1 / gif_fps)
                     ]
                     for image_path_set in file_paths[Category.IMAGE]
                 ]
             )
             concatenated_image.write_gif(
-                gif_out_path, fps=self.framerate, logger=self.prog_logger
+                gif_out_path, fps=gif_fps, logger=self.prog_logger
             )
             concatenated_image.close()  # Added for consistency
             concat_images = list(file_paths[Category.IMAGE])
@@ -1314,12 +1320,10 @@ class Controller:
                     video = VideoFileClip(self.file_handler.join_back(movie_path_set))
                     audio = AudioFileClip(self.file_handler.join_back(audio_fit))
                     video = video.with_audio(audio)
-                    merged_out_path = (
-                        self.file_handler._resolve_output_file_conflict(
-                            os.path.join(
-                                self.output,
-                                f"{movie_path_set[1]}_merged.{movie_path_set[2]}",
-                            )
+                    merged_out_path = self.file_handler._resolve_output_file_conflict(
+                        os.path.join(
+                            self.output,
+                            f"{movie_path_set[1]}_merged.{movie_path_set[2]}",
                         )
                     )
                     video.write_videofile(

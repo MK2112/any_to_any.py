@@ -167,9 +167,10 @@ def test_merge_does_not_overwrite_existing_output(controller_instance, tmp_path)
 
     video_clip = mock.MagicMock()
     video_clip.with_audio.return_value = video_clip
-    with mock.patch(
-        "core.controller.VideoFileClip", return_value=video_clip
-    ), mock.patch("core.controller.AudioFileClip"):
+    with (
+        mock.patch("core.controller.VideoFileClip", return_value=video_clip),
+        mock.patch("core.controller.AudioFileClip"),
+    ):
         controller_instance.merge(
             {
                 Category.MOVIE: [(str(tmp_path) + "/", "clip", "mp4")],
@@ -215,9 +216,7 @@ def _concat_srts(controller_instance, tmp_path):
     return out / "concatenated_subtitles.srt"
 
 
-def test_concat_srt_renumbers_and_offsets_timestamps(
-    controller_instance, tmp_path
-):
+def test_concat_srt_renumbers_and_offsets_timestamps(controller_instance, tmp_path):
     """SRT concat must renumber entries sequentially and shift each file
     past the previous file's end (sub2 starts at 00:00:04,000)."""
     merged = _concat_srts(controller_instance, tmp_path)
@@ -241,18 +240,15 @@ def test_concat_srt_rerun_overwrites_instead_of_appending(
     assert second.count("-->") == 4
 
 
-def test_concat_movie_none_fps_falls_back_to_default(
-    controller_instance, tmp_path
-):
+def test_concat_movie_none_fps_falls_back_to_default(controller_instance, tmp_path):
     """concat() must not pass fps=None to write_videofile, but fall back to"""
     controller_instance.output = str(tmp_path)
     controller_instance.delete = False
     controller_instance.framerate = None
-    with mock.patch(
-        "core.controller.VideoFileClip"
-    ) as mock_vfc, mock.patch(
-        "core.controller.concatenate_videoclips"
-    ) as mock_concat:
+    with (
+        mock.patch("core.controller.VideoFileClip") as mock_vfc,
+        mock.patch("core.controller.concatenate_videoclips") as mock_concat,
+    ):
         mock_vfc.return_value = mock.MagicMock(fps=24)
         composite = mock.MagicMock(fps=None)
         mock_concat.return_value = composite
@@ -267,3 +263,59 @@ def test_concat_movie_none_fps_falls_back_to_default(
         )
     written_fps = composite.write_videofile.call_args[1]["fps"]
     assert written_fps == 24
+
+
+def test_concat_mixed_audio_and_movie_without_format(controller_instance, tmp_path):
+    """With format=None, audio and movie inputs must each be concatenated
+    with their own default (mp3/mp4), while audio default must not shadow the
+    format check of the other categories"""
+    controller_instance.output = str(tmp_path)
+    controller_instance.delete = False
+    controller_instance.framerate = None
+    controller_instance.quality = None
+
+    audio_clip = mock.MagicMock()
+    with (
+        mock.patch("core.controller.AudioFileClip"),
+        mock.patch("core.controller.concatenate_audioclips", return_value=audio_clip),
+        mock.patch("core.controller.VideoFileClip") as mock_vfc,
+        mock.patch("core.controller.concatenate_videoclips") as mock_concat,
+    ):
+        mock_vfc.return_value = mock.MagicMock(fps=24)
+        video_clip = mock.MagicMock(fps=24)
+        mock_concat.return_value = video_clip
+        controller_instance.concat(
+            {
+                Category.AUDIO: [("/d/", "a1", "mp3"), ("/d/", "a2", "mp3")],
+                Category.MOVIE: [("/d/", "m1", "mp4"), ("/d/", "m2", "mp4")],
+                Category.IMAGE: [],
+                Category.DOCUMENT: [],
+            }
+        )
+
+    assert audio_clip.write_audiofile.call_args[0][0].endswith("concatenated_audio.mp3")
+    assert video_clip.write_videofile.call_args[0][0].endswith("concatenated_video.mp4")
+
+
+def test_concat_images_without_framerate_uses_default(controller_instance, tmp_path):
+    """Image concat must not pass fps=None to write_gif when no framerate
+    was requested"""
+    controller_instance.output = str(tmp_path)
+    controller_instance.delete = False
+    controller_instance.framerate = None
+    with (
+        mock.patch("core.controller.ImageClip"),
+        mock.patch("core.controller.clips_array") as mock_clips,
+    ):
+        combined = mock.MagicMock()
+        mock_clips.return_value = combined
+        controller_instance.concat(
+            {
+                Category.AUDIO: [],
+                Category.MOVIE: [],
+                Category.IMAGE: [("/d/", "i1", "png"), ("/d/", "i2", "png")],
+                Category.DOCUMENT: [],
+            }
+        )
+
+    assert combined.write_gif.call_args[1]["fps"] == 12
