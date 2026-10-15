@@ -101,8 +101,12 @@ def _max_workers(file_handler=None) -> int:
     return worker_count_for(file_handler)
 
 
-def gif_to_frames(output: str, file_paths: dict, file_handler) -> dict:
-    # Convert GIFs to frames, place those in a folder
+def gif_to_frames(
+    output: str, file_paths: dict, file_handler, format: str = "png"
+) -> dict:
+    # Convert GIFs to frames in the requested image format, place those in
+    # a folder
+    format = "jpeg" if format == "jpg" else format
     gifs = [
         image_path
         for image_path in file_paths[Category.IMAGE]
@@ -124,8 +128,11 @@ def gif_to_frames(output: str, file_paths: dict, file_handler) -> dict:
             total_frames = int(clip.duration * clip.fps)
             num_digits = len(str(total_frames))
             for i, frame in enumerate(clip.iter_frames(fps=clip.fps, dtype="uint8")):
-                Image.fromarray(frame).save(
-                    os.path.join(out_dir, f"{image_path_set[1]}-{i:0{num_digits}d}.png")
+                Image.fromarray(frame).convert("RGB").save(
+                    os.path.join(
+                        out_dir, f"{image_path_set[1]}-{i:0{num_digits}d}.{format}"
+                    ),
+                    format=_save_format(format),
                 )
         finally:
             clip.close()
@@ -184,8 +191,8 @@ class ImageConverter:
         # This works for images and movies only
         format = "jpeg" if format == "jpg" else format
 
-        # Handle GIF files first
-        gif_frames = gif_to_frames(output, file_paths, self.file_handler)
+        # Handle GIF files first (frames in the requested target format)
+        gif_frames = gif_to_frames(output, file_paths, self.file_handler, format)
 
         # Process regular image files
         for image_path_set in file_paths[Category.IMAGE]:
@@ -194,6 +201,8 @@ class ImageConverter:
                     continue
 
                 if image_path_set[2] == "gif":
+                    # gif_to_frames already extracted the frames; report the
+                    # last frame (and delete the source when requested)
                     frame_dir = gif_frames.get(
                         image_path_set[1], os.path.join(output, image_path_set[1])
                     )
@@ -238,8 +247,7 @@ class ImageConverter:
             except Exception as e:
                 self.event_logger.error(
                     f"[!] {lang.get_translation('error', self.locale)} "
-                    f"converting {self.file_handler.join_back(image_path_set)}: {str(e)}"                    # gif_to_frames already extracted the frames; report the
-                    # last frame (and delete the source when requested)
+                    f"converting {self.file_handler.join_back(image_path_set)}: {str(e)}"
                 )
                 # Don't delete source file if conversion failed
                 delete = False
@@ -253,8 +261,7 @@ class ImageConverter:
                 if input == output
                 else os.path.join(output, doc_path_set[1])
             )
-            doc_out_dir = _safe_out_dir(_base_doc_dir)                    # gif_to_frames already extracted the frames; report the
-                    # last frame (and delete the source when requested)
+            doc_out_dir = _safe_out_dir(_base_doc_dir)
             if not os.path.exists(doc_out_dir):
                 try:
                     os.makedirs(doc_out_dir, exist_ok=True)

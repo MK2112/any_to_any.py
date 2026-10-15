@@ -583,7 +583,9 @@ class TestDeleteAndLogAfterFrameConversion:
 
         monkeypatch.setattr(
             "core.converter.image_converter.gif_to_frames",
-            lambda output, file_paths, file_handler: {"anim": str(frame_dir)},
+            lambda output, file_paths, file_handler, format="png": {
+                "anim": str(frame_dir)
+            },
         )
 
         converter.to_frames(
@@ -683,3 +685,103 @@ class TestDeleteAndLogAfterFrameConversion:
         assert not first.exists()
         assert not second.exists()
         assert "merged.gif" in caplog.text
+
+
+class TestGifFramesHonorTargetFormat:
+    """M5: GIF frame extraction must use the requested target format."""
+
+    @staticmethod
+    def _make_gif(path):
+        from PIL import Image
+
+        frames = [
+            Image.new("RGB", (16, 16), color) for color in ("red", "green", "blue")
+        ]
+        frames[0].save(
+            path,
+            save_all=True,
+            append_images=frames[1:],
+            duration=100,
+            loop=0,
+        )
+
+    @pytest.mark.parametrize(
+        "fmt,extension,pil_format",
+        [
+            ("png", "png", "PNG"),
+            ("jpeg", "jpeg", "JPEG"),
+            ("jpg", "jpeg", "JPEG"),
+            ("tiff", "tiff", "TIFF"),
+        ],
+    )
+    def test_gif_to_frames_uses_requested_format(
+        self, tmp_path, fmt, extension, pil_format
+    ):
+        import logging
+        from PIL import Image
+        from core.utils.file_handler import FileHandler
+        from core.converter.image_converter import gif_to_frames
+
+        logger = logging.getLogger(f"m5-{fmt}")
+        file_handler = FileHandler(logger, "English")
+
+        src = tmp_path / "anim.gif"
+        self._make_gif(str(src))
+
+        out = tmp_path / "out"
+        out.mkdir()
+
+        created = gif_to_frames(
+            str(out),
+            {Category.IMAGE: [(str(tmp_path) + os.sep, "anim", "gif")]},
+            file_handler,
+            fmt,
+        )
+
+        written = sorted(os.listdir(created["anim"]))
+        assert len(written) == 3
+        assert all(name.endswith(f".{extension}") for name in written)
+        for name in written:
+            with Image.open(os.path.join(created["anim"], name)) as img:
+                assert img.format == pil_format
+
+    def test_to_frames_gif_to_jpeg_end_to_end(self, tmp_path, caplog):
+        import glob
+        import logging
+        from PIL import Image
+        from core.utils.file_handler import FileHandler
+
+        caplog.set_level(logging.INFO)
+        logger = logging.getLogger("m5-to-frames-e2e")
+        file_handler = FileHandler(logger, "English")
+        converter = ImageConverter(file_handler, MagicMock(), logger, "English")
+
+        src = tmp_path / "anim.gif"
+        self._make_gif(str(src))
+
+        out = tmp_path / "out"
+        out.mkdir()
+
+        converter.to_frames(
+            input=str(tmp_path),
+            output=str(out),
+            file_paths={
+                Category.IMAGE: [(str(tmp_path) + os.sep, "anim", "gif")],
+                Category.MOVIE: [],
+                Category.DOCUMENT: [],
+                Category.AUDIO: [],
+            },
+            supported_formats={Category.IMAGE: ["jpeg"]},
+            framerate=None,
+            format="jpeg",
+            delete=True,
+        )
+
+        frames = sorted(glob.glob(str(out / "anim" / "*.jpeg")))
+        assert len(frames) == 3
+        assert not glob.glob(str(out / "anim" / "*.png"))
+        for path in frames:
+            with Image.open(path) as img:
+                assert img.format == "JPEG"
+        assert not src.exists()
+        assert os.path.basename(frames[-1]) in caplog.text
