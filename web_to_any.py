@@ -22,7 +22,8 @@ from flask import Flask, render_template, request, send_file, jsonify, abort, se
 
 # Web server providing a web interface
 # Extension to the CLI-based any_to_any.py
-app = Flask(__name__, template_folder=os.path.abspath("templates"))
+_BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+app = Flask(__name__, template_folder=os.path.join(_BASE_DIR, "templates"))
 app.secret_key = os.environ.get("SECRET_KEY") or os.urandom(32)
 
 app.config.update(
@@ -349,8 +350,8 @@ def _job_cleanup_loop() -> None:
 
 
 files = UploadSet("files", ALL)
-app.config["UPLOADED_FILES_DEST"] = "./uploads"
-app.config["CONVERTED_FILES_DEST"] = "./converted"
+app.config["UPLOADED_FILES_DEST"] = os.path.join(_BASE_DIR, "uploads")
+app.config["CONVERTED_FILES_DEST"] = os.path.join(_BASE_DIR, "converted")
 configure_uploads(app, files)
 
 threading.Thread(

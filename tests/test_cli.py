@@ -1,7 +1,11 @@
-import sys
-import subprocess
 import os
+import sys
+import time
 import pytest
+import signal
+import socket
+import subprocess
+import urllib.request
 from tests.test_fixtures import controller_instance
 
 
@@ -136,3 +140,63 @@ def test_cli_trailing_comma_format_no_empty_target(tmp_path):
     combined = (result.stdout + "\n" + result.stderr).lower()
     assert "unrecognized arguments" not in combined
     assert result.returncode in (0, 1)
+
+
+@pytest.mark.skipif(os.name == "nt", reason="uses POSIX process-group handling")
+def test_cli_web_launches_from_foreign_cwd(tmp_path):
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+
+    env = os.environ.copy()
+    env.update({"Any2Any_PORT": str(port), "BROWSER": "true"})
+
+    proc = subprocess.Popen(
+        [sys.executable, _script_path(), "-w"],
+        cwd=str(tmp_path),
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        start_new_session=True,
+    )
+    try:
+        deadline = time.time() + 30
+        body = None
+        while time.time() < deadline and body is None:
+            if proc.poll() is not None:
+                output = proc.stdout.read() if proc.stdout else ""
+                raise AssertionError(f"web server exited early:\n{output}")
+            try:
+                with urllib.request.urlopen(
+                    f"http://127.0.0.1:{port}/", timeout=2
+                ) as response:
+                    body = response.read().decode("utf-8", "replace")
+            except OSError:
+                time.sleep(0.5)
+        assert body is not None, "web server did not become reachable"
+        assert "any_to_any.py" in body
+    finally:
+        if proc.poll() is None:
+            try:
+                os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+            except (ProcessLookupError, PermissionError):
+                pass
+        proc.wait(timeout=10)
+
+
+def test_cli_web_failure_propagates_exit_code(tmp_path):
+    # A failing web server launch must not be reported as success
+    env = os.environ.copy()
+    env.update({"Any2Any_HOST": "no.such.host.invalid", "BROWSER": "true"})
+    result = subprocess.run(
+        [sys.executable, _script_path(), "-w"],
+        cwd=str(tmp_path),
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    combined = result.stdout + result.stderr
+    assert result.returncode != 0
+    assert "web_to_any.py" not in combined

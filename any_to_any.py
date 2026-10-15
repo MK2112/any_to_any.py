@@ -182,7 +182,10 @@ if __name__ == "__main__":
         )
     
     if args["web"]:
-        subprocess.run([sys.executable, "./web_to_any.py"])
+        web_script = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "web_to_any.py"
+        )
+        sys.exit(subprocess.run([sys.executable, web_script]).returncode)
     else:
         formats = []
         if args["format"]:

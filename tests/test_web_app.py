@@ -1,4 +1,5 @@
 import io
+import os
 import re
 import pytest
 import web_to_any as w
@@ -22,6 +23,13 @@ def reset_web_globals():
         w._rate_limit.clear()
 
 
+def test_web_paths_anchored_to_repo_directory():
+    base = os.path.dirname(os.path.abspath(w.__file__))
+    assert w.app.template_folder == os.path.join(base, "templates")
+    assert w.app.config["UPLOADED_FILES_DEST"] == os.path.join(base, "uploads")
+    assert w.app.config["CONVERTED_FILES_DEST"] == os.path.join(base, "converted")
+
+
 @pytest.fixture
 def client(reset_web_globals):
     return w.app.test_client()
@@ -29,7 +37,6 @@ def client(reset_web_globals):
 
 @pytest.fixture
 def tmp_storage(tmp_path, monkeypatch):
-    # Point upload/converted destinations at scratch directory
     monkeypatch.setitem(w.app.config, "UPLOADED_FILES_DEST", str(tmp_path / "uploads"))
     monkeypatch.setitem(
         w.app.config, "CONVERTED_FILES_DEST", str(tmp_path / "converted")
