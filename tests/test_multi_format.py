@@ -408,3 +408,84 @@ class TestMultiFormatBehavior:
         # Should process single format
         assert len(formats_processed) == 1
         assert formats_processed[0] == "mp4"
+
+
+class TestMergeConcatDispatch:
+    def _run_capture(self, controller_instance, tmp_path, **overrides):
+        controller_instance.locale = "en_US"
+        calls = []
+
+        def capture_process(*args, **kwargs):
+            calls.append(controller_instance.target_format)
+
+        controller_instance.process_file_paths = capture_process
+
+        kwargs = dict(
+            input_path_args=[str(tmp_path)],
+            format=None,
+            output=str(tmp_path),
+            framerate=None,
+            quality=None,
+            split=None,
+            merge=False,
+            concat=False,
+            delete=False,
+            across=False,
+            recursive=False,
+            dropzone=False,
+            language=None,
+            workers=1,
+        )
+        kwargs.update(overrides)
+
+        file_paths = {
+            Category.AUDIO: [("/tmp", "test", "mp3")],
+            Category.MOVIE: [("/tmp", "clip", "mp4")],
+            Category.IMAGE: [],
+            Category.DOCUMENT: [],
+        }
+        with mock.patch.object(
+            controller_instance.file_handler, "get_file_paths"
+        ) as mock_get_files:
+            mock_get_files.return_value = file_paths
+            controller_instance.run(**kwargs)
+
+        return calls
+
+    def test_concat_with_format_dispatches_once(
+        self, controller_instance, tmp_path
+    ):
+        calls = self._run_capture(
+            controller_instance, tmp_path, format="mp3", concat=True, delete=True
+        )
+        assert calls == ["mp3"]
+
+    def test_concat_without_format_dispatches_once(
+        self, controller_instance, tmp_path
+    ):
+        calls = self._run_capture(controller_instance, tmp_path, concat=True)
+        assert calls == [None]
+
+    def test_concat_with_resolution_dispatches_once(
+        self, controller_instance, tmp_path
+    ):
+        calls = self._run_capture(
+            controller_instance, tmp_path, concat=True, resolution="720p"
+        )
+        assert calls == [None]
+
+    def test_merge_with_format_dispatches_once(
+        self, controller_instance, tmp_path
+    ):
+        calls = self._run_capture(
+            controller_instance, tmp_path, format="mp4", merge=True
+        )
+        assert calls == ["mp4"]
+
+    def test_across_concat_with_format_dispatches_once(
+        self, controller_instance, tmp_path
+    ):
+        calls = self._run_capture(
+            controller_instance, tmp_path, format="mp3", concat=True, across=True
+        )
+        assert calls == ["mp3"]

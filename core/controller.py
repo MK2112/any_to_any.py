@@ -590,10 +590,12 @@ class Controller:
                 for fmt in formats:
                     self.target_format = fmt.lower() if fmt else None
                     self.process_file_paths(file_paths)
-                if not formats and self.resolution is not None:
+                if not formats and (
+                    self.merging
+                    or self.concatenating
+                    or self.resolution is not None
+                ):
                     self.target_format = None
-                    self.process_file_paths(file_paths)
-                if self.merging or self.concatenating:
                     self.process_file_paths(file_paths)
                 # Split-only jobs carry neither format, resolution nor merge/
                 # concat flags, dispatch them so page_ranges get processed
@@ -619,12 +621,11 @@ class Controller:
             for fmt in formats:
                 self.target_format = fmt.lower() if fmt else None
                 self.process_file_paths(file_paths)
-            if not formats and self.resolution is not None:
+            if not formats and (
+                self.merging or self.concatenating or self.resolution is not None
+            ):
                 self.target_format = None
                 self.process_file_paths(file_paths)
-            if self.merging or self.concatenating:
-                self.process_file_paths(file_paths)
-            # Split-only jobs (mirrors the non-across path above)
             if (
                 not formats
                 and self.resolution is None
