@@ -277,15 +277,18 @@ def test_csrf_token_is_bound_to_the_session_not_the_ip(client, tmp_storage):
 
     other_client = w.app.test_client()
     uploads_before = sorted(p.name for p in tmp_storage.glob("uploads_*"))
-    assert other_client.post(
-        "/convert",
-        data={
-            "files": [(io.BytesIO(b"pngdata"), "photo.png")],
-            "conversionType": "jpeg",
-            "csrf_token": tok,
-        },
-        content_type="multipart/form-data",
-    ).status_code == 403
+    assert (
+        other_client.post(
+            "/convert",
+            data={
+                "files": [(io.BytesIO(b"pngdata"), "photo.png")],
+                "conversionType": "jpeg",
+                "csrf_token": tok,
+            },
+            content_type="multipart/form-data",
+        ).status_code
+        == 403
+    )
     # A rejected request must not create any job storage
     assert sorted(p.name for p in tmp_storage.glob("uploads_*")) == uploads_before
 
@@ -315,9 +318,7 @@ def test_set_language_requires_a_valid_csrf_token(client):
     assert client.post("/language", json={"language": "de_DE"}).status_code == 403
 
     tok = _csrf_for(client)
-    response = client.post(
-        "/language", json={"language": "de_DE", "csrf_token": tok}
-    )
+    response = client.post("/language", json={"language": "de_DE", "csrf_token": tok})
     assert response.status_code == 200
     payload = response.get_json()
     assert payload["success"] is True

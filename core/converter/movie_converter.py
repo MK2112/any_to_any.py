@@ -88,32 +88,36 @@ class MovieConverter:
                 if clip:
                     clip.close()
 
-        img_lists = {"png": [], "jpeg": [], "jpg": [], "bmp": [], "webp": [], "gif": []}
+        all_pics = []
+        gif_paths = []
 
         for image_path_set in file_paths[Category.IMAGE]:
-            target_list = img_lists.get(image_path_set[2])
             if image_path_set[2] == "gif":
-                target_list.append(image_path_set)
+                gif_paths.append(image_path_set)
                 continue
-            if target_list is not None:
-                target_list.append(
-                    (
-                        ImageClip(
-                            self.file_handler.join_back(image_path_set)
-                        ).with_duration(1 / (framerate or 24)),
-                        image_path_set[1],
-                    )
+            try:
+                clip = ImageClip(
+                    self.file_handler.join_back(image_path_set)
+                ).with_duration(1 / (framerate or 24))
+            except Exception as e:
+                self.event_logger.error(
+                    f"[!] {lang.get_translation('error', self.locale)} "
+                    f"converting {self.file_handler.join_back(image_path_set)}: {str(e)}"
                 )
-            # No post_process here, we just accumulated for processing if not .gif
+                continue
+            all_pics.append((clip, image_path_set))
+            # No post_process here, we just accumulated for processing
 
-        if len(img_lists["gif"]) == 1:
-            res = _gif_to_video(img_lists["gif"][0])
+        all_pics.sort(key=lambda item: item[1][1])
+
+        if len(gif_paths) == 1:
+            res = _gif_to_video(gif_paths[0])
             if res is not None:
                 src, out_path = res
                 self.file_handler.post_process(src, out_path, delete)
-        elif len(img_lists["gif"]) > 1:
+        elif len(gif_paths) > 1:
             with ThreadPoolExecutor(max_workers=env_workers) as ex:
-                futures = [ex.submit(_gif_to_video, g) for g in img_lists["gif"]]
+                futures = [ex.submit(_gif_to_video, g) for g in gif_paths]
                 for fut in as_completed(futures):
                     res = fut.result()
                     if res is None:
@@ -122,13 +126,9 @@ class MovieConverter:
                     self.file_handler.post_process(src, out_path, delete)
 
         # Pics to movie, exclude gifs, already individually converted
-        non_gif_keys = [k for k in img_lists if k != "gif"]
-        all_pics = [clip_tuple for key in non_gif_keys for clip_tuple in img_lists[key]]
-        all_pics.sort(key=lambda clip: clip[1])
-
         if len(all_pics) > 0:
             final_clip = concatenate_videoclips(
-                [clip[0] for clip in all_pics], method="compose"
+                [clip for clip, _ in all_pics], method="compose"
             )
             out_path = self.file_handler._resolve_output_file_conflict(
                 os.path.abspath(os.path.join(output, f"merged.{format}"))
@@ -141,10 +141,8 @@ class MovieConverter:
                 logger=self.prog_logger,
             )
             final_clip.close()
-            merged_sources = sorted(
-                (s for s in file_paths[Category.IMAGE] if s[2] in non_gif_keys),
-                key=lambda s: s[1],
-            )
+            # Only report/remove sources that actually made it into the video
+            merged_sources = [source for _, source in all_pics]
             for i, src in enumerate(merged_sources):
                 self.file_handler.post_process(
                     src, out_path, delete, show_status=(i == 0)

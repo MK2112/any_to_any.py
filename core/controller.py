@@ -591,9 +591,7 @@ class Controller:
                     self.target_format = fmt.lower() if fmt else None
                     self.process_file_paths(file_paths)
                 if not formats and (
-                    self.merging
-                    or self.concatenating
-                    or self.resolution is not None
+                    self.merging or self.concatenating or self.resolution is not None
                 ):
                     self.target_format = None
                     self.process_file_paths(file_paths)
