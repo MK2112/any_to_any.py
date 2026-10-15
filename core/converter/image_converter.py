@@ -59,10 +59,12 @@ def office_to_frames(
     delete: bool,
     file_handler,
     event_logger,
+    out_dir: str = None,
 ) -> str | None:
     # Extract imgs from office (docx, pptx), save as frames in specified format
     full_path = file_handler.join_back(doc_path_set)
-    out_dir = _safe_out_dir(os.path.join(output, doc_path_set[1]))
+    if out_dir is None:
+        out_dir = _safe_out_dir(os.path.join(output, doc_path_set[1]))
     out_path = None
     os.makedirs(out_dir, exist_ok=True)
     try:
@@ -275,7 +277,6 @@ class ImageConverter:
                     )
                     os.makedirs(doc_out_dir, exist_ok=True)
             if doc_path_set[2] in ["docx", "pptx"]:
-                # Read all images from docx, write to os.path.join(self.output, doc_path_set[1])
                 office_to_frames(
                     doc_path_set=doc_path_set,
                     format=format,
@@ -283,6 +284,7 @@ class ImageConverter:
                     delete=delete,
                     file_handler=self.file_handler,
                     event_logger=self.event_logger,
+                    out_dir=doc_out_dir,
                 )
             if doc_path_set[2] == "pdf":
                 pdf_path = self.file_handler.join_back(doc_path_set)

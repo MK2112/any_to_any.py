@@ -785,3 +785,70 @@ class TestGifFramesHonorTargetFormat:
                 assert img.format == "JPEG"
         assert not src.exists()
         assert os.path.basename(frames[-1]) in caplog.text
+
+
+class TestOfficeDocFrameDirClaim:
+    """docx/pptx -> frames must claim the output dir exactly once"""
+
+    @staticmethod
+    def _make_docx(tmp_path):
+        import docx
+        from PIL import Image
+
+        Image.new("RGB", (32, 32), "teal").save(tmp_path / "pic.png")
+        doc = docx.Document()
+        doc.add_picture(str(tmp_path / "pic.png"))
+        doc_path = tmp_path / "report.docx"
+        doc.save(str(doc_path))
+        return doc_path
+
+    def _run(self, converter, tmp_path, out):
+        converter.to_frames(
+            input=str(tmp_path),
+            output=str(out),
+            file_paths={
+                Category.IMAGE: [],
+                Category.MOVIE: [],
+                Category.DOCUMENT: [(str(tmp_path) + os.sep, "report", "docx")],
+                Category.AUDIO: [],
+            },
+            supported_formats={Category.IMAGE: ["png"]},
+            framerate=None,
+            format="png",
+            delete=False,
+        )
+
+    def _converter(self, logger_name):
+        import logging
+        from core.utils.file_handler import FileHandler
+
+        logger = logging.getLogger(logger_name)
+        file_handler = FileHandler(logger, "English")
+        return ImageConverter(file_handler, MagicMock(), logger, "English")
+
+    def test_docx_frames_land_in_resolved_dir_without_duplicate(self, tmp_path):
+        converter = self._converter("m4-single-claim")
+        doc_path = self._make_docx(tmp_path)
+
+        out = tmp_path / "out"
+        out.mkdir()
+
+        self._run(converter, tmp_path, out)
+
+        frames = list((out / "report").glob("*.png"))
+        assert frames
+        assert not (out / "report_1").exists()
+
+    def test_docx_frames_use_conflict_resolved_dir_only_once(self, tmp_path):
+        converter = self._converter("m4-conflict-claim")
+        self._make_docx(tmp_path)
+
+        out = tmp_path / "out"
+        (out / "report").mkdir(parents=True)
+        (out / "report" / "keep.txt").write_text("user data")
+
+        self._run(converter, tmp_path, out)
+
+        assert (out / "report" / "keep.txt").read_text() == "user data"
+        assert list((out / "report_1").glob("*.png"))
+        assert not (out / "report_2").exists()
