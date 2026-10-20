@@ -496,6 +496,60 @@ class TestDocumentConverterPdfSplitting:
         part1.close()
         part2.close()
 
+    def test_split_pdf_all_splits_every_page(
+        self, document_converter, temp_output_dir
+    ):
+        pdf_path = os.path.join(temp_output_dir, "test.pdf")
+        doc = pypdf.open()
+        for i in range(3):
+            doc.new_page().insert_text((72, 72), f"Page {i + 1}")
+        doc.save(pdf_path)
+        doc.close()
+
+        document_converter.file_handler.join_back.return_value = pdf_path
+        document_converter.split_pdf(
+            output=temp_output_dir,
+            doc_path_set=(temp_output_dir, "test", "pdf"),
+            page_ranges="all",
+            delete=False,
+            format="pdf",
+        )
+
+        for page in range(1, 4):
+            part_path = os.path.join(
+                temp_output_dir, f"test_split_{page}_{page}-{page}.pdf"
+            )
+            assert os.path.exists(part_path)
+            part = pypdf.open(part_path)
+            assert len(part) == 1
+            assert f"Page {page}" in part[0].get_text()
+            part.close()
+
+    def test_split_pdf_rest_keeps_whole_document(
+        self, document_converter, temp_output_dir
+    ):
+        pdf_path = os.path.join(temp_output_dir, "test.pdf")
+        doc = pypdf.open()
+        for i in range(3):
+            doc.new_page().insert_text((72, 72), f"Page {i + 1}")
+        doc.save(pdf_path)
+        doc.close()
+
+        document_converter.file_handler.join_back.return_value = pdf_path
+        document_converter.split_pdf(
+            output=temp_output_dir,
+            doc_path_set=(temp_output_dir, "test", "pdf"),
+            page_ranges="rest",
+            delete=False,
+            format="pdf",
+        )
+
+        part_path = os.path.join(temp_output_dir, "test_1-3.pdf")
+        assert os.path.exists(part_path)
+        part = pypdf.open(part_path)
+        assert len(part) == 3
+        part.close()
+
 
 class TestDocumentConverterSplitWarnings:
     def _make_pdf(self, path, pages):
@@ -550,6 +604,45 @@ def test_controller_split_non_pdf_warns(controller_instance, caplog):
     assert "skipping" in caplog.text.lower()
 
 
+def test_run_with_pdf_format_and_split_actually_splits(
+    controller_instance, tmp_path
+):
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
+    pdf_path = input_dir / "doc.pdf"
+    doc = pypdf.open()
+    for i in range(4):
+        doc.new_page().insert_text((72, 72), f"Page {i + 1}")
+    doc.save(str(pdf_path))
+    doc.close()
+
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+
+    controller_instance.run(
+        [str(input_dir)],
+        format=["pdf"],
+        output=str(output_dir),
+        framerate=None,
+        quality=None,
+        split="1-2",
+        merge=False,
+        concat=False,
+        delete=False,
+        across=False,
+        recursive=False,
+        dropzone=False,
+        language=None,
+        workers=1,
+    )
+
+    out_path = output_dir / "doc_1-2.pdf"
+    assert out_path.exists()
+    part = pypdf.open(str(out_path))
+    assert len(part) == 2
+    part.close()
+
+
 class TestDocumentConverterIntegration:
     # Integration tests that test multiple components together
     @patch("core.converter.image_converter.gif_to_frames")
@@ -591,8 +684,8 @@ class TestDocumentConverterIntegration:
     [
         (None, 10, None),
         ("", 5, None),
-        ("all", 7, None),
-        ("rest", 7, None),
+        ("all", 7, [(1, 1), (2, 2), (3, 3), (4, 4), (5, 5), (6, 6), (7, 7)]),
+        ("rest", 7, [(1, 7)]),
         ("3", 10, [(3, 3)]),
         ("1-3", 10, [(1, 3)]),
         ("2-5,7-8", 10, [(2, 5), (7, 8)]),

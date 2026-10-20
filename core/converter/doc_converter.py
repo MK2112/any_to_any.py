@@ -712,11 +712,13 @@ class DocumentConverter:
         #   '3-6;15-22', '1-7;8-15;20-22;rest', '3', '35', '12-end', '2-end',
         #   '2-5, 3-6, 12-end', '2-end, 3-6, 12-end', '2-end, 3-6'
         if not page_ranges or page_ranges.strip() == "":
-            # Default to all pages
-            return None  # [(1, total_pages)], we don't need that, skip that
+            return None
         page_ranges = page_ranges.strip()
-        if page_ranges.lower() in ["all", "rest"]:
-            return None  # [(1, total_pages)], we don't need that, skip that
+        lowered = page_ranges.lower()
+        if lowered == "all":
+            return [(page, page) for page in range(1, total_pages + 1)]
+        if lowered == "rest":
+            return [(1, total_pages)]
 
         # Split on both comma and semicolon, "1-2,3-4;5-6" keeps every range just alike
         ranges = [

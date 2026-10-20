@@ -619,6 +619,10 @@ class Controller:
     def _dispatch_targets(self, file_paths: dict, formats: list) -> None:
         # Dispatch one conversion foeach requested format, then merge/concat and
         # split-only jobs when no format was given
+        if self.page_ranges is not None:
+            self.target_format = None
+            self.split(file_paths, self.page_ranges)
+            return
         requested_delete = self.delete
         try:
             for index, fmt in enumerate(formats):
@@ -629,17 +633,6 @@ class Controller:
             self.delete = requested_delete
         if not formats and (
             self.merging or self.concatenating or self.resolution is not None
-        ):
-            self.target_format = None
-            self.process_file_paths(file_paths)
-        # Split-only jobs don't carry format, resolution or merge/
-        # concat flags -> ensure page_ranges get processed
-        if (
-            not formats
-            and self.resolution is None
-            and not self.merging
-            and not self.concatenating
-            and self.page_ranges is not None
         ):
             self.target_format = None
             self.process_file_paths(file_paths)
