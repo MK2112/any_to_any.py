@@ -1,6 +1,7 @@
 import io
 import os
 import re
+import time
 import pytest
 import web_to_any as w
 
@@ -217,6 +218,37 @@ def test_completed_job_storage_is_removed_after_retention(
     assert not (tmp_storage / f"uploads_{job_id}").exists()
     assert not (tmp_storage / f"converted_{job_id}").exists()
     assert w._get_job_record(job_id) is None
+
+
+def test_fatal_exit_reaches_error_state_instead_of_polling_forever(
+    client, tmp_storage
+):
+    # Job must reach a terminal state or we infinitely GET /progress
+    tok = _csrf_for(client)
+    response = client.post(
+        "/convert",
+        data={
+            "files": [(io.BytesIO(b"plain text"), "notes.txt")],
+            "conversionType": "jpeg",
+            "csrf_token": tok,
+        },
+        content_type="multipart/form-data",
+    )
+    assert response.status_code == 202
+    job_id = response.get_json()["job_id"]
+
+    deadline = time.time() + 10
+    while time.time() < deadline:
+        data = client.get(f"/progress/{job_id}").get_json()
+        if data["status"] in {"done", "error"}:
+            break
+        time.sleep(0.02)
+
+    assert data["status"] == "error"
+    assert data["error"]
+    record = w._get_job_record(job_id)
+    assert record["status"] == "error"
+    assert record["completed_at"] > 0
 
 
 def test_job_id_collision_does_not_merge_storage(client, tmp_storage, monkeypatch):

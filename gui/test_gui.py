@@ -282,9 +282,6 @@ def test_help_dialog_creation(qapp):
     assert dlg is not None
 
 
-# ---- Resolution integration -------------------------------------------------
-
-
 def test_format_combo_has_keep_original_entry(main_window):
     assert main_window.format_combo.itemData(0) == "original"
     # Default selection is category header, forcing explicit choice
@@ -397,9 +394,6 @@ def test_merge_checked_hides_split_field(main_window):
     assert main_window.split_edit.isVisibleTo(main_window)
 
 
-# ---- Split integration ------------------------------------------------------
-
-
 def test_split_pattern_validation(main_window):
     for pattern in [
         "1-3",
@@ -462,9 +456,6 @@ def test_merge_concat_mutual_exclusion(main_window, tmp_path):
     assert main_window.current_thread is None
 
 
-# ---- Metadata options -------------------------------------------------------
-
-
 def test_metadata_selector_options(main_window):
     options = [
         main_window.metadata_combo.itemText(i)
@@ -472,9 +463,6 @@ def test_metadata_selector_options(main_window):
     ]
     assert options == ["Default", "Preserve", "Strip"]
     assert main_window.metadata_combo.currentText() == "Default"
-
-
-# ---- Update check wiring ----------------------------------------------------
 
 
 def _pump_events(qapp, seconds):
@@ -509,9 +497,6 @@ def test_update_check_silent_when_up_to_date(qapp):
         qt_app.start_update_check(bridge)
     _pump_events(qapp, 1)
     assert received == []
-
-
-# ---- Folder opener robustness -----------------------------------------------
 
 
 class FakeProcess:
@@ -672,9 +657,6 @@ def test_job_id_is_hex8():
     assert re.fullmatch(r"[0-9a-f]{8}", thread.job_id)
 
 
-# ---- Translation fallback ---------------------------------------------------
-
-
 def test_tr_key_english_fallback():
     from gui.qt_app import tr_key
 
@@ -682,9 +664,6 @@ def test_tr_key_english_fallback():
     # Untranslated locale falls back to English text, never the raw key
     assert tr_key("split_pages", "German") == "Split Pages (PDF)"
     assert tr_key("resolution_label", "German") != "resolution_label"
-
-
-# ---- File list behaviour ----------------------------------------------------
 
 
 def test_add_files_batch_filters_unsupported(main_window, tmp_path):

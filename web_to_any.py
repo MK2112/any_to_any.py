@@ -548,6 +548,18 @@ def index():
     )
 
 
+def _conversion_error_message(exc: BaseException) -> str:
+    # When end_with_msg() was called, report the job as failed so clients stop polling
+    if isinstance(exc, SystemExit):
+        if isinstance(exc.code, str) and exc.code.strip():
+            return exc.code.strip()
+        return (
+            "Conversion failed: the file(s) could not be processed. "
+            "Check the server log for details."
+        )
+    return str(exc) or type(exc).__name__
+
+
 def send_to_backend(
     controller_instance: Controller,
     input_path_args: list,
@@ -621,8 +633,8 @@ def send_to_backend(
                 )
             _set_job_status(job_id, "done", completed_at)
 
-    except Exception as e:
-        error_msg = str(e)
+    except (Exception, SystemExit) as e:
+        error_msg = _conversion_error_message(e)
         completed_at = time.time()
         if job_id and shared_dict is not None:
             with progress_lock:
