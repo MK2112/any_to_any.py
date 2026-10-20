@@ -98,6 +98,124 @@ def test_to_movie_pdf_to_video(
     mock_rmtree.assert_called_once()
 
 
+@patch("core.converter.movie_converter.ImageClip")
+@patch("core.converter.movie_converter.concatenate_videoclips")
+def test_to_movie_resizes_merged_images(mock_concat, mock_imageclip, mock_converter):
+    mock_imageclip.return_value.with_duration.return_value = MagicMock()
+    final_clip = MagicMock()
+    mock_concat.return_value = final_clip
+    mock_converter.file_handler.join_back.return_value = "dir/photo.png"
+    mock_converter.to_movie(
+        input="in",
+        output="out",
+        recursive=False,
+        file_paths={
+            Category.IMAGE: [("dir", "photo", "png")],
+            Category.MOVIE: [],
+            Category.DOCUMENT: [],
+        },
+        format="mp4",
+        framerate=24,
+        codec="libx264",
+        delete=False,
+        resolution="640x360",
+    )
+    final_clip.resized.assert_called_once_with(new_size=(640, 360))
+    final_clip.resized.return_value.write_videofile.assert_called_once()
+
+
+@patch("core.converter.movie_converter.VideoFileClip")
+def test_to_movie_resizes_gif_video(mock_vfc, mock_converter):
+    clip = MagicMock()
+    mock_vfc.return_value = clip
+    mock_converter.file_handler.join_back.return_value = "dir/anim.gif"
+    mock_converter.to_movie(
+        input="in",
+        output="out",
+        recursive=False,
+        file_paths={
+            Category.IMAGE: [("dir", "anim", "gif")],
+            Category.MOVIE: [],
+            Category.DOCUMENT: [],
+        },
+        format="mp4",
+        framerate=24,
+        codec="libx264",
+        delete=False,
+        resolution="640x360",
+    )
+    clip.resized.assert_called_once_with(new_size=(640, 360))
+    clip.resized.return_value.write_videofile.assert_called_once()
+
+
+@patch("core.converter.movie_converter.ImageClip")
+@patch("core.converter.movie_converter.concatenate_videoclips")
+@patch("core.converter.movie_converter.pypdf.open")
+@patch("core.converter.movie_converter.Image.frombytes")
+@patch("os.listdir")
+@patch("os.makedirs")
+@patch("shutil.rmtree")
+def test_to_movie_resizes_pdf_frames(
+    mock_rmtree,
+    mock_makedirs,
+    mock_listdir,
+    mock_frombytes,
+    mock_pypdf_open,
+    mock_concat,
+    mock_imageclip,
+    mock_converter,
+):
+    page = MagicMock()
+    pix = MagicMock(width=100, height=100, samples=b"0" * 30000)
+    page.get_pixmap.return_value = pix
+    mock_doc = MagicMock()
+    mock_doc.__len__.return_value = 1
+    mock_doc.load_page.return_value = page
+    mock_pypdf_open.return_value = mock_doc
+    mock_frombytes.return_value.convert.return_value = MagicMock()
+    mock_listdir.return_value = ["file-0.jpeg"]
+    mock_concat.return_value = MagicMock()
+    mock_converter.to_movie(
+        input="in",
+        output="out",
+        recursive=False,
+        file_paths={
+            Category.IMAGE: [],
+            Category.MOVIE: [],
+            Category.DOCUMENT: [("dir", "file", "pdf")],
+        },
+        format="mp4",
+        framerate=24,
+        codec="libx264",
+        delete=True,
+        resolution="640x360",
+    )
+    mock_concat.return_value.resized.assert_called_once_with(new_size=(640, 360))
+
+
+@patch("core.converter.movie_converter.office_to_frames")
+def test_to_movie_docx_forwards_resolution(mock_office, mock_converter, tmp_path):
+    (tmp_path / "doc-0.jpeg").write_bytes(b"frame")
+    mock_office.return_value = str(tmp_path)
+    mock_converter._frames_to_movie = MagicMock()
+    mock_converter.to_movie(
+        input="in",
+        output="out",
+        recursive=False,
+        file_paths={
+            Category.IMAGE: [],
+            Category.MOVIE: [],
+            Category.DOCUMENT: [("dir", "doc", "docx")],
+        },
+        format="mp4",
+        framerate=24,
+        codec="libx264",
+        delete=False,
+        resolution="640x360",
+    )
+    assert mock_converter._frames_to_movie.call_args.args[-1] == "640x360"
+
+
 @patch("core.converter.movie_converter.VideoFileClip")
 def test_to_codec_fallback_on_error(mock_vfc, mock_converter):
     mock_clip = MagicMock()
@@ -712,3 +830,44 @@ def test_to_movie_merges_png_and_tiff_end_to_end(tmp_path):
 
     assert not (tmp_path / "a.png").exists()
     assert not (tmp_path / "b.tiff").exists()
+
+
+def test_to_movie_image_resolution_end_to_end(tmp_path):
+    import logging
+    from PIL import Image
+    from core.utils.file_handler import FileHandler
+    from utils.prog_logger import ProgLogger
+
+    logger = logging.getLogger("res-e2e")
+    file_handler = FileHandler(logger, "English")
+    converter = MovieConverter(file_handler, ProgLogger(), logger, "English")
+
+    Image.new("RGB", (320, 240), "red").save(tmp_path / "photo.png")
+    pics = [(str(tmp_path) + os.sep, "photo", "png")]
+
+    out = tmp_path / "out"
+    out.mkdir()
+
+    converter.to_movie(
+        input=str(tmp_path),
+        output=str(out),
+        recursive=False,
+        file_paths={
+            Category.IMAGE: pics,
+            Category.MOVIE: [],
+            Category.DOCUMENT: [],
+        },
+        format="mp4",
+        framerate=2,
+        codec="libx264",
+        delete=False,
+        resolution="160x120",
+    )
+
+    merged = out / "merged.mp4"
+    assert merged.exists()
+
+    from moviepy import VideoFileClip
+
+    with VideoFileClip(str(merged)) as clip:
+        assert tuple(clip.size) == (160, 120)

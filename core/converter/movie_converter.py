@@ -78,6 +78,7 @@ class MovieConverter:
         out_path: str,
         codec: str,
         framerate: int,
+        resolution: str = None,
     ) -> None:
         # Stitch frame sequence together as movie
         image_files = sort_frame_filenames(image_files)
@@ -88,6 +89,10 @@ class MovieConverter:
             for img in image_files
         ]
         final_clip = concatenate_videoclips(image_clips, method="compose")
+        
+        if resolution is not None:
+            final_clip = final_clip.resized(new_size=parse_resolution(resolution))
+        
         try:
             final_clip.write_videofile(
                 out_path,
@@ -130,6 +135,9 @@ class MovieConverter:
 
                 out_path = self.file_handler._resolve_output_file_conflict(out_path)
 
+                if resolution is not None:
+                    clip = clip.resized(new_size=parse_resolution(resolution))
+                
                 clip.write_videofile(
                     out_path,
                     codec=codec,
@@ -177,6 +185,9 @@ class MovieConverter:
                 os.path.abspath(os.path.join(output, f"merged.{format}"))
             )
 
+            if resolution is not None:
+                final_clip = final_clip.resized(new_size=parse_resolution(resolution))
+            
             final_clip.write_videofile(
                 out_path,
                 fps=24 if framerate is None else framerate,
@@ -300,7 +311,9 @@ class MovieConverter:
                             os.path.join(output, f"{doc_path_set[1]}.{format}")
                         )
                     )
-                    self._frames_to_movie(frames_dir, pics, out_path, codec, framerate)
+                    self._frames_to_movie(
+                        frames_dir, pics, out_path, codec, framerate, resolution
+                    )
                     self.file_handler.post_process(doc_path_set, out_path, delete)
             elif doc_path_set[2] == "pdf":
                 pdf_path = self.file_handler.join_back(doc_path_set)
@@ -355,7 +368,12 @@ class MovieConverter:
 
                     # Convert the JPEG files to a video
                     self._frames_to_movie(
-                        scratch_dir, image_files, movie_path, codec, framerate
+                        scratch_dir,
+                        image_files,
+                        movie_path,
+                        codec,
+                        framerate,
+                        resolution,
                     )
                 finally:
                     try:
