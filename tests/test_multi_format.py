@@ -409,6 +409,83 @@ class TestMultiFormatBehavior:
         assert len(formats_processed) == 1
         assert formats_processed[0] == "mp4"
 
+    def test_multi_format_delete_deferred_to_last_pass(
+        self, controller_instance, tmp_path
+    ):
+        controller_instance.output = str(tmp_path)
+        controller_instance.recursive = False
+        controller_instance.locale = "en_US"
+        controller_instance.delete = True
+
+        delete_flags = []
+
+        def capture_process(*args, **kwargs):
+            delete_flags.append(controller_instance.delete)
+
+        controller_instance.process_file_paths = capture_process
+
+        with mock.patch.object(
+            controller_instance.file_handler, "get_file_paths"
+        ) as mock_get_files:
+            mock_get_files.return_value = self._make_mock_file_paths()
+            controller_instance.run(
+                input_path_args=[str(tmp_path)],
+                format="mp3,flac,wav",
+                output=str(tmp_path),
+                framerate=None,
+                quality=None,
+                split=None,
+                merge=False,
+                concat=False,
+                delete=True,
+                across=False,
+                recursive=False,
+                dropzone=False,
+                language=None,
+                workers=1,
+            )
+
+        assert delete_flags == [False, False, True]
+        assert controller_instance.delete is True
+
+
+class TestMultiFormatDelete:
+    def test_delete_keeps_source_until_all_targets_are_written(
+        self, controller_instance, tmp_path
+    ):
+        from PIL import Image
+
+        input_dir = tmp_path / "input"
+        input_dir.mkdir()
+        source = input_dir / "photo.png"
+        Image.new("RGB", (8, 8), (255, 0, 0)).save(source)
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+
+        controller_instance.run(
+            [str(input_dir)],
+            format="bmp,gif,jpeg",
+            output=str(output_dir),
+            framerate=None,
+            quality=None,
+            split=None,
+            merge=False,
+            concat=False,
+            delete=True,
+            across=False,
+            recursive=False,
+            dropzone=False,
+            language=None,
+            workers=1,
+        )
+
+        assert sorted(p.name for p in output_dir.iterdir()) == [
+            "merged.gif",
+            "photo.bmp",
+            "photo.jpeg",
+        ]
+        assert not source.exists()
+
 
 class TestMergeConcatDispatch:
     def _run_capture(self, controller_instance, tmp_path, **overrides):

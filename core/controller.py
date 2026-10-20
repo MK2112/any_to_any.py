@@ -619,9 +619,14 @@ class Controller:
     def _dispatch_targets(self, file_paths: dict, formats: list) -> None:
         # Dispatch one conversion foeach requested format, then merge/concat and
         # split-only jobs when no format was given
-        for fmt in formats:
-            self.target_format = fmt.lower() if fmt else None
-            self.process_file_paths(file_paths)
+        requested_delete = self.delete
+        try:
+            for index, fmt in enumerate(formats):
+                self.delete = requested_delete and index == len(formats) - 1
+                self.target_format = fmt.lower() if fmt else None
+                self.process_file_paths(file_paths)
+        finally:
+            self.delete = requested_delete
         if not formats and (
             self.merging or self.concatenating or self.resolution is not None
         ):
