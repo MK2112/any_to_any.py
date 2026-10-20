@@ -19,6 +19,38 @@ _IMAGE_STRIP_FORMATS = {
 }
 
 _METADATA_FREE_FORMATS = frozenset({"bmp", "ico", "pcx", "ppm", "pgm", "pbm"})
+_EMPTY_PDF_METADATA = {
+    "title": "",
+    "author": "",
+    "subject": "",
+    "keywords": "",
+    "creator": "",
+    "producer": "",
+    "creationDate": "",
+    "modDate": "",
+    "trapped": "",
+}
+_OOXML_EMPTY_PARTS = {
+    "docProps/core.xml": (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<cp:coreProperties '
+        'xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" '
+        'xmlns:dc="http://purl.org/dc/elements/1.1/" '
+        'xmlns:dcterms="http://purl.org/dc/terms/" '
+        'xmlns:dcmitype="http://purl.org/dc/dcmitype/" '
+        'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>'
+    ).encode("utf-8"),
+    "docProps/app.xml": (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" '
+        'xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"/>'
+    ).encode("utf-8"),
+    "docProps/custom.xml": (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/custom-properties" '
+        'xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"/>'
+    ).encode("utf-8"),
+}
 
 # Tag names understood by every audio backend (extracted under these names
 # from the source file) and native key each backend stores them under
@@ -45,19 +77,19 @@ _ASF_COMMON_ATTRS = {
 
 class MetadataHandler:
     # Metadata extraction, preservation, and tagging for converted files
-    # ID3 (audio), EXIF (images), and custom tags
+    # id3 (audio), exif (images), and custom tags
     def __init__(self, event_logger, locale: str = "English"):
         self.event_logger = event_logger
         self.locale = locale
         self.metadata_dir = None
 
     def set_metadata_dir(self, output_dir: str) -> None:
-        # Set dir to store metadata JSON files
+        # Set dir to store metadata json files
         self.metadata_dir = os.path.join(output_dir, ".metadata")
         os.makedirs(self.metadata_dir, exist_ok=True)
 
     def extract_audio_metadata(self, file_path: str) -> dict:
-        # Extract metadata from audio files (ID3 tags, basic info)
+        # Extract metadata from audio files (id3 tags, basic info)
         metadata = {
             "format": "audio",
             "extracted_at": datetime.now().isoformat(),
@@ -80,7 +112,7 @@ class MetadataHandler:
                 if audio is not None:
                     audio.close()
 
-            # Try to extract ID3 tags
+            # Try to extract id3 tags
             try:
                 from mutagen.easyid3 import EasyID3
 
@@ -91,7 +123,7 @@ class MetadataHandler:
                             value[0] if isinstance(value, list) else value
                         )
                 except Exception:
-                    pass  # File doesn't have ID3 tags or mutagen not available
+                    pass  # File doesn't have id3 tags or mutagen not available
             except ImportError:
                 pass  # mutagen not installed
 
@@ -120,7 +152,7 @@ class MetadataHandler:
                 metadata["tags"]["format"] = img.format
                 metadata["tags"]["mode"] = img.mode
 
-                # Extract EXIF data, if available
+                # Extract exif data, if available
                 exif_data = img._getexif() if hasattr(img, "_getexif") else None
                 if exif_data is not None:
                     for tag_id, value in exif_data.items():
@@ -224,8 +256,8 @@ class MetadataHandler:
     def save_metadata(
         self, file_path: str, metadata: dict, output_file_path: str
     ) -> str:
-        # Save metadata to JSON file in .metadata dir
-        # Returns path to metadata JSON file
+        # Save metadata to json file in .metadata dir
+        # Returns path to metadata json file
         if self.metadata_dir is None:
             return None
 
@@ -301,10 +333,10 @@ class MetadataHandler:
         return False
 
     def strip_metadata(self, file_path: str, file_type: str) -> bool:
-        # Strip metadata from a file
-        #  Removes ID3 tags for audio,
-        #  Removes EXIF for images,
-        #  Some basic stripping support for documents
+        #  Removes metadata from files:
+        #   id3 tags for audio,
+        #   exif for images,
+        #   document properties for pdf,docx,pptx
         try:
             if file_type == "audio":
                 try:
@@ -317,9 +349,10 @@ class MetadataHandler:
                 except ImportError:
                     pass  # mutagen not installed
                 return False
-
             elif file_type == "image":
                 return self._strip_image_metadata(file_path)
+            elif file_type == "document":
+                return self._strip_document_metadata(file_path)
 
         except Exception as e:
             self.event_logger.debug(f"Could not strip metadata from {file_path}: {e}")
@@ -327,8 +360,77 @@ class MetadataHandler:
 
         return False
 
+    def _strip_document_metadata(self, file_path: str) -> bool:
+        file_ext = Path(file_path).suffix.lower().lstrip(".")
+        if file_ext == "pdf":
+            return self._strip_pdf_metadata(file_path)
+        if file_ext in ("docx", "pptx"):
+            return self._strip_ooxml_metadata(file_path)
+        return False
+
+    def _strip_pdf_metadata(self, file_path: str) -> bool:
+        tmp_path = f"{file_path}.strip.tmp"
+        try:
+            import pymupdf as pypdf
+
+            doc = pypdf.open(file_path)
+            try:
+                doc.set_metadata(dict(_EMPTY_PDF_METADATA))
+                if hasattr(doc, "del_xml_metadata"):
+                    doc.del_xml_metadata()
+                else:
+                    doc.set_xml_metadata("")
+                doc.save(tmp_path, garbage=4, deflate=True)
+            finally:
+                doc.close()
+            os.replace(tmp_path, file_path)
+            return True
+        except Exception as e:
+            self.event_logger.debug(
+                f"Could not strip PDF metadata from {file_path}: {e}"
+            )
+            return False
+        finally:
+            if os.path.exists(tmp_path):
+                try:
+                    os.remove(tmp_path)
+                except OSError:
+                    pass
+
+    def _strip_ooxml_metadata(self, file_path: str) -> bool:
+        import zipfile
+
+        tmp_path = f"{file_path}.strip.tmp"
+        try:
+            with (
+                zipfile.ZipFile(file_path, "r") as src,
+                zipfile.ZipFile(tmp_path, "w", zipfile.ZIP_DEFLATED) as dst,
+            ):
+                dst.comment = src.comment
+                for item in src.infolist():
+                    data = src.read(item)
+                    data = _OOXML_EMPTY_PARTS.get(item.filename, data)
+                    entry = zipfile.ZipInfo(item.filename, date_time=item.date_time)
+                    entry.compress_type = item.compress_type
+                    entry.external_attr = item.external_attr
+                    entry.create_system = item.create_system
+                    dst.writestr(entry, data)
+            os.replace(tmp_path, file_path)
+            return True
+        except Exception as e:
+            self.event_logger.debug(
+                f"Could not strip document metadata from {file_path}: {e}"
+            )
+            return False
+        finally:
+            if os.path.exists(tmp_path):
+                try:
+                    os.remove(tmp_path)
+                except OSError:
+                    pass
+
     def _strip_image_metadata(self, file_path: str) -> bool:
-        # Drop EXIF/XMP/comment metadata by re-encoding image
+        # Drop exif/xmp/comment metadata by re-encoding image
         try:
             from PIL import Image
 
@@ -375,7 +477,7 @@ class MetadataHandler:
             return False
 
     def _strip_gif_metadata(self, file_path: str) -> bool:
-        # GIF metadata is in extension blocks,
+        # gif metadata is in extension blocks,
         # can be dropped without touching pixel data
         try:
             with open(file_path, "rb") as fh:
@@ -404,7 +506,7 @@ class MetadataHandler:
 
 
 def _gif_sub_block_end(data: bytes, start: int) -> int:
-    # Return idx of first byte after GIF sub-blocks starting at start
+    # Return idx of first byte after gif sub-blocks starting at start
     pos = start
     length = len(data)
     while pos < length:
@@ -417,7 +519,7 @@ def _gif_sub_block_end(data: bytes, start: int) -> int:
 
 
 def _drop_gif_metadata_blocks(data: bytes) -> bytes | None:
-    # Drop GIF extension blocks from GIF data
+    # Drop gif extension blocks from gif data
     if not data.startswith(b"GIF8") or len(data) < 13:
         return None
 
@@ -515,7 +617,7 @@ def _apply_vorbis_tags(
 
 
 def _apply_mp4_tags(file_path: str, file_ext: str, common: dict, custom: dict) -> bool:
-    # Write tags into m4a using MP4 atoms (signature adapted, keep file_ext)
+    # Write tags into m4a using mp4 atoms (signature adapted, keep file_ext)
     from mutagen.mp4 import MP4
 
     audio = MP4(file_path)
@@ -528,7 +630,7 @@ def _apply_mp4_tags(file_path: str, file_ext: str, common: dict, custom: dict) -
 
 
 def _apply_asf_tags(file_path: str, file_ext: str, common: dict, custom: dict) -> bool:
-    # Write tags into wma using ASF (signature adapted, keep file_ext)
+    # Write tags into wma using asf (signature adapted, keep file_ext)
     from mutagen.asf import ASF
 
     audio = ASF(file_path)

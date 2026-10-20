@@ -830,3 +830,178 @@ class TestImageMetadataStripping:
         result = metadata_handler.strip_metadata(str(odd_file), "image")
         assert result is False
         assert odd_file.read_bytes() == before
+
+
+class TestDocumentMetadataStripping:
+    @staticmethod
+    def _xmp(secret: str) -> str:
+        return (
+            '<x:xmpmeta xmlns:x="adobe:ns:meta/">'
+            '<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">'
+            '<rdf:Description xmlns:dc="http://purl.org/dc/elements/1.1/">'
+            f"<dc:title>{secret}</dc:title>"
+            "</rdf:Description></rdf:RDF></x:xmpmeta>"
+        )
+
+    @staticmethod
+    def _custom_properties(secret: str) -> str:
+        return (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            '<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/custom-properties" '
+            'xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">'
+            '<property fmtid="{D5CDD505-2E9C-101B-9397-08002B2CF9AE}" pid="2" name="Client">'
+            f"<vt:lpwstr>{secret}</vt:lpwstr>"
+            "</property></Properties>"
+        )
+
+    def test_strip_pdf_removes_info_and_xmp(self, metadata_handler, tmp_path):
+        import pymupdf
+
+        pdf_file = tmp_path / "secret.pdf"
+        doc = pymupdf.open()
+        doc.new_page().insert_text((72, 72), "Visible page text")
+        doc.set_metadata(
+            {
+                "title": "Secret Title",
+                "author": "Secret Author",
+                "subject": "Secret Subject",
+                "keywords": "secret keywords",
+                "creator": "Secret Creator",
+                "producer": "Secret Producer",
+            }
+        )
+        doc.set_xml_metadata(self._xmp("XMP Secret"))
+        doc.save(pdf_file)
+        doc.close()
+
+        result = metadata_handler.strip_metadata(str(pdf_file), "document")
+        assert result is True
+
+        stripped = pymupdf.open(pdf_file)
+        try:
+            for key in (
+                "title",
+                "author",
+                "subject",
+                "keywords",
+                "creator",
+                "producer",
+            ):
+                assert stripped.metadata.get(key, "") == ""
+            assert stripped.get_xml_metadata() == ""
+            assert stripped[0].get_text().strip() == "Visible page text"
+        finally:
+            stripped.close()
+
+        raw = pdf_file.read_bytes()
+        for secret in (b"Secret Title", b"Secret Author", b"XMP Secret"):
+            assert secret not in raw
+
+    def test_strip_pdf_from_other_tool_removes_properties(
+        self, metadata_handler, tmp_path
+    ):
+        # pdf written by another tool keeps its properties in the trailer
+        # info dictionary, which has to be blanked as well
+        import pymupdf
+
+        pdf_file = tmp_path / "foreign.pdf"
+        doc = pymupdf.open()
+        doc.new_page().insert_text((72, 72), "Foreign page text")
+        doc.xref_set_key(doc.pdf_catalog(), "Info", "null")
+        doc.xref_set_key(
+            -1,
+            "Info",
+            "<</Producer (Foreign Writer 9.9) /Title (Foreign Title) "
+            "/Author (Foreign Author)>>",
+        )
+        doc.save(pdf_file, garbage=4, deflate=True)
+        doc.close()
+
+        result = metadata_handler.strip_metadata(str(pdf_file), "document")
+        assert result is True
+
+        stripped = pymupdf.open(pdf_file)
+        try:
+            for key in ("title", "author", "producer"):
+                assert stripped.metadata.get(key, "") == ""
+            assert stripped[0].get_text().strip() == "Foreign page text"
+        finally:
+            stripped.close()
+
+        raw = pdf_file.read_bytes()
+        for secret in (b"Foreign Title", b"Foreign Author", b"Foreign Writer"):
+            assert secret not in raw
+
+    def test_strip_docx_clears_core_and_custom_properties(
+        self, metadata_handler, tmp_path
+    ):
+        import docx
+        import zipfile
+
+        docx_file = tmp_path / "secret.docx"
+        doc = docx.Document()
+        doc.add_paragraph("Visible body text")
+        props = doc.core_properties
+        props.title = "Secret Title"
+        props.author = "Secret Author"
+        props.subject = "Secret Subject"
+        props.keywords = "secret keywords"
+        props.comments = "Secret comments"
+        props.category = "Secret category"
+        props.last_modified_by = "Secret Modifier"
+        doc.save(docx_file)
+        with zipfile.ZipFile(docx_file, "a") as package:
+            package.writestr(
+                "docProps/custom.xml", self._custom_properties("Secret Client")
+            )
+
+        result = metadata_handler.strip_metadata(str(docx_file), "document")
+        assert result is True
+
+        opened = docx.Document(docx_file)
+        props = opened.core_properties
+        assert props.title == ""
+        assert props.author == ""
+        assert props.subject == ""
+        assert props.keywords == ""
+        assert props.comments == ""
+        assert props.category == ""
+        assert props.last_modified_by == ""
+        assert [paragraph.text for paragraph in opened.paragraphs] == [
+            "Visible body text"
+        ]
+
+        with zipfile.ZipFile(docx_file) as package:
+            assert package.testzip() is None
+            assert b"Secret" not in package.read("docProps/core.xml")
+            assert b"Secret" not in package.read("docProps/app.xml")
+            assert b"Secret Client" not in package.read("docProps/custom.xml")
+
+    def test_strip_pptx_clears_core_properties(self, metadata_handler, tmp_path):
+        import pptx
+        import zipfile
+
+        pptx_file = tmp_path / "secret.pptx"
+        presentation = pptx.Presentation()
+        presentation.slides.add_slide(presentation.slide_layouts[5])
+        props = presentation.core_properties
+        props.title = "Secret Title"
+        props.author = "Secret Author"
+        props.subject = "Secret Subject"
+        props.keywords = "secret keywords"
+        presentation.save(pptx_file)
+
+        result = metadata_handler.strip_metadata(str(pptx_file), "document")
+        assert result is True
+
+        opened = pptx.Presentation(pptx_file)
+        props = opened.core_properties
+        assert props.title == ""
+        assert props.author == ""
+        assert props.subject == ""
+        assert props.keywords == ""
+        assert len(opened.slides) == 1
+
+        with zipfile.ZipFile(pptx_file) as package:
+            assert package.testzip() is None
+            assert b"Secret" not in package.read("docProps/core.xml")
