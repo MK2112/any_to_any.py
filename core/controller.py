@@ -606,8 +606,9 @@ class Controller:
             if not formats and self.resolution is not None:
                 self._validate_resolution(file_paths, formats)
             self._dispatch_targets(file_paths, formats)
+            found_files = found_files or any(file_paths.values())
 
-        if (across and len(file_paths) == 0) or not found_files:
+        if not found_files:
             self.event_logger.warning(
                 f"{lang.get_translation('no_media_general', self.locale)}"
             )

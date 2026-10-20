@@ -1,4 +1,5 @@
 import os
+import logging
 import pytest
 from utils.category import Category
 from tests.test_fixtures import controller_instance, test_input_folder
@@ -135,3 +136,71 @@ def test_recursive_run_closes_scandir_iterator(controller_instance, tmp_path, mo
     for path in (str(root), str(other)):
         direct = next(s for s in created if s.path == path)
         assert direct.closed
+
+
+def test_across_mode_does_not_warn_about_missing_media(
+    controller_instance, tmp_path, caplog
+):
+    # Across mode converts all inputs in one go
+    from PIL import Image
+
+    dir1 = tmp_path / "dir1"
+    dir2 = tmp_path / "dir2"
+    out = tmp_path / "out"
+    dir1.mkdir()
+    dir2.mkdir()
+    out.mkdir()
+    Image.new("RGB", (4, 4), "red").save(dir1 / "first.png")
+    Image.new("RGB", (4, 4), "blue").save(dir2 / "second.png")
+
+    with caplog.at_level(logging.WARNING, logger="core.controller"):
+        controller_instance.run(
+            input_path_args=[str(dir1), str(dir2)],
+            format="webp",
+            output=str(out),
+            framerate=None,
+            quality=None,
+            split=None,
+            merge=False,
+            concat=False,
+            delete=False,
+            across=True,
+            recursive=False,
+            dropzone=False,
+            language=None,
+            workers=1,
+        )
+
+    assert list(out.rglob("*.webp")), "no converted file was produced"
+    assert "No convertible media files" not in caplog.text
+
+
+def test_across_mode_still_warns_when_no_media_is_found(
+    controller_instance, tmp_path, caplog
+):
+    dir1 = tmp_path / "dir1"
+    dir2 = tmp_path / "dir2"
+    out = tmp_path / "out"
+    dir1.mkdir()
+    dir2.mkdir()
+    out.mkdir()
+
+    with caplog.at_level(logging.WARNING, logger="core.controller"):
+        controller_instance.run(
+            input_path_args=[str(dir1), str(dir2)],
+            format="webp",
+            output=str(out),
+            framerate=None,
+            quality=None,
+            split=None,
+            merge=False,
+            concat=False,
+            delete=False,
+            across=True,
+            recursive=False,
+            dropzone=False,
+            language=None,
+            workers=1,
+        )
+
+    assert "No convertible media files" in caplog.text
