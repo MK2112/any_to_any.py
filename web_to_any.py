@@ -678,7 +678,7 @@ def create_conversion_endpoint(merge: bool = False, concat: bool = False):
                 [up_dir],
                 fmt,
                 cv_dir,
-                0,
+                None,
                 "high",
                 None,
                 merge,
