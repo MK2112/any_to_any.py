@@ -80,15 +80,19 @@ function updateResolutionOptions() {
     if (!resolutionData) return;
     const format = document.getElementById('conversion-type').value;
     if (format === 'original') {
-        // Resize-only: restrict to what the uploaded movies themselves allow
+        // Only suggest resolutions every uploaded movie file permits
         const exts = uploadedMovieExtensions();
-        const union = new Set();
-        exts.forEach(ext => resolutionData.movies[ext].forEach(r => union.add(r)));
-        if (union.size === 0) {
+        if (exts.size === 0) {
             setResolutionRowVisible(false);
             return;
         }
-        const allowed = resolutionData.ladder.filter(r => union.has(r));
+        const allowed = resolutionData.ladder.filter(r =>
+            [...exts].every(ext => resolutionData.movies[ext].includes(r))
+        );
+        if (allowed.length === 0) {
+            setResolutionRowVisible(false);
+            return;
+        }
         buildResolutionOptions(allowed);
         setResolutionRowVisible(true);
     } else {
