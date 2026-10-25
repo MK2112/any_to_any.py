@@ -60,6 +60,28 @@ def _save_format(format: str) -> str:
     return format.upper()
 
 
+_ALPHA_TARGETS = frozenset(
+    ("png", "tiff", "tif", "webp", "heic", "heif", "avif", "tga", "jpeg2000", "im")
+)
+
+
+def _has_alpha(img: Image.Image) -> bool:
+    return img.mode in ("RGBA", "LA") or (
+        img.mode == "P" and "transparency" in img.info
+    )
+
+
+def _mode_for_target(img: Image.Image, format: str) -> Image.Image:
+    if _has_alpha(img):
+        if format in _ALPHA_TARGETS:
+            return img.convert("RGBA")
+        background = Image.new("RGBA", img.size, (255, 255, 255, 255))
+        return Image.alpha_composite(background, img.convert("RGBA")).convert("RGB")
+    if img.mode != "RGB":
+        return img.convert("RGB")
+    return img
+
+
 def _unsupported_source_msg(path: str, locale: str, reason: str = "") -> str:
     msg = (
         f'[!] {lang.get_translation("skipping", locale)} "{path}" - '
@@ -73,7 +95,7 @@ def _write_office_frame(img_bytes: bytes, out_path: str, format: str) -> None:
     try:
         with Image.open(BytesIO(img_bytes)) as img:
             if img.format != target:
-                img.convert("RGB").save(out_path, format=target)
+                _mode_for_target(img, format).save(out_path, format=target)
                 return
     except Exception:
         pass
@@ -271,9 +293,7 @@ class ImageConverter:
                     )
                     continue
                 with source as img:
-                    # Convert to RGB if needed (important for WebP to PNG)
-                    if img.mode != "RGB":
-                        img = img.convert("RGB")
+                    img = _mode_for_target(img, format)
                     img.save(img_path, format=_save_format(format))
 
                 self.file_handler.post_process(image_path_set, img_path, delete)
@@ -557,7 +577,9 @@ class ImageConverter:
             output,
             format,
             delete,
-            lambda img, out_path: img.convert("RGB").save(out_path, format=format),
+            lambda img, out_path: _mode_for_target(img, format).save(
+                out_path, format=format
+            ),
         )
         self._convert_gifs_and_skips(file_paths, output, format, delete)
         self._docs_to_frames(file_paths, input, output, format, delete)
@@ -610,7 +632,9 @@ class ImageConverter:
             output,
             format,
             delete,
-            lambda img, out_path: img.convert("RGB").save(out_path, format=format),
+            lambda img, out_path: _mode_for_target(img, format).save(
+                out_path, format=format
+            ),
         )
 
         self._convert_gifs_and_skips(file_paths, output, format, delete)
@@ -636,9 +660,7 @@ class ImageConverter:
             return
 
         def _save(img, out_path):
-            if img.mode != "RGB":
-                img = img.convert("RGB")
-            img.save(out_path, format=_save_format(format))
+            _mode_for_target(img, format).save(out_path, format=_save_format(format))
 
         self._convert_stills(
             [

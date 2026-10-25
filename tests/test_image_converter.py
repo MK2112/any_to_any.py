@@ -55,9 +55,7 @@ class TestOfficeToFrames:
 
         # Assertions
         mock_docx.Document.assert_called_once_with("/path/to/file.docx")
-        mock_os.makedirs.assert_called_once_with(
-            "/output/filename_docx", exist_ok=True
-        )
+        mock_os.makedirs.assert_called_once_with("/output/filename_docx", exist_ok=True)
         mock_file.assert_called_once()
         file_handler.post_process.assert_called_once()
         event_logger.error.assert_not_called()
@@ -94,9 +92,7 @@ class TestOfficeToFrames:
 
         # Assertions
         mock_pptx.Presentation.assert_called_once_with("/path/to/file.docx")
-        mock_os.makedirs.assert_called_once_with(
-            "/output/filename_pptx", exist_ok=True
-        )
+        mock_os.makedirs.assert_called_once_with("/output/filename_pptx", exist_ok=True)
         mock_file.assert_called_once()
         file_handler.post_process.assert_called_once()
 
@@ -354,6 +350,7 @@ class TestImageConverter:
     def supported_formats(self):
         return {Category.MOVIE: ["mp4", "avi", "mov"]}
 
+
 def test_gif_to_frames_creates_folder_and_files(
     tmp_path, monkeypatch, mock_file_handler=None
 ):
@@ -395,9 +392,7 @@ class TestToHeic:
         import numpy as np
         from PIL import Image
 
-        img = Image.fromarray(
-            np.random.randint(0, 255, (64, 64, 3), dtype="uint8")
-        )
+        img = Image.fromarray(np.random.randint(0, 255, (64, 64, 3), dtype="uint8"))
         src = tmp_path / "photo.jpg"
         img.save(str(src), format="JPEG")
 
@@ -437,9 +432,7 @@ class TestHeicToFrames:
         from PIL import Image
 
         pillow_heif.register_heif_opener()
-        img = Image.fromarray(
-            np.random.randint(0, 255, (64, 64, 3), dtype="uint8")
-        )
+        img = Image.fromarray(np.random.randint(0, 255, (64, 64, 3), dtype="uint8"))
         src = tmp_path / "photo.heic"
         img.save(str(src), format="HEIF")
         return src
@@ -501,9 +494,7 @@ class TestHeicToBmpAndWebp:
         from PIL import Image
 
         pillow_heif.register_heif_opener()
-        img = Image.fromarray(
-            np.random.randint(0, 255, (64, 64, 3), dtype="uint8")
-        )
+        img = Image.fromarray(np.random.randint(0, 255, (64, 64, 3), dtype="uint8"))
         src = tmp_path / "photo.heic"
         img.save(str(src), format="HEIF")
         return src
@@ -606,9 +597,7 @@ class TestDeleteAndLogAfterFrameConversion:
         assert not src.exists()
         assert str(frame_dir / "anim-1.png") in caplog.text
 
-    @pytest.mark.parametrize(
-        "method,format", [("to_bmp", "bmp"), ("to_webp", "webp")]
-    )
+    @pytest.mark.parametrize("method,format", [("to_bmp", "bmp"), ("to_webp", "webp")])
     def test_pdf_to_frames_delete_source_and_log(
         self, tmp_path, caplog, method, format
     ):
@@ -961,7 +950,6 @@ class TestRasterConvertibleSources:
 
 
 class TestNonOpenableSourcesAreSkipped:
-
     def _garbage_source(self, tmp_path, name):
         src = tmp_path / name
         src.write_bytes(b"\x00" * 64)
@@ -1036,3 +1024,124 @@ class TestNonOpenableSourcesAreSkipped:
         assert "Unsupported format" in caplog.text
         assert not (out / "broken.bmp").exists()
         assert src.exists()
+
+
+class TestAlphaHandling:
+
+    def _converter(self, logger_name):
+        import logging
+
+        from core.utils.file_handler import FileHandler
+
+        event_logger = logging.getLogger(logger_name)
+        return ImageConverter(
+            FileHandler(event_logger, "English"), MagicMock(), event_logger, "English"
+        )
+
+    def _rgba_source(self, tmp_path):
+        from PIL import Image
+
+        src = tmp_path / "logo.png"
+        img = Image.new("RGBA", (4, 4), (0, 0, 0, 0))
+        img.putpixel((0, 0), (255, 0, 0, 255))
+        img.save(src)
+        return src
+
+    def _file_paths(self, tmp_path, ext):
+        return {
+            Category.IMAGE: [(str(tmp_path) + os.sep, "logo", ext)],
+            Category.MOVIE: [],
+            Category.DOCUMENT: [],
+            Category.AUDIO: [],
+        }
+
+    def _run_stills(self, method, tmp_path, format):
+        from pathlib import Path
+
+        out = Path(tmp_path) / "out"
+        out.mkdir()
+        converter = self._converter(f"alpha-{format}")
+        getattr(converter, method)(
+            input=str(tmp_path),
+            output=str(out),
+            file_paths=self._file_paths(tmp_path, "png"),
+            supported_formats={Category.IMAGE: [format], Category.MOVIE: ["mp4"]},
+            framerate=None,
+            format=format,
+            delete=False,
+        )
+        return out
+
+    def test_rgba_png_to_tiff_keeps_alpha(self, tmp_path):
+        from PIL import Image
+
+        self._rgba_source(tmp_path)
+        out = self._run_stills("to_frames", tmp_path, "tiff")
+
+        with Image.open(out / "logo.tiff") as result:
+            assert result.mode == "RGBA"
+            assert result.getpixel((0, 0)) == (255, 0, 0, 255)
+            assert result.getpixel((1, 1))[3] == 0
+
+    def test_rgba_png_to_jpeg_flattens_onto_white(self, tmp_path):
+        from PIL import Image
+
+        src = tmp_path / "logo.png"
+        img = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
+        for x in range(8):
+            for y in range(8):
+                img.putpixel((x, y), (255, 0, 0, 255))
+        img.save(src)
+        out = self._run_stills("to_frames", tmp_path, "jpeg")
+
+        with Image.open(out / "logo.jpeg") as result:
+            assert result.mode == "RGB"
+            assert min(result.getpixel((14, 14))) > 220
+            r, g = result.getpixel((4, 4))[:2]
+            assert r > 180 and g < 80
+
+    def test_rgba_png_to_webp_keeps_alpha(self, tmp_path):
+        from PIL import Image
+
+        self._rgba_source(tmp_path)
+        out = self._run_stills("to_webp", tmp_path, "webp")
+
+        with Image.open(out / "logo.webp") as result:
+            assert result.mode == "RGBA"
+            assert result.getpixel((1, 1))[3] == 0
+
+    def test_rgba_png_to_bmp_flattens_onto_white(self, tmp_path):
+        from PIL import Image
+
+        self._rgba_source(tmp_path)
+        out = self._run_stills("to_bmp", tmp_path, "bmp")
+
+        with Image.open(out / "logo.bmp") as result:
+            assert result.mode == "RGB"
+            assert min(result.getpixel((1, 1))) > 220
+
+    def test_rgba_png_to_heic_keeps_alpha(self, tmp_path):
+        from PIL import Image
+
+        self._rgba_source(tmp_path)
+        out = self._run_stills("to_heic", tmp_path, "heic")
+
+        with Image.open(out / "logo.heic") as result:
+            assert result.mode == "RGBA"
+            assert result.getpixel((1, 1))[3] == 0
+
+    def test_office_frame_extraction_keeps_alpha(self, tmp_path):
+        import io
+
+        from PIL import Image
+        from core.converter.image_converter import _write_office_frame
+
+        buf = io.BytesIO()
+        Image.new("RGBA", (4, 4), (10, 20, 30, 128)).save(buf, format="PNG")
+        out = tmp_path / "frame.tiff"
+
+        _write_office_frame(buf.getvalue(), str(out), "tiff")
+
+        with Image.open(out) as result:
+            assert result.mode == "RGBA"
+            assert result.getpixel((0, 0)) == (10, 20, 30, 128)
