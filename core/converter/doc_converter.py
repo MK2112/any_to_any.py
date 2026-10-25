@@ -540,12 +540,8 @@ class DocumentConverter:
                 if document_path_set[2] == format:
                     continue
 
-                out_path = self.file_handler._resolve_output_file_conflict(
-                    os.path.abspath(
-                        os.path.join(output, f"{document_path_set[1]}.docx")
-                    )
-                )
-
+                # out_path is only resolved once there is real content, so a
+                # skipped source never claims an output name
                 doc = docx.Document()
 
                 if document_path_set[2] == "pptx":
@@ -634,6 +630,32 @@ class DocumentConverter:
                             except OSError:
                                 pass
                         doc.add_page_break()
+                elif document_path_set[2] in ("srt", "md"):
+                    try:
+                        with open(
+                            self.file_handler.join_back(document_path_set),
+                            "r",
+                            encoding="utf-8-sig",
+                        ) as text_file:
+                            for line in text_file.read().splitlines():
+                                doc.add_paragraph(line)
+                    except (OSError, UnicodeDecodeError) as e:
+                        self.event_logger.info(
+                            f"[!] {lang.get_translation('error', self.locale)}: {e}"
+                        )
+
+                if not doc.paragraphs:
+                    self.event_logger.info(
+                        f"[!] {lang.get_translation('skipping', self.locale)}: "
+                        f'"{self.file_handler.join_back(document_path_set)}"'
+                    )
+                    continue
+
+                out_path = self.file_handler._resolve_output_file_conflict(
+                    os.path.abspath(
+                        os.path.join(output, f"{document_path_set[1]}.docx")
+                    )
+                )
                 doc.save(out_path)
                 self.file_handler.post_process(document_path_set, out_path, delete)
 

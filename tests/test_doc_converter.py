@@ -838,3 +838,69 @@ def test_parse_page_ranges_mixed_delimiters(document_converter):
         (3, 4),
         (5, 6),
     ]
+
+
+class TestOfficePlainTextSources:
+
+    @staticmethod
+    def _converter():
+        from core.utils.file_handler import FileHandler
+
+        file_handler = FileHandler(event_logger=MagicMock(), locale="English")
+        return DocumentConverter(file_handler, MagicMock(), MagicMock())
+
+    @staticmethod
+    def _paths(tmp_path, name, ext):
+        return {
+            Category.IMAGE: [],
+            Category.MOVIE: [],
+            Category.DOCUMENT: [(str(tmp_path) + os.sep, name, ext)],
+        }
+
+    def test_srt_to_docx_carries_text_over(self, tmp_path):
+        (tmp_path / "subs.srt").write_text(
+            "1\n00:00:01,000 --> 00:00:02,000\nHello world\n",
+            encoding="utf-8",
+        )
+        out = tmp_path / "out"
+        out.mkdir()
+
+        self._converter().to_office(
+            str(out), self._paths(tmp_path, "subs", "srt"), "docx", True
+        )
+
+        produced = out / "subs.docx"
+        assert produced.exists()
+        paragraphs = [p.text for p in docx.Document(str(produced)).paragraphs]
+        assert "Hello world" in paragraphs
+        # A real DOCX was produced, so -d may remove the source
+        assert not (tmp_path / "subs.srt").exists()
+
+    def test_md_to_docx_carries_text_over(self, tmp_path):
+        (tmp_path / "notes.md").write_text("# Title\nSome text\n", encoding="utf-8")
+        out = tmp_path / "out"
+        out.mkdir()
+
+        self._converter().to_office(
+            str(out), self._paths(tmp_path, "notes", "md"), "docx", True
+        )
+
+        produced = out / "notes.docx"
+        assert produced.exists()
+        paragraphs = [p.text for p in docx.Document(str(produced)).paragraphs]
+        assert "# Title" in paragraphs
+        assert "Some text" in paragraphs
+        assert not (tmp_path / "notes.md").exists()
+
+    @pytest.mark.parametrize("name,ext", [("empty", "srt"), ("empty", "md")])
+    def test_empty_text_source_is_skipped_and_kept(self, tmp_path, name, ext):
+        (tmp_path / f"{name}.{ext}").write_text("", encoding="utf-8")
+        out = tmp_path / "out"
+        out.mkdir()
+
+        self._converter().to_office(
+            str(out), self._paths(tmp_path, name, ext), "docx", True
+        )
+
+        assert list(out.glob("*.docx")) == []
+        assert (tmp_path / f"{name}.{ext}").exists()
