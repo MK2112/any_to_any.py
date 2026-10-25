@@ -28,7 +28,6 @@ from moviepy import (
     ImageClip,
     concatenate_videoclips,
     concatenate_audioclips,
-    clips_array,
 )
 
 
@@ -1038,15 +1037,14 @@ class Controller:
         ):
             gif_out_path = os.path.join(self.output, "concatenated_image.gif")
             gif_fps = self.framerate if self.framerate is not None else 12
-            concatenated_image = clips_array(
+            concatenated_image = concatenate_videoclips(
                 [
-                    [
-                        ImageClip(
-                            self.file_handler.join_back(image_path_set)
-                        ).with_duration(1 / gif_fps)
-                    ]
+                    ImageClip(
+                        self.file_handler.join_back(image_path_set)
+                    ).with_duration(1 / gif_fps)
                     for image_path_set in file_paths[Category.IMAGE]
-                ]
+                ],
+                method="compose",
             )
             concatenated_image.write_gif(
                 gif_out_path, fps=gif_fps, logger=self.prog_logger

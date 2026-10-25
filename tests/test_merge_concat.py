@@ -333,10 +333,10 @@ def test_concat_images_without_framerate_uses_default(controller_instance, tmp_p
     controller_instance.framerate = None
     with (
         mock.patch("core.controller.ImageClip"),
-        mock.patch("core.controller.clips_array") as mock_clips,
+        mock.patch("core.controller.concatenate_videoclips") as mock_concat,
     ):
         combined = mock.MagicMock()
-        mock_clips.return_value = combined
+        mock_concat.return_value = combined
         controller_instance.concat(
             {
                 Category.AUDIO: [],
