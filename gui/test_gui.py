@@ -847,5 +847,89 @@ def test_conversion_completed_clears_file_list(main_window, tmp_path):
     assert len(main_window._file_paths_set) == 0
 
 
+def test_conversion_error_releases_thread_from_registry(main_window):
+    class FakeThread:
+        job_id = "job-err"
+
+    thread = FakeThread()
+    main_window.current_thread = thread
+    main_window.conversion_threads[thread.job_id] = thread
+    main_window.set_ui_enabled(False)
+
+    with patch("gui.qt_app.QMessageBox") as mock_box:
+        main_window.conversion_error("boom")
+
+    still_registered = thread.job_id in main_window.conversion_threads
+    main_window.conversion_threads.clear()
+
+    assert not still_registered, "failed thread leaked in conversion_threads"
+    assert main_window.current_thread is None
+    assert main_window.convert_btn.isEnabled()
+    assert mock_box.critical.called
+
+
+def test_conversion_completed_reports_success_when_output_appears(
+    main_window, tmp_path
+):
+    import utils.language_support as lang
+
+    (tmp_path / "new.mp4").write_bytes(b"x")
+    main_window._pre_conversion_outputs = set()
+
+    with patch("gui.qt_app.QMessageBox") as mock_box:
+        main_window.conversion_completed("job-out", str(tmp_path))
+
+    assert mock_box.information.called
+    assert not mock_box.warning.called
+    assert main_window.status_label.text() == lang.get_translation(
+        "conversion_complete", main_window.locale
+    )
+
+
+def test_conversion_completed_without_new_output_does_not_report_success(
+    main_window, tmp_path
+):
+    import utils.language_support as lang
+
+    (tmp_path / "old.mp4").write_bytes(b"x")
+    main_window._pre_conversion_outputs = main_window._output_files(str(tmp_path))
+
+    with patch("gui.qt_app.QMessageBox") as mock_box:
+        main_window.conversion_completed("job-empty", str(tmp_path))
+
+    assert not mock_box.information.called
+    assert mock_box.warning.called
+    assert main_window.status_label.text() == lang.get_translation(
+        "no_media_general", main_window.locale
+    )
+
+
+def test_start_conversion_snapshots_output_files(main_window, tmp_path):
+    test_file = tmp_path / "video.mp4"
+    test_file.touch()
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+    (out_dir / "old.mp4").write_bytes(b"x")
+
+    main_window.add_files_batch([str(test_file)])
+    main_window.output_dir_edit.setText(str(out_dir))
+    main_window.format_combo.setCurrentIndex(main_window.format_combo.findData("mp4"))
+
+    with patch("gui.qt_app.ConversionThread") as mock_thread, patch(
+        "gui.qt_app.QMessageBox"
+    ) as mock_box:
+        main_window.start_conversion()
+
+    snapshot = main_window._pre_conversion_outputs
+
+    main_window.current_thread = None
+    main_window.conversion_threads.clear()
+
+    assert not mock_box.warning.called
+    assert mock_thread.called
+    assert any(f.endswith("old.mp4") for f in snapshot)
+    assert not any(f.endswith("video.mp4") for f in snapshot)
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
