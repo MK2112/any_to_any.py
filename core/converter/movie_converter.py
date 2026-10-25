@@ -281,40 +281,54 @@ class MovieConverter:
             if doc_path_set[2] == "docx":
                 # Convert docx to list of images first
                 # Stitch that together, convert to movie
-                # Use the actual (conflict-resolved) frames dir (C2), never
-                # assume output/<basename> which may hold pre-existing user data.
                 frames_dir = office_to_frames(
                     doc_path_set,
                     "jpeg",
                     output,
-                    delete,
+                    False,
                     self.file_handler,
                     self.event_logger,
                     prog_logger=self.prog_logger,
                 )
-                if not isinstance(frames_dir, str) or not frames_dir:
+                frames_owned = isinstance(frames_dir, str) and bool(frames_dir)
+                if not frames_owned:
                     frames_dir = os.path.join(output, doc_path_set[1])
                 # This creates a folder named docx_path_set[1] in the output directory
                 # with all the images in it
                 # Now we can convert that to a movie
                 try:
-                    pics = [
-                        image
-                        for image in os.listdir(frames_dir)
-                        if image.lower().endswith(".jpeg")
-                    ]
-                except OSError:
-                    pics = []
-                if pics:
-                    out_path = self.file_handler._resolve_output_file_conflict(
-                        os.path.abspath(
-                            os.path.join(output, f"{doc_path_set[1]}.{format}")
+                    try:
+                        pics = [
+                            image
+                            for image in os.listdir(frames_dir)
+                            if image.lower().endswith(".jpeg")
+                        ]
+                    except OSError:
+                        pics = []
+                    if pics:
+                        out_path = self.file_handler._resolve_output_file_conflict(
+                            os.path.abspath(
+                                os.path.join(output, f"{doc_path_set[1]}.{format}")
+                            )
                         )
-                    )
-                    self._frames_to_movie(
-                        frames_dir, pics, out_path, codec, framerate, resolution
-                    )
-                    self.file_handler.post_process(doc_path_set, out_path, delete)
+                        self._frames_to_movie(
+                            frames_dir, pics, out_path, codec, framerate, resolution
+                        )
+                        self.file_handler.post_process(doc_path_set, out_path, delete)
+                finally:
+                    try:
+                        _abs_frames = os.path.abspath(frames_dir)
+                        _abs_out = os.path.abspath(output)
+                        if (
+                            frames_owned
+                            and _abs_frames != _abs_out
+                            and _abs_frames.startswith(_abs_out + os.sep)
+                        ):
+                            shutil.rmtree(frames_dir)
+                    except OSError as e:
+                        self.event_logger.info(
+                            f"[!] {lang.get_translation('error', self.locale)}: {e}"
+                        )
             elif doc_path_set[2] == "pdf":
                 pdf_path = self.file_handler.join_back(doc_path_set)
                 movie_path = self.file_handler._resolve_output_file_conflict(

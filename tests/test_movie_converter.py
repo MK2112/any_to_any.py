@@ -871,3 +871,44 @@ def test_to_movie_image_resolution_end_to_end(tmp_path):
 
     with VideoFileClip(str(merged)) as clip:
         assert tuple(clip.size) == (160, 120)
+
+
+def test_docx_to_movie_failure_preserves_source(tmp_path):
+    import logging
+    import docx as docx_lib
+    from PIL import Image
+    from core.utils.file_handler import FileHandler
+    from utils.prog_logger import ProgLogger
+
+    Image.new("RGB", (32, 32), "red").save(tmp_path / "pic.png")
+    document = docx_lib.Document()
+    document.add_picture(str(tmp_path / "pic.png"))
+    document.save(tmp_path / "doc.docx")
+
+    out = tmp_path / "out"
+    out.mkdir()
+
+    logger = logging.getLogger("docx-movie-fail")
+    file_handler = FileHandler(logger, "English")
+    converter = MovieConverter(file_handler, ProgLogger(), logger, "English")
+    converter._frames_to_movie = MagicMock(side_effect=RuntimeError("boom"))
+
+    with pytest.raises(RuntimeError):
+        converter.to_movie(
+            input=str(tmp_path) + os.sep,
+            output=str(out),
+            recursive=False,
+            file_paths={
+                Category.IMAGE: [],
+                Category.MOVIE: [],
+                Category.DOCUMENT: [(str(tmp_path) + os.sep, "doc", "docx")],
+            },
+            format="mp4",
+            framerate=2,
+            codec="libx264",
+            delete=True,
+        )
+
+    assert (tmp_path / "doc.docx").exists()
+    assert not list(out.glob("*.mp4"))
+    assert not (out / "doc").exists()
