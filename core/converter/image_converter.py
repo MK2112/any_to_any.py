@@ -30,8 +30,27 @@ _SAVE_FORMAT = {
     "heif": "HEIF",
     "avif": "AVIF",
 }
+
 _RASTER_CONVERTIBLE = frozenset(
-    ("png", "jpeg", "jpg", "tiff", "tga", "eps", "heic", "heif", "avif")
+    (
+        "png",
+        "jpeg",
+        "jpg",
+        "bmp",
+        "webp",
+        "tiff",
+        "tga",
+        "ico",
+        "pcx",
+        "ppm",
+        "im",
+        "ps",
+        "eps",
+        "jpeg2000",
+        "heic",
+        "heif",
+        "avif",
+    )
 )
 
 
@@ -39,6 +58,14 @@ def _save_format(format: str) -> str:
     if format in _SAVE_FORMAT:
         return _SAVE_FORMAT[format]
     return format.upper()
+
+
+def _unsupported_source_msg(path: str, locale: str, reason: str = "") -> str:
+    msg = (
+        f'[!] {lang.get_translation("skipping", locale)} "{path}" - '
+        f"{lang.get_translation('unsupported_format', locale)}"
+    )
+    return f"{msg} ({reason})" if reason else msg
 
 
 def _write_office_frame(img_bytes: bytes, out_path: str, format: str) -> None:
@@ -147,6 +174,7 @@ def gif_to_frames(
                 )
         finally:
             clip.close()
+
     run_parallel(gifs, _extract_gif_frames, worker_count_for(file_handler))
     return created
 
@@ -231,12 +259,23 @@ class ImageConverter:
                 )
 
                 # Convert and save the image
-                with Image.open(self.file_handler.join_back(image_path_set)) as img:
+                try:
+                    source = Image.open(self.file_handler.join_back(image_path_set))
+                except (OSError, ValueError) as e:
+                    self.event_logger.info(
+                        _unsupported_source_msg(
+                            self.file_handler.join_back(image_path_set),
+                            self.locale,
+                            str(e),
+                        )
+                    )
+                    continue
+                with source as img:
                     # Convert to RGB if needed (important for WebP to PNG)
                     if img.mode != "RGB":
                         img = img.convert("RGB")
                     img.save(img_path, format=_save_format(format))
-                
+
                 self.file_handler.post_process(image_path_set, img_path, delete)
 
             except Exception as e:
@@ -351,12 +390,24 @@ class ImageConverter:
             out_path = self.file_handler._resolve_output_file_conflict(
                 os.path.abspath(os.path.join(out_dir, f"{image_path_set[1]}.{format}"))
             )
-            with Image.open(self.file_handler.join_back(image_path_set)) as img:
+            try:
+                source = Image.open(self.file_handler.join_back(image_path_set))
+            except (OSError, ValueError) as e:
+                self.event_logger.info(
+                    _unsupported_source_msg(
+                        self.file_handler.join_back(image_path_set), self.locale, str(e)
+                    )
+                )
+                return None
+            with source as img:
                 save(img, out_path)
             return (image_path_set, out_path)
 
-        for src, out_path in run_parallel(
-            convertible_images, _convert, worker_count_for(self.file_handler)
+        for src, out_path in filter(
+            None,
+            run_parallel(
+                convertible_images, _convert, worker_count_for(self.file_handler)
+            ),
         ):
             self.file_handler.post_process(src, out_path, delete)
 

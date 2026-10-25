@@ -899,3 +899,140 @@ class TestManualProgressReporting:
         assert state["total"] == 4
         assert state["progress"] == 4
         assert state["status"] == "pages (4/4)"
+
+
+class TestRasterConvertibleSources:
+    def _converter(self, logger_name):
+        import logging
+
+        from core.utils.file_handler import FileHandler
+
+        event_logger = logging.getLogger(logger_name)
+        return ImageConverter(
+            FileHandler(event_logger, "English"), MagicMock(), event_logger, "English"
+        )
+
+    def test_raster_convertible_covers_advertised_image_sources(self):
+        from core.controller import Controller
+        from core.converter.image_converter import _RASTER_CONVERTIBLE
+
+        advertised = set(Controller()._supported_formats[Category.IMAGE])
+        assert advertised - {"gif"} <= _RASTER_CONVERTIBLE
+
+    @pytest.mark.parametrize(
+        "method, target, source_ext, save_format",
+        [
+            ("to_bmp", "bmp", "webp", "WEBP"),
+            ("to_bmp", "bmp", "ico", "ICO"),
+            ("to_bmp", "bmp", "pcx", "PCX"),
+            ("to_bmp", "bmp", "ppm", "PPM"),
+            ("to_webp", "webp", "bmp", "BMP"),
+            ("to_webp", "webp", "tiff", "TIFF"),
+        ],
+    )
+    def test_advertised_still_converts(
+        self, tmp_path, method, target, source_ext, save_format
+    ):
+        from PIL import Image
+
+        src = tmp_path / f"photo.{source_ext}"
+        Image.new("RGB", (16, 16), (10, 20, 30)).save(src, format=save_format)
+
+        out = tmp_path / "out"
+        out.mkdir()
+        converter = self._converter("advertised-still-converts")
+
+        getattr(converter, method)(
+            input=str(tmp_path),
+            output=str(out),
+            file_paths={
+                Category.IMAGE: [(str(tmp_path) + os.sep, "photo", source_ext)],
+                Category.MOVIE: [],
+                Category.DOCUMENT: [],
+                Category.AUDIO: [],
+            },
+            supported_formats={Category.IMAGE: [target]},
+            framerate=None,
+            format=target,
+            delete=False,
+        )
+
+        assert (out / f"photo.{target}").exists()
+
+
+class TestNonOpenableSourcesAreSkipped:
+
+    def _garbage_source(self, tmp_path, name):
+        src = tmp_path / name
+        src.write_bytes(b"\x00" * 64)
+        return src
+
+    def _converter(self, logger_name):
+        import logging
+
+        from core.utils.file_handler import FileHandler
+
+        event_logger = logging.getLogger(logger_name)
+        return ImageConverter(
+            FileHandler(event_logger, "English"), MagicMock(), event_logger, "English"
+        )
+
+    def test_to_bmp_skips_source_pil_cannot_open(self, tmp_path, caplog):
+        import logging
+
+        caplog.set_level(logging.INFO)
+        src = self._garbage_source(tmp_path, "broken.webp")
+        converter = self._converter("bmp-skip-unopenable")
+        out = tmp_path / "out"
+        out.mkdir()
+
+        converter.to_bmp(
+            input=str(tmp_path),
+            output=str(out),
+            file_paths={
+                Category.IMAGE: [(str(tmp_path) + os.sep, "broken", "webp")],
+                Category.MOVIE: [],
+                Category.DOCUMENT: [],
+                Category.AUDIO: [],
+            },
+            supported_formats={Category.IMAGE: ["bmp"]},
+            framerate=None,
+            format="bmp",
+            delete=True,
+        )
+
+        assert all(record.levelno < logging.ERROR for record in caplog.records)
+        assert "Skipping" in caplog.text
+        assert "Unsupported format" in caplog.text
+        assert not (out / "broken.bmp").exists()
+        assert src.exists()
+
+    def test_to_frames_skips_source_pil_cannot_open(self, tmp_path, caplog):
+        import logging
+
+        caplog.set_level(logging.INFO)
+        src = self._garbage_source(tmp_path, "broken.tga")
+        converter = self._converter("frames-skip-unopenable")
+        out = tmp_path / "out"
+        out.mkdir()
+
+        converter.to_frames(
+            input=str(tmp_path),
+            output=str(out),
+            file_paths={
+                Category.IMAGE: [(str(tmp_path) + os.sep, "broken", "tga")],
+                Category.MOVIE: [],
+                Category.DOCUMENT: [],
+                Category.AUDIO: [],
+            },
+            supported_formats={Category.IMAGE: ["bmp"], Category.MOVIE: ["mp4"]},
+            framerate=None,
+            format="bmp",
+            delete=True,
+        )
+
+        assert all(record.levelno < logging.ERROR for record in caplog.records)
+        assert "Skipping" in caplog.text
+        assert "Unsupported format" in caplog.text
+        assert not (out / "broken.bmp").exists()
+        assert src.exists()
