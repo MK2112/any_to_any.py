@@ -173,3 +173,62 @@ def test_effective_fps_falls_back_to_clip_then_default():
 def test_effective_fps_custom_default_for_audio():
     # Audio sample rates use their own default, not 24 fps video
     assert effective_fps(None, None, default=48000) == 48000
+
+
+def test_post_process_stops_before_deleting_when_cancelled(tmp_path):
+    # Once cancelled, no further source may be removed
+    import threading
+    from core.utils.file_handler import ConversionCancelled
+
+    handler = _handler()
+    handler.cancel_event = threading.Event()
+    handler.cancel_event.set()
+    src = tmp_path / "in.mp3"
+    src.write_bytes(b"source")
+    out = tmp_path / "out.mp3"
+    out.write_bytes(b"converted")
+
+    with pytest.raises(ConversionCancelled):
+        handler.post_process(
+            (str(tmp_path) + os.sep, "in", "mp3"), str(out), delete=True
+        )
+
+    assert src.exists()
+    assert out.exists()
+
+
+def test_post_process_unchanged_without_cancel_event(tmp_path):
+    handler = _handler()
+    src = tmp_path / "in.mp3"
+    src.write_bytes(b"source")
+    out = tmp_path / "out.mp3"
+    out.write_bytes(b"converted")
+
+    handler.post_process((str(tmp_path) + os.sep, "in", "mp3"), str(out), delete=True)
+
+    assert not src.exists()
+    assert out.exists()
+
+
+def test_check_cancelled_is_noop_while_event_unset():
+    import threading
+
+    handler = _handler()
+    handler.cancel_event = threading.Event()
+    handler.check_cancelled()  # set() never called: must not raise
+
+
+def test_process_file_paths_stops_before_dispatch_when_cancelled(
+    controller_instance,
+):
+    import threading
+
+    from core.utils.file_handler import ConversionCancelled
+    from utils.category import Category
+
+    file_handler = controller_instance.file_handler
+    file_handler.cancel_event = threading.Event()
+    file_handler.cancel_event.set()
+
+    with pytest.raises(ConversionCancelled):
+        controller_instance.process_file_paths({category: [] for category in Category})

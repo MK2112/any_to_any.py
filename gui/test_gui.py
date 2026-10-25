@@ -733,6 +733,105 @@ def test_save_settings_merges_existing_keys():
         save_settings(original)
 
 
+def _fake_cancel_controller(stop_delay=0.5):
+    import threading as _threading
+    import time as _time
+    from types import SimpleNamespace
+
+    from core.utils.file_handler import ConversionCancelled
+
+    state = {
+        "started": _threading.Event(),
+        "finished": _threading.Event(),
+        "stopped_by_cancel": _threading.Event(),
+    }
+
+    class FakeController:
+        def __init__(self, **kwargs):
+            self.file_handler = SimpleNamespace(cancel_event=None)
+
+        def run(self, **kwargs):
+            state["started"].set()
+            try:
+                deadline = _time.time() + 5
+                while _time.time() < deadline:
+                    event = self.file_handler.cancel_event
+                    if event is not None and event.is_set():
+                        state["stopped_by_cancel"].set()
+                        _time.sleep(stop_delay)  # finish the current file
+                        raise ConversionCancelled("Conversion cancelled")
+                    _time.sleep(0.01)
+                raise AssertionError("cancel event was never handed to the backend")
+            finally:
+                state["finished"].set()
+
+    return FakeController, state
+
+
+def test_cancel_reports_only_after_worker_stopped(qapp):
+    from PyQt6.QtCore import Qt
+    from unittest.mock import patch
+    from gui.qt_app import ConversionThread
+
+    FakeController, state = _fake_cancel_controller()
+    thread = ConversionThread(["/file.mp4"], "mp3", "/out")
+    observed = {}
+
+    def on_cancelled(job_id):
+        observed["job_id"] = job_id
+        observed["worker_finished"] = state["finished"].is_set()
+        observed["stopped_by_cancel"] = state["stopped_by_cancel"].is_set()
+
+    thread.conversion_cancelled.connect(
+        on_cancelled, Qt.ConnectionType.DirectConnection
+    )
+
+    with patch("gui.qt_app.Controller", FakeController):
+        thread.start()
+        assert state["started"].wait(5)
+        thread.cancel()
+        thread.wait(10000)
+
+    assert not thread.isRunning()
+    assert observed.get("worker_finished") is True
+    assert observed.get("stopped_by_cancel") is True
+
+
+def test_cancel_releases_registry_only_after_worker_stopped(main_window, qapp):
+    import time
+    from unittest.mock import patch
+    from gui.qt_app import ConversionThread
+
+    FakeController, state = _fake_cancel_controller(stop_delay=0.6)
+    thread = ConversionThread(["/file.mp4"], "mp3", "/out")
+    thread.conversion_cancelled.connect(main_window.conversion_cancelled)
+    main_window.conversion_threads[thread.job_id] = thread
+    main_window.current_thread = thread
+    main_window.set_ui_enabled(False)
+
+    pop_state = None
+    with patch("gui.qt_app.Controller", FakeController):
+        thread.start()
+        assert state["started"].wait(5)
+        thread.cancel()
+        deadline = time.time() + 10
+        while time.time() < deadline:
+            qapp.processEvents()  # deliver the queued slot on the GUI thread
+            if thread.job_id not in main_window.conversion_threads:
+                pop_state = (
+                    state["finished"].is_set(),
+                    state["stopped_by_cancel"].is_set(),
+                )
+                break
+            time.sleep(0.01)
+        thread.wait(10000)
+
+    assert pop_state is not None, "conversion_cancelled never delivered"
+    assert pop_state == (True, True)
+    assert main_window.current_thread is None
+    assert main_window.convert_btn.isEnabled()
+
+
 def test_conversion_completed_clears_file_list(main_window, tmp_path):
     from unittest.mock import patch
 

@@ -38,11 +38,12 @@ from PyQt6.QtWidgets import (
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import utils.language_support as lang
-from core.controller import Controller
-from core.utils.resolution import available_resolutions
-from utils.category import Category
 from utils.version import VERSION
+from utils.category import Category
+from core.controller import Controller
 from utils.version_check import check_for_update
+from core.utils.resolution import available_resolutions
+from core.utils.file_handler import ConversionCancelled
 
 if "--version" in sys.argv or "--self-test" in sys.argv:
     print(VERSION)
@@ -189,9 +190,11 @@ class ConversionThread(QThread):
         self.job_id = uuid.uuid4().hex[:8]
         self.shared_progress = {}
         self._cancelled = False
+        self._cancel_event = threading.Event()
 
     def cancel(self):
         self._cancelled = True
+        self._cancel_event.set()
 
     def run(self):
         try:
@@ -209,6 +212,7 @@ class ConversionThread(QThread):
                 shared_progress_dict=self.shared_progress,
                 is_web=True,
             )
+            controller.file_handler.cancel_event = self._cancel_event
 
             # The backend derives concrete output file names itself; reporting
             # the directory stays correct across convert/merge/concat/split/
@@ -245,6 +249,9 @@ class ConversionThread(QThread):
                     # was found; SystemExit is a BaseException and would
                     # otherwise bypass error reporting entirely.
                     error_holder["error"] = str(exc) or "Processing stopped early"
+                except ConversionCancelled:
+                    # Cancel is not an error
+                    pass
                 except BaseException as exc:
                     error_holder["error"] = f"{type(exc).__name__}: {exc}"
                 finally:
@@ -284,13 +291,22 @@ class ConversionThread(QThread):
             if self._cancelled:
                 self.progress_updated.emit(
                     {
+                        "progress": None,
+                        "message": "Cancelling...",
+                        "status": "cancelling",
+                        "error": None,
+                    }
+                )
+                while worker.is_alive():
+                    worker.join(timeout=0.5)
+                self.progress_updated.emit(
+                    {
                         "progress": 0,
                         "message": "Conversion cancelled",
                         "status": "cancelled",
                         "error": None,
                     }
                 )
-                worker.join(timeout=5.0)
                 self.conversion_cancelled.emit(self.job_id)
                 return
 

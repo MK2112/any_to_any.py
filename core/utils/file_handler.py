@@ -14,6 +14,11 @@ _RESOLUTION_LOCK = threading.Lock()
 _CLAIMED = set()
 
 
+class ConversionCancelled(Exception):
+    # Raised at a per-file boundary when the running job was cancelled
+    pass
+
+
 def _claim_name(candidate: str) -> bool:
     # reserve for the caller within this process
     # False when the candidate is already claimed
@@ -125,6 +130,7 @@ class FileHandler:
         self.locale = locale
         self.CONFLICT_RESOLUTION_TIMEOUT = 2.0  # numeric suffix loop attempt time in s
         self.metadata_callback = None
+        self.cancel_event = None
         self.max_workers = resolve_worker_count()
 
     def join_back(self, file_path_set: tuple) -> str:
@@ -194,6 +200,10 @@ class FileHandler:
     def _resolve_output_dir_conflict(self, dir_path: str) -> str:
         return safe_output_dir(dir_path, timeout=self.CONFLICT_RESOLUTION_TIMEOUT)
 
+    def check_cancelled(self) -> None:
+        if self.cancel_event is not None and self.cancel_event.is_set():
+            raise ConversionCancelled("Conversion cancelled")
+
     def post_process(
         self,
         file_path_set: tuple,
@@ -201,6 +211,7 @@ class FileHandler:
         delete: bool,
         show_status: bool = True,
     ) -> str:
+        self.check_cancelled()
         try:
             source_path = self.join_back(file_path_set)
             resolved_out_path = os.path.abspath(out_path)

@@ -725,6 +725,7 @@ class Controller:
 
     def process_file_paths(self, file_paths: dict) -> None:
         # Check if value associated to format is tuple/string or function to call specific conversion
+        self.file_handler.check_cancelled()
         if self.merging:
             self.merge(file_paths, getattr(self, "across", False))
         elif self.concatenating:
