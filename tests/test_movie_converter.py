@@ -316,15 +316,13 @@ def test_to_protocol_hls_out_dirs_use_basename_not_extension(
 ):
     # Ensure output dir is named using basename of input file, without extension
     mock_run.return_value = MagicMock(stdout="ok", stderr="")
-    mock_converter.file_handler.join_back.side_effect = (
-        lambda ps: f"{ps[0]}/{ps[1]}.{ps[2]}"
+    mock_converter.file_handler.join_back.side_effect = lambda ps: (
+        f"{ps[0]}/{ps[1]}.{ps[2]}"
     )
 
     mock_converter.to_protocol(
         output=str(tmp_path),
-        file_paths={
-            Category.MOVIE: [("d1", "clip_a", "mp4"), ("d2", "clip_b", "mp4")]
-        },
+        file_paths={Category.MOVIE: [("d1", "clip_a", "mp4"), ("d2", "clip_b", "mp4")]},
         supported_formats={Category.PROTOCOLS: {"hls": True}},
         protocol=["hls"],
         delete=False,
@@ -392,15 +390,13 @@ def test_to_protocol_same_basename_inputs_get_separate_dirs(
     mock_run, mock_converter, tmp_path
 ):
     mock_run.return_value = MagicMock(stdout="ok", stderr="")
-    mock_converter.file_handler.join_back.side_effect = (
-        lambda ps: f"{ps[0]}/{ps[1]}.{ps[2]}"
+    mock_converter.file_handler.join_back.side_effect = lambda ps: (
+        f"{ps[0]}/{ps[1]}.{ps[2]}"
     )
 
     mock_converter.to_protocol(
         output=str(tmp_path),
-        file_paths={
-            Category.MOVIE: [("dir1", "clip", "mp4"), ("dir2", "clip", "mp4")]
-        },
+        file_paths={Category.MOVIE: [("dir1", "clip", "mp4"), ("dir2", "clip", "mp4")]},
         supported_formats={Category.PROTOCOLS: {"hls": True}},
         protocol=["hls"],
         delete=False,
@@ -503,9 +499,7 @@ def test_to_movie_gif_excluded_from_merged_video(
 
 
 @patch("core.converter.movie_converter.VideoFileClip")
-def test_to_movie_gifs_single_cpu_does_not_crash(
-    mock_vfc, mock_converter, monkeypatch
-):
+def test_to_movie_gifs_single_cpu_does_not_crash(mock_vfc, mock_converter, monkeypatch):
     monkeypatch.setattr(os, "cpu_count", lambda: 1)
     monkeypatch.delenv("Any2Any_MAX_WORKERS", raising=False)
     mock_clip = MagicMock()
@@ -607,7 +601,11 @@ def test_to_movie_gif_plus_png_and_jpg(mock_vfc, mock_converter):
 @patch("core.converter.movie_converter.shutil.rmtree")
 @patch("core.converter.movie_converter.os.makedirs")
 def test_to_movie_docx_frames_become_clips_case_insensitive(
-    mock_makedirs, mock_rmtree, mock_concat, mock_imageclip, mock_office,
+    mock_makedirs,
+    mock_rmtree,
+    mock_concat,
+    mock_imageclip,
+    mock_office,
     mock_converter,
 ):
     mock_office.return_value = "/out/doc"
@@ -652,9 +650,7 @@ def test_to_movie_docx_frames_become_clips_case_insensitive(
 
 
 @patch("core.converter.movie_converter.VideoFileClip")
-def test_to_movie_gif_none_fps_falls_back_to_default(
-    mock_vfc, mock_converter
-):
+def test_to_movie_gif_none_fps_falls_back_to_default(mock_vfc, mock_converter):
     mock_clip = MagicMock(fps=None)
     mock_vfc.return_value = mock_clip
     mock_converter.file_handler.join_back.return_value = "dir/anim.gif"
@@ -760,6 +756,7 @@ def test_run_command_applies_timeout(mock_run, mock_converter):
 @patch("core.converter.movie_converter.subprocess.run")
 def test_run_command_timeout_surfaces_as_runtime_error(mock_run, mock_converter):
     import subprocess
+
     mock_run.side_effect = subprocess.TimeoutExpired(["ffmpeg"], 3600)
     with pytest.raises(RuntimeError, match="[Tt]imed out"):
         mock_converter._run_command(["ffmpeg"])
@@ -782,8 +779,8 @@ def test_to_movie_includes_all_supported_image_formats(
         ("dir", "d", "ppm"),
         ("dir", "e", "ico"),
     ]
-    mock_converter.file_handler.join_back.side_effect = (
-        lambda s: f"{s[0]}/{s[1]}.{s[2]}"
+    mock_converter.file_handler.join_back.side_effect = lambda s: (
+        f"{s[0]}/{s[1]}.{s[2]}"
     )
 
     mock_converter.to_movie(
@@ -805,8 +802,7 @@ def test_to_movie_includes_all_supported_image_formats(
     concat_args = mock_concat.call_args[0][0]
     assert len(concat_args) == len(pics)
     processed = [
-        c.args[0]
-        for c in mock_converter.file_handler.post_process.call_args_list
+        c.args[0] for c in mock_converter.file_handler.post_process.call_args_list
     ]
     assert processed == pics
 
@@ -830,8 +826,8 @@ def test_to_movie_unreadable_image_is_skipped(
         return good_clip
 
     mock_imageclip.side_effect = make_clip
-    mock_converter.file_handler.join_back.side_effect = (
-        lambda s: f"{s[0]}/{s[1]}.{s[2]}"
+    mock_converter.file_handler.join_back.side_effect = lambda s: (
+        f"{s[0]}/{s[1]}.{s[2]}"
     )
 
     damaged = ("dir", "damaged", "tiff")
@@ -854,8 +850,7 @@ def test_to_movie_unreadable_image_is_skipped(
     concat_args = mock_concat.call_args[0][0]
     assert len(concat_args) == 1
     processed = [
-        c.args[0]
-        for c in mock_converter.file_handler.post_process.call_args_list
+        c.args[0] for c in mock_converter.file_handler.post_process.call_args_list
     ]
     assert processed == [fine]
     mock_converter.event_logger.error.assert_called()
@@ -987,3 +982,65 @@ def test_docx_to_movie_failure_preserves_source(tmp_path):
     assert (tmp_path / "doc.docx").exists()
     assert not list(out.glob("*.mp4"))
     assert not (out / "doc").exists()
+
+
+@patch("core.converter.movie_converter.subprocess.run")
+def test_to_protocol_dash_applies_resolution_scale_filter(
+    mock_run, mock_converter, tmp_path
+):
+    mock_converter.file_handler.join_back.return_value = "dir/sample.mp4"
+    mock_run.return_value = MagicMock(stdout="ok", stderr="")
+
+    ladder = frozenset({"1280x720", "1920x1080"})
+    mock_converter.to_protocol(
+        output=str(tmp_path),
+        file_paths={Category.MOVIE: [("dir", "sample", "mp4")]},
+        supported_formats={Category.PROTOCOLS: {"dash": ["dash", "mkv", ladder]}},
+        protocol=["dash"],
+        resolution="1280x720",
+        delete=False,
+    )
+
+    cmd = mock_run.call_args[0][0]
+    assert "-vf" in cmd
+    assert "scale=1280:720" in cmd
+
+
+@patch("core.converter.movie_converter.subprocess.run")
+def test_to_protocol_dash_without_resolution_has_no_scale_filter(
+    mock_run, mock_converter, tmp_path
+):
+    mock_converter.file_handler.join_back.return_value = "dir/sample.mp4"
+    mock_run.return_value = MagicMock(stdout="ok", stderr="")
+
+    mock_converter.to_protocol(
+        output=str(tmp_path),
+        file_paths={Category.MOVIE: [("dir", "sample", "mp4")]},
+        supported_formats={Category.PROTOCOLS: {"dash": True}},
+        protocol=["dash"],
+        delete=False,
+    )
+
+    cmd = mock_run.call_args[0][0]
+    assert "-vf" not in cmd
+
+
+@patch("core.converter.movie_converter.subprocess.run")
+def test_to_protocol_dash_unknown_resolution_fails_loudly(
+    mock_run, mock_converter, tmp_path
+):
+    mock_converter.file_handler.join_back.return_value = "dir/sample.mp4"
+    mock_run.return_value = MagicMock(stdout="ok", stderr="")
+
+    ladder = frozenset({"1280x720"})
+    with pytest.raises(ValueError, match="2560x1440"):
+        mock_converter.to_protocol(
+            output=str(tmp_path),
+            file_paths={Category.MOVIE: [("dir", "sample", "mp4")]},
+            supported_formats={Category.PROTOCOLS: {"dash": ["dash", "mkv", ladder]}},
+            protocol=["dash"],
+            resolution="2560x1440",
+            delete=False,
+        )
+
+    mock_run.assert_not_called()

@@ -10,9 +10,13 @@ from PIL import Image
 from tqdm import tqdm
 from utils.category import Category
 from core.utils.exit import end_with_msg
-from core.utils.resolution import parse_resolution
 from core.converter.image_converter import office_to_frames
 from core.utils.file_handler import safe_output_dir as _safe_out_dir
+from core.utils.resolution import (
+    available_resolutions,
+    parse_resolution,
+    resolution_allowed,
+)
 from core.utils.file_handler import (
     effective_fps,
     run_parallel,
@@ -204,7 +208,7 @@ class MovieConverter:
 
         # Movie to different movie (parallel per file)
         def _movie_to_movie(movie_path_set: tuple):
-            if movie_path_set[2] == format and not resolution:
+            if movie_path_set[2] == format and not resolution and not framerate:
                 return None
 
             out_path_local = self.file_handler._resolve_output_file_conflict(
@@ -598,11 +602,27 @@ class MovieConverter:
                     f"[>] {lang.get_translation('create_dash', self.locale)} {self.file_handler.join_back(movie_path_set)}"
                 )
                 out_path = os.path.join(current_out_dir, "manifest.mpd")
-                cmd = [
-                    "ffmpeg",
-                    "-y",
-                    "-i",
-                    input_file,
+                scale_filter = None
+                if resolution is not None:
+                    if not resolution_allowed(
+                        supported_formats[Category.PROTOCOLS], protocol[0], resolution
+                    ):
+                        available = available_resolutions(
+                            supported_formats[Category.PROTOCOLS], protocol[0]
+                        )
+                        end_with_msg(
+                            self.event_logger,
+                            ValueError,
+                            f"[!] {lang.get_translation('error', self.locale)}: "
+                            f"Resolution '{resolution}' is not supported for 'dash'. "
+                            f"Available resolutions for 'dash': {', '.join(available)}.",
+                        )
+                    width, height = resolution.split("x")
+                    scale_filter = f"scale={width}:{height}"
+                cmd = ["ffmpeg", "-y", "-i", input_file]
+                if scale_filter is not None:
+                    cmd += ["-vf", scale_filter]
+                cmd += [
                     "-map",
                     "0",
                     "-b:v",

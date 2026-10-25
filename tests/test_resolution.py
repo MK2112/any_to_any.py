@@ -59,9 +59,7 @@ class TestResolutionModule:
         assert res.available_resolutions(movie_category, "nonexistent") == []
 
     def test_resolution_allowed(self, movie_category):
-        assert (
-            res.resolution_allowed(movie_category, "mp4", "3840x2160") is True
-        )
+        assert res.resolution_allowed(movie_category, "mp4", "3840x2160") is True
         assert res.resolution_allowed(movie_category, "mp4", "1280x720") is True
         assert res.resolution_allowed(movie_category, "3gp", "1920x1080") is False
         assert res.resolution_allowed(movie_category, "3gp", "640x360") is True
@@ -111,14 +109,10 @@ class TestControllerResolutionValidation:
             Category.DOCUMENT: [],
         }
 
-    def test_validate_rejected_resolution_lists_available(
-        self, controller_instance
-    ):
+    def test_validate_rejected_resolution_lists_available(self, controller_instance):
         controller_instance.resolution = "1920x1080"
         with pytest.raises(ValueError) as exc:
-            controller_instance._validate_resolution(
-                self._movie_file_paths(), ["3gp"]
-            )
+            controller_instance._validate_resolution(self._movie_file_paths(), ["3gp"])
         message = str(exc.value)
         assert "1920x1080" in message
         assert "3gp" in message
@@ -127,9 +121,7 @@ class TestControllerResolutionValidation:
     def test_validate_unknown_resolution_raises(self, controller_instance):
         controller_instance.resolution = "bogus"
         with pytest.raises(ValueError) as exc:
-            controller_instance._validate_resolution(
-                self._movie_file_paths(), ["mp4"]
-            )
+            controller_instance._validate_resolution(self._movie_file_paths(), ["mp4"])
         assert "bogus" in str(exc.value)
 
     def test_validate_alone_without_movies(self, controller_instance):
@@ -146,24 +138,18 @@ class TestControllerResolutionValidation:
 
     def test_validate_codec_target(self, controller_instance):
         controller_instance.resolution = "1280x720"
-        controller_instance._validate_resolution(
-            self._movie_file_paths(), ["h264"]
-        )
+        controller_instance._validate_resolution(self._movie_file_paths(), ["h264"])
         assert controller_instance.resolution == "1280x720"
 
     def test_validate_protocol_target(self, controller_instance):
         controller_instance.resolution = "1920x1080"
-        controller_instance._validate_resolution(
-            self._movie_file_paths(), ["hls"]
-        )
+        controller_instance._validate_resolution(self._movie_file_paths(), ["hls"])
         assert controller_instance.resolution == "1920x1080"
 
     def test_validate_non_resizable_target(self, controller_instance):
         controller_instance.resolution = "1280x720"
         with pytest.raises(ValueError) as exc:
-            controller_instance._validate_resolution(
-                self._movie_file_paths(), ["mp3"]
-            )
+            controller_instance._validate_resolution(self._movie_file_paths(), ["mp3"])
         assert "mp3" in str(exc.value)
 
     def test_run_unknown_resolution_raises_early(self, controller_instance, tmp_path):
@@ -199,11 +185,14 @@ class TestControllerResolutionValidation:
         controller_instance.locale = "en_US"
         controller_instance.delete = False
 
-        with mock.patch.object(
-            controller_instance.file_handler, "get_file_paths"
-        ) as mock_get, mock.patch.object(
-            controller_instance.movie_converter, "to_movie"
-        ) as mock_to_movie:
+        with (
+            mock.patch.object(
+                controller_instance.file_handler, "get_file_paths"
+            ) as mock_get,
+            mock.patch.object(
+                controller_instance.movie_converter, "to_movie"
+            ) as mock_to_movie,
+        ):
             mock_get.return_value = {
                 Category.AUDIO: [],
                 Category.MOVIE: [("/media/", "video", "mp4")],
@@ -234,19 +223,20 @@ class TestControllerResolutionValidation:
         assert kwargs["resolution"] == "1920x1080"
         assert kwargs["codec"] == "libx264"
 
-    def test_run_resize_alone_keeps_input_format(
-        self, controller_instance, tmp_path
-    ):
+    def test_run_resize_alone_keeps_input_format(self, controller_instance, tmp_path):
         controller_instance.output = str(tmp_path)
         controller_instance.recursive = False
         controller_instance.locale = "en_US"
         controller_instance.delete = False
 
-        with mock.patch.object(
-            controller_instance.file_handler, "get_file_paths"
-        ) as mock_get, mock.patch.object(
-            controller_instance.movie_converter, "to_movie"
-        ) as mock_to_movie:
+        with (
+            mock.patch.object(
+                controller_instance.file_handler, "get_file_paths"
+            ) as mock_get,
+            mock.patch.object(
+                controller_instance.movie_converter, "to_movie"
+            ) as mock_to_movie,
+        ):
             mock_get.return_value = {
                 Category.AUDIO: [],
                 Category.MOVIE: [("/media/", "video", "mp4")],
@@ -285,11 +275,14 @@ class TestControllerResolutionValidation:
         controller_instance.locale = "en_US"
         controller_instance.delete = False
 
-        with mock.patch.object(
-            controller_instance.file_handler, "get_file_paths"
-        ) as mock_get, mock.patch.object(
-            controller_instance.movie_converter, "to_movie"
-        ) as mock_to_movie:
+        with (
+            mock.patch.object(
+                controller_instance.file_handler, "get_file_paths"
+            ) as mock_get,
+            mock.patch.object(
+                controller_instance.movie_converter, "to_movie"
+            ) as mock_to_movie,
+        ):
             mock_get.return_value = {
                 Category.AUDIO: [],
                 Category.MOVIE: [("/media/", "video", "mp4")],
@@ -325,11 +318,14 @@ class TestControllerResolutionValidation:
         controller_instance.locale = "en_US"
         controller_instance.delete = False
 
-        with mock.patch.object(
-            controller_instance.file_handler, "get_file_paths"
-        ) as mock_get, mock.patch.object(
-            controller_instance.movie_converter, "to_codec"
-        ) as mock_to_codec:
+        with (
+            mock.patch.object(
+                controller_instance.file_handler, "get_file_paths"
+            ) as mock_get,
+            mock.patch.object(
+                controller_instance.movie_converter, "to_codec"
+            ) as mock_to_codec,
+        ):
             mock_get.return_value = {
                 Category.AUDIO: [],
                 Category.MOVIE: [("/media/", "video", "mp4")],
@@ -399,9 +395,10 @@ class TestControllerResolutionValidation:
             Category.IMAGE: [],
             Category.DOCUMENT: [],
         }
-        with patch("core.controller.concatenate_videoclips") as mock_concat, patch(
-            "core.controller.VideoFileClip"
-        ) as mock_vfc:
+        with (
+            patch("core.controller.concatenate_videoclips") as mock_concat,
+            patch("core.controller.VideoFileClip") as mock_vfc,
+        ):
             controller_instance.concat(file_paths, format="mp3")
 
         mock_concat.assert_not_called()
@@ -439,9 +436,7 @@ class TestMovieConverterResolution:
         resized_clip.write_videofile.assert_called_once()
 
     @patch("core.converter.movie_converter.VideoFileClip")
-    def test_to_movie_resizes_during_format_conversion(
-        self, mock_vfc, mock_converter
-    ):
+    def test_to_movie_resizes_during_format_conversion(self, mock_vfc, mock_converter):
         mock_clip = MagicMock()
         resized_clip = MagicMock()
         mock_clip.resized.return_value = resized_clip
@@ -471,9 +466,7 @@ class TestMovieConverterResolution:
 
     def test_to_movie_same_format_skips_without_resolution(self, mock_converter):
         movie = ("dir", "video", "mp4")
-        with patch(
-            "core.converter.movie_converter.VideoFileClip"
-        ) as mock_vfc:
+        with patch("core.converter.movie_converter.VideoFileClip") as mock_vfc:
             mock_converter.to_movie(
                 input="in",
                 output="out",
@@ -490,6 +483,37 @@ class TestMovieConverterResolution:
             )
 
         mock_vfc.assert_not_called()
+
+    @patch("core.converter.movie_converter.VideoFileClip")
+    def test_to_movie_same_format_applies_framerate_only(
+        self, mock_vfc, mock_converter
+    ):
+        mock_clip = MagicMock()
+        mock_clip.fps = 24
+        mock_vfc.return_value = mock_clip
+        mock_converter.file_handler.has_visuals.return_value = True
+        mock_converter.file_handler.join_back.return_value = "dir/video.mp4"
+        movie = ("dir", "video", "mp4")
+
+        mock_converter.to_movie(
+            input="in",
+            output="out",
+            recursive=False,
+            file_paths={
+                Category.IMAGE: [],
+                Category.MOVIE: [movie],
+                Category.DOCUMENT: [],
+            },
+            format="mp4",
+            framerate=30,
+            codec="libx264",
+            delete=False,
+        )
+
+        mock_vfc.assert_called_once_with("dir/video.mp4", audio=True)
+        clip_write = mock_clip.write_videofile
+        clip_write.assert_called_once()
+        assert clip_write.call_args.kwargs["fps"] == 30
 
     @patch("core.converter.movie_converter.VideoFileClip")
     def test_to_codec_resizes(self, mock_vfc, mock_converter):
@@ -586,9 +610,7 @@ class TestMovieConverterResolution:
         resized_clip.close.assert_called_once()
 
     @patch("core.converter.movie_converter.VideoFileClip")
-    def test_to_codec_silent_video_writes_without_audio(
-        self, mock_vfc, mock_converter
-    ):
+    def test_to_codec_silent_video_writes_without_audio(self, mock_vfc, mock_converter):
         mock_clip = MagicMock()
         mock_clip.audio = None
         mock_clip.fps = 24
