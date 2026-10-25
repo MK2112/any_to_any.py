@@ -1054,10 +1054,7 @@ class Controller:
             concat_vid.close()
             concat_movies = list(file_paths[Category.MOVIE])
 
-        # Concat image files (make a gif out of them)
-        if file_paths[Category.IMAGE] and (
-            format is None or format in self._supported_formats[Category.IMAGE]
-        ):
+        if file_paths[Category.IMAGE] and (format is None or format == "gif"):
             gif_out_path = _concat_out_path(Category.IMAGE, "concatenated_image.gif")
             gif_fps = self.framerate if self.framerate is not None else 12
             concatenated_image = concatenate_videoclips(
@@ -1075,34 +1072,31 @@ class Controller:
             concatenated_image.close()  # Added for consistency
             concat_images = list(file_paths[Category.IMAGE])
 
-        # Concat document files (keep respective document format)
         if file_paths[Category.DOCUMENT] and (
             format is None or format in self._supported_formats[Category.DOCUMENT]
         ):
-            pdf_out_path = _concat_out_path(Category.DOCUMENT, "concatenated.pdf")
+            want_pdf = format in (None, "pdf")
+            want_srt = format in (None, "srt")
             pdfs = sorted(
-                [
-                    doc_path_set if doc_path_set[2] == "pdf" else None
+                (
+                    doc_path_set
                     for doc_path_set in file_paths[Category.DOCUMENT]
-                ],
-                key=lambda x: x[1] if x else "",
-            )
-            pdfs = [pdf for pdf in pdfs if pdf is not None]
-
-            srt_out_path = _concat_out_path(
-                Category.DOCUMENT, "concatenated_subtitles.srt"
+                    if doc_path_set[2] == "pdf" and want_pdf
+                ),
+                key=lambda x: x[1],
             )
             srts = sorted(
-                [
-                    doc_path_set if doc_path_set[2] == "srt" else None
+                (
+                    doc_path_set
                     for doc_path_set in file_paths[Category.DOCUMENT]
-                ],
-                key=lambda x: x[1] if x else "",
+                    if doc_path_set[2] == "srt" and want_srt
+                ),
+                key=lambda x: x[1],
             )
-            srts = [srt for srt in srts if srt is not None]  # Filter out None values
 
             if pdfs:
                 # Produce a single pdf file
+                pdf_out_path = _concat_out_path(Category.DOCUMENT, "concatenated.pdf")
                 # Set up manual progress tracking for PDF concatenation
                 total_pdfs = len(pdfs)
                 for i, _ in enumerate(pdfs):
@@ -1123,6 +1117,9 @@ class Controller:
 
             if srts:
                 # Manual progress tracking for SRT concatenation
+                srt_out_path = _concat_out_path(
+                    Category.DOCUMENT, "concatenated_subtitles.srt"
+                )
                 total_srts = len(srts)
                 for i, _ in enumerate(srts):
                     self.prog_logger.update_shared(

@@ -347,3 +347,146 @@ def test_concat_images_without_framerate_uses_default(controller_instance, tmp_p
         )
 
     assert combined.write_gif.call_args[1]["fps"] == 12
+
+
+def _document_inputs(tmp_path):
+    import pymupdf
+
+    pdf = tmp_path / "doc.pdf"
+    document = pymupdf.open()
+    document.new_page()
+    document.save(str(pdf))
+    document.close()
+
+    srt = tmp_path / "subs.srt"
+    srt.write_text("1\n00:00:01,000 --> 00:00:02,000\nHello\n\n", encoding="utf-8")
+    return pdf, srt
+
+
+def _document_file_paths(tmp_path):
+    return {
+        Category.AUDIO: [],
+        Category.MOVIE: [],
+        Category.IMAGE: [],
+        Category.DOCUMENT: [
+            (str(tmp_path) + os.sep, "doc", "pdf"),
+            (str(tmp_path) + os.sep, "subs", "srt"),
+        ],
+    }
+
+
+def test_concat_pdf_target_builds_only_pdf(controller_instance, tmp_path):
+    out = tmp_path / "out"
+    out.mkdir()
+    pdf, srt = _document_inputs(tmp_path)
+    controller_instance.output = str(out)
+    controller_instance.delete = True
+    controller_instance.framerate = None
+    controller_instance.quality = None
+
+    controller_instance.concat(_document_file_paths(tmp_path), format="pdf")
+
+    assert (out / "concatenated.pdf").exists()
+    assert not (out / "concatenated_subtitles.srt").exists()
+    assert not pdf.exists()  # participating source consumed
+    assert srt.exists()  # not part of a pdf concat: kept
+
+
+def test_concat_srt_target_builds_only_srt(controller_instance, tmp_path):
+    out = tmp_path / "out"
+    out.mkdir()
+    pdf, srt = _document_inputs(tmp_path)
+    controller_instance.output = str(out)
+    controller_instance.delete = True
+    controller_instance.framerate = None
+    controller_instance.quality = None
+
+    controller_instance.concat(_document_file_paths(tmp_path), format="srt")
+
+    assert (out / "concatenated_subtitles.srt").exists()
+    assert not (out / "concatenated.pdf").exists()
+    assert pdf.exists()
+    assert not srt.exists()
+
+
+def test_concat_document_target_without_matching_source_warns(
+    controller_instance, tmp_path, caplog
+):
+    out = tmp_path / "out"
+    out.mkdir()
+    pdf, srt = _document_inputs(tmp_path)
+    controller_instance.output = str(out)
+    controller_instance.delete = True
+    controller_instance.framerate = None
+    controller_instance.quality = None
+
+    controller_instance.concat(_document_file_paths(tmp_path), format="md")
+
+    assert list(out.iterdir()) == []
+    assert pdf.exists() and srt.exists()
+    assert "nothing to concatenate" in caplog.text
+
+
+def test_concat_image_format_mismatch_is_not_silently_a_gif(
+    controller_instance, tmp_path, caplog
+):
+    out = tmp_path / "out"
+    out.mkdir()
+    first = tmp_path / "a.png"
+    second = tmp_path / "b.png"
+    first.touch()
+    second.touch()
+    controller_instance.output = str(out)
+    controller_instance.delete = True
+    controller_instance.framerate = None
+
+    with (
+        mock.patch("core.controller.ImageClip") as mock_clip,
+        mock.patch("core.controller.concatenate_videoclips") as mock_concat,
+    ):
+        controller_instance.concat(
+            {
+                Category.AUDIO: [],
+                Category.MOVIE: [],
+                Category.IMAGE: [
+                    (str(tmp_path) + os.sep, "a", "png"),
+                    (str(tmp_path) + os.sep, "b", "png"),
+                ],
+                Category.DOCUMENT: [],
+            },
+            format="png",
+        )
+
+    mock_clip.assert_not_called()
+    mock_concat.assert_not_called()
+    assert list(out.iterdir()) == []
+    assert first.exists() and second.exists()
+    assert "nothing to concatenate" in caplog.text
+
+
+def test_concat_image_gif_target_still_builds(controller_instance, tmp_path):
+    out = tmp_path / "out"
+    out.mkdir()
+    controller_instance.output = str(out)
+    controller_instance.delete = False
+    controller_instance.framerate = None
+    with (
+        mock.patch("core.controller.ImageClip"),
+        mock.patch("core.controller.concatenate_videoclips") as mock_concat,
+    ):
+        combined = mock.MagicMock()
+        mock_concat.return_value = combined
+        controller_instance.concat(
+            {
+                Category.AUDIO: [],
+                Category.MOVIE: [],
+                Category.IMAGE: [
+                    (str(tmp_path) + os.sep, "a", "png"),
+                    (str(tmp_path) + os.sep, "b", "png"),
+                ],
+                Category.DOCUMENT: [],
+            },
+            format="gif",
+        )
+
+    assert combined.write_gif.call_count == 1
