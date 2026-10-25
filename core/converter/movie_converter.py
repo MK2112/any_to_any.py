@@ -89,10 +89,10 @@ class MovieConverter:
             for img in image_files
         ]
         final_clip = concatenate_videoclips(image_clips, method="compose")
-        
+
         if resolution is not None:
             final_clip = final_clip.resized(new_size=parse_resolution(resolution))
-        
+
         try:
             final_clip.write_videofile(
                 out_path,
@@ -137,7 +137,7 @@ class MovieConverter:
 
                 if resolution is not None:
                     clip = clip.resized(new_size=parse_resolution(resolution))
-                
+
                 clip.write_videofile(
                     out_path,
                     codec=codec,
@@ -187,7 +187,7 @@ class MovieConverter:
 
             if resolution is not None:
                 final_clip = final_clip.resized(new_size=parse_resolution(resolution))
-            
+
             final_clip.write_videofile(
                 out_path,
                 fps=24 if framerate is None else framerate,
@@ -504,12 +504,10 @@ class MovieConverter:
         for movie_path_set in file_paths[Category.MOVIE]:
             input_file = os.path.abspath(self.file_handler.join_back(movie_path_set))
             base_name = movie_path_set[1]
-            current_out_dir = os.path.abspath(
-                os.path.join(output, f"{base_name}_{protocol[0]}")
+            current_out_dir = _safe_out_dir(
+                os.path.abspath(os.path.join(output, f"{base_name}_{protocol[0]}"))
             )
-
-            if current_out_dir is not None and not os.path.exists(current_out_dir):
-                os.makedirs(current_out_dir)
+            os.makedirs(current_out_dir, exist_ok=True)
 
             if protocol[0] == "hls":
                 renditions = [

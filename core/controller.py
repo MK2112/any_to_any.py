@@ -568,7 +568,8 @@ class Controller:
                             ]
                     else:
                         file_paths = {}
-                    for root, _, files in os.walk(self.input):
+                    for root, dirs, _ in os.walk(self.input):
+                        dirs[:] = [d for d in dirs if not d.endswith(("_hls", "_dash"))]
                         try:
                             file_paths = self.file_handler.get_file_paths(
                                 root, file_paths, self._supported_formats

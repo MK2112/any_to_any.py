@@ -336,6 +336,81 @@ def test_to_protocol_hls_out_dirs_use_basename_not_extension(
 
 
 @patch("core.converter.movie_converter.subprocess.run")
+def test_to_protocol_hls_never_reuses_existing_output_dir(
+    mock_run, mock_converter, tmp_path
+):
+    movie = ("dir", "sample", "mp4")
+    mock_converter.file_handler.join_back.return_value = "dir/sample.mp4"
+    mock_run.return_value = MagicMock(stdout="ok", stderr="")
+
+    previous = tmp_path / "sample_hls"
+    previous.mkdir()
+    stale_master = previous / "master.m3u8"
+    stale_master.write_text("#EXTM3U\nstale")
+
+    mock_converter.to_protocol(
+        output=str(tmp_path),
+        file_paths={Category.MOVIE: [movie]},
+        supported_formats={Category.PROTOCOLS: {"hls": True}},
+        protocol=["hls"],
+        delete=False,
+    )
+
+    assert stale_master.read_text() == "#EXTM3U\nstale"
+    fresh_master = tmp_path / "sample_hls_1" / "master.m3u8"
+    assert fresh_master.exists()
+    assert "stale" not in fresh_master.read_text()
+
+
+@patch("core.converter.movie_converter.subprocess.run")
+def test_to_protocol_dash_never_reuses_existing_output_dir(
+    mock_run, mock_converter, tmp_path
+):
+    movie = ("dir", "sample", "mp4")
+    mock_converter.file_handler.join_back.return_value = "dir/sample.mp4"
+    mock_run.return_value = MagicMock(stdout="ok", stderr="")
+
+    previous = tmp_path / "sample_dash"
+    previous.mkdir()
+    stale_manifest = previous / "manifest.mpd"
+    stale_manifest.write_text("<stale/>")
+
+    mock_converter.to_protocol(
+        output=str(tmp_path),
+        file_paths={Category.MOVIE: [movie]},
+        supported_formats={Category.PROTOCOLS: {"dash": True}},
+        protocol=["dash"],
+        delete=False,
+    )
+
+    assert stale_manifest.read_text() == "<stale/>"
+    assert (tmp_path / "sample_dash_1").is_dir()
+
+
+@patch("core.converter.movie_converter.subprocess.run")
+def test_to_protocol_same_basename_inputs_get_separate_dirs(
+    mock_run, mock_converter, tmp_path
+):
+    mock_run.return_value = MagicMock(stdout="ok", stderr="")
+    mock_converter.file_handler.join_back.side_effect = (
+        lambda ps: f"{ps[0]}/{ps[1]}.{ps[2]}"
+    )
+
+    mock_converter.to_protocol(
+        output=str(tmp_path),
+        file_paths={
+            Category.MOVIE: [("dir1", "clip", "mp4"), ("dir2", "clip", "mp4")]
+        },
+        supported_formats={Category.PROTOCOLS: {"hls": True}},
+        protocol=["hls"],
+        delete=False,
+    )
+
+    assert (tmp_path / "clip_hls" / "master.m3u8").exists()
+    assert (tmp_path / "clip_hls_1" / "master.m3u8").exists()
+
+
+@patch("core.converter.movie_converter.subprocess.run")
 def test_to_protocol_hls_unknown_resolution_fails_loudly(
     mock_run, mock_converter, tmp_path
 ):

@@ -80,7 +80,9 @@ def test_multi_input_no_output_does_not_crash(controller_instance, tmp_path):
         )
 
 
-def test_recursive_run_closes_scandir_iterator(controller_instance, tmp_path, monkeypatch):
+def test_recursive_run_closes_scandir_iterator(
+    controller_instance, tmp_path, monkeypatch
+):
     root = tmp_path / "src1"
     (root / "sub").mkdir(parents=True)
     (root / "sub" / "note.txt").write_text("not media")
@@ -238,3 +240,50 @@ def test_across_recursive_keeps_files_of_every_input(controller_instance, tmp_pa
 
     produced = sorted(p.name for p in out.rglob("*.webp"))
     assert produced == ["first.webp", "second.webp", "top.webp"]
+
+
+def test_recursive_scan_skips_generated_protocol_dirs(controller_instance, tmp_path):
+    from unittest import mock
+    from PIL import Image
+
+    root = tmp_path / "media"
+    (root / "sub").mkdir(parents=True)
+    (root / "clip_hls" / "426x240").mkdir(parents=True)
+    (root / "clip_hls" / "master.m3u8").write_text("#EXTM3U\n")
+    (root / "clip_hls" / "426x240" / "426x240_000.ts").touch()
+    (root / "clip_dash").mkdir()
+    (root / "clip_dash" / "manifest.mpd").write_text("<MPD/>")
+    (root / "clip_dash" / "init.mp4").touch()
+    Image.new("RGB", (4, 4), "red").save(root / "sub" / "good.png")
+    out = tmp_path / "out"
+    out.mkdir()
+
+    scanned_roots = []
+    real_get_file_paths = controller_instance.file_handler.get_file_paths
+
+    def spy(input_path, file_paths=None, supported_formats=None):
+        scanned_roots.append(str(input_path))
+        return real_get_file_paths(input_path, file_paths, supported_formats)
+
+    with mock.patch.object(
+        controller_instance.file_handler, "get_file_paths", side_effect=spy
+    ):
+        controller_instance.run(
+            input_path_args=[str(root)],
+            format="webp",
+            output=str(out),
+            framerate=None,
+            quality=None,
+            split=None,
+            merge=False,
+            concat=False,
+            delete=False,
+            across=False,
+            recursive=True,
+            dropzone=False,
+            language=None,
+            workers=1,
+        )
+
+    assert not any("_hls" in path or "_dash" in path for path in scanned_roots)
+    assert (out / "good.webp").exists()
