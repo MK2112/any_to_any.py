@@ -979,6 +979,17 @@ class Controller:
         concat_audios, concat_movies, concat_images = [], [], []
         concat_pdfs, concat_srts = [], []
 
+        def _concat_out_path(category, file_name):
+            output_path = os.path.abspath(os.path.join(self.output, file_name))
+            normalized = os.path.normcase(output_path)
+            if any(
+                os.path.normcase(os.path.abspath(self.file_handler.join_back(path_set)))
+                == normalized
+                for path_set in file_paths[category]
+            ):
+                return self.file_handler._resolve_output_file_conflict(output_path)
+            return output_path
+
         if file_paths[Category.AUDIO] and (
             format is None or format in self._supported_formats[Category.AUDIO]
         ):
@@ -989,8 +1000,8 @@ class Controller:
                 ]
             )
             audio_format = format if format is not None else "mp3"
-            audio_out_path = os.path.join(
-                self.output, f"concatenated_audio.{audio_format}"
+            audio_out_path = _concat_out_path(
+                Category.AUDIO, f"concatenated_audio.{audio_format}"
             )
             concat_audio.write_audiofile(
                 audio_out_path,
@@ -1019,8 +1030,8 @@ class Controller:
                 method="compose",
             )
             video_format = format if format is not None else "mp4"
-            video_out_path = os.path.join(
-                self.output, f"concatenated_video.{video_format}"
+            video_out_path = _concat_out_path(
+                Category.MOVIE, f"concatenated_video.{video_format}"
             )
             concat_vid.write_videofile(
                 video_out_path,
@@ -1035,7 +1046,7 @@ class Controller:
         if file_paths[Category.IMAGE] and (
             format is None or format in self._supported_formats[Category.IMAGE]
         ):
-            gif_out_path = os.path.join(self.output, "concatenated_image.gif")
+            gif_out_path = _concat_out_path(Category.IMAGE, "concatenated_image.gif")
             gif_fps = self.framerate if self.framerate is not None else 12
             concatenated_image = concatenate_videoclips(
                 [
@@ -1056,7 +1067,7 @@ class Controller:
         if file_paths[Category.DOCUMENT] and (
             format is None or format in self._supported_formats[Category.DOCUMENT]
         ):
-            pdf_out_path = os.path.join(self.output, "concatenated.pdf")
+            pdf_out_path = _concat_out_path(Category.DOCUMENT, "concatenated.pdf")
             pdfs = sorted(
                 [
                     doc_path_set if doc_path_set[2] == "pdf" else None
@@ -1066,7 +1077,9 @@ class Controller:
             )
             pdfs = [pdf for pdf in pdfs if pdf is not None]
 
-            srt_out_path = os.path.join(self.output, "concatenated_subtitles.srt")
+            srt_out_path = _concat_out_path(
+                Category.DOCUMENT, "concatenated_subtitles.srt"
+            )
             srts = sorted(
                 [
                     doc_path_set if doc_path_set[2] == "srt" else None
