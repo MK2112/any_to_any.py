@@ -204,3 +204,37 @@ def test_across_mode_still_warns_when_no_media_is_found(
         )
 
     assert "No convertible media files" in caplog.text
+
+
+def test_across_recursive_keeps_files_of_every_input(controller_instance, tmp_path):
+    from PIL import Image
+
+    dir1 = tmp_path / "dir1"
+    dir2 = tmp_path / "dir2"
+    out = tmp_path / "out"
+    (dir1 / "sub").mkdir(parents=True)
+    (dir2 / "sub").mkdir(parents=True)
+    out.mkdir()
+    Image.new("RGB", (4, 4), "red").save(dir1 / "sub" / "first.png")
+    Image.new("RGB", (4, 4), "blue").save(dir2 / "top.png")
+    Image.new("RGB", (4, 4), "green").save(dir2 / "sub" / "second.png")
+
+    controller_instance.run(
+        input_path_args=[str(dir1), str(dir2)],
+        format="webp",
+        output=str(out),
+        framerate=None,
+        quality=None,
+        split=None,
+        merge=False,
+        concat=False,
+        delete=False,
+        across=True,
+        recursive=True,
+        dropzone=False,
+        language=None,
+        workers=1,
+    )
+
+    produced = sorted(p.name for p in out.rglob("*.webp"))
+    assert produced == ["first.webp", "second.webp", "top.webp"]

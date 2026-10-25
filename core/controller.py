@@ -558,7 +558,16 @@ class Controller:
                 with os.scandir(self.input) as it:
                     has_subdirs = any(entry.is_dir() for entry in it)
                 if has_subdirs:
-                    file_paths = {}
+                    if across:
+                        prefix = input_path + os.sep
+                        for category in list(file_paths):
+                            file_paths[category] = [
+                                entry
+                                for entry in file_paths[category]
+                                if entry[0] != prefix
+                            ]
+                    else:
+                        file_paths = {}
                     for root, _, files in os.walk(self.input):
                         try:
                             file_paths = self.file_handler.get_file_paths(
