@@ -1,5 +1,6 @@
 import os
 import json
+import subprocess
 
 from pathlib import Path
 from datetime import datetime
@@ -33,7 +34,7 @@ _EMPTY_PDF_METADATA = {
 _OOXML_EMPTY_PARTS = {
     "docProps/core.xml": (
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-        '<cp:coreProperties '
+        "<cp:coreProperties "
         'xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" '
         'xmlns:dc="http://purl.org/dc/elements/1.1/" '
         'xmlns:dcterms="http://purl.org/dc/terms/" '
@@ -238,12 +239,53 @@ class MetadataHandler:
 
         return metadata
 
+    def extract_movie_metadata(self, file_path: str) -> dict:
+        metadata = {
+            "format": "movie",
+            "extracted_at": datetime.now().isoformat(),
+            "tags": {},
+        }
+        try:
+            result = subprocess.run(
+                [
+                    "ffprobe",
+                    "-v",
+                    "quiet",
+                    "-print_format",
+                    "json",
+                    "-show_format",
+                    file_path,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=60,
+                check=False,
+            )
+            if result.returncode != 0:
+                raise RuntimeError(result.stderr.strip() or "ffprobe failed")
+            info = json.loads(result.stdout or "{}").get("format") or {}
+            for key in ("format_name", "duration", "bit_rate", "size", "nb_streams"):
+                if info.get(key) is not None:
+                    metadata["tags"][key] = info[key]
+            for key, value in (info.get("tags") or {}).items():
+                metadata["tags"][str(key).lower()] = str(value)
+        except FileNotFoundError:
+            self.event_logger.debug(
+                f"ffprobe not found, could not extract movie metadata from {file_path}"
+            )
+        except Exception as e:
+            self.event_logger.debug(
+                f"Could not extract movie metadata from {file_path}: {e}"
+            )
+        return metadata
+
     def extract_metadata(self, file_path: str, file_type: str) -> dict:
         # Extract metadata based on file type
         extractor = {
             "audio": self.extract_audio_metadata,
             "image": self.extract_image_metadata,
             "document": self.extract_document_metadata,
+            "movie": self.extract_movie_metadata,
         }.get(file_type)
         if extractor is not None:
             return extractor(file_path)
@@ -336,7 +378,8 @@ class MetadataHandler:
         #  Removes metadata from files:
         #   id3 tags for audio,
         #   exif for images,
-        #   document properties for pdf,docx,pptx
+        #   document properties for pdf,docx,pptx,
+        #   container tags for movies
         try:
             if file_type == "audio":
                 try:
@@ -353,11 +396,16 @@ class MetadataHandler:
                 return self._strip_image_metadata(file_path)
             elif file_type == "document":
                 return self._strip_document_metadata(file_path)
+            elif file_type == "movie":
+                return self._strip_movie_metadata(file_path)
 
         except Exception as e:
             self.event_logger.debug(f"Could not strip metadata from {file_path}: {e}")
             return False
 
+        self.event_logger.warning(
+            f"[!] Metadata stripping is not supported for '{file_type}': {file_path}"
+        )
         return False
 
     def _strip_document_metadata(self, file_path: str) -> bool:
@@ -496,6 +544,56 @@ class MetadataHandler:
             os.replace(tmp_path, file_path)
             return True
         except OSError:
+            return False
+        finally:
+            if os.path.exists(tmp_path):
+                try:
+                    os.remove(tmp_path)
+                except OSError:
+                    pass
+
+    def _strip_movie_metadata(self, file_path: str) -> bool:
+        file_ext = Path(file_path).suffix
+        if not file_ext:
+            return False
+        tmp_path = f"{file_path}.strip{file_ext}"
+        cmd = [
+            "ffmpeg",
+            "-y",
+            "-i",
+            file_path,
+            "-map_metadata",
+            "-1",
+            "-map_metadata:s",
+            "-1",
+            "-c",
+            "copy",
+            "-fflags",
+            "+bitexact",
+            tmp_path,
+        ]
+        try:
+            result = subprocess.run(
+                cmd, capture_output=True, text=True, timeout=300, check=False
+            )
+            if result.returncode != 0 or not os.path.isfile(tmp_path):
+                detail = (result.stderr or "").strip().splitlines()
+                self.event_logger.warning(
+                    f"[!] Could not strip metadata from {file_path}: "
+                    f"{detail[-1] if detail else 'ffmpeg failed'}"
+                )
+                return False
+            os.replace(tmp_path, file_path)
+            return True
+        except FileNotFoundError:
+            self.event_logger.warning(
+                f"[!] ffmpeg not found, could not strip metadata from {file_path}"
+            )
+            return False
+        except Exception as e:
+            self.event_logger.warning(
+                f"[!] Could not strip metadata from {file_path}: {e}"
+            )
             return False
         finally:
             if os.path.exists(tmp_path):

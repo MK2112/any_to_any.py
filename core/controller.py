@@ -946,7 +946,9 @@ class Controller:
                 self.metadata_handler.apply_metadata_to_file(output_file_path, metadata)
 
             if self.strip_meta:
-                self.metadata_handler.strip_metadata(output_file_path, file_type)
+                out_ext = os.path.splitext(output_file_path)[1].lower().lstrip(".")
+                out_type = self._category_for_format(out_ext) or file_type
+                self.metadata_handler.strip_metadata(output_file_path, out_type)
 
         except Exception as e:
             self.event_logger.debug(

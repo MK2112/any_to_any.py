@@ -1,4 +1,5 @@
 import os
+import json
 import shutil
 import subprocess
 import wave
@@ -22,6 +23,9 @@ _AUDIO_CODECS = {
 
 requires_ffmpeg = pytest.mark.skipif(
     shutil.which("ffmpeg") is None, reason="ffmpeg not available"
+)
+requires_ffprobe = pytest.mark.skipif(
+    shutil.which("ffprobe") is None, reason="ffprobe not available"
 )
 
 
@@ -57,6 +61,56 @@ def _make_audio_file(directory, file_ext, name="tone"):
         if result.returncode == 0:
             return out
     pytest.skip(f"ffmpeg cannot encode {file_ext}")
+
+
+def _make_video_file(directory, file_ext="mkv", name="clip"):
+    out = directory / f"{name}.{file_ext}"
+    result = subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-loglevel",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc=duration=0.5:size=64x48:rate=10",
+            "-metadata",
+            "title=SecretTitle",
+            "-metadata",
+            "artist=SecretArtist",
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+            str(out),
+        ],
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode != 0 or not out.exists():
+        pytest.skip(f"ffmpeg cannot encode {file_ext}")
+    return out
+
+
+def _probe_format(path):
+    result = subprocess.run(
+        [
+            "ffprobe",
+            "-v",
+            "quiet",
+            "-print_format",
+            "json",
+            "-show_format",
+            str(path),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        pytest.skip("ffprobe cannot read the file")
+    return json.loads(result.stdout or "{}").get("format") or {}
 
 
 def _read_applied_tags(file_path, file_ext):
@@ -531,14 +585,52 @@ class TestMetadataStripping:
         assert result is False
 
 
+class TestMovieMetadata:
+    @requires_ffmpeg
+    @requires_ffprobe
+    def test_extract_movie_metadata_reads_container_tags(
+        self, metadata_handler, tmp_path
+    ):
+        video = _make_video_file(tmp_path, "mkv")
+        metadata = metadata_handler.extract_metadata(str(video), "movie")
+        assert metadata["format"] == "movie"
+        assert metadata["tags"].get("title") == "SecretTitle"
+        assert metadata["tags"].get("artist") == "SecretArtist"
+
+    @requires_ffmpeg
+    @requires_ffprobe
+    @pytest.mark.parametrize("file_ext", ["mkv", "mp4"])
+    def test_strip_movie_metadata_removes_container_tags(
+        self, metadata_handler, tmp_path, file_ext
+    ):
+        video = _make_video_file(tmp_path, file_ext)
+        assert metadata_handler.strip_metadata(str(video), "movie") is True
+        info = _probe_format(video)
+        tags = {str(k).lower(): v for k, v in (info.get("tags") or {}).items()}
+        assert "title" not in tags
+        assert "artist" not in tags
+        assert tags.get("encoder") in (None, "Lavf")
+        # Remux left a playable container
+        assert float(info.get("duration") or 0) > 0
+
+    def test_strip_metadata_unknown_output_type_warns(
+        self, metadata_handler, tmp_path
+    ):
+        target = tmp_path / "clip.xyz"
+        target.write_bytes(b"data")
+        result = metadata_handler.strip_metadata(str(target), "hologram")
+        assert result is False
+        metadata_handler.event_logger.warning.assert_called()
+
+
 class TestIntegrationWithController:
     def test_controller_has_metadata_handler(self, controller_instance):
-        # Test that controller initializes metadata handler
+        # Controller initializes metadata handler
         assert hasattr(controller_instance, "metadata_handler")
         assert isinstance(controller_instance.metadata_handler, MetadataHandler)
 
     def test_controller_metadata_flags_initialization(self, controller_instance):
-        # Test that controller initializes metadata flags
+        # Controller initializes metadata flags
         assert hasattr(controller_instance, "preserve_meta")
         assert hasattr(controller_instance, "custom_tags")
         assert hasattr(controller_instance, "strip_meta")
@@ -547,7 +639,7 @@ class TestIntegrationWithController:
         assert controller_instance.strip_meta is False
 
     def test_controller_handle_metadata_method(self, controller_instance):
-        # Test that controller has metadata handling method
+        # Controller has metadata handling method
         assert hasattr(controller_instance, "_handle_metadata")
         assert callable(controller_instance._handle_metadata)
 
@@ -579,6 +671,59 @@ class TestIntegrationWithController:
                 "audio",
             )
             mock_strip.assert_called_once_with(str(tmp_path / "output.mp3"), "audio")
+
+    @pytest.mark.parametrize(
+        "out_name,expected_type",
+        [
+            ("out.pdf", "document"),
+            ("out.mkv", "movie"),
+            ("out.mp3", "audio"),
+            ("out.png", "image"),
+        ],
+    )
+    def test_handle_metadata_strip_uses_output_type(
+        self, controller_instance, tmp_path, out_name, expected_type
+    ):
+        # Metadata stripping must run against the output, not the source category
+        controller_instance.preserve_meta = False
+        controller_instance.custom_tags = {}
+        controller_instance.strip_meta = True
+        with mock.patch.object(
+            controller_instance.metadata_handler, "strip_metadata"
+        ) as mock_strip:
+            controller_instance._handle_metadata(
+                str(tmp_path / "input.png"),
+                str(tmp_path / out_name),
+                "image",
+            )
+            mock_strip.assert_called_once_with(
+                str(tmp_path / out_name), expected_type
+            )
+
+    def test_strip_meta_image_to_pdf_clears_pdf_metadata(
+        self, controller_instance, tmp_path
+    ):
+        import pymupdf as pypdf
+
+        pdf_path = tmp_path / "out.pdf"
+        doc = pypdf.open()
+        doc.new_page()
+        doc.set_metadata({"title": "Secret", "author": "Nobody"})
+        doc.save(str(pdf_path))
+        doc.close()
+
+        controller_instance.preserve_meta = False
+        controller_instance.custom_tags = {}
+        controller_instance.strip_meta = True
+        controller_instance._handle_metadata(
+            str(tmp_path / "input.png"), str(pdf_path), "image"
+        )
+
+        doc = pypdf.open(str(pdf_path))
+        meta = doc.metadata or {}
+        doc.close()
+        assert not meta.get("title")
+        assert not meta.get("author")
 
     def test_handle_metadata_preserve_calls_extract_and_save(
         self, controller_instance, tmp_path
