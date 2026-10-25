@@ -216,6 +216,42 @@ class TestDocumentConverterToMarkdown:
         mock_makedirs.assert_called()
         mock_mammoth.assert_called_once()
 
+    def test_to_markdown_image_links_are_relative(self, tmp_path):
+        import re
+        import logging
+
+        from PIL import Image
+        from core.utils.file_handler import FileHandler
+
+        Image.new("RGB", (8, 8), "red").save(tmp_path / "pic.png")
+        document = docx.Document()
+        document.add_picture(str(tmp_path / "pic.png"))
+        document.save(tmp_path / "report.docx")
+
+        out = tmp_path / "out"
+        out.mkdir()
+        file_handler = FileHandler(logging.getLogger("md-relative"), "English")
+        converter = DocumentConverter(file_handler, MagicMock(), MagicMock())
+        converter.to_markdown(
+            str(out),
+            {
+                Category.IMAGE: [],
+                Category.MOVIE: [],
+                Category.DOCUMENT: [(str(tmp_path) + os.sep, "report", "docx")],
+            },
+            "md",
+            False,
+        )
+
+        md_path = out / "report.md"
+        assert md_path.exists()
+        markdown = md_path.read_text(encoding="utf-8")
+        match = re.search(r"!\[[^\]]*\]\(([^)]+)\)", markdown)
+        assert match, markdown
+        src = match.group(1)
+        assert not os.path.isabs(src)
+        assert (md_path.parent / src).is_file()
+
 
 class TestDocumentConverterToPdf:
     @patch("core.converter.doc_converter.pypdf.open")

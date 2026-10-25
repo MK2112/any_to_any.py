@@ -104,6 +104,7 @@ class DocumentConverter:
         self, output: str, file_paths: dict, format: str, delete: bool
     ) -> None:
         # Convert Documents to Markdown
+        md_dir = os.path.abspath(output)
         for doc_path_set in file_paths[Category.DOCUMENT]:
             if doc_path_set[2] == "docx":
                 docx_path = self.file_handler.join_back(doc_path_set)
@@ -132,7 +133,9 @@ class DocumentConverter:
                         img_file.write(buf)
                     image_idx += 1
                     # Return src attribute that points to the relative image path
-                    rel_image_path = os.path.abspath(image_path)
+                    rel_image_path = os.path.relpath(image_path, start=md_dir).replace(
+                        os.sep, "/"
+                    )
                     return {"src": rel_image_path}
 
                 with open(docx_path, "rb") as docx_file:
