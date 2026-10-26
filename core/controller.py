@@ -555,8 +555,10 @@ class Controller:
 
             # Recursion
             if self.recursive:
-                with os.scandir(self.input) as it:
-                    has_subdirs = any(entry.is_dir() for entry in it)
+                has_subdirs = False
+                if os.path.isdir(self.input):
+                    with os.scandir(self.input) as it:
+                        has_subdirs = any(entry.is_dir() for entry in it)
                 if has_subdirs:
                     if across:
                         prefix = input_path + os.sep

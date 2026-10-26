@@ -80,6 +80,38 @@ def test_multi_input_no_output_does_not_crash(controller_instance, tmp_path):
         )
 
 
+def test_recursive_with_file_input_does_not_crash(
+    controller_instance, tmp_path, monkeypatch
+):
+    src = tmp_path / "clip.mp3"
+    src.write_bytes(b"\x00" * 128)
+    dispatched = []
+    monkeypatch.setattr(
+        controller_instance,
+        "_dispatch_targets",
+        lambda file_paths, formats: dispatched.append(file_paths),
+    )
+    controller_instance.run(
+        input_path_args=[str(src)],
+        format=["wav"],
+        output=str(tmp_path / "out"),
+        framerate=None,
+        quality=None,
+        split=None,
+        merge=False,
+        concat=False,
+        delete=False,
+        across=False,
+        recursive=True,
+        dropzone=False,
+        language=None,
+        workers=1,
+    )
+
+    assert dispatched
+    assert (str(tmp_path) + os.sep, "clip", "mp3") in dispatched[0][Category.AUDIO]
+
+
 def test_recursive_run_closes_scandir_iterator(
     controller_instance, tmp_path, monkeypatch
 ):
