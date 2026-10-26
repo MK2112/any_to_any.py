@@ -154,19 +154,19 @@ def _cleanup_job_storage(job_id: str, record: dict = None) -> None:
 
 def _require_csrf(data: dict = None) -> None:
     # Validate CSRF token from a POST request
-    csrf_token = (
-        (data or {}).get("csrf_token")
-        or request.form.get("csrf_token")
-        or request.headers.get("X-CSRF-Token")
-    )
-    if not csrf_token or not validate_csrf_token(csrf_token):
+    csrf_token = data.get("csrf_token") if isinstance(data, dict) else None
+    if not csrf_token:
+        csrf_token = request.form.get("csrf_token") or request.headers.get(
+            "X-CSRF-Token"
+        )
+    if not isinstance(csrf_token, str) or not validate_csrf_token(csrf_token):
         abort(403, "Invalid CSRF token")
 
 
 def get_csrf_token():
     token = session.get(_CSRF_SESSION_KEY)
     issued_at = session.get(_CSRF_ISSUED_AT_KEY)
-    if token and isinstance(issued_at, (int, float)):
+    if isinstance(token, str) and token and isinstance(issued_at, (int, float)):
         if time.time() - issued_at < _csrf_ttl_seconds:
             return token
     return rotate_csrf_token()
@@ -175,7 +175,11 @@ def get_csrf_token():
 def validate_csrf_token(token):
     expected = session.get(_CSRF_SESSION_KEY)
     issued_at = session.get(_CSRF_ISSUED_AT_KEY)
-    if not expected or not isinstance(issued_at, (int, float)):
+    if not isinstance(expected, str) or not expected:
+        return False
+    if not isinstance(token, str):
+        return False
+    if not isinstance(issued_at, (int, float)):
         return False
     if time.time() - issued_at >= _csrf_ttl_seconds:
         return False
@@ -183,8 +187,8 @@ def validate_csrf_token(token):
 
 
 def rotate_csrf_token():
-    # A validated request consumes the current token and
-    # the caller returns the replacement to the page
+    # Tokens stay valid for their whole lifetime so parallel tabs and in-flight
+    # requests keep working; only expiry issues a new token
     token = secrets.token_hex(32)
     session[_CSRF_SESSION_KEY] = token
     session[_CSRF_ISSUED_AT_KEY] = time.time()
@@ -696,7 +700,7 @@ def create_conversion_endpoint(merge: bool = False, concat: bool = False):
                 _cleanup_job_storage(job_id)
             raise
         return (
-            jsonify({"job_id": job_id, "csrf_token": rotate_csrf_token()}),
+            jsonify({"job_id": job_id, "csrf_token": get_csrf_token()}),
             202,
         )
 
@@ -851,7 +855,7 @@ def set_language():
             "success": True,
             "lang_code": lang_code,
             "language": language,
-            "csrf_token": rotate_csrf_token(),
+            "csrf_token": get_csrf_token(),
         }
     return {"success": False}, 400
 

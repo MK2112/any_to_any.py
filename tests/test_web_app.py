@@ -325,24 +325,43 @@ def test_csrf_token_is_bound_to_the_session_not_the_ip(client, tmp_storage):
     assert sorted(p.name for p in tmp_storage.glob("uploads_*")) == uploads_before
 
 
-def test_successful_submission_consumes_and_rotates_token(client, tmp_storage):
-    # Tokens are single-use: a successful submission returns a replacement and
-    # the consumed token no longer validates
+def test_successful_submission_keeps_token_valid_for_parallel_tabs(
+    client, tmp_storage
+):
     first_tok = _csrf_for(client)
     with mock.patch.object(w, "send_to_backend"):
         response = _convert_post(client, first_tok)
     assert response.status_code == 202
-    replacement = response.get_json()["csrf_token"]
-    assert replacement and replacement != first_tok
-
-    # Replaying the consumed token is rejected without spawning a job
-    assert _convert_post(client, first_tok).status_code == 403
-
-    # The issued replacement keeps working
+    returned = response.get_json()["csrf_token"]
+    assert returned == first_tok
     with mock.patch.object(w, "send_to_backend"):
-        response = _convert_post(client, replacement)
+        response = _convert_post(client, first_tok)
     assert response.status_code == 202
-    assert response.get_json()["csrf_token"] != replacement
+    assert response.get_json()["csrf_token"] == first_tok
+
+
+def test_csrf_rejects_malformed_payloads_without_500(client):
+    tok = _csrf_for(client)
+    assert client.post("/language", json=[]).status_code == 403
+    assert client.post("/language", json=["not", "a", "dict"]).status_code == 403
+    assert (
+        client.post(
+            "/language", json={"language": "de_DE", "csrf_token": ["bad"]}
+        ).status_code
+        == 403
+    )
+    assert (
+        client.post(
+            "/language", json={"language": "de_DE", "csrf_token": {"bad": "token"}}
+        ).status_code
+        == 403
+    )
+    assert (
+        client.post(
+            "/language", json={"language": "de_DE", "csrf_token": tok}
+        ).status_code
+        == 200
+    )
 
 
 def test_set_language_requires_a_valid_csrf_token(client):
