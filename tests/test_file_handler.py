@@ -1,9 +1,15 @@
 import os
+import sys
+import time
+import shutil
+import threading
+import subprocess
 
 import pytest
 from unittest.mock import MagicMock, patch
 
 from core.utils.file_handler import (
+    FFmpegProcessTracker,
     FileHandler,
     effective_fps,
     resolve_worker_count,
@@ -232,3 +238,51 @@ def test_process_file_paths_stops_before_dispatch_when_cancelled(
 
     with pytest.raises(ConversionCancelled):
         controller_instance.process_file_paths({category: [] for category in Category})
+
+
+def _fake_ffmpeg(tmp_path):
+    name = "ffmpeg.exe" if os.name == "nt" else "ffmpeg"
+    path = tmp_path / name
+    try:
+        os.symlink(sys.executable, path)
+    except OSError:
+        shutil.copy2(sys.executable, path)
+    return str(path)
+
+
+def test_ffmpeg_process_tracker_terminates_on_cancel(tmp_path):
+    event = threading.Event()
+    original_popen = subprocess.Popen
+    process = None
+    with FFmpegProcessTracker(event):
+        assert subprocess.Popen is not original_popen
+        process = subprocess.Popen(
+            [_fake_ffmpeg(tmp_path), "-c", "import time; time.sleep(30)"]
+        )
+        try:
+            event.set()
+            deadline = time.time() + 5
+            while process.poll() is None and time.time() < deadline:
+                time.sleep(0.05)
+            assert process.poll() is not None
+        finally:
+            if process.poll() is None:
+                process.kill()
+            process.wait()
+    assert subprocess.Popen is original_popen
+
+
+def test_ffmpeg_process_tracker_ignores_other_commands():
+    event = threading.Event()
+    process = None
+    with FFmpegProcessTracker(event):
+        process = subprocess.Popen(
+            [sys.executable, "-c", "import time; time.sleep(30)"]
+        )
+        try:
+            event.set()
+            time.sleep(0.3)
+            assert process.poll() is None
+        finally:
+            process.kill()
+            process.wait()

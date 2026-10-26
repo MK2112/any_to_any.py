@@ -43,7 +43,7 @@ from utils.category import Category
 from core.controller import Controller
 from utils.version_check import check_for_update
 from core.utils.resolution import available_resolutions
-from core.utils.file_handler import ConversionCancelled
+from core.utils.file_handler import ConversionCancelled, FFmpegProcessTracker
 
 if "--version" in sys.argv or "--self-test" in sys.argv:
     print(VERSION)
@@ -231,39 +231,40 @@ class ConversionThread(QThread):
             error_holder = {}
 
             def conversion_job():
-                try:
-                    controller.run(
-                        input_path_args=self.input_files,
-                        format=self.output_format,
-                        output=output_path,
-                        framerate=self.framerate,
-                        quality=self.quality,
-                        split=self.split,
-                        merge=self.merge,
-                        concat=self.concat,
-                        delete=self.delete,
-                        across=False,
-                        recursive=self.recursive,
-                        dropzone=False,
-                        language=None,
-                        workers=self.workers,
-                        preserve_meta=self.preserve_meta,
-                        add_tag=[],
-                        strip_meta=self.strip_meta,
-                        resolution=self.resolution,
-                    )
-                except SystemExit as exc:
-                    # The core exits gracefully (sys.exit) e.g. when no media
-                    # was found; SystemExit is a BaseException and would
-                    # otherwise bypass error reporting entirely.
-                    error_holder["error"] = str(exc) or "Processing stopped early"
-                except ConversionCancelled:
-                    # Cancel is not an error
-                    pass
-                except BaseException as exc:
-                    error_holder["error"] = f"{type(exc).__name__}: {exc}"
-                finally:
-                    conversion_done.set()
+                with FFmpegProcessTracker(self._cancel_event):
+                    try:
+                        controller.run(
+                            input_path_args=self.input_files,
+                            format=self.output_format,
+                            output=output_path,
+                            framerate=self.framerate,
+                            quality=self.quality,
+                            split=self.split,
+                            merge=self.merge,
+                            concat=self.concat,
+                            delete=self.delete,
+                            across=False,
+                            recursive=self.recursive,
+                            dropzone=False,
+                            language=None,
+                            workers=self.workers,
+                            preserve_meta=self.preserve_meta,
+                            add_tag=[],
+                            strip_meta=self.strip_meta,
+                            resolution=self.resolution,
+                        )
+                    except SystemExit as exc:
+                        # The core exits gracefully (sys.exit) e.g. when no media
+                        # was found; SystemExit is a BaseException and would
+                        # otherwise bypass error reporting entirely.
+                        error_holder["error"] = str(exc) or "Processing stopped early"
+                    except ConversionCancelled:
+                        # Cancel is not an error
+                        pass
+                    except BaseException as exc:
+                        error_holder["error"] = f"{type(exc).__name__}: {exc}"
+                    finally:
+                        conversion_done.set()
 
             worker = threading.Thread(target=conversion_job, daemon=True)
             worker.start()

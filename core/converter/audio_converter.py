@@ -42,6 +42,7 @@ class AudioConverter:
                 return None  # Skip conversion from target format
             audio = None
             out_path = None
+            completed = False
             try:
                 audio = AudioFileClip(self.file_handler.join_back(audio_path_set))
                 # If recursive, create file outright where its source was found
@@ -67,6 +68,7 @@ class AudioConverter:
                         logger=self.prog_logger,
                     )
                 except Exception as _:
+                    self.file_handler.check_cancelled()
                     self.event_logger.info(
                         f"\n\n[!] {lang.get_translation('error', self.locale)}: {lang.get_translation('source_rate_incompatible', self.locale).replace('[format]', f'{format}')}\n"
                     )
@@ -77,10 +79,22 @@ class AudioConverter:
                         fps=self.default_audio_fps if format != "g722" else 16000,
                         logger=self.prog_logger,
                     )
+                completed = True
                 return (audio_path_set, out_path)
             finally:
-                if audio is not None:
-                    audio.close()
+                try:
+                    if audio is not None:
+                        audio.close()
+                finally:
+                    if (
+                        not completed
+                        and isinstance(out_path, (str, bytes, os.PathLike))
+                        and os.path.isfile(out_path)
+                    ):
+                        try:
+                            os.remove(out_path)
+                        except OSError:
+                            pass
 
         for res in filter(
             None,
@@ -96,6 +110,7 @@ class AudioConverter:
             )
 
             video, audio = None, None
+            completed = False
             try:
                 try:
                     video = VideoFileClip(
@@ -104,6 +119,7 @@ class AudioConverter:
                         fps_source="tbr",
                     )
                 except Exception:
+                    self.file_handler.check_cancelled()
                     video = None
                 if video is not None and self.file_handler.has_visuals(
                     movie_path_set, clip=video
@@ -140,6 +156,7 @@ class AudioConverter:
                             logger=self.prog_logger,
                         )
                     except Exception as _:
+                        self.file_handler.check_cancelled()
                         movie_path_str = (
                             f'"{self.file_handler.join_back(movie_path_set)}"'
                         )
@@ -147,6 +164,7 @@ class AudioConverter:
                             f"[!] {lang.get_translation('audio_extract_fail', self.locale).replace('[path]', movie_path_str)} - {lang.get_translation('skipping', self.locale)}\n"
                         )
                         return None
+                completed = True
                 return (movie_path_set, out_path_local)
             finally:
                 try:
@@ -159,6 +177,15 @@ class AudioConverter:
                         video.close()
                 except Exception:
                     pass
+                if (
+                    not completed
+                    and isinstance(out_path_local, (str, bytes, os.PathLike))
+                    and os.path.isfile(out_path_local)
+                ):
+                    try:
+                        os.remove(out_path_local)
+                    except OSError:
+                        pass
 
         for res in filter(
             None,

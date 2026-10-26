@@ -4,6 +4,7 @@ import string
 import random
 import threading
 import logging
+import subprocess
 import utils.language_support as lang
 
 from moviepy import VideoFileClip
@@ -17,6 +18,104 @@ _CLAIMED = set()
 class ConversionCancelled(Exception):
     # Raised at a per-file boundary when the running job was cancelled
     pass
+
+
+def _ffmpeg_command_name(args) -> str:
+    if isinstance(args, (str, bytes, os.PathLike)):
+        command = os.fsdecode(os.fspath(args)).strip()
+        if not command:
+            return ""
+        return command.split()[0]
+    try:
+        return os.fsdecode(os.fspath(args[0]))
+    except (TypeError, IndexError, KeyError):
+        return ""
+
+
+def _is_ffmpeg_command(args) -> bool:
+    name = os.path.basename(_ffmpeg_command_name(args)).lower()
+    if name.endswith(".exe"):
+        name = name[:-4]
+    return name.startswith("ffmpeg") or name.startswith("ffprobe")
+
+
+class FFmpegProcessTracker:
+    def __init__(self, cancel_event=None):
+        self.cancel_event = cancel_event
+        self._processes = set()
+        self._lock = threading.Lock()
+        self._stop_event = threading.Event()
+        self._watcher = None
+        self._previous_popen = None
+
+    def __enter__(self):
+        self.start()
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.stop()
+        return False
+
+    def start(self):
+        if self._previous_popen is not None:
+            return self
+        self._previous_popen = subprocess.Popen
+        tracker = self
+
+        class TrackingPopen(self._previous_popen):
+            def __init__(popen_self, args, *popen_args, **popen_kwargs):
+                super().__init__(args, *popen_args, **popen_kwargs)
+                if _is_ffmpeg_command(args):
+                    tracker._register(popen_self)
+
+        subprocess.Popen = TrackingPopen
+        if self.cancel_event is not None:
+            self._watcher = threading.Thread(
+                target=self._watch_cancel,
+                name="ffmpeg-cancel-watch",
+                daemon=True,
+            )
+            self._watcher.start()
+        return self
+
+    def _watch_cancel(self):
+        while not self._stop_event.is_set():
+            if self.cancel_event.wait(0.1):
+                self.kill_all()
+                return
+
+    def _register(self, process):
+        with self._lock:
+            self._processes.add(process)
+        if self.cancel_event is not None and self.cancel_event.is_set():
+            self._kill(process)
+
+    @staticmethod
+    def _kill(process):
+        try:
+            if process.poll() is None:
+                process.kill()
+                try:
+                    process.wait(timeout=1.0)
+                except subprocess.TimeoutExpired:
+                    pass
+        except (OSError, ValueError):
+            pass
+
+    def kill_all(self):
+        with self._lock:
+            processes = list(self._processes)
+        for process in processes:
+            self._kill(process)
+
+    def stop(self):
+        self._stop_event.set()
+        if self._watcher is not None:
+            self._watcher.join(timeout=1.0)
+            self._watcher = None
+        if self._previous_popen is not None:
+            subprocess.Popen = self._previous_popen
+            self._previous_popen = None
 
 
 def _claim_name(candidate: str) -> bool:
