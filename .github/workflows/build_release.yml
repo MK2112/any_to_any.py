@@ -17,7 +17,7 @@ jobs:
             artifact_upload_path: dist/AnyToAny.exe
             asset_name: AnyToAny-windows.exe
             python_version: '3.11'
-          - os: ubuntu-latest
+          - os: ubuntu-22.04
             artifact_name: AnyToAny
             artifact_path: dist/AnyToAny
             artifact_upload_path: dist/AnyToAny
