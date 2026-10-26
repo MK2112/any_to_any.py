@@ -216,6 +216,37 @@ def test_post_process_unchanged_without_cancel_event(tmp_path):
     assert out.exists()
 
 
+def test_post_process_releases_claim_for_missing_output(tmp_path):
+    from core.utils.file_handler import _CLAIMED
+
+    handler = _handler()
+    target = str(tmp_path / "ghost.mp3")
+
+    assert handler._resolve_output_file_conflict(target) == target
+    assert target in _CLAIMED
+
+    handler.post_process((str(tmp_path) + os.sep, "src", "wav"), target, delete=False)
+
+    assert target not in _CLAIMED
+
+
+def test_release_job_claims_frees_reserved_names(tmp_path):
+    from core.utils.file_handler import _CLAIMED
+
+    handler = _handler()
+    target = str(tmp_path / "later.mp3")
+    handler._resolve_output_file_conflict(target)
+    assert target in _CLAIMED
+
+    handler.release_job_claims()
+
+    assert handler._job_claims == set()
+    assert target not in _CLAIMED
+    # The name is claimable again without being pushed to later_1.mp3
+    assert handler._resolve_output_file_conflict(target) == target
+    handler.release_job_claims()
+
+
 def test_check_cancelled_is_noop_while_event_unset():
     import threading
 

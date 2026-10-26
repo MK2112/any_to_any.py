@@ -1036,3 +1036,24 @@ class TestDocumentTargetCoverage:
 
         assert list(out.glob("*.pptx")) == []
         assert (tmp_path / "empty.srt").exists()
+
+
+def test_cleanup_gif_frame_dir_releases_claim(tmp_path):
+    from core.utils.file_handler import FileHandler, safe_output_dir, _CLAIMED
+
+    event_logger = MagicMock()
+    handler = FileHandler(event_logger, "English")
+    converter = DocumentConverter(handler, MagicMock(), event_logger)
+
+    out = tmp_path / "out"
+    out.mkdir()
+    frame_dir = safe_output_dir(str(out / "anim"))
+    os.makedirs(frame_dir)
+    with open(os.path.join(frame_dir, "x.png"), "wb") as frame:
+        frame.write(b"png")
+    assert frame_dir in _CLAIMED
+
+    converter._cleanup_gif_frame_dir(frame_dir, "anim", str(out), True, False)
+
+    assert not os.path.exists(frame_dir)
+    assert frame_dir not in _CLAIMED

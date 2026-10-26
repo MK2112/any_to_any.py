@@ -337,6 +337,7 @@ class MovieConverter:
                             and _abs_frames.startswith(_abs_out + os.sep)
                         ):
                             shutil.rmtree(frames_dir)
+                            self.file_handler.release_claim(frames_dir)
                     except OSError as e:
                         self.event_logger.info(
                             f"[!] {lang.get_translation('error', self.locale)}: {e}"
@@ -411,6 +412,7 @@ class MovieConverter:
                             and _abs_scratch.startswith(_abs_out + os.sep)
                         ):
                             shutil.rmtree(scratch_dir)
+                            self.file_handler.release_claim(scratch_dir)
                     except OSError as e:
                         self.event_logger.info(
                             f"[!] {lang.get_translation('error', self.locale)}: {e}"

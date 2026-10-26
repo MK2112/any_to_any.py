@@ -2,8 +2,8 @@ import os
 import time
 import string
 import random
-import threading
 import logging
+import threading
 import subprocess
 import utils.language_support as lang
 
@@ -231,6 +231,7 @@ class FileHandler:
         self.metadata_callback = None
         self.cancel_event = None
         self.max_workers = resolve_worker_count()
+        self._job_claims = set()
 
     def join_back(self, file_path_set: tuple) -> str:
         # Join back the file path set to a concurrent path
@@ -257,7 +258,7 @@ class FileHandler:
         #  2. If timeout exceeded, fallback to random alphanumeric string (5 chars)
         output_path = os.path.abspath(output_path)
 
-        if _claim_name(output_path):
+        if self._claim(output_path):
             return output_path
 
         # Split the output path into directory, name, and extension
@@ -272,7 +273,7 @@ class FileHandler:
         while time.time() - cand_t0 < self.CONFLICT_RESOLUTION_TIMEOUT:
             candidate_name = f"{name}_{suffix_counter}{ext}"
             candidate_path = os.path.join(directory, candidate_name)
-            if _claim_name(candidate_path):
+            if self._claim(candidate_path):
                 return candidate_path
             suffix_counter += 1
 
@@ -284,7 +285,7 @@ class FileHandler:
             )
             fallback_name = f"{name}_{random_suffix}{ext}"
             candidate_path = os.path.join(directory, fallback_name)
-            if _claim_name(candidate_path):
+            if self._claim(candidate_path):
                 return candidate_path
         # Last-ditch attempt
         for _ in range(100):
@@ -292,16 +293,34 @@ class FileHandler:
                 random.choices(string.ascii_lowercase + string.digits, k=8)
             )
             candidate_path = os.path.join(directory, f"{name}_{random_suffix}{ext}")
-            if _claim_name(candidate_path):
+            if self._claim(candidate_path):
                 return candidate_path
         raise FileExistsError(f"Could not resolve a free filename for {output_path}")
 
     def _resolve_output_dir_conflict(self, dir_path: str) -> str:
-        return safe_output_dir(dir_path, timeout=self.CONFLICT_RESOLUTION_TIMEOUT)
+        resolved = safe_output_dir(dir_path, timeout=self.CONFLICT_RESOLUTION_TIMEOUT)
+        self._job_claims.add(os.path.abspath(resolved))
+        return resolved
 
     def check_cancelled(self) -> None:
         if self.cancel_event is not None and self.cancel_event.is_set():
             raise ConversionCancelled("Conversion cancelled")
+
+    def _claim(self, candidate: str) -> bool:
+        if _claim_name(candidate):
+            self._job_claims.add(candidate)
+            return True
+        return False
+
+    def release_claim(self, candidate: str) -> None:
+        resolved = os.path.abspath(candidate)
+        _release_name(resolved)
+        self._job_claims.discard(resolved)
+
+    def release_job_claims(self) -> None:
+        for candidate in self._job_claims:
+            _release_name(candidate)
+        self._job_claims.clear()
 
     def post_process(
         self,
@@ -314,8 +333,7 @@ class FileHandler:
         try:
             source_path = self.join_back(file_path_set)
             resolved_out_path = os.path.abspath(out_path)
-            if os.path.isfile(resolved_out_path):
-                _release_name(resolved_out_path)
+            self.release_claim(resolved_out_path)
             if show_status and os.path.isfile(resolved_out_path):
                 self.event_logger.info(
                     f"[>] {lang.get_translation('converted', self.locale)} "

@@ -343,7 +343,13 @@ class Controller:
                 self.low: "128k",
             }.get(quality, None)
 
-    def run(
+    def run(self, *args, **kwargs) -> None:
+        try:
+            return self._run_impl(*args, **kwargs)
+        finally:
+            self.file_handler.release_job_claims()
+
+    def _run_impl(
         self,
         input_path_args: list,
         format: str | list,
@@ -547,6 +553,8 @@ class Controller:
                         f"[!] {lang.get_translation('error', self.locale)}: {lang.get_translation('dropzone_diff', self.locale)}",
                     )
                 self.target_format = formats[0].lower() if formats else None
+                if self.preserve_meta or self.custom_tags:
+                    self.metadata_handler.set_metadata_dir(str(self.output))
                 self.event_logger.info(
                     f"[>] {lang.get_translation('dropzone_active', self.locale)} {self.input}"
                 )
@@ -903,6 +911,10 @@ class Controller:
             dropzone_controller.file_handler = self.file_handler
             dropzone_controller.target_format = self.target_format
             dropzone_controller.page_ranges = self.page_ranges
+            dropzone_controller.preserve_meta = self.preserve_meta
+            dropzone_controller.custom_tags = self.custom_tags
+            dropzone_controller.strip_meta = self.strip_meta
+            dropzone_controller.metadata_handler = self.metadata_handler
 
             with DirectoryWatcher(watch_path, handle_file_event) as watcher:
                 watcher.watch()

@@ -81,10 +81,12 @@ class DocumentConverter:
             if mapped:
                 if _contained:
                     shutil.rmtree(gif_frame_dir)
+                    self.file_handler.release_claim(gif_frame_dir)
             else:
                 if not pre_existing:
                     if _contained:
                         shutil.rmtree(gif_frame_dir)
+                        self.file_handler.release_claim(gif_frame_dir)
                 else:
                     try:
                         entries = os.listdir(gif_frame_dir)
@@ -631,6 +633,7 @@ class DocumentConverter:
                                 )
                                 try:
                                     os.remove(slide_img_path)
+                                    self.file_handler.release_claim(slide_img_path)
                                 except OSError:
                                     pass
                             if hasattr(shape, "text"):
@@ -674,6 +677,7 @@ class DocumentConverter:
                             doc.add_picture(tmp_img, width=docx.shared.Inches(5))
                             try:
                                 os.remove(tmp_img)
+                                self.file_handler.release_claim(tmp_img)
                             except OSError:
                                 pass
                         doc.add_page_break()

@@ -124,6 +124,102 @@ def test_watch_dropzone_file_instead_of_dir(controller_instance, tmp_path, caplo
     )
 
 
+def test_run_dropzone_sets_metadata_dir_before_watching(
+    controller_instance, tmp_path, monkeypatch
+):
+    import os
+
+    watch_dir = tmp_path / "watch"
+    watch_dir.mkdir()
+    out = tmp_path / "out"
+    out.mkdir()
+
+    seen = {}
+
+    def fake_watch(path):
+        seen["metadata_dir"] = controller_instance.metadata_handler.metadata_dir
+
+    monkeypatch.setattr(controller_instance, "watch_dropzone", fake_watch)
+
+    controller_instance.run(
+        input_path_args=[str(watch_dir)],
+        format="mp3",
+        output=str(out),
+        framerate=None,
+        quality=None,
+        split=None,
+        merge=False,
+        concat=False,
+        delete=False,
+        across=False,
+        recursive=False,
+        dropzone=True,
+        language=None,
+        workers=1,
+        preserve_meta=True,
+    )
+
+    assert seen["metadata_dir"] == os.path.join(str(out), ".metadata")
+    assert os.path.isdir(seen["metadata_dir"])
+
+
+def test_watch_dropzone_propagates_metadata_settings(
+    controller_instance, tmp_path, monkeypatch
+):
+    import core.controller as controller_module
+
+    watch_dir = tmp_path / "watch"
+    watch_dir.mkdir()
+    new_file = watch_dir / "new.mp3"
+    new_file.write_bytes(b"\x00" * 64)
+
+    class FakeWatcher:
+        def __init__(self, path, handler):
+            self.handler = handler
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            return False
+
+        def watch(self):
+            self.handler("created", str(new_file))
+
+    monkeypatch.setattr(controller_module, "DirectoryWatcher", FakeWatcher)
+
+    fake_clock = {"now": 0.0}
+
+    def fake_time():
+        fake_clock["now"] += 2.0
+        return fake_clock["now"]
+
+    monkeypatch.setattr(controller_module.time, "time", fake_time)
+    monkeypatch.setattr(controller_module.time, "sleep", lambda _: None)
+
+    created_controllers = []
+    real_init = controller_module.Controller.__init__
+
+    def tracking_init(self, *args, **kwargs):
+        real_init(self, *args, **kwargs)
+        created_controllers.append(self)
+
+    monkeypatch.setattr(controller_module.Controller, "__init__", tracking_init)
+
+    converter = setup_converter(controller_instance, str(tmp_path / "out"))
+    converter.target_format = "mp3"
+    converter.page_ranges = None
+    converter.resolution = None
+    converter.preserve_meta = True
+    converter.watch_dropzone(str(watch_dir))
+
+    assert len(created_controllers) == 1
+    event_controller = created_controllers[0]
+    assert event_controller.preserve_meta is True
+    assert event_controller.metadata_handler is converter.metadata_handler
+    assert event_controller.custom_tags == converter.custom_tags
+
+
 def test_watch_dropzone_reuses_one_controller(
     controller_instance, tmp_path, monkeypatch
 ):

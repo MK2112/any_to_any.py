@@ -358,7 +358,28 @@ class TestMetadataStorage:
 
         assert result is not None
         assert os.path.exists(result)
-        assert "output.metadata.json" in result
+        base = os.path.basename(result)
+        assert base.startswith("output.wav.") and base.endswith(".metadata.json")
+
+    def test_metadata_files_do_not_collide(self, metadata_handler, temp_metadata_dir):
+        metadata_handler.set_metadata_dir(str(temp_metadata_dir))
+
+        first = metadata_handler.save_metadata(
+            "in.mp3", {"format": "audio", "tags": {"n": 1}}, "/sub1/track.mp3"
+        )
+        second = metadata_handler.save_metadata(
+            "in.mp3", {"format": "audio", "tags": {"n": 2}}, "/sub2/track.mp3"
+        )
+        third = metadata_handler.save_metadata(
+            "in.mp3", {"format": "audio", "tags": {"n": 3}}, "/sub1/track.wav"
+        )
+        merged_source = metadata_handler.save_metadata(
+            "other.mp3", {"format": "audio", "tags": {"n": 4}}, "/sub1/track.mp3"
+        )
+
+        paths = [first, second, third, merged_source]
+        assert len(set(paths)) == 4
+        assert all(path and os.path.exists(path) for path in paths)
 
     def test_save_metadata_without_directory(self, metadata_handler):
         # Test saving metadata without setting directory

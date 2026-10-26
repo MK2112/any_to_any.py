@@ -80,6 +80,45 @@ def test_multi_input_no_output_does_not_crash(controller_instance, tmp_path):
         )
 
 
+def test_run_releases_claims_after_failed_conversion(
+    controller_instance, tmp_path, monkeypatch
+):
+    src = tmp_path / "clip.mp3"
+    src.write_bytes(b"\x00" * 128)
+    out = tmp_path / "out"
+    out.mkdir()
+    handler = controller_instance.file_handler
+    claimed = {}
+
+    def claim_then_fail(file_paths, formats):
+        claimed["path"] = handler._resolve_output_file_conflict(str(out / "clip.mp3"))
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(controller_instance, "_dispatch_targets", claim_then_fail)
+
+    with pytest.raises(RuntimeError):
+        controller_instance.run(
+            input_path_args=[str(src)],
+            format=["mp3"],
+            output=str(out),
+            framerate=None,
+            quality=None,
+            split=None,
+            merge=False,
+            concat=False,
+            delete=False,
+            across=False,
+            recursive=False,
+            dropzone=False,
+            language=None,
+            workers=1,
+        )
+
+    assert handler._job_claims == set()
+    assert handler._resolve_output_file_conflict(claimed["path"]) == claimed["path"]
+    handler.release_job_claims()  # keep the global registry clean
+
+
 def test_recursive_with_file_input_does_not_crash(
     controller_instance, tmp_path, monkeypatch
 ):
