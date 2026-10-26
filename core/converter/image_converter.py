@@ -737,10 +737,13 @@ class ImageConverter:
                 )
 
                 try:
+                    gif_fps = framerate or 12
                     images[0].save(
                         output_path,
                         save_all=True,
                         append_images=images[1:],
+                        duration=1000 // gif_fps,
+                        loop=0,
                     )
                     # Report the merged gif (and remove the participating
                     # source images when requested) only after it was written

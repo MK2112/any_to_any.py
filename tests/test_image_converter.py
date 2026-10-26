@@ -675,6 +675,42 @@ class TestDeleteAndLogAfterFrameConversion:
         assert not second.exists()
         assert "merged.gif" in caplog.text
 
+    def test_images_to_gif_sets_duration_and_loop(self, tmp_path):
+        from PIL import Image
+
+        converter = self._converter("images-gif-timing-test")
+
+        first = tmp_path / "a.png"
+        second = tmp_path / "b.png"
+        Image.new("RGB", (8, 8), "red").save(first)
+        Image.new("RGB", (8, 8), "blue").save(second)
+
+        out = tmp_path / "out"
+        out.mkdir()
+
+        converter.to_gif(
+            input=str(tmp_path),
+            output=str(out),
+            file_paths={
+                Category.IMAGE: [
+                    (str(tmp_path) + os.sep, "a", "png"),
+                    (str(tmp_path) + os.sep, "b", "png"),
+                ],
+                Category.MOVIE: [],
+                Category.DOCUMENT: [],
+                Category.AUDIO: [],
+            },
+            supported_formats={Category.IMAGE: ["gif"]},
+            framerate=10,
+            format="gif",
+            delete=False,
+        )
+
+        with Image.open(out / "merged.gif") as gif:
+            assert gif.n_frames == 2
+            assert gif.info.get("duration") == 100  # 10 fps -> 100 ms per frame
+            assert gif.info.get("loop") == 0
+
 
 class TestGifFramesHonorTargetFormat:
     """M5: GIF frame extraction must use the requested target format."""
