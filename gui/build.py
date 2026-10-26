@@ -121,7 +121,9 @@ def build_executable():
         "--hidden-import=mammoth",
         "--collect-all=reportlab",
         "--hidden-import=markdownify",
-        "--collect-all=pymupdf",
+        "--hidden-import=pymupdf",
+        "--exclude-module=pymupdf.layout",
+        "--exclude-module=pymupdf4llm",
     ])
 
     if platform.system() != "Windows":
