@@ -1,5 +1,6 @@
 import os
 import json
+import hashlib
 import subprocess
 
 from pathlib import Path
@@ -302,11 +303,17 @@ class MetadataHandler:
         # Returns path to metadata json file
         if self.metadata_dir is None:
             return None
-
-        # Create metadata filename based on output file
-        output_filename = Path(output_file_path).stem
+        output_path = Path(output_file_path)
+        path_key = hashlib.sha1(
+            (
+                os.path.abspath(file_path)
+                + "|"
+                + os.path.abspath(output_file_path)
+            ).encode("utf-8", "replace")
+        ).hexdigest()[:8]
         metadata_file = os.path.join(
-            self.metadata_dir, f"{output_filename}.metadata.json"
+            self.metadata_dir,
+            f"{output_path.stem}.{output_path.suffix.lstrip('.')}.{path_key}.metadata.json",
         )
 
         try:
