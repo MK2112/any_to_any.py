@@ -88,18 +88,29 @@ def build_executable():
         "--exclude-module=imageio_ffmpeg.binaries",
     ]
 
-    if platform.system() == "Windows":
+    system = platform.system()
+    if system == "Windows":
         common_exec_args.extend(["--onefile", "--noupx"])
         icon_path = _prepare_windows_icon(repo_root)
         if icon_path:
             common_exec_args.append(f"--icon={icon_path}")
         print("UPX disabled on Windows to avoid python DLL load failures.")
     else:
-        common_exec_args.extend(["--onefile", "--strip"])
+        common_exec_args.append("--onefile")
+        upx_exclude = []
+        if system == "Linux":
+            # binutils' strip on Ubuntu 22.04 (2.38) breaks the ELF segment
+            # alignment of numpy's vendored OpenBLAS, making the frozen app
+            # fail at import time. Keep it unstripped and also skip UPX for
+            # the OpenBLAS library as an extra safeguard.
+            upx_exclude.append("--upx-exclude=libscipy_openblas*.so")
+        else:
+            common_exec_args.append("--strip")
         upx_path = shutil.which("upx")
         if not upx_path:
             raise RuntimeError("UPX not found on PATH. Install UPX before building.")
         common_exec_args.extend(["--upx-dir", os.path.dirname(upx_path)])
+        common_exec_args.extend(upx_exclude)
 
     for data_dir in ["assets", "templates", "utils", "core"]:
         data_path = os.path.join(repo_root, data_dir)
