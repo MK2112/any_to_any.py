@@ -282,8 +282,8 @@ class MovieConverter:
 
         # Document to movie (because why the hell not)
         for doc_path_set in file_paths[Category.DOCUMENT]:
-            if doc_path_set[2] == "docx":
-                # Convert docx to list of images first
+            if doc_path_set[2] in ("docx", "pptx"):
+                # Convert to list of images first
                 # Stitch that together, convert to movie
                 frames_dir = office_to_frames(
                     doc_path_set,

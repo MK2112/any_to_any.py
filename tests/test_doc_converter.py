@@ -532,9 +532,7 @@ class TestDocumentConverterPdfSplitting:
         part1.close()
         part2.close()
 
-    def test_split_pdf_all_splits_every_page(
-        self, document_converter, temp_output_dir
-    ):
+    def test_split_pdf_all_splits_every_page(self, document_converter, temp_output_dir):
         pdf_path = os.path.join(temp_output_dir, "test.pdf")
         doc = pypdf.open()
         for i in range(3):
@@ -640,9 +638,7 @@ def test_controller_split_non_pdf_warns(controller_instance, caplog):
     assert "skipping" in caplog.text.lower()
 
 
-def test_run_with_pdf_format_and_split_actually_splits(
-    controller_instance, tmp_path
-):
+def test_run_with_pdf_format_and_split_actually_splits(controller_instance, tmp_path):
     input_dir = tmp_path / "input"
     input_dir.mkdir()
     pdf_path = input_dir / "doc.pdf"
@@ -754,13 +750,11 @@ class TestDocumentConverterGifFrameOrder:
         for name in ("anim-10.png", "anim-2.png", "anim-1.png"):
             open(os.path.join(frame_dir, name), "wb").close()
 
-        with patch(
-            "core.converter.doc_converter.gif_to_frames"
-        ) as mock_gif_to_frames, patch(
-            "core.converter.doc_converter.pypdf.open"
-        ) as mock_pypdf_open, patch(
-            "core.converter.doc_converter.pypdf.Pixmap"
-        ) as mock_pixmap:
+        with (
+            patch("core.converter.doc_converter.gif_to_frames") as mock_gif_to_frames,
+            patch("core.converter.doc_converter.pypdf.open") as mock_pypdf_open,
+            patch("core.converter.doc_converter.pypdf.Pixmap") as mock_pixmap,
+        ):
             mock_gif_to_frames.return_value = {"anim": frame_dir}
             mock_pypdf_open.return_value = MagicMock()
             mock_pixmap.return_value = MagicMock(width=100, height=100)
@@ -877,7 +871,6 @@ def test_parse_page_ranges_mixed_delimiters(document_converter):
 
 
 class TestOfficePlainTextSources:
-
     @staticmethod
     def _converter():
         from core.utils.file_handler import FileHandler
@@ -940,3 +933,106 @@ class TestOfficePlainTextSources:
 
         assert list(out.glob("*.docx")) == []
         assert (tmp_path / f"{name}.{ext}").exists()
+
+
+class TestDocumentTargetCoverage:
+    @staticmethod
+    def _converter():
+        return TestOfficePlainTextSources._converter()
+
+    @staticmethod
+    def _paths(tmp_path, name, ext):
+        return TestOfficePlainTextSources._paths(tmp_path, name, ext)
+
+    @staticmethod
+    def _write_source(tmp_path, ext, text):
+        if ext == "md":
+            (tmp_path / "src.md").write_text(f"# {text}\n", encoding="utf-8")
+        elif ext == "srt":
+            (tmp_path / "src.srt").write_text(
+                f"1\n00:00:00,000 --> 00:00:01,000\n{text}\n", encoding="utf-8"
+            )
+        elif ext == "docx":
+            document = docx.Document()
+            document.add_paragraph(text)
+            document.save(str(tmp_path / "src.docx"))
+        elif ext == "pptx":
+            from pptx import Presentation
+
+            presentation = Presentation()
+            slide = presentation.slides.add_slide(presentation.slide_layouts[1])
+            slide.shapes.title.text = text
+            presentation.save(str(tmp_path / "src.pptx"))
+        elif ext == "pdf":
+            document = pypdf.open()
+            document.new_page().insert_text((72, 72), text)
+            document.save(str(tmp_path / "src.pdf"))
+            document.close()
+
+    @pytest.mark.parametrize("ext", ["md", "srt", "pptx"])
+    def test_sources_to_pdf_produce_text(self, tmp_path, ext):
+        self._write_source(tmp_path, ext, "Some body text")
+        out = tmp_path / "out"
+        out.mkdir()
+
+        self._converter().to_pdf(
+            str(out), self._paths(tmp_path, "src", ext), "pdf", False
+        )
+
+        produced = out / "src.pdf"
+        assert produced.exists()
+        pdf = pypdf.open(str(produced))
+        try:
+            assert "Some body text" in "\n".join(page.get_text() for page in pdf)
+        finally:
+            pdf.close()
+
+    @pytest.mark.parametrize("ext", ["srt", "pdf", "pptx"])
+    def test_sources_to_markdown_produce_text(self, tmp_path, ext):
+        self._write_source(tmp_path, ext, "Some body text")
+        out = tmp_path / "out"
+        out.mkdir()
+
+        self._converter().to_markdown(
+            str(out), self._paths(tmp_path, "src", ext), "md", False
+        )
+
+        produced = out / "src.md"
+        assert produced.exists()
+        assert "Some body text" in produced.read_text(encoding="utf-8")
+
+    @pytest.mark.parametrize("ext", ["srt", "md", "docx"])
+    def test_sources_to_pptx_produce_slides(self, tmp_path, ext):
+        self._write_source(tmp_path, ext, "Some body text")
+        out = tmp_path / "out"
+        out.mkdir()
+
+        self._converter().to_office(
+            str(out), self._paths(tmp_path, "src", ext), "pptx", False
+        )
+
+        produced = out / "src.pptx"
+        assert produced.exists()
+        from pptx import Presentation
+
+        presentation = Presentation(str(produced))
+        assert len(presentation.slides) >= 1
+        text = "\n".join(
+            shape.text
+            for slide in presentation.slides
+            for shape in slide.shapes
+            if hasattr(shape, "text")
+        )
+        assert "Some body text" in text
+
+    def test_empty_text_source_is_skipped_for_pptx(self, tmp_path):
+        (tmp_path / "empty.srt").write_text("", encoding="utf-8")
+        out = tmp_path / "out"
+        out.mkdir()
+
+        self._converter().to_office(
+            str(out), self._paths(tmp_path, "empty", "srt"), "pptx", True
+        )
+
+        assert list(out.glob("*.pptx")) == []
+        assert (tmp_path / "empty.srt").exists()

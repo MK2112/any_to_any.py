@@ -216,6 +216,29 @@ def test_to_movie_docx_forwards_resolution(mock_office, mock_converter, tmp_path
     assert mock_converter._frames_to_movie.call_args.args[-1] == "640x360"
 
 
+@patch("core.converter.movie_converter.office_to_frames")
+def test_to_movie_pptx_is_not_ignored(mock_office, mock_converter, tmp_path):
+    (tmp_path / "deck-0.jpeg").write_bytes(b"frame")
+    mock_office.return_value = str(tmp_path)
+    mock_converter._frames_to_movie = MagicMock()
+    mock_converter.to_movie(
+        input="in",
+        output="out",
+        recursive=False,
+        file_paths={
+            Category.IMAGE: [],
+            Category.MOVIE: [],
+            Category.DOCUMENT: [("dir", "deck", "pptx")],
+        },
+        format="mp4",
+        framerate=24,
+        codec="libx264",
+        delete=False,
+    )
+    mock_office.assert_called_once()
+    assert mock_converter._frames_to_movie.call_count == 1
+
+
 @patch("core.converter.movie_converter.VideoFileClip")
 def test_to_codec_fallback_on_error(mock_vfc, mock_converter):
     mock_clip = MagicMock()

@@ -12,6 +12,7 @@ import utils.language_support as lang
 
 from PIL import Image
 from tqdm import tqdm
+from pptx.util import Inches
 from moviepy import VideoFileClip
 from markdownify import markdownify
 from utils.category import Category
@@ -100,6 +101,39 @@ class DocumentConverter:
                 f"[!] {lang.get_translation('error', self.locale)}: {e}"
             )
 
+    def _document_text_lines(self, doc_path_set: tuple) -> list[str]:
+        # Best-effort plain text extract
+        doc_format = doc_path_set[2]
+        doc_path = self.file_handler.join_back(doc_path_set)
+        if doc_format == "pdf":
+            lines = []
+            doc = pypdf.open(doc_path)
+            try:
+                for page in doc:
+                    lines.extend((page.get_text() or "").splitlines())
+            finally:
+                doc.close()
+            return lines
+        if doc_format == "pptx":
+            lines = []
+            presentation = pptx.Presentation(doc_path)
+            for slide in presentation.slides:
+                title = slide.shapes.title
+                if title is not None and title.text:
+                    lines.append(title.text)
+                for shape in slide.shapes:
+                    if shape is title or not hasattr(shape, "text"):
+                        continue
+                    if shape.text:
+                        lines.extend(shape.text.splitlines())
+            return lines
+        if doc_format in ("srt", "md"):
+            with open(doc_path, "r", encoding="utf-8-sig") as text_file:
+                return text_file.read().splitlines()
+        if doc_format == "docx":
+            return [paragraph.text for paragraph in docx.Document(doc_path).paragraphs]
+        return []
+
     def to_markdown(
         self, output: str, file_paths: dict, format: str, delete: bool
     ) -> None:
@@ -151,6 +185,23 @@ class DocumentConverter:
                 # Write Markdown file
                 with open(md_path, "w", encoding="utf-8") as md_file:
                     md_file.write(markdown_text)
+                self.file_handler.post_process(doc_path_set, md_path, delete)
+            elif doc_path_set[2] in ("pdf", "pptx", "srt"):
+                lines = self._document_text_lines(doc_path_set)
+                if not any(line.strip() for line in lines):
+                    self.event_logger.info(
+                        f"[!] {lang.get_translation('skipping', self.locale)}: "
+                        f'"{self.file_handler.join_back(doc_path_set)}"'
+                    )
+                    continue
+                md_path = self.file_handler._resolve_output_file_conflict(
+                    os.path.abspath(
+                        os.path.join(output, f"{doc_path_set[1]}.{format}")
+                    )
+                )
+                with open(md_path, "w", encoding="utf-8") as md_file:
+                    for line in lines:
+                        md_file.write(f"{line}\n")
                 self.file_handler.post_process(doc_path_set, md_path, delete)
 
     def to_pdf(self, output: str, file_paths: dict, format: str, delete: bool) -> None:
@@ -251,22 +302,15 @@ class DocumentConverter:
             if doc_path_set[2] == "pdf":
                 # If document is already a pdf, skip
                 continue
-            if doc_path_set[2] == "srt":
+            if doc_path_set[2] in ("srt", "md", "pptx"):
                 pdf_path = self.file_handler._resolve_output_file_conflict(
                     os.path.abspath(os.path.join(output, f"{doc_path_set[1]}.{format}"))
                 )
-
-                with open(
-                    self.file_handler.join_back(doc_path_set), "r", encoding="utf-8-sig"
-                ) as srt_file:
-                    srt_content = srt_file.read()
-
-                # Insert the SRT content into the PDF
+                # Plain-text sources (SRT, Markdown, PPTX) are inserted as-is
+                text_content = "\n".join(self._document_text_lines(doc_path_set))
                 doc = pypdf.open()
-
                 page = doc.new_page()
-                page.insert_text((50, 50), srt_content, fontsize=12)
-
+                page.insert_text((50, 50), text_content, fontsize=12)
                 doc.save(pdf_path)
                 doc.close()
 
@@ -660,6 +704,40 @@ class DocumentConverter:
                     )
                 )
                 doc.save(out_path)
+                self.file_handler.post_process(document_path_set, out_path, delete)
+        elif format == "pptx":
+            for document_path_set in file_paths[Category.DOCUMENT]:
+                if document_path_set[2] == format:
+                    continue
+                lines = self._document_text_lines(document_path_set)
+                if not any(line.strip() for line in lines):
+                    self.event_logger.info(
+                        f"[!] {lang.get_translation('skipping', self.locale)}: "
+                        f'"{self.file_handler.join_back(document_path_set)}"'
+                    )
+                    continue
+                container = pptx.Presentation()
+                slide = container.slides.add_slide(container.slide_layouts[6])
+                text_frame = slide.shapes.add_textbox(
+                    Inches(0.5),
+                    Inches(0.5),
+                    container.slide_width - Inches(1),
+                    container.slide_height - Inches(1),
+                ).text_frame
+                text_frame.word_wrap = True
+                for index, line in enumerate(lines):
+                    paragraph = (
+                        text_frame.paragraphs[0]
+                        if index == 0
+                        else text_frame.add_paragraph()
+                    )
+                    paragraph.text = line
+                out_path = self.file_handler._resolve_output_file_conflict(
+                    os.path.abspath(
+                        os.path.join(output, f"{document_path_set[1]}.{format}")
+                    )
+                )
+                container.save(out_path)
                 self.file_handler.post_process(document_path_set, out_path, delete)
 
     def split_pdf(

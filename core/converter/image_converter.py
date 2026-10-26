@@ -526,9 +526,8 @@ class ImageConverter:
     def _docs_to_frames(
         self, file_paths: dict, input: str, output: str, format: str, delete: bool
     ) -> None:
-        # Convert docs to frame sets (e.g., contents of docx/pdf)
         for doc_path_set in file_paths[Category.DOCUMENT]:
-            if doc_path_set[2] == "docx":
+            if doc_path_set[2] in ("docx", "pptx"):
                 office_to_frames(
                     doc_path_set=doc_path_set,
                     format=format,

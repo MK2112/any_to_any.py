@@ -1145,3 +1145,40 @@ class TestAlphaHandling:
         with Image.open(out) as result:
             assert result.mode == "RGBA"
             assert result.getpixel((0, 0)) == (10, 20, 30, 128)
+
+
+def test_pptx_frames_extracted_for_bmp(tmp_path):
+    import logging
+
+    from PIL import Image
+    from pptx.util import Inches
+    from pptx import Presentation
+    from core.utils.file_handler import FileHandler
+
+    Image.new("RGB", (32, 32), "teal").save(tmp_path / "pic.png")
+    presentation = Presentation()
+    slide = presentation.slides.add_slide(presentation.slide_layouts[6])
+    slide.shapes.add_picture(str(tmp_path / "pic.png"), Inches(1), Inches(1))
+    presentation.save(str(tmp_path / "deck.pptx"))
+
+    logger = logging.getLogger("pptx-bmp-frames")
+    converter = ImageConverter(FileHandler(logger, "English"), MagicMock(), logger, "English")
+    out = tmp_path / "out"
+    out.mkdir()
+
+    converter.to_bmp(
+        input=str(tmp_path),
+        output=str(out),
+        file_paths={
+            Category.DOCUMENT: [(str(tmp_path) + os.sep, "deck", "pptx")],
+            Category.IMAGE: [],
+            Category.MOVIE: [],
+            Category.AUDIO: [],
+        },
+        supported_formats={Category.DOCUMENT: ["bmp"]},
+        framerate=None,
+        format="bmp",
+        delete=False,
+    )
+
+    assert list((out / "deck").glob("*.bmp"))
