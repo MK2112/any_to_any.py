@@ -261,6 +261,54 @@ def test_to_codec_fallback_on_error(mock_vfc, mock_converter):
     assert mock_clip.write_videofile.call_count == 2
 
 
+@patch("core.converter.movie_converter.VideoFileClip")
+def test_to_codec_fallback_retry_keeps_explicit_codec(mock_vfc, mock_converter):
+    mock_clip = MagicMock()
+    mock_clip.write_videofile.side_effect = [Exception("fail"), None]
+    mock_vfc.return_value = mock_clip
+    mock_converter.file_handler.join_back.return_value = "dir/video.mp4"
+
+    mock_converter.to_codec(
+        input="in",
+        output="out",
+        format="xvid",
+        recursive=False,
+        file_paths={Category.MOVIE: [("dir", "video", "mp4")]},
+        framerate=24,
+        codec=("libxvid", "mp4"),
+        delete=False,
+    )
+
+    fallback_call = mock_clip.write_videofile.call_args_list[1]
+    assert fallback_call.kwargs["codec"] == "libx264"
+    assert mock_clip.close.call_count == 1
+
+
+@patch("core.converter.movie_converter.VideoFileClip")
+def test_to_codec_closes_resized_and_source_clips(mock_vfc, mock_converter):
+    mock_clip = MagicMock()
+    resized_clip = MagicMock()
+    mock_clip.resized.return_value = resized_clip
+    mock_vfc.return_value = mock_clip
+    mock_converter.file_handler.join_back.return_value = "dir/video.mp4"
+
+    mock_converter.to_codec(
+        input="in",
+        output="out",
+        format="avc",
+        recursive=False,
+        file_paths={Category.MOVIE: [("dir", "video", "mp4")]},
+        framerate=24,
+        codec=("libx264", "mp4"),
+        delete=False,
+        resolution="640x360",
+    )
+
+    mock_clip.resized.assert_called_once_with(new_size=(640, 360))
+    resized_clip.close.assert_called_once()
+    mock_clip.close.assert_called_once()
+
+
 @patch("core.converter.movie_converter.subprocess.run")
 def test_to_protocol_hls(mock_run, mock_converter):
     movie = ("dir", "sample", "mp4")

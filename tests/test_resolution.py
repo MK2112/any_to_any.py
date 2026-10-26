@@ -582,7 +582,7 @@ class TestMovieConverterResolution:
         resized_clip.close.assert_called_once()
 
     @patch("core.converter.movie_converter.VideoFileClip")
-    def test_to_codec_resolution_writes_resized_clip_without_closing_source(
+    def test_to_codec_resolution_writes_resized_clip_and_closes_both_clips(
         self, mock_vfc, mock_converter
     ):
         mock_clip = MagicMock()
@@ -605,7 +605,7 @@ class TestMovieConverterResolution:
         )
         mock_clip.resized.assert_called_once_with(new_size=(1280, 720))
         mock_clip.write_videofile.assert_not_called()
-        mock_clip.close.assert_not_called()
+        mock_clip.close.assert_called_once()
         resized_clip.write_videofile.assert_called_once()
         resized_clip.close.assert_called_once()
 

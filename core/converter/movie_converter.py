@@ -35,6 +35,14 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 _AUDIO_PLACEHOLDER_WIDTH = 1280
 _AUDIO_PLACEHOLDER_HEIGHT = 720
 _FFMPEG_TIMEOUT_SECONDS = 3600
+_FALLBACK_CODECS = {
+    "mkv": "libx264",
+    "mp4": "libx264",
+    "webm": "libvpx",
+    "ogv": "libtheora",
+    "flv": "flv1",
+    "mpg": "mpeg2video",
+}
 
 
 class MovieConverter:
@@ -451,6 +459,7 @@ class MovieConverter:
             if video is not None and self.file_handler.has_visuals(
                 codec_path_set, clip=video
             ):
+                source_video = video
                 if resolution is not None:
                     video = video.resized(new_size=parse_resolution(resolution))
                 try:
@@ -471,11 +480,14 @@ class MovieConverter:
                     )
                     video.write_videofile(
                         out_path,
+                        codec=_FALLBACK_CODECS.get(codec[1], codec[0]),
                         fps=effective_fps(video.fps, framerate),
                         audio=video.audio is not None,
                         logger=self.prog_logger,
                     )
-                video.close()
+                if video is not source_video:
+                    video.close()
+                source_video.close()
             else:
                 if video is not None:
                     video.close()
