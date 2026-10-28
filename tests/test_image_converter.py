@@ -597,6 +597,49 @@ class TestDeleteAndLogAfterFrameConversion:
         assert not src.exists()
         assert str(frame_dir / "anim-1.png") in caplog.text
 
+    def test_failed_image_does_not_disable_delete_for_next(
+        self, tmp_path, monkeypatch
+    ):
+        from PIL import Image
+
+        converter = self._converter("frames-delete-after-failure")
+        broken = tmp_path / "broken.png"
+        good = tmp_path / "good.png"
+        Image.new("RGB", (8, 8), "red").save(broken)
+        Image.new("RGB", (8, 8), "blue").save(good)
+
+        out = tmp_path / "out"
+        out.mkdir()
+        real_save = Image.Image.save
+
+        def failing_save(img, path, *args, **kwargs):
+            if os.path.basename(path) == "broken.bmp":
+                raise RuntimeError("boom")
+            return real_save(img, path, *args, **kwargs)
+
+        monkeypatch.setattr(Image.Image, "save", failing_save)
+        converter.to_frames(
+            input=str(tmp_path),
+            output=str(out),
+            file_paths={
+                Category.IMAGE: [
+                    (str(tmp_path) + os.sep, "broken", "png"),
+                    (str(tmp_path) + os.sep, "good", "png"),
+                ],
+                Category.MOVIE: [],
+                Category.DOCUMENT: [],
+                Category.AUDIO: [],
+            },
+            supported_formats={Category.IMAGE: ["bmp"]},
+            framerate=None,
+            format="bmp",
+            delete=True,
+        )
+
+        assert broken.exists()
+        assert not good.exists()
+        assert (out / "good.bmp").exists()
+
     @pytest.mark.parametrize("method,format", [("to_bmp", "bmp"), ("to_webp", "webp")])
     def test_pdf_to_frames_delete_source_and_log(
         self, tmp_path, caplog, method, format

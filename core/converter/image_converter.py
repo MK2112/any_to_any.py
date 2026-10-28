@@ -250,8 +250,6 @@ class ImageConverter:
         # Converting to image frame sets
         # This works for images and movies only
         format = "jpeg" if format == "jpg" else format
-
-        # Handle GIF files first (frames in the requested target format)
         gif_frames = gif_to_frames(output, file_paths, self.file_handler, format)
 
         # Process regular image files
@@ -311,8 +309,6 @@ class ImageConverter:
                     f"[!] {lang.get_translation('error', self.locale)} "
                     f"converting {self.file_handler.join_back(image_path_set)}: {str(e)}"
                 )
-                # Don't delete source file if conversion failed
-                delete = False
                 continue
         # Convert documents to image frames
         for doc_path_set in file_paths[Category.DOCUMENT]:
