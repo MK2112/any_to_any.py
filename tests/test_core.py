@@ -35,6 +35,17 @@ def test_get_file_paths_valid_input_files(controller_instance, tmp_path):
     assert Category.MOVIE in file_paths
 
 
+def test_get_file_paths_skips_directories_named_like_media(
+    controller_instance, tmp_path
+):
+    (tmp_path / "folder.mp3").mkdir()
+    (tmp_path / "real.mp3").write_bytes(b"\x00" * 128)
+    file_paths = controller_instance.file_handler.get_file_paths(
+        input=str(tmp_path), supported_formats=controller_instance._supported_formats
+    )
+    assert [path[1] for path in file_paths[Category.AUDIO]] == ["real"]
+
+
 def test_join_back_method(controller_instance, test_input_folder):
     file_path_set = ((str(test_input_folder) + "/"), "test_file", "mp4")
     assert controller_instance.file_handler.join_back(file_path_set) == str(

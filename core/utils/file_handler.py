@@ -453,6 +453,8 @@ class FileHandler:
                     raise FileNotFoundError
             for file_name in os.listdir(input):
                 file_path = os.path.abspath(os.path.join(input, file_name))
+                if not os.path.isfile(file_path):
+                    continue
                 file_info = process_file(file_path)
                 schedule_file(file_info)
         return file_paths
