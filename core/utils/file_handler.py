@@ -217,10 +217,28 @@ def effective_fps(clip_fps, requested=None, default: int = 24):
 def run_parallel(items, fn, max_workers):
     items = list(items)
     if len(items) <= 1 or max_workers <= 1:
-        return [fn(item) for item in items]
+        results = []
+        for item in items:
+            try:
+                results.append(fn(item))
+            except ConversionCancelled:
+                raise
+            except Exception as e:
+                logging.getLogger(__name__).error(f"[!] Skipping {item}: {e}")
+        return results
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = [executor.submit(fn, item) for item in items]
-        return [future.result() for future in as_completed(futures)]
+        futures = {executor.submit(fn, item): item for item in items}
+        results = []
+        for future in as_completed(futures):
+            try:
+                results.append(future.result())
+            except ConversionCancelled:
+                raise
+            except Exception as e:
+                logging.getLogger(__name__).error(
+                    f"[!] Skipping {futures[future]}: {e}"
+                )
+        return results
 
 
 class FileHandler:

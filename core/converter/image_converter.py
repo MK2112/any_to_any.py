@@ -183,8 +183,9 @@ def gif_to_frames(
         out_dir = _safe_out_dir(base_dir)
         os.makedirs(out_dir, exist_ok=True)
         created[image_path_set[1]] = out_dir
-        clip = VideoFileClip(file_handler.join_back(image_path_set), audio=False)
+        clip = None
         try:
+            clip = VideoFileClip(file_handler.join_back(image_path_set), audio=False)
             total_frames = int(clip.duration * clip.fps)
             num_digits = len(str(total_frames))
             for i, frame in enumerate(clip.iter_frames(fps=clip.fps, dtype="uint8")):
@@ -194,8 +195,15 @@ def gif_to_frames(
                     ),
                     format=_save_format(format),
                 )
+        except Exception as e:
+            file_handler.check_cancelled()
+            file_handler.event_logger.error(
+                f"[!] {lang.get_translation('error', getattr(file_handler, 'locale', 'English'))} "
+                f"{file_handler.join_back(image_path_set)}: {str(e)}"
+            )
         finally:
-            clip.close()
+            if clip is not None:
+                clip.close()
 
     run_parallel(gifs, _extract_gif_frames, worker_count_for(file_handler))
     return created

@@ -81,6 +81,13 @@ class AudioConverter:
                     )
                 completed = True
                 return (audio_path_set, out_path)
+            except Exception as e:
+                self.file_handler.check_cancelled()
+                self.event_logger.error(
+                    f"[!] {lang.get_translation('error', self.locale)} "
+                    f"{self.file_handler.join_back(audio_path_set)}: {str(e)}"
+                )
+                return None
             finally:
                 try:
                     if audio is not None:
@@ -166,6 +173,13 @@ class AudioConverter:
                         return None
                 completed = True
                 return (movie_path_set, out_path_local)
+            except Exception as e:
+                self.file_handler.check_cancelled()
+                self.event_logger.error(
+                    f"[!] {lang.get_translation('error', self.locale)} "
+                    f"{self.file_handler.join_back(movie_path_set)}: {str(e)}"
+                )
+                return None
             finally:
                 try:
                     if audio is not None:

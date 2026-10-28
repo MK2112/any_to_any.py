@@ -348,7 +348,6 @@ class MovieConverter:
                     os.path.abspath(os.path.join(output, f"{doc_path_set[1]}.{format}"))
                 )
 
-                doc = pypdf.open(pdf_path)
                 image_files = []
                 # Never reuse output/<basename> as scratch (C2): it may hold
                 # pre-existing user data which rmtree would then delete.
@@ -367,7 +366,9 @@ class MovieConverter:
                         )
                         scratch_owned = not os.path.exists(scratch_dir)
                         os.makedirs(scratch_dir, exist_ok=True)
+                completed = False
                 try:
+                    doc = pypdf.open(pdf_path)
                     total_pages = len(doc)
                     for i, page_num in tqdm(enumerate(range(total_pages))):
                         self.prog_logger.update_shared(
@@ -402,6 +403,13 @@ class MovieConverter:
                         framerate,
                         resolution,
                     )
+                    completed = True
+                except Exception as e:
+                    self.file_handler.check_cancelled()
+                    self.event_logger.error(
+                        f"[!] {lang.get_translation('error', self.locale)} "
+                        f"{pdf_path}: {str(e)}"
+                    )
                 finally:
                     try:
                         _abs_scratch = os.path.abspath(scratch_dir)
@@ -417,7 +425,8 @@ class MovieConverter:
                         self.event_logger.info(
                             f"[!] {lang.get_translation('error', self.locale)}: {e}"
                         )
-                self.file_handler.post_process(doc_path_set, movie_path, delete)
+                if completed:
+                    self.file_handler.post_process(doc_path_set, movie_path, delete)
 
     def to_codec(
         self,

@@ -683,12 +683,9 @@ class TestResourceCleanup:
         fh.join_back.return_value = "/d/a.wav"
 
         paths = {Category.AUDIO: [("/d", "a", "wav")], Category.MOVIE: []}
-
-        with pytest.raises(Exception, match="permanent failure"):
-            conv.to_audio(paths, "mp3", "mp3", False, "128k", "/in", "/out", False)
-
-        # Even though we raised, finally should have closed the clip
+        conv.to_audio(paths, "mp3", "mp3", False, "128k", "/in", "/out", False)
         mock_audio.close.assert_called_once()
+        fh.post_process.assert_not_called()
 
     @patch("core.converter.audio_converter.VideoFileClip")
     def test_video_and_audio_closed_after_extraction(self, mock_vfc):
