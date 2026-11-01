@@ -257,15 +257,41 @@ def test_concat_srt_renumbers_and_offsets_timestamps(controller_instance, tmp_pa
     )
 
 
-def test_concat_srt_rerun_overwrites_instead_of_appending(
-    controller_instance, tmp_path
-):
-    """Re-running concat must rewrite the output, not append to it."""
-    first = _concat_srts(controller_instance, tmp_path).read_text()
-    second = _concat_srts(controller_instance, tmp_path).read_text()
+def test_concat_srt_rerun_preserves_previous_output(controller_instance, tmp_path):
+    """Re-running concat must create a new output without altering the first."""
+    first_path = _concat_srts(controller_instance, tmp_path)
+    first = first_path.read_text()
+    _concat_srts(controller_instance, tmp_path)
+    second_path = tmp_path / "out" / "concatenated_subtitles_1.srt"
 
-    assert first == second
-    assert second.count("-->") == 4
+    assert first_path.read_text() == first
+    assert second_path.read_text() == first
+    assert first.count("-->") == 4
+
+
+def test_concat_preserves_unrelated_existing_srt(controller_instance, tmp_path):
+    out = tmp_path / "out"
+    out.mkdir()
+    existing = out / "concatenated_subtitles.srt"
+    existing.write_text("unrelated data", encoding="utf-8")
+    source = tmp_path / "input.srt"
+    source.write_text("1\n00:00:01,000 --> 00:00:02,000\nHello\n", encoding="utf-8")
+    controller_instance.output = str(out)
+    controller_instance.delete = False
+
+    controller_instance.concat(
+        {
+            Category.AUDIO: [],
+            Category.MOVIE: [],
+            Category.IMAGE: [],
+            Category.DOCUMENT: [(str(tmp_path) + os.sep, "input", "srt")],
+        },
+        format="srt",
+    )
+
+    assert existing.read_text(encoding="utf-8") == "unrelated data"
+    assert "Hello" in (out / "concatenated_subtitles_1.srt").read_text(encoding="utf-8")
+    assert source.exists()
 
 
 def test_concat_movie_none_fps_falls_back_to_default(controller_instance, tmp_path):
