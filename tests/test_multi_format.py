@@ -409,7 +409,7 @@ class TestMultiFormatBehavior:
         assert len(formats_processed) == 1
         assert formats_processed[0] == "mp4"
 
-    def test_multi_format_delete_deferred_to_last_pass(
+    def test_multi_format_delete_deferred_until_all_passes(
         self, controller_instance, tmp_path
     ):
         controller_instance.output = str(tmp_path)
@@ -445,11 +445,84 @@ class TestMultiFormatBehavior:
                 workers=1,
             )
 
-        assert delete_flags == [False, False, True]
+        assert delete_flags == [False, False, False]
         assert controller_instance.delete is True
 
 
 class TestMultiFormatDelete:
+    @staticmethod
+    def _run(controller, input_dir, output_dir, formats):
+        controller.run(
+            [str(input_dir)], format=formats, output=str(output_dir),
+            framerate=None, quality=None, split=None, merge=False, concat=False,
+            delete=True, across=False, recursive=False, dropzone=False,
+            language=None, workers=1,
+        )
+
+    def test_earlier_failure_keeps_only_affected_source(self, controller_instance, tmp_path):
+        from PIL import Image
+
+        input_dir = tmp_path / "input"
+        output_dir = tmp_path / "output"
+        input_dir.mkdir()
+        output_dir.mkdir()
+        for name in ("good", "bad"):
+            Image.new("RGB", (8, 8), "red").save(input_dir / f"{name}.png")
+
+        original_save = Image.Image.save
+
+        def fail_one_bmp(image, fp, *args, **kwargs):
+            if str(fp).endswith("bad.bmp"):
+                raise OSError("simulated encoder failure")
+            return original_save(image, fp, *args, **kwargs)
+
+        with mock.patch.object(Image.Image, "save", fail_one_bmp):
+            self._run(controller_instance, input_dir, output_dir, "bmp,jpeg")
+
+        assert (input_dir / "bad.png").exists()
+        assert not (input_dir / "good.png").exists()
+        assert not (output_dir / "bad.bmp").exists()
+        assert (output_dir / "bad.jpeg").exists()
+        assert (output_dir / "good.bmp").exists()
+        assert (output_dir / "good.jpeg").exists()
+
+    def test_skipped_same_format_keeps_source(self, controller_instance, tmp_path):
+        from PIL import Image
+
+        input_dir = tmp_path / "input"
+        output_dir = tmp_path / "output"
+        input_dir.mkdir()
+        output_dir.mkdir()
+        source = input_dir / "photo.png"
+        Image.new("RGB", (8, 8), "red").save(source)
+
+        self._run(controller_instance, input_dir, output_dir, "png,jpeg")
+
+        assert source.exists()
+        assert (output_dir / "photo.jpeg").exists()
+
+    def test_raised_exception_keeps_source(self, controller_instance, tmp_path):
+        from PIL import Image
+
+        input_dir = tmp_path / "input"
+        output_dir = tmp_path / "output"
+        input_dir.mkdir()
+        output_dir.mkdir()
+        source = input_dir / "photo.png"
+        Image.new("RGB", (8, 8), "red").save(source)
+
+        with mock.patch.dict(
+            controller_instance._supported_formats[Category.IMAGE],
+            {"gif": mock.Mock(side_effect=RuntimeError("failed"))},
+        ):
+            with pytest.raises(RuntimeError, match="failed"):
+                self._run(controller_instance, input_dir, output_dir, "bmp,gif")
+
+        assert source.exists()
+        assert (output_dir / "photo.bmp").exists()
+        assert controller_instance.file_handler._tracked_outputs is None
+        assert controller_instance.delete is True
+
     def test_delete_keeps_source_until_all_targets_are_written(
         self, controller_instance, tmp_path
     ):

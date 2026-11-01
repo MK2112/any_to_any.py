@@ -644,12 +644,31 @@ class Controller:
             self.split(file_paths, self.page_ranges)
             return
         requested_delete = self.delete
+        track_outputs = requested_delete and len(formats) > 1
+        successful = None
         try:
-            for index, fmt in enumerate(formats):
-                self.delete = requested_delete and index == len(formats) - 1
+            for fmt in formats:
+                self.delete = requested_delete and not track_outputs
                 self.target_format = fmt.lower() if fmt else None
+                if track_outputs:
+                    self.file_handler._tracked_outputs = {}
                 self.process_file_paths(file_paths)
+                if track_outputs:
+                    outputs = self.file_handler._tracked_outputs
+                    if successful is None:
+                        successful = {source: [paths] for source, paths in outputs.items()}
+                    else:
+                        successful = {
+                            source: previous + [outputs[source]]
+                            for source, previous in successful.items()
+                            if source in outputs
+                        }
+            if track_outputs:
+                for source, output_groups in (successful or {}).items():
+                    if all(any(os.path.isfile(path) for path in group) for group in output_groups):
+                        self.file_handler.remove_source(source)
         finally:
+            self.file_handler._tracked_outputs = None
             self.delete = requested_delete
         if not formats and (
             self.merging or self.concatenating or self.resolution is not None

@@ -250,6 +250,8 @@ class FileHandler:
         self.cancel_event = None
         self.max_workers = resolve_worker_count()
         self._job_claims = set()
+        self._tracked_outputs = None
+        self._tracked_outputs_lock = threading.Lock()
 
     def join_back(self, file_path_set: tuple) -> str:
         # Join back the file path set to a concurrent path
@@ -340,6 +342,20 @@ class FileHandler:
             _release_name(candidate)
         self._job_claims.clear()
 
+    def remove_source(self, source_path: str) -> None:
+        self.check_cancelled()
+        if os.path.isfile(source_path):
+            try:
+                os.remove(source_path)
+                self.event_logger.info(
+                    f'[-] {lang.get_translation("removed", self.locale)} "{source_path}"'
+                )
+            except OSError as e:
+                self.event_logger.warning(
+                    f"[!] {lang.get_translation('error', self.locale)}: "
+                    f'{lang.get_translation("could_not_remove", self.locale)} "{source_path}": {str(e)}'
+                )
+
     def post_process(
         self,
         file_path_set: tuple,
@@ -368,21 +384,12 @@ class FileHandler:
                         f"Metadata handling skipped for {resolved_out_path}: {e}"
                     )
 
-            if (
-                delete
-                and os.path.isfile(resolved_out_path)
-                and os.path.isfile(source_path)
-            ):
-                try:
-                    os.remove(source_path)
-                    self.event_logger.info(
-                        f'[-] {lang.get_translation("removed", self.locale)} "{source_path}"'
-                    )
-                except OSError as e:
-                    self.event_logger.warning(
-                        f"[!] {lang.get_translation('error', self.locale)}: "
-                        f'{lang.get_translation("could_not_remove", self.locale)} "{source_path}": {str(e)}'
-                    )
+            if os.path.isfile(resolved_out_path):
+                with self._tracked_outputs_lock:
+                    if self._tracked_outputs is not None and resolved_out_path != source_path:
+                        self._tracked_outputs.setdefault(source_path, set()).add(resolved_out_path)
+                if delete:
+                    self.remove_source(source_path)
 
             return resolved_out_path
 
