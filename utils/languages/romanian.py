@@ -123,4 +123,7 @@ ROMANIAN = {
     "update_available_title": "Actualizare disponibilă",
     "update_available_text": "Versiunea [latest] este disponibilă pe GitHub.",
     "update_available_info": "Folosiți versiunea [current]. Doriți să vizitați pagina versiunilor?",
+    "metadata_mode_none": "Nu păstra metadatele",
+    "metadata_mode_preserve": "Păstrează metadatele",
+    "metadata_mode_strip": "Elimină metadatele",
 }

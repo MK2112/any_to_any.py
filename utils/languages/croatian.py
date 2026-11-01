@@ -123,4 +123,7 @@ CROATIAN = {
     "update_available_title": "Dostupno ažuriranje",
     "update_available_text": "Verzija [latest] dostupna je na GitHubu.",
     "update_available_info": "Trenutačno koristite verziju [current]. Želite li posjetiti stranicu izdanja?",
+    "metadata_mode_none": "Nemoj čuvati metapodatke",
+    "metadata_mode_preserve": "Sačuvaj metapodatke",
+    "metadata_mode_strip": "Ukloni metapodatke",
 }

@@ -123,4 +123,7 @@ BOSNIAN = {
     "update_available_title": "Dostupno ažuriranje",
     "update_available_text": "Verzija [latest] je dostupna na GitHubu.",
     "update_available_info": "Trenutno koristite verziju [current]. Želite li posjetiti stranicu izdanja?",
+    "metadata_mode_none": "Ne čuvaj metapodatke",
+    "metadata_mode_preserve": "Sačuvaj metapodatke",
+    "metadata_mode_strip": "Ukloni metapodatke",
 }

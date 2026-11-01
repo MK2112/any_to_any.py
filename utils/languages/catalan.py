@@ -123,4 +123,7 @@ CATALAN = {
     "update_available_title": "Actualització disponible",
     "update_available_text": "La versió [latest] està disponible a GitHub.",
     "update_available_info": "Esteu utilitzant la versió [current]. Voleu visitar la pàgina de versions?",
+    "metadata_mode_none": "No conservar les metadades",
+    "metadata_mode_preserve": "Conservar les metadades",
+    "metadata_mode_strip": "Eliminar les metadades",
 }

@@ -123,4 +123,7 @@ DUTCH = {
     "update_available_title": "Update beschikbaar",
     "update_available_text": "Versie [latest] is beschikbaar op GitHub.",
     "update_available_info": "U gebruikt momenteel versie [current]. Wilt u de releasepagina bezoeken?",
+    "metadata_mode_none": "Metagegevens niet behouden",
+    "metadata_mode_preserve": "Metagegevens behouden",
+    "metadata_mode_strip": "Metagegevens verwijderen",
 }

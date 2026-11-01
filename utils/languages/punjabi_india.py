@@ -123,4 +123,7 @@ PUNJABI_INDIAN = {
     "update_available_title": "ਅੱਪਡੇਟ ਉਪਲਬਧ ਹੈ",
     "update_available_text": "ਵਰਜਨ [latest] GitHub 'ਤੇ ਉਪਲਬਧ ਹੈ।",
     "update_available_info": "ਤੁਸੀਂ ਇਸ ਵੇਲੇ ਵਰਜਨ [current] ਚਲਾ ਰਹੇ ਹੋ। ਕੀ ਤੁਸੀਂ ਰਿਲੀਜ਼ ਪੇਜ 'ਤੇ ਜਾਣਾ ਚਾਹੋਗੇ?",
+    "metadata_mode_none": "ਮੈਟਾਡੇਟਾ ਸੁਰੱਖਿਅਤ ਨਾ ਰੱਖੋ",
+    "metadata_mode_preserve": "ਮੈਟਾਡੇਟਾ ਸੁਰੱਖਿਅਤ ਰੱਖੋ",
+    "metadata_mode_strip": "ਮੈਟਾਡੇਟਾ ਹਟਾਓ",
 }

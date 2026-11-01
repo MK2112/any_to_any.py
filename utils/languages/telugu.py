@@ -123,4 +123,7 @@ TELUGU = {
     "update_available_title": "నవీకరణ అందుబాటులో ఉంది",
     "update_available_text": "వెర్షన్ [latest] GitHubలో అందుబాటులో ఉంది.",
     "update_available_info": "మీరు ప్రస్తుతం వెర్షన్ [current]ని ఉపయోగిస్తున్నారు. మీరు విడుదలల పేజీని సందర్శించాలనుకుంటున్నారా?",
+    "metadata_mode_none": "మెటాడేటాను భద్రపరచవద్దు",
+    "metadata_mode_preserve": "మెటాడేటాను భద్రపరచండి",
+    "metadata_mode_strip": "మెటాడేటాను తొలగించండి",
 }

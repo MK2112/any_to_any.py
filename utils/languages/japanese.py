@@ -123,4 +123,7 @@ JAPANESE = {
     "update_available_title": "アップデートがあります",
     "update_available_text": "GitHub でバージョン [latest] が利用可能です。",
     "update_available_info": "現在 [current] を実行しています。リリースページに移動しますか？",
+    "metadata_mode_none": "メタデータを保持しない",
+    "metadata_mode_preserve": "メタデータを保持する",
+    "metadata_mode_strip": "メタデータを削除する",
 }

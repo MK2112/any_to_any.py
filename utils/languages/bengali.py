@@ -123,4 +123,7 @@ BENGALI = {
     "update_available_title": "আপডেট উপলভ্য",
     "update_available_text": "[latest] সংস্করণটি GitHub-এ উপলভ্য।",
     "update_available_info": "আপনি বর্তমানে [current] সংস্করণটি ব্যবহার করছেন। আপনি কি রিলিজ পেজে যেতে চান?",
+    "metadata_mode_none": "মেটাডেটা সংরক্ষণ করবেন না",
+    "metadata_mode_preserve": "মেটাডেটা সংরক্ষণ করুন",
+    "metadata_mode_strip": "মেটাডেটা সরিয়ে ফেলুন",
 }

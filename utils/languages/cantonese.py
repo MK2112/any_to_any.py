@@ -123,4 +123,7 @@ CANTONESE = {
     "update_available_title": "有更新可用",
     "update_available_text": "GitHub 而家有 [latest] 版本可以用。",
     "update_available_info": "你而家用緊 [current] 版本。要唔要去發佈頁面睇下？",
+    "metadata_mode_none": "唔保留中繼資料",
+    "metadata_mode_preserve": "保留中繼資料",
+    "metadata_mode_strip": "移除中繼資料",
 }

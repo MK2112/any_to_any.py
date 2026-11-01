@@ -123,4 +123,7 @@ THAI = {
     "update_available_title": "มีอัปเดต",
     "update_available_text": "เวอร์ชัน [latest] พร้อมใช้งานบน GitHub",
     "update_available_info": "ขณะนี้คุณกำลังใช้เวอร์ชัน [current] ต้องการไปที่หน้ารุ่นที่เผยแพร่หรือไม่?",
+    "metadata_mode_none": "ไม่เก็บข้อมูลเมตา",
+    "metadata_mode_preserve": "เก็บข้อมูลเมตา",
+    "metadata_mode_strip": "ลบข้อมูลเมตา",
 }

@@ -123,4 +123,7 @@ FARSI = {
     "update_available_title": "به‌روزرسانی موجود است",
     "update_available_text": "نسخه [latest] در GitHub در دسترس است.",
     "update_available_info": "شما در حال استفاده از نسخه [current] هستید. آیا می‌خواهید از صفحه انتشار بازدید کنید؟",
+    "metadata_mode_none": "فراداده‌ها را حفظ نکن",
+    "metadata_mode_preserve": "فراداده‌ها را حفظ کن",
+    "metadata_mode_strip": "فراداده‌ها را حذف کن",
 }

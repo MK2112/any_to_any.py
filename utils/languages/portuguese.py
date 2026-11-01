@@ -123,4 +123,7 @@ PORTUGUESE = {
     "update_available_title": "Atualização disponível",
     "update_available_text": "A versão [latest] está disponível no GitHub.",
     "update_available_info": "Você está usando a versão [current]. Deseja visitar a página de versões?",
+    "metadata_mode_none": "Não preservar os metadados",
+    "metadata_mode_preserve": "Preservar os metadados",
+    "metadata_mode_strip": "Remover os metadados",
 }

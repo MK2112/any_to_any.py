@@ -123,4 +123,7 @@ PUNJABI_PAKISTAN = {
     "update_available_title": "اپ ڈیٹ دستیاب ہے",
     "update_available_text": "ورژن [latest] GitHub پر دستیاب ہے۔",
     "update_available_info": "تسی اس وقت ورژن [current] استعمال کر رہے او۔ کی تسی ریلیز پیج تے جانا چاہو گے؟",
+    "metadata_mode_none": "میٹا ڈیٹا محفوظ نہ رکھیں",
+    "metadata_mode_preserve": "میٹا ڈیٹا محفوظ رکھیں",
+    "metadata_mode_strip": "میٹا ڈیٹا ہٹا دیں",
 }

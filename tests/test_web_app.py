@@ -2,6 +2,7 @@ import io
 import os
 import re
 import time
+import zipfile
 import pytest
 import web_to_any as w
 
@@ -85,6 +86,88 @@ def test_convert_returns_202_and_job_id(client, tmp_storage):
     assert args[7] is False  # no merge
     assert args[8] is False  # no concat
     assert args[9] is None  # no specified resolution
+
+
+def test_convert_forwards_metadata_mode(client, tmp_storage):
+    tok = _csrf_for(client)
+    with mock.patch.object(w, "send_to_backend") as mock_backend:
+        resp = client.post(
+            "/convert",
+            data={
+                "files": [(io.BytesIO(b"pngdata"), "photo.png")],
+                "conversionType": "jpeg",
+                "metadataMode": "strip",
+                "csrf_token": tok,
+            },
+            content_type="multipart/form-data",
+        )
+    assert resp.status_code == 202
+    _wait_for_call(mock_backend)
+    args, _ = mock_backend.call_args
+    assert args[10] == "strip"
+
+
+def test_invalid_metadata_mode_is_rejected(client, tmp_storage):
+    tok = _csrf_for(client)
+    response = client.post(
+        "/convert",
+        data={
+            "files": [(io.BytesIO(b"pngdata"), "photo.png")],
+            "conversionType": "jpeg",
+            "metadataMode": "bogus",
+            "csrf_token": tok,
+        },
+        content_type="multipart/form-data",
+    )
+
+    assert response.status_code == 400
+    assert not list(tmp_storage.glob("uploads_*"))
+    assert not list(tmp_storage.glob("converted_*"))
+
+
+def test_zip_excludes_metadata_sidecars(tmp_path):
+    source = tmp_path / "converted_job"
+    (source / ".metadata").mkdir(parents=True)
+    (source / "track.mp3").write_bytes(b"audio")
+    (source / ".metadata" / "track.mp3.hash.metadata.json").write_text("{}")
+
+    zip_path = tmp_path / "download.zip"
+    w._zip_without_metadata(str(source), str(zip_path))
+
+    with zipfile.ZipFile(zip_path) as archive:
+        names = archive.namelist()
+    assert "converted_job/track.mp3" in names
+    assert not any(".metadata" in name for name in names)
+
+
+def test_send_to_backend_applies_metadata_mode(tmp_path):
+    controller = mock.MagicMock()
+    controller.prog_logger.job_id = None
+    controller.prog_logger.shared_progress_dict = None
+
+    expected = {
+        "none": (False, False),
+        "preserve": (True, False),
+        "strip": (False, True),
+    }
+    for index, (mode, flags) in enumerate(expected.items()):
+        input_dir = tmp_path / f"input-{index}"
+        input_dir.mkdir()
+        w.send_to_backend(
+            controller,
+            [str(input_dir)],
+            "mp3",
+            str(tmp_path / f"output-{index}"),
+            None,
+            "high",
+            None,
+            False,
+            False,
+            None,
+            mode,
+        )
+        kwargs = controller.run.call_args.kwargs
+        assert (kwargs["preserve_meta"], kwargs["strip_meta"]) == flags
 
 
 def test_job_is_not_accessible_from_another_session(client, tmp_storage):
@@ -220,9 +303,7 @@ def test_completed_job_storage_is_removed_after_retention(
     assert w._get_job_record(job_id) is None
 
 
-def test_fatal_exit_reaches_error_state_instead_of_polling_forever(
-    client, tmp_storage
-):
+def test_fatal_exit_reaches_error_state_instead_of_polling_forever(client, tmp_storage):
     # Job must reach a terminal state or we infinitely GET /progress
     tok = _csrf_for(client)
     response = client.post(
@@ -325,9 +406,7 @@ def test_csrf_token_is_bound_to_the_session_not_the_ip(client, tmp_storage):
     assert sorted(p.name for p in tmp_storage.glob("uploads_*")) == uploads_before
 
 
-def test_successful_submission_keeps_token_valid_for_parallel_tabs(
-    client, tmp_storage
-):
+def test_successful_submission_keeps_token_valid_for_parallel_tabs(client, tmp_storage):
     first_tok = _csrf_for(client)
     with mock.patch.object(w, "send_to_backend"):
         response = _convert_post(client, first_tok)

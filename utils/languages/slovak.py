@@ -123,4 +123,7 @@ SLOVAK = {
     "update_available_title": "Je k dispozícii aktualizácia",
     "update_available_text": "Verzia [latest] je dostupná na GitHube.",
     "update_available_info": "Používate verziu [current]. Chcete navštíviť stránku vydaní?",
+    "metadata_mode_none": "Nezachovávať metadáta",
+    "metadata_mode_preserve": "Zachovávať metadáta",
+    "metadata_mode_strip": "Odstrániť metadáta",
 }

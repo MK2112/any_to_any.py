@@ -123,4 +123,7 @@ BURMESE = {
     "update_available_title": "အပ်ဒိတ်ရရှိနိုင်ပါပြီ",
     "update_available_text": "ဗားရှင်း [latest] ကို GitHub တွင် ရရှိနိုင်ပါပြီ။",
     "update_available_info": "လက်ရှိတွင် ဗားရှင်း [current] ကို အသုံးပြုနေပါသည်။ Release စာမျက်နှာသို့ သွားလိုပါသလား။",
+    "metadata_mode_none": "မက်တာဒေတာကို မသိမ်းဆည်းပါနှင့်",
+    "metadata_mode_preserve": "မက်တာဒေတာကို သိမ်းဆည်းပါ",
+    "metadata_mode_strip": "မက်တာဒေတာကို ဖယ်ရှားပါ",
 }

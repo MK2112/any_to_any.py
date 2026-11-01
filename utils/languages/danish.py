@@ -123,4 +123,7 @@ DANISH = {
     "update_available_title": "Opdatering tilgængelig",
     "update_available_text": "Version [latest] er tilgængelig på GitHub.",
     "update_available_info": "Du kører i øjeblikket version [current]. Vil du besøge versionssiden?",
+    "metadata_mode_none": "Bevar ikke metadata",
+    "metadata_mode_preserve": "Bevar metadata",
+    "metadata_mode_strip": "Fjern metadata",
 }

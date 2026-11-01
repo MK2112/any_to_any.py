@@ -123,4 +123,7 @@ SERBIAN = {
     "update_available_title": "Dostupno ažuriranje",
     "update_available_text": "Verzija [latest] je dostupna na GitHubu.",
     "update_available_info": "Trenutno koristite verziju [current]. Želite li posetiti stranicu izdanja?",
+    "metadata_mode_none": "Nemojte čuvati metapodatke",
+    "metadata_mode_preserve": "Sačuvajte metapodatke",
+    "metadata_mode_strip": "Uklonite metapodatke",
 }

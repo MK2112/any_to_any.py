@@ -123,4 +123,7 @@ SWEDISH = {
     "update_available_title": "Uppdatering tillgänglig",
     "update_available_text": "Version [latest] finns tillgänglig på GitHub.",
     "update_available_info": "Du kör för närvarande version [current]. Vill du besöka versionssidan?",
+    "metadata_mode_none": "Bevara inte metadata",
+    "metadata_mode_preserve": "Bevara metadata",
+    "metadata_mode_strip": "Ta bort metadata",
 }

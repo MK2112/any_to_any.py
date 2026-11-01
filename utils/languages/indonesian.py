@@ -123,4 +123,7 @@ INDONESIAN = {
     "update_available_title": "Pembaruan Tersedia",
     "update_available_text": "Versi [latest] tersedia di GitHub.",
     "update_available_info": "Anda sedang menggunakan versi [current]. Apakah Anda ingin mengunjungi halaman rilis?",
+    "metadata_mode_none": "Jangan pertahankan metadata",
+    "metadata_mode_preserve": "Pertahankan metadata",
+    "metadata_mode_strip": "Hapus metadata",
 }

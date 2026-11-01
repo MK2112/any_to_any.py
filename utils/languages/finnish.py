@@ -123,4 +123,7 @@ FINNISH = {
     "update_available_title": "Päivitys saatavilla",
     "update_available_text": "Versio [latest] on saatavilla GitHubissa.",
     "update_available_info": "Käytät tällä hetkellä versiota [current]. Haluatko siirtyä julkaisut-sivulle?",
+    "metadata_mode_none": "Älä säilytä metatietoja",
+    "metadata_mode_preserve": "Säilytä metatiedot",
+    "metadata_mode_strip": "Poista metatiedot",
 }

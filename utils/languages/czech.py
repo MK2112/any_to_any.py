@@ -123,4 +123,7 @@ CZECH = {
     "update_available_title": "Je k dispozici aktualizace",
     "update_available_text": "Verze [latest] je k dispozici na GitHubu.",
     "update_available_info": "Používáte verzi [current]. Chcete navštívit stránku s vydáními?",
+    "metadata_mode_none": "Nezachovávat metadata",
+    "metadata_mode_preserve": "Zachovat metadata",
+    "metadata_mode_strip": "Odstranit metadata",
 }

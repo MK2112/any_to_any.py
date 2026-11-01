@@ -123,4 +123,7 @@ MALAY = {
     "update_available_title": "Kemas Kini Tersedia",
     "update_available_text": "Versi [latest] tersedia di GitHub.",
     "update_available_info": "Anda sedang menggunakan versi [current]. Adakah anda ingin melawat halaman keluaran?",
+    "metadata_mode_none": "Jangan kekalkan metadata",
+    "metadata_mode_preserve": "Kekalkan metadata",
+    "metadata_mode_strip": "Buang metadata",
 }

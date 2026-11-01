@@ -123,4 +123,7 @@ KOREAN = {
     "update_available_title": "업데이트 가능",
     "update_available_text": "GitHub에서 버전 [latest]을(를) 사용할 수 있습니다.",
     "update_available_info": "현재 버전 [current]을(를) 사용하고 있습니다. 릴리스 페이지로 이동하시겠습니까?",
+    "metadata_mode_none": "메타데이터 유지 안 함",
+    "metadata_mode_preserve": "메타데이터 유지",
+    "metadata_mode_strip": "메타데이터 제거",
 }

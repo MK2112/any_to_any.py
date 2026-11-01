@@ -127,6 +127,9 @@ ENGLISH = {
     "exit_while_converting": "A conversion is still running. Cancel it and exit anyway?",
     "resolution_unsupported": "Resolution {res} is not supported for '{fmt}'. Available resolutions: {list}",
     "metadata_label": "Metadata",
+    "metadata_mode_none": "Do not preserve metadata",
+    "metadata_mode_preserve": "Preserve metadata",
+    "metadata_mode_strip": "Strip metadata",
     "update_available_title": "Update Available",
     "update_available_text": "Version [latest] is available on GitHub.",
     "update_available_info": "You are running version [current]. Would you like to visit the releases page?"

@@ -11,7 +11,34 @@
     <header>
         <h1>
             <a class="static-anchor" target="_blank" href="https://github.com/MK2112/any_to_any.py">{{ title.split(" ")[0] }}</a>
-            <p>Web {{ title.split(' ')[1] }}</p>
+            <p>Web</p>
+            <a class="github-btn" href="https://github.com/MK2112/any_to_any.py"
+               title="Star any_to_any.py on GitHub" target="_blank" rel="noopener noreferrer"
+               aria-label="Star any_to_any.py on GitHub">
+                <svg width="15" height="15" viewBox="0 0 24 24"
+                    fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round"
+                    aria-hidden="true">
+                    <polygon points="12 2 15.1 8.4 22 9.3 17 14.2
+                    18.2 21 12 17.7 5.8 21 7 14.2 2 9.3 8.9 8.4 12 2"/>
+                </svg>
+                <span>Star</span>
+            </a>
+            <a class="github-btn" href="https://github.com/MK2112/any_to_any.py"
+               title="Fork any_to_any.py on GitHub" target="_blank" rel="noopener noreferrer"
+               aria-label="Fork any_to_any.py on GitHub">
+                <svg width="15" height="15" viewBox="0 0 24 24"
+                    fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round"
+                    aria-hidden="true">
+                    <circle cx="6" cy="3" r="2"/>
+                    <circle cx="18" cy="6" r="2"/>
+                    <circle cx="6" cy="21" r="2"/>
+                    <path d="M6 5v14"/>
+                    <path d="M18 8a6 6 0 0 1-6 6H9"/>
+                </svg>
+                <span>Fork</span>
+            </a>
         </h1>
     </header>
     <div class="fade-in">
@@ -49,6 +76,11 @@
                     </select>
                     <label style="margin-left: 2px;" id="conversion-resolution-label" for="conversion-resolution" title="{{ translations['resolution_help'] }}" hidden>{{ translations['resolution_label'] }}:</label>
                     <select id="conversion-resolution" title="{{ translations['resolution_help'] }}" hidden></select>
+                    <select id="metadata-mode" title="{{ translations['preserve_meta'] }} / {{ translations['strip_meta'] }}">
+                        <option value="preserve" selected>{{ translations['metadata_mode_preserve'] }}</option>
+                        <option value="none">{{ translations['metadata_mode_none'] }}</option>
+                        <option value="strip">{{ translations['metadata_mode_strip'] }}</option>
+                    </select>
                     <button title="{{ translations['convert_web_help'] }}" type="button" onclick="submitForm('/convert')">{{ translations['convert'] }}</button>
                     <button title="{{ translations['merge_web_help'] }}" type="button" onclick="submitForm('/merge')">{{ translations['merge'] }}</button>
                     <button title="{{ translations['concatenate_web_help'] }}" type="button" onclick="submitForm('/concat')">{{ translations['concatenate'] }}</button>

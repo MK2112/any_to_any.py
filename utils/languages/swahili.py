@@ -123,4 +123,7 @@ SWAHILI = {
     "update_available_title": "Sasisho Linapatikana",
     "update_available_text": "Toleo la [latest] linapatikana kwenye GitHub.",
     "update_available_info": "Unatumia toleo la [current]. Je, ungependa kutembelea ukurasa wa matoleo?",
+    "metadata_mode_none": "Usihifadhi metadata",
+    "metadata_mode_preserve": "Hifadhi metadata",
+    "metadata_mode_strip": "Ondoa metadata",
 }

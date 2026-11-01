@@ -123,4 +123,7 @@ ARABIC = {
     "update_available_title": "يتوفر تحديث",
     "update_available_text": "الإصدار [latest] متاح على GitHub.",
     "update_available_info": "أنت تستخدم الإصدار [current]. هل ترغب في زيارة صفحة الإصدارات؟",
+    "metadata_mode_none": "عدم الاحتفاظ بالبيانات الوصفية",
+    "metadata_mode_preserve": "الاحتفاظ بالبيانات الوصفية",
+    "metadata_mode_strip": "إزالة البيانات الوصفية",
 }

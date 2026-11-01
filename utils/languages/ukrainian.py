@@ -123,4 +123,7 @@ UKRAINIAN = {
     "update_available_title": "Доступне оновлення",
     "update_available_text": "Версія [latest] доступна на GitHub.",
     "update_available_info": "Ви використовуєте версію [current]. Бажаєте перейти на сторінку релізів?",
+    "metadata_mode_none": "Не зберігати метадані",
+    "metadata_mode_preserve": "Зберігати метадані",
+    "metadata_mode_strip": "Видалити метадані",
 }

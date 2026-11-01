@@ -5,6 +5,7 @@ import time
 import shutil
 import logging
 import secrets
+import zipfile
 import tempfile
 import threading
 import subprocess
@@ -376,20 +377,32 @@ with app.app_context():
     _ = controller.supported_formats
 
 
+def _zip_without_metadata(source_path: str, zip_path: str) -> None:
+    # Archive a dir, leave potential internal metadata remnants out
+    dir_name = os.path.basename(source_path)
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as archive:
+        for root, dirs, files in os.walk(source_path):
+            dirs[:] = [d for d in dirs if d != ".metadata"]
+            for file_name in files:
+                file_path = os.path.join(root, file_name)
+                archive_name = os.path.join(
+                    dir_name, os.path.relpath(file_path, source_path)
+                )
+                archive.write(file_path, archive_name)
+
+
 def push_zip(source_path: str):
-    # Create .zip file from source path, serve it for download.
-    # Source can be either a directory or a single file, doesn't matter.
-    # Create a temporary file for the zip
+    # Create .zip file from source path, serve it for download
+    # Source can be either a directory or a single file, doesn't matter
     temp_fd, temp_path = tempfile.mkstemp(suffix=".zip")
     os.close(temp_fd)
 
     try:
         if os.path.isdir(source_path):
             # If source is a directory, zip its contents
-            base_dir = os.path.dirname(source_path)
             dir_name = os.path.basename(source_path)
             # Create the zip file with the directory's contents
-            shutil.make_archive(temp_path[:-4], "zip", base_dir, dir_name)
+            _zip_without_metadata(source_path, temp_path)
             shutil.rmtree(source_path, ignore_errors=True)
             # Set the download name based on the directory name
             download_name = f"any_to_any_-_{dir_name}.zip"
@@ -441,6 +454,7 @@ def process_params() -> tuple:
     uploaded_files = request.files.getlist("files")
     fmt = request.form.get("conversionType")
     resolution = request.form.get("resolution") or None
+    metadata_mode = request.form.get("metadataMode", "none")
 
     # 'original' means "keep the source format", used for resize-only jobs
     if fmt == "original":
@@ -474,6 +488,8 @@ def process_params() -> tuple:
         )
         if resolution is None:
             abort(400, "Invalid resolution")
+    if metadata_mode not in {"none", "preserve", "strip"}:
+        abort(400, "Invalid metadata mode")
     conv_key, up_dir, cv_dir = _create_job_storage()
     try:
         saved_files = 0
@@ -487,7 +503,7 @@ def process_params() -> tuple:
     except Exception:
         _cleanup_job_storage(conv_key)
         raise
-    return fmt, up_dir, cv_dir, conv_key, resolution
+    return fmt, up_dir, cv_dir, conv_key, resolution, metadata_mode
 
 
 @app.route("/")
@@ -575,6 +591,7 @@ def send_to_backend(
     merge: bool,
     concat: bool,
     resolution: str = None,
+    metadata_mode: str = "none",
 ):
     job_id = getattr(controller_instance.prog_logger, "job_id", None)
     shared_dict = getattr(controller_instance.prog_logger, "shared_progress_dict", None)
@@ -615,9 +632,9 @@ def send_to_backend(
             dropzone=False,
             language="en_US",
             workers=1,
-            preserve_meta=True,
+            preserve_meta=metadata_mode == "preserve",
             add_tag=False,
-            strip_meta=False,
+            strip_meta=metadata_mode == "strip",
             resolution=resolution,
         )
 
@@ -668,7 +685,7 @@ def create_conversion_endpoint(merge: bool = False, concat: bool = False):
         job_id = None
         slot_transferred = False
         try:
-            fmt, up_dir, cv_dir, job_id, resolution = process_params()
+            fmt, up_dir, cv_dir, job_id, resolution, metadata_mode = process_params()
             job_controller = create_controller(
                 job_id=job_id, shared_progress_dict=shared_progress_dict
             )
@@ -688,6 +705,7 @@ def create_conversion_endpoint(merge: bool = False, concat: bool = False):
                 merge,
                 concat,
                 resolution,
+                metadata_mode,
             )
             future.add_done_callback(lambda _: _job_slots.release())
             slot_transferred = True

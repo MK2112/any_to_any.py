@@ -123,4 +123,7 @@ HEBREW = {
     "update_available_title": "עדכון זמין",
     "update_available_text": "גרסה [latest] זמינה ב-GitHub.",
     "update_available_info": "אתה משתמש כעת בגרסה [current]. האם תרצה לבקר בדף הגרסאות?",
+    "metadata_mode_none": "אין לשמור מטא-נתונים",
+    "metadata_mode_preserve": "שמור מטא-נתונים",
+    "metadata_mode_strip": "הסר מטא-נתונים",
 }

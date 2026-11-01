@@ -123,4 +123,7 @@ HUNGARIAN = {
     "update_available_title": "Frissítés érhető el",
     "update_available_text": "A [latest] verzió elérhető a GitHubon.",
     "update_available_info": "Jelenleg a [current] verziót használja. Szeretné meglátogatni a kiadások oldalát?",
+    "metadata_mode_none": "Metaadatok megőrzésének mellőzése",
+    "metadata_mode_preserve": "Metaadatok megőrzése",
+    "metadata_mode_strip": "Metaadatok eltávolítása",
 }

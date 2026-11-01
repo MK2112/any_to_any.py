@@ -123,4 +123,7 @@ TAMIL = {
     "update_available_title": "புதுப்பிப்பு உள்ளது",
     "update_available_text": "[latest] பதிப்பு GitHub-ல் கிடைக்கிறது.",
     "update_available_info": "நீங்கள் தற்போது [current] பதிப்பைப் பயன்படுத்துகிறீர்கள். வெளியீடுகள் பக்கத்தைப் பார்வையிட விரும்புகிறீர்களா?",
+    "metadata_mode_none": "மெட்டாடேட்டாவைப் பாதுகாக்க வேண்டாம்",
+    "metadata_mode_preserve": "மெட்டாடேட்டாவைப் பாதுகாக்கவும்",
+    "metadata_mode_strip": "மெட்டாடேட்டாவை அகற்றவும்",
 }

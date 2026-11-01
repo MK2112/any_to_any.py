@@ -123,4 +123,7 @@ RUSSIAN = {
     "update_available_title": "Доступно обновление",
     "update_available_text": "Версия [latest] доступна на GitHub.",
     "update_available_info": "Вы используете версию [current]. Хотите перейти на страницу релизов?",
+    "metadata_mode_none": "Не сохранять метаданные",
+    "metadata_mode_preserve": "Сохранять метаданные",
+    "metadata_mode_strip": "Удалить метаданные",
 }

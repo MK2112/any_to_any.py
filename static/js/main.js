@@ -139,6 +139,8 @@ function submitForm(endpoint) {
     if (csrfInput) formData.append('csrf_token', csrfInput.value);
     uploadedFiles.forEach(file => formData.append('files', file));
     formData.append('conversionType', conversionType);
+    const metadataMode = document.getElementById('metadata-mode');
+    if (metadataMode) formData.append('metadataMode', metadataMode.value);
     // Merge/concat do not resize; only conversions apply a resolution
     if (endpoint === '/convert') {
         formData.append('resolution', document.getElementById('conversion-resolution').value);

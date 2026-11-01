@@ -123,4 +123,7 @@ VIETNAMESE = {
     "update_available_title": "Có bản cập nhật",
     "update_available_text": "Phiên bản [latest] hiện có trên GitHub.",
     "update_available_info": "Bạn đang sử dụng phiên bản [current]. Bạn có muốn truy cập trang bản phát hành không?",
+    "metadata_mode_none": "Không giữ lại siêu dữ liệu",
+    "metadata_mode_preserve": "Giữ lại siêu dữ liệu",
+    "metadata_mode_strip": "Xóa siêu dữ liệu",
 }

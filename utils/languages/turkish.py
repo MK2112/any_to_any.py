@@ -123,4 +123,7 @@ TURKISH = {
     "update_available_title": "Güncelleme Mevcut",
     "update_available_text": "[latest] sürümü GitHub'da mevcut.",
     "update_available_info": "Şu anda [current] sürümünü kullanıyorsunuz. Sürümler sayfasını ziyaret etmek ister misiniz?",
+    "metadata_mode_none": "Üst verileri koruma",
+    "metadata_mode_preserve": "Üst verileri koru",
+    "metadata_mode_strip": "Üst verileri kaldır",
 }

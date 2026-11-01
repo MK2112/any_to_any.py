@@ -123,4 +123,7 @@ BULGARIAN = {
     "update_available_title": "Налична е актуализация",
     "update_available_text": "Версия [latest] е налична в GitHub.",
     "update_available_info": "Използвате версия [current]. Искате ли да посетите страницата с изданията?",
+    "metadata_mode_none": "Не запазвай метаданните",
+    "metadata_mode_preserve": "Запази метаданните",
+    "metadata_mode_strip": "Премахни метаданните",
 }

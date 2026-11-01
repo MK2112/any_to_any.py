@@ -123,4 +123,7 @@ MANDARIN_TRADITIONAL = {
     "update_available_title": "有可用的更新",
     "update_available_text": "GitHub 上已有 [latest] 版本可用。",
     "update_available_info": "您目前正在使用 [current] 版本。要前往發行頁面嗎？",
+    "metadata_mode_none": "不保留中繼資料",
+    "metadata_mode_preserve": "保留中繼資料",
+    "metadata_mode_strip": "移除中繼資料",
 }

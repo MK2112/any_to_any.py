@@ -123,4 +123,7 @@ URDU = {
     "update_available_title": "اپ ڈیٹ دستیاب ہے",
     "update_available_text": "ورژن [latest] GitHub پر دستیاب ہے۔",
     "update_available_info": "آپ اس وقت ورژن [current] استعمال کر رہے ہیں۔ کیا آپ ریلیز پیج پر جانا چاہیں گے؟",
+    "metadata_mode_none": "میٹا ڈیٹا محفوظ نہ کریں",
+    "metadata_mode_preserve": "میٹا ڈیٹا محفوظ کریں",
+    "metadata_mode_strip": "میٹا ڈیٹا ہٹا دیں",
 }

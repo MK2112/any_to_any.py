@@ -123,4 +123,7 @@ ICELANDIC = {
     "update_available_title": "Uppfærsla í boði",
     "update_available_text": "Útgáfa [latest] er í boði á GitHub.",
     "update_available_info": "Þú ert að nota útgáfu [current]. Viltu fara á útgáfusíðuna?",
+    "metadata_mode_none": "Ekki varðveita lýsigögn",
+    "metadata_mode_preserve": "Varðveita lýsigögn",
+    "metadata_mode_strip": "Fjarlægja lýsigögn",
 }

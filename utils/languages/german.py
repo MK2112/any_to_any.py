@@ -123,4 +123,7 @@ GERMAN = {
     "update_available_title": "Update verfügbar",
     "update_available_text": "Version [latest] ist auf GitHub verfügbar.",
     "update_available_info": "Sie verwenden derzeit Version [current]. Möchten Sie die Release-Seite aufrufen?",
+    "metadata_mode_none": "Metadaten nicht behalten",
+    "metadata_mode_preserve": "Metadaten behalten",
+    "metadata_mode_strip": "Metadaten entfernen"
 }

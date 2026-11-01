@@ -123,4 +123,7 @@ HINDI = {
     "update_available_title": "अपडेट उपलब्ध है",
     "update_available_text": "संस्करण [latest] GitHub पर उपलब्ध है।",
     "update_available_info": "आप वर्तमान में संस्करण [current] चला रहे हैं। क्या आप रिलीज़ पेज पर जाना चाहेंगे?",
+    "metadata_mode_none": "मेटाडेटा सुरक्षित न रखें",
+    "metadata_mode_preserve": "मेटाडेटा सुरक्षित रखें",
+    "metadata_mode_strip": "मेटाडेटा हटाएँ",
 }

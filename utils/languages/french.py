@@ -123,4 +123,7 @@ FRENCH = {
     "update_available_title": "Mise à jour disponible",
     "update_available_text": "La version [latest] est disponible sur GitHub.",
     "update_available_info": "Vous utilisez actuellement la version [current]. Voulez-vous consulter la page des versions ?",
+    "metadata_mode_none": "Ne pas conserver les métadonnées",
+    "metadata_mode_preserve": "Conserver les métadonnées",
+    "metadata_mode_strip": "Supprimer les métadonnées",
 }

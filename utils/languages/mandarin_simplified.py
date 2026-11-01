@@ -123,4 +123,7 @@ MANDARIN_SIMPLIFIED = {
     "update_available_title": "有可用更新",
     "update_available_text": "GitHub 上有 [latest] 版本可用。",
     "update_available_info": "您当前运行的是 [current] 版本。是否要访问发布页面？",
+    "metadata_mode_none": "不保留元数据",
+    "metadata_mode_preserve": "保留元数据",
+    "metadata_mode_strip": "移除元数据",
 }

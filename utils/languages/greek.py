@@ -123,4 +123,7 @@ GREEK = {
     "update_available_title": "Διαθέσιμη ενημέρωση",
     "update_available_text": "Η έκδοση [latest] είναι διαθέσιμη στο GitHub.",
     "update_available_info": "Χρησιμοποιείτε την έκδοση [current]. Θέλετε να επισκεφθείτε τη σελίδα εκδόσεων;",
+    "metadata_mode_none": "Να μη διατηρούνται τα μεταδεδομένα",
+    "metadata_mode_preserve": "Διατήρηση μεταδεδομένων",
+    "metadata_mode_strip": "Αφαίρεση μεταδεδομένων",
 }

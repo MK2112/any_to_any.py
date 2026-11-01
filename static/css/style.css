@@ -203,3 +203,38 @@ main, form, #drop-area {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
+
+.github-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 10px;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  background: #f6f8fa;
+  color: #24292f;
+  font: 500 13px/1.2 system-ui, sans-serif;
+  text-decoration: none;
+  transform: translate(10px, -5px);
+  transition: background .15s ease;
+}
+
+.github-btn svg {
+  color: #bf8700;
+  flex-shrink: 0;
+}
+
+.github-btn:hover {
+  background: #eaeef2;
+}
+
+.github-btn:focus-visible {
+  outline: 2px solid #0969da;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .github-btn {
+    transition: none;
+  }
+}

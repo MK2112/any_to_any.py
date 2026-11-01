@@ -123,4 +123,7 @@ TAGALOG = {
     "update_available_title": "May Available na Update",
     "update_available_text": "Available sa GitHub ang bersyon [latest].",
     "update_available_info": "Ginagamit mo ngayon ang bersyon [current]. Gusto mo bang bisitahin ang releases page?",
+    "metadata_mode_none": "Huwag panatilihin ang metadata",
+    "metadata_mode_preserve": "Panatilihin ang metadata",
+    "metadata_mode_strip": "Alisin ang metadata",
 }
