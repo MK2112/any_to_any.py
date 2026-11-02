@@ -611,6 +611,24 @@ class TestDocumentConverterSplitWarnings:
         mock_event_logger.warning.assert_called()
         assert os.listdir(temp_output_dir) == ["test.pdf"]
 
+    def test_split_pdf_partially_invalid_preserves_source_with_delete(self, tmp_path):
+        from core.utils.file_handler import FileHandler
+
+        pdf_path = tmp_path / "test.pdf"
+        self._make_pdf(str(pdf_path), 5)
+        logger = MagicMock()
+        handler = FileHandler(event_logger=logger, locale="English")
+        converter = DocumentConverter(handler, MagicMock(), logger, locale="English")
+        converter.split_pdf(
+            output=str(tmp_path / "out"),
+            doc_path_set=(str(tmp_path) + os.sep, "test", "pdf"),
+            page_ranges="1-2,99-100",
+            delete=True,
+        )
+        assert pdf_path.exists()
+        assert not (tmp_path / "out").exists()
+        assert "invalid" in logger.warning.call_args.args[0]
+
     def test_split_pdf_multi_range_post_processes_all_outputs(
         self, document_converter, temp_output_dir
     ):
@@ -728,6 +746,12 @@ class TestDocumentConverterIntegration:
         ("2-4,2-4", 8, [(2, 4)]),
         ("999", 5, None),
         ("a-b", 5, None),
+        ("1-2,99-100", 5, None),
+        ("99,1-2", 5, None),
+        ("1-2,typo", 5, None),
+        ("1-2,4-3", 5, None),
+        ("1-2,", 5, None),
+        ("1-5,rest", 5, [(1, 5)]),
     ],
 )
 def test_parse_page_ranges_various(document_converter, page_ranges, total, expected):

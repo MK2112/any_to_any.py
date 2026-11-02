@@ -780,7 +780,7 @@ class DocumentConverter:
         if parsed_ranges is None:
             pdf.close()
             self.event_logger.warning(
-                f"[!] split: no valid page ranges in '{page_ranges}' for "
+                f"[!] split: invalid or empty page ranges in '{page_ranges}' for "
                 f'"{doc_path_set[1]}.{doc_path_set[2]}" '
                 f"({total_pages} pages) - "
                 f"{lang.get_translation('skipping', self.locale)}"
@@ -828,12 +828,9 @@ class DocumentConverter:
             return [(1, total_pages)]
 
         # Split on both comma and semicolon, "1-2,3-4;5-6" keeps every range just alike
-        ranges = [
-            r.strip() for r in page_ranges.replace(";", ",").split(",") if r.strip()
-        ]
-        if not ranges:
-            # No delimiters found
-            ranges = [page_ranges.strip()]
+        ranges = [r.strip() for r in page_ranges.replace(";", ",").split(",")]
+        if any(not r for r in ranges):
+            return None
 
         parsed_ranges = []
         # Track where 'rest' should start
@@ -847,15 +844,17 @@ class DocumentConverter:
                     # Find highest end page processed so far
                     max_end = max(end for _, end in parsed_ranges)
                     rest_start = max_end + 1
-                parsed_ranges.append((rest_start, total_pages))
+                if rest_start <= total_pages:
+                    parsed_ranges.append((rest_start, total_pages))
                 continue
 
             # Handle single page numbers
-            if range_str.isdigit():
+            if range_str.isdecimal():
                 page_num = int(range_str)
-                if 1 <= page_num <= total_pages:
-                    parsed_ranges.append((page_num, page_num))
-                    rest_start = max(rest_start, page_num + 1)
+                if not 1 <= page_num <= total_pages:
+                    return None
+                parsed_ranges.append((page_num, page_num))
+                rest_start = max(rest_start, page_num + 1)
                 continue
 
             # Handle ranges like "1-5", "12-end", "2-end"
@@ -868,7 +867,7 @@ class DocumentConverter:
                     try:
                         start = int(start_str)
                     except ValueError:
-                        continue  # Some invalid range
+                        return None  # Reject the entire specification.
 
                     # Parse end
                     if end_str.lower() in ("end", "rest"):
@@ -887,6 +886,8 @@ class DocumentConverter:
                     ):
                         parsed_ranges.append((start, end))
                         rest_start = max(rest_start, end + 1)
+                        continue
+            return None  # Reject malformed or out-of-range tokens.
 
         # Remove duplicate range tuples, preserve order
         # Ranges still are allowed to overlap, must each be unique though

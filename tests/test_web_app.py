@@ -190,6 +190,44 @@ def test_job_is_not_accessible_from_another_session(client, tmp_storage):
     assert other_client.get(f"/download/{job_id}").status_code == 404
 
 
+@pytest.mark.parametrize("endpoint", ["/convert", "/merge", "/concat"])
+@pytest.mark.parametrize("names", [("a b.png", "a_b.png"), ("same.png", "same.png"),
+                                   ("dir1/same.png", "dir1_same.png"),
+                                   ("Photo.png", "photo.png")])
+def test_colliding_upload_names_rejected_before_storage(client, tmp_storage, endpoint, names):
+    tok = _csrf_for(client)
+    with mock.patch.object(w, "send_to_backend") as backend:
+        response = client.post(
+            endpoint,
+            data={"files": [(io.BytesIO(b"first"), names[0]),
+                            (io.BytesIO(b"second"), names[1])],
+                  "conversionType": "jpeg", "csrf_token": tok},
+            content_type="multipart/form-data",
+        )
+    assert response.status_code == 400
+    assert b"collide" in response.data
+    assert not list(tmp_storage.glob("uploads_*"))
+    assert not list(tmp_storage.glob("converted_*"))
+    backend.assert_not_called()
+
+
+def test_merge_preserves_distinct_matching_basenames(client, tmp_storage):
+    tok = _csrf_for(client)
+    with mock.patch.object(w, "send_to_backend") as backend:
+        response = client.post(
+            "/merge",
+            data={"files": [(io.BytesIO(b"video"), "clip.mp4"),
+                            (io.BytesIO(b"audio"), "clip.mp3")],
+                  "conversionType": "mp4", "csrf_token": tok},
+            content_type="multipart/form-data",
+        )
+        _wait_for_call(backend)
+    assert response.status_code == 202
+    upload_dir = backend.call_args.args[1][0]
+    assert open(os.path.join(upload_dir, "clip.mp4"), "rb").read() == b"video"
+    assert open(os.path.join(upload_dir, "clip.mp3"), "rb").read() == b"audio"
+
+
 def test_upload_file_count_is_bounded(client, tmp_storage):
     # Reject requests with too many files, and does not create any job storage
     tok = _csrf_for(client)
