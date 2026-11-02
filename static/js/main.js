@@ -104,8 +104,11 @@ function updateResolutionOptions() {
 
 // Accumulate all selected/dropped files in this array
 let uploadedFiles = [];
+let activeJobId = null;
+let submittingJob = false;
 
 function submitForm(endpoint) {
+    if (activeJobId || submittingJob) return;
     const conversionType = document.getElementById('conversion-type').value;
     const progressContainer = document.getElementById('progress-container');
     const errorMessage = document.getElementById('error-message');
@@ -147,6 +150,7 @@ function submitForm(endpoint) {
     }
 
     // Show loading state
+    submittingJob = true;
     showLoader();
 
     // Start conversion
@@ -168,6 +172,7 @@ function submitForm(endpoint) {
         if (data.csrf_token && csrfInput) {
             csrfInput.value = data.csrf_token;
         }
+        activeJobId = data.job_id;
         pollProgress(data.job_id);
     })
     .catch(error => {
@@ -177,6 +182,7 @@ function submitForm(endpoint) {
         console.error('Conversion error:', error);
     })
     .finally(() => {
+        submittingJob = false;
         uploadedFiles = [];
         document.getElementById('file-list').innerHTML = '';
     });
@@ -187,6 +193,25 @@ function pollProgress(jobId) {
     const progressBar = document.getElementById('progress-bar');
     const progressStatus = document.getElementById('progress-status');
     const errorMessage = document.getElementById('error-message');
+    const cancelButton = document.getElementById('cancel-job');
+    const csrfInput = document.querySelector('input[name="csrf_token"]');
+    let finished = false;
+    cancelButton.hidden = false;
+    cancelButton.disabled = false;
+    cancelButton.onclick = () => {
+        cancelButton.disabled = true;
+        fetch(`/cancel/${jobId}`, {
+            method: 'POST',
+            headers: {'X-CSRF-Token': csrfInput ? csrfInput.value : ''}
+        }).then(response => {
+            if (!response.ok && response.status !== 409) throw new Error('Could not cancel conversion');
+        }).catch(error => {
+            if (finished) return;
+            cancelButton.disabled = false;
+            errorMessage.style.display = 'block';
+            errorMessage.textContent = error.message;
+        });
+    };
 
     // Show progress UI
     progressContainer.style.display = 'block';
@@ -203,6 +228,21 @@ function pollProgress(jobId) {
                 return response.json();
             })
             .then(data => {
+                if (finished) return;
+                if (data.status === 'cancelling') {
+                    cancelButton.disabled = true;
+                    progressStatus.textContent = cancelButton.dataset.cancelling;
+                    return;
+                }
+                if (data.status === 'cancelled') {
+                    finished = true;
+                    clearInterval(pollInterval);
+                    activeJobId = null;
+                    cancelButton.hidden = true;
+                    progressBar.classList.remove('active');
+                    progressStatus.textContent = 'Conversion cancelled.';
+                    return;
+                }
                 // Handle error state
                 if (data.status === 'error') {
                     throw new Error(data.error || 'Conversion failed');
@@ -243,12 +283,16 @@ function pollProgress(jobId) {
 
                 // Handle completion
                 if (data.status === 'done') {
+                    finished = true;
                     clearInterval(pollInterval);
+                    activeJobId = null;
+                    cancelButton.hidden = true;
                     progressStatus.textContent = '';
                     window.location.href = `/download/${jobId}`;
                     
                     // Reset UI and file inputs after a short delay
                     setTimeout(() => {
+                        if (activeJobId || submittingJob) return;
                         progressContainer.style.display = 'none';
                         progressBar.style.width = '0%';
                         progressStatus.textContent = '';
@@ -266,7 +310,11 @@ function pollProgress(jobId) {
                 }
             })
             .catch(error => {
+                if (finished) return;
+                finished = true;
                 clearInterval(pollInterval);
+                activeJobId = null;
+                cancelButton.hidden = true;
                 errorMessage.style.display = 'block';
                 errorMessage.textContent = error.message || 'An error occurred during conversion';
                 progressContainer.style.display = 'none';

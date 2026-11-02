@@ -40,13 +40,21 @@ def _is_ffmpeg_command(args) -> bool:
 
 
 class FFmpegProcessTracker:
-    def __init__(self, cancel_event=None):
+    # Popen is process-global, so overlapping trackers must share one wrapper.
+    _registry_lock = threading.RLock()
+    _active = set()
+    _original_popen = None
+    _wrapper = None
+
+    def __init__(self, cancel_event=None, *, current_thread_only=False):
         self.cancel_event = cancel_event
+        self.current_thread_only = current_thread_only
+        self._owner_thread = None
         self._processes = set()
         self._lock = threading.Lock()
         self._stop_event = threading.Event()
         self._watcher = None
-        self._previous_popen = None
+        self._started = False
 
     def __enter__(self):
         self.start()
@@ -57,18 +65,27 @@ class FFmpegProcessTracker:
         return False
 
     def start(self):
-        if self._previous_popen is not None:
-            return self
-        self._previous_popen = subprocess.Popen
-        tracker = self
+        with self._registry_lock:
+            if self._started:
+                return self
+            self._owner_thread = threading.current_thread()
+            if not FFmpegProcessTracker._active:
+                FFmpegProcessTracker._original_popen = subprocess.Popen
 
-        class TrackingPopen(self._previous_popen):
-            def __init__(popen_self, args, *popen_args, **popen_kwargs):
-                super().__init__(args, *popen_args, **popen_kwargs)
-                if _is_ffmpeg_command(args):
-                    tracker._register(popen_self)
+                class TrackingPopen(FFmpegProcessTracker._original_popen):
+                    def __init__(popen_self, args, *popen_args, **popen_kwargs):
+                        super().__init__(args, *popen_args, **popen_kwargs)
+                        if _is_ffmpeg_command(args):
+                            with FFmpegProcessTracker._registry_lock:
+                                for tracker in FFmpegProcessTracker._active:
+                                    if not tracker.current_thread_only or tracker._owner_thread is threading.current_thread():
+                                        tracker._register(popen_self)
 
-        subprocess.Popen = TrackingPopen
+                FFmpegProcessTracker._wrapper = TrackingPopen
+                subprocess.Popen = TrackingPopen
+            self._stop_event.clear()
+            self._started = True
+            FFmpegProcessTracker._active.add(self)
         if self.cancel_event is not None:
             self._watcher = threading.Thread(
                 target=self._watch_cancel,
@@ -113,9 +130,15 @@ class FFmpegProcessTracker:
         if self._watcher is not None:
             self._watcher.join(timeout=1.0)
             self._watcher = None
-        if self._previous_popen is not None:
-            subprocess.Popen = self._previous_popen
-            self._previous_popen = None
+        with self._registry_lock:
+            if self._started:
+                FFmpegProcessTracker._active.discard(self)
+                self._started = False
+                if not FFmpegProcessTracker._active:
+                    if subprocess.Popen is FFmpegProcessTracker._wrapper:
+                        subprocess.Popen = FFmpegProcessTracker._original_popen
+                    FFmpegProcessTracker._original_popen = None
+                    FFmpegProcessTracker._wrapper = None
 
 
 def _claim_name(candidate: str) -> bool:

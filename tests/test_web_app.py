@@ -1,8 +1,12 @@
 import io
 import os
 import re
+import sys
+import subprocess
 import time
+import threading
 import zipfile
+from concurrent.futures import Future
 import pytest
 import web_to_any as w
 
@@ -494,6 +498,121 @@ def test_set_language_requires_a_valid_csrf_token(client):
 
     # The choice is persisted in the session and served back on the next page
     assert 'lang="de"' in client.get("/").get_data(as_text=True)
+
+
+def test_cancel_queued_job_auth_csrf_cleanup_and_slot(client, tmp_storage, monkeypatch):
+    future = Future()
+    executor = mock.Mock()
+    executor.submit.return_value = future
+    monkeypatch.setattr(w, "_job_executor", executor)
+    slots = mock.Mock()
+    slots.acquire.return_value = True
+    monkeypatch.setattr(w, "_job_slots", slots)
+    token = _csrf_for(client)
+    response = _convert_post(client, token)
+    job_id = response.get_json()["job_id"]
+    other = w.app.test_client()
+    other_token = _csrf_for(other)
+    assert client.post(f"/cancel/{job_id}").status_code == 403
+    assert other.post(f"/cancel/{job_id}", headers={"X-CSRF-Token": other_token}).status_code == 404
+    assert not future.cancelled()
+    result = client.post(f"/cancel/{job_id}", headers={"X-CSRF-Token": token})
+    assert result.status_code == 200
+    assert future.cancelled()
+    assert client.get(f"/progress/{job_id}").get_json()["status"] == "cancelled"
+    assert client.post(f"/cancel/{job_id}", headers={"X-CSRF-Token": token}).status_code == 200
+    assert slots.release.call_count == 1
+    assert (tmp_storage / f"uploads_{job_id}").is_dir()
+    assert client.get(f"/download/{job_id}").status_code == 409
+    monkeypatch.setitem(w.app.config, "JOB_RETENTION_SECONDS", 0)
+    w._cleanup_expired_jobs()
+    assert not (tmp_storage / f"uploads_{job_id}").exists()
+    assert not (tmp_storage / f"converted_{job_id}").exists()
+
+
+def test_cancel_running_job_waits_for_worker(client, tmp_storage, monkeypatch):
+    started = threading.Event()
+    release = threading.Event()
+    finished = threading.Event()
+    original = w.create_controller
+    def make_controller(*args, **kwargs):
+        controller = original(*args, **kwargs)
+        if kwargs.get("job_id"):
+            def run(**kwargs):
+                started.set()
+                assert release.wait(5)
+                controller.file_handler.check_cancelled()
+                finished.set()
+            controller.run = run
+        return controller
+    monkeypatch.setattr(w, "create_controller", make_controller)
+    token = _csrf_for(client)
+    response = _convert_post(client, token)
+    job_id = response.get_json()["job_id"]
+    try:
+        assert started.wait(5)
+        assert client.post(f"/cancel/{job_id}", headers={"X-CSRF-Token": token}).status_code == 202
+        assert client.get(f"/progress/{job_id}").get_json()["status"] == "cancelling"
+        assert (tmp_storage / f"uploads_{job_id}" / "photo.png").exists()
+        release.set()
+        deadline = time.time() + 5
+        while time.time() < deadline:
+            if client.get(f"/progress/{job_id}").get_json()["status"] == "cancelled":
+                break
+            time.sleep(0.02)
+        assert client.get(f"/progress/{job_id}").get_json()["status"] == "cancelled"
+        assert not finished.is_set()
+        assert (tmp_storage / f"uploads_{job_id}" / "photo.png").exists()
+    finally:
+        release.set()
+
+
+def test_cancel_web_job_terminates_its_ffmpeg(client, tmp_storage, monkeypatch):
+    ffmpeg = tmp_storage / ("ffmpeg.exe" if os.name == "nt" else "ffmpeg")
+    try:
+        os.symlink(sys.executable, ffmpeg)
+    except OSError:
+        import shutil
+        shutil.copy2(sys.executable, ffmpeg)
+    started = threading.Event()
+    processes = []
+    original = w.create_controller
+
+    def make_controller(*args, **kwargs):
+        controller = original(*args, **kwargs)
+        if kwargs.get("job_id"):
+            def run(**kwargs):
+                process = subprocess.Popen([str(ffmpeg), "-c", "import time; time.sleep(30)"])
+                processes.append(process)
+                started.set()
+                process.wait(timeout=10)
+            controller.run = run
+        return controller
+
+    monkeypatch.setattr(w, "create_controller", make_controller)
+    token = _csrf_for(client)
+    job_id = _convert_post(client, token).get_json()["job_id"]
+    try:
+        assert started.wait(5)
+        assert client.post(f"/cancel/{job_id}", headers={"X-CSRF-Token": token}).status_code == 202
+        deadline = time.time() + 5
+        while time.time() < deadline and client.get(f"/progress/{job_id}").get_json()["status"] != "cancelled":
+            time.sleep(0.02)
+        assert processes[0].poll() is not None
+        assert client.get(f"/progress/{job_id}").get_json()["status"] == "cancelled"
+    finally:
+        if processes and processes[0].poll() is None:
+            processes[0].kill()
+            processes[0].wait()
+
+
+def test_cancel_completed_job_returns_conflict(client, tmp_storage):
+    token = _csrf_for(client)
+    with mock.patch.object(w, "send_to_backend"):
+        job_id = _convert_post(client, token).get_json()["job_id"]
+    w._set_job_status(job_id, "done", time.time())
+    assert client.post(f"/cancel/{job_id}", headers={"X-CSRF-Token": token}).status_code == 409
+    assert client.get(f"/progress/{job_id}").get_json()["status"] == "done"
 
 
 def test_open_browser_quietly_discards_browser_output(monkeypatch):

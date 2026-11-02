@@ -89,7 +89,8 @@
             </form>
             <div id="progress-container" style="display: none; margin-top: 1em;">
                 <div id="progress-bar" style="height: 24px; width: 0; background: #5cb050; transition: width 0.3s;"></div>
-                <span id="progress-status"></span>
+                <span id="progress-status" role="status" aria-live="polite"></span>
+                <button id="cancel-job" type="button" data-cancelling="{{ translations['cancelling'] }}" hidden>{{ translations['cancel'] }}</button>
             </div>
             <div id="error-message" style="display: none; color: #f44336; margin-top: 1em;"></div>
             <input type="hidden" id="job-id" name="job-id" value="">

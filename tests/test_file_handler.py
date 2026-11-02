@@ -303,6 +303,60 @@ def test_ffmpeg_process_tracker_terminates_on_cancel(tmp_path):
     assert subprocess.Popen is original_popen
 
 
+def test_overlapping_trackers_restore_popen_after_out_of_order_stop():
+    original = subprocess.Popen
+    first = FFmpegProcessTracker()
+    second = FFmpegProcessTracker()
+    try:
+        first.start()
+        second.start()
+        first.stop()
+        assert subprocess.Popen is not original
+        second.stop()
+        assert subprocess.Popen is original
+    finally:
+        first.stop()
+        second.stop()
+
+
+def test_thread_scoped_trackers_cancel_only_their_own_process(tmp_path):
+    original = subprocess.Popen
+    events = [threading.Event(), threading.Event()]
+    ready = [threading.Event(), threading.Event()]
+    release = threading.Event()
+    processes = [None, None]
+    executable = _fake_ffmpeg(tmp_path)
+
+    def worker(index):
+        with FFmpegProcessTracker(events[index], current_thread_only=True):
+            proc = subprocess.Popen([executable, "-c", "import time; time.sleep(30)"])
+            processes[index] = proc
+            ready[index].set()
+            try:
+                release.wait(5)
+            finally:
+                if proc.poll() is None:
+                    proc.kill()
+                proc.wait()
+
+    threads = [threading.Thread(target=worker, args=(i,)) for i in range(2)]
+    for thread in threads:
+        thread.start()
+    try:
+        assert all(event.wait(5) for event in ready)
+        events[0].set()
+        deadline = time.time() + 5
+        while processes[0].poll() is None and time.time() < deadline:
+            time.sleep(0.02)
+        assert processes[0].poll() is not None
+        assert processes[1].poll() is None
+    finally:
+        release.set()
+        for thread in threads:
+            thread.join(timeout=5)
+    assert subprocess.Popen is original
+
+
 def test_ffmpeg_process_tracker_ignores_other_commands():
     event = threading.Event()
     process = None

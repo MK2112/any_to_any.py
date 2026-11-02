@@ -20,6 +20,7 @@ from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor
 from flask_uploads import UploadSet, configure_uploads, ALL
 from core.utils.resolution import available_resolutions, normalize_resolution
+from core.utils.file_handler import ConversionCancelled, FFmpegProcessTracker
 from flask import Flask, render_template, request, send_file, jsonify, abort, session, g
 
 # Web server providing a web interface
@@ -94,6 +95,7 @@ def _create_job_storage() -> tuple[str, str, str]:
                 "converted_dir": cv_dir,
                 "created_at": time.time(),
                 "status": "queued",
+                "cancel_event": threading.Event(),
                 "cleanup_lock": threading.Lock(),
             }
         return job_id, up_dir, cv_dir
@@ -319,7 +321,7 @@ def _cleanup_expired_jobs() -> None:
     # Dir scan also removes abandoned storage left by process restart
     for job_id, record in records:
         completed_at = record.get("completed_at", record.get("updated_at", 0))
-        if record.get("status") in {"done", "error"} and now - completed_at >= retentn:
+        if record.get("status") in {"done", "error", "cancelled"} and now - completed_at >= retentn:
             _cleanup_job_storage(job_id, record)
 
     prefixes = (
@@ -603,12 +605,17 @@ def send_to_backend(
     job_id = getattr(controller_instance.prog_logger, "job_id", None)
     shared_dict = getattr(controller_instance.prog_logger, "shared_progress_dict", None)
 
+    record = _get_job_record(job_id) if job_id else None
+    cancel_event = record["cancel_event"] if record else None
+    if cancel_event is not None:
+        controller_instance.file_handler.cancel_event = cancel_event
     input_dir = input_path_args[0] if input_path_args else None
     total_files = 0
     if input_dir and os.path.isdir(input_dir):
         with os.scandir(input_dir) as it:
             total_files = sum(1 for entry in it if entry.is_file())
 
+    error = None
     try:
         if job_id and shared_dict is not None:
             with progress_lock:
@@ -623,64 +630,55 @@ def send_to_backend(
                     "last_updated": time.time(),
                 }
 
-        _set_job_status(job_id, "processing")
-        controller_instance.run(
-            input_path_args=input_path_args,
-            format=format,
-            output=output,
-            framerate=framerate,
-            quality=quality,
-            split=split_pattern,
-            merge=merge,
-            concat=concat,
-            delete=True,
-            across=False,
-            recursive=False,
-            dropzone=False,
-            language="en_US",
-            workers=1,
-            preserve_meta=metadata_mode == "preserve",
-            add_tag=False,
-            strip_meta=metadata_mode == "strip",
-            resolution=resolution,
-        )
-
-        if job_id and shared_dict is not None:
-            with progress_lock:
-                completed_at = time.time()
-                shared_dict[job_id].update(
-                    {
-                        "progress": total_files * 100,
-                        "total": total_files * 100,
-                        "completed_files": total_files,
-                        "progress_percent": 100,
-                        "status": "done",
-                        "completed_at": completed_at,
-                        "last_updated": completed_at,
-                    }
-                )
-            _set_job_status(job_id, "done", completed_at)
-
+        with _job_lock:
+            if record and not cancel_event.is_set():
+                record["status"] = "processing"
+        if cancel_event is not None and cancel_event.is_set():
+            raise ConversionCancelled("Conversion cancelled")
+        with FFmpegProcessTracker(cancel_event, current_thread_only=True):
+            controller_instance.run(
+                input_path_args=input_path_args,
+                format=format,
+                output=output,
+                framerate=framerate,
+                quality=quality,
+                split=split_pattern,
+                merge=merge,
+                concat=concat,
+                delete=True,
+                across=False,
+                recursive=False,
+                dropzone=False,
+                language="en_US",
+                workers=1,
+                preserve_meta=metadata_mode == "preserve",
+                add_tag=False,
+                strip_meta=metadata_mode == "strip",
+                resolution=resolution,
+            )
     except (Exception, SystemExit) as e:
-        error_msg = _conversion_error_message(e)
-        completed_at = time.time()
-        if job_id and shared_dict is not None:
-            with progress_lock:
-                if job_id in shared_dict:
-                    shared_dict[job_id].update(
-                        {
-                            "status": "error",
-                            "error": error_msg,
-                            "completed_at": completed_at,
-                            "last_updated": completed_at,
-                        }
-                    )
-        _set_job_status(job_id, "error", completed_at)
-        raise
-
+        error = e
     finally:
-        if input_path_args and os.path.exists(input_path_args[0]):
-            shutil.rmtree(input_path_args[0], ignore_errors=True)
+        # Decide completion atomically with cancellation and publish only after cleanup.
+        with _job_lock:
+            cancelled = cancel_event is not None and cancel_event.is_set()
+            if not cancelled and input_path_args and os.path.exists(input_path_args[0]):
+                shutil.rmtree(input_path_args[0], ignore_errors=True)
+            status = "cancelled" if cancelled else ("error" if error else "done")
+            completed_at = time.time()
+            if record:
+                record.update(status=status, completed_at=completed_at, updated_at=completed_at)
+            if job_id and shared_dict is not None:
+                with progress_lock:
+                    progress = shared_dict.get(job_id)
+                    if progress is not None:
+                        progress.update(status=status, error=_conversion_error_message(error) if error and not cancelled else None,
+                                        completed_at=completed_at, last_updated=completed_at)
+                        if status == "done":
+                            progress.update(progress=total_files * 100, total=total_files * 100,
+                                            completed_files=total_files, progress_percent=100)
+    if error and not cancelled:
+        raise error
 
 
 def create_conversion_endpoint(merge: bool = False, concat: bool = False):
@@ -714,7 +712,16 @@ def create_conversion_endpoint(merge: bool = False, concat: bool = False):
                 resolution,
                 metadata_mode,
             )
-            future.add_done_callback(lambda _: _job_slots.release())
+            with _job_lock:
+                _job_records[job_id]["future"] = future
+
+            def job_finished(done_future):
+                if done_future.cancelled():
+                    completed_at = time.time()
+                    _set_job_status(job_id, "cancelled", completed_at)
+                _job_slots.release()
+
+            future.add_done_callback(job_finished)
             slot_transferred = True
             g.conversion_slot_acquired = False
         except Exception:
@@ -752,6 +759,31 @@ app.add_url_rule(
 )
 
 
+@app.route("/cancel/<job_id>", methods=["POST"])
+def cancel_job(job_id: str):
+    _require_csrf()
+    if not _JOB_ID_RE.fullmatch(job_id):
+        abort(400, "Invalid job ID")
+    if not _job_is_authorized(job_id):
+        abort(404, "Job not found")
+    with _job_lock:
+        record = _job_records.get(job_id)
+        if record is None:
+            abort(404, "Job not found")
+        if record["status"] == "cancelled":
+            return jsonify({"status": "cancelled"})
+        if record["status"] in {"done", "error"}:
+            abort(409, "Conversion is already complete")
+        record["cancel_event"].set()
+        record["status"] = "cancelling"
+        future = record.get("future")
+    if future is not None:
+        future.cancel()  # A queued job can release its slot immediately.
+    with _job_lock:
+        status = record["status"]
+    return jsonify({"status": status}), 202 if status == "cancelling" else 200
+
+
 @app.route("/progress/<job_id>", methods=["GET"])
 def get_progress(job_id: str):
     if not _JOB_ID_RE.fullmatch(job_id):
@@ -759,6 +791,11 @@ def get_progress(job_id: str):
     if not _job_is_authorized(job_id):
         abort(404, "Job not found")
 
+    with _job_lock:
+        record = _job_records.get(job_id)
+        if record is None:
+            abort(404, "Job not found")
+        job_status = record["status"]
     with progress_lock:
         prog = shared_progress_dict.get(
             job_id,
@@ -771,6 +808,10 @@ def get_progress(job_id: str):
             },
         )
 
+        # ProgLogger can announce done before Controller.run has returned.
+        # The job record is authoritative for the worker lifecycle.
+        prog = dict(prog)
+        prog["status"] = "waiting" if job_status == "queued" else job_status
         total_n_files = prog.get("total_files", 1)
         current_prog = prog.get("progress", 0)
         last_prog = _last_progress_cache.get(job_id, 0)
