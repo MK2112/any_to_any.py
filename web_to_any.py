@@ -466,9 +466,16 @@ def process_params() -> tuple:
         abort(400, f"No files or too many files (maximum {max_files})")
 
     file_max_size = app.config["MAX_UPLOAD_FILE_SIZE"]
+    safe_names = set()
     for uploaded_file in uploaded_files:
         if not uploaded_file or not uploaded_file.filename:
             continue
+        safe_name = re.sub(r"[^\w\.\-]", "_", uploaded_file.filename)
+        # Reject rather than rename: merge pairs inputs by filename.
+        collision_key = safe_name.rstrip(". ").casefold()
+        if collision_key in safe_names:
+            abort(400, "Upload filenames collide after sanitization")
+        safe_names.add(collision_key)
         try:
             current_position = uploaded_file.stream.tell()
             uploaded_file.stream.seek(0, os.SEEK_END)
