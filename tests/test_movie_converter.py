@@ -622,6 +622,38 @@ def test_to_movie_only_gifs_skips_merge(mock_vfc, mock_converter):
 
 
 @patch("core.converter.movie_converter.VideoFileClip")
+def test_to_movie_burns_equally_named_srt(mock_vfc, mock_converter, tmp_path):
+    mock_clip = MagicMock()
+    mock_vfc.return_value = mock_clip
+    mock_converter.file_handler.has_visuals.return_value = True
+    mock_converter.file_handler.join_back.return_value = str(tmp_path / "movie.mp4")
+    (tmp_path / "movie.srt").write_text(
+        "1\n00:00:00,000 --> 00:00:01,000\nBurned caption\n", encoding="utf-8"
+    )
+
+    mock_converter.to_movie(
+        input=str(tmp_path),
+        output=str(tmp_path),
+        recursive=False,
+        file_paths={
+            Category.IMAGE: [],
+            Category.MOVIE: [(str(tmp_path) + os.sep, "movie", "mp4")],
+            Category.DOCUMENT: [],
+        },
+        format="mp4",
+        framerate=None,
+        codec="libx264",
+        delete=False,
+        burn_subs=True,
+    )
+
+    ffmpeg_params = mock_clip.write_videofile.call_args.kwargs["ffmpeg_params"]
+    assert ffmpeg_params[0] == "-vf"
+    assert "subtitles=" in ffmpeg_params[1]
+    assert "movie.srt" in ffmpeg_params[1]
+
+
+@patch("core.converter.movie_converter.VideoFileClip")
 def test_to_movie_gif_plus_png_and_jpg(mock_vfc, mock_converter):
     img_clip = MagicMock()
     mock_converter.file_handler.join_back.side_effect = [

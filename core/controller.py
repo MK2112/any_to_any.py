@@ -315,6 +315,7 @@ class Controller:
         self.preserve_meta = False
         self.custom_tags = {}
         self.strip_meta = False
+        self.burn_subs = False
 
     def _audio_bitrate(self, format: str, quality: str) -> str:
         # Return bitrate for audio conversion
@@ -369,6 +370,7 @@ class Controller:
         add_tag: list = None,
         strip_meta: bool = False,
         resolution: str = None,
+        burn_subs: bool = False,
     ) -> None:
         # Convert media files to defined formats or
         # merge or concatenate, according to the arguments
@@ -447,6 +449,7 @@ class Controller:
         # Set metadata handling options
         self.preserve_meta = preserve_meta
         self.strip_meta = strip_meta
+        self.burn_subs = burn_subs
         self.custom_tags = self.metadata_handler.parse_custom_tags(add_tag or [])
         # Normalize --resolution to its canonical 'WxH' form upfront so every
         # downstream consumer (dropzone included) receives a validated value.
@@ -671,7 +674,10 @@ class Controller:
             self.file_handler._tracked_outputs = None
             self.delete = requested_delete
         if not formats and (
-            self.merging or self.concatenating or self.resolution is not None
+            self.merging
+            or self.concatenating
+            or self.resolution is not None
+            or self.burn_subs
         ):
             self.target_format = None
             self.process_file_paths(file_paths)
@@ -760,6 +766,7 @@ class Controller:
                 codec=self._supported_formats[Category.MOVIE][fmt][0],
                 delete=self.delete,
                 resolution=self.resolution,
+                burn_subs=self.burn_subs,
             )
 
     def process_file_paths(self, file_paths: dict) -> None:
@@ -769,7 +776,9 @@ class Controller:
             self.merge(file_paths, getattr(self, "across", False))
         elif self.concatenating:
             self.concat(file_paths, getattr(self, "target_format", None))
-        elif self.resolution is not None and self.target_format is None:
+        elif (
+            self.resolution is not None or self.burn_subs
+        ) and self.target_format is None:
             self._resize_movies(file_paths)
         elif self.target_format in self._fmt_movie_keys:
             self.movie_converter.to_movie(
@@ -782,6 +791,7 @@ class Controller:
                 codec=self._supported_formats[Category.MOVIE][self.target_format][0],
                 delete=self.delete,
                 resolution=self.resolution,
+                burn_subs=self.burn_subs,
             )
         elif self.target_format in self._fmt_audio_keys:
             self.audio_converter.to_audio(
@@ -807,6 +817,7 @@ class Controller:
                 ][:2],
                 delete=self.delete,
                 resolution=self.resolution,
+                burn_subs=self.burn_subs,
             )
         elif self.target_format in self._fmt_image_keys:
             self._supported_formats[Category.IMAGE][self.target_format](
@@ -933,6 +944,7 @@ class Controller:
             dropzone_controller.preserve_meta = self.preserve_meta
             dropzone_controller.custom_tags = self.custom_tags
             dropzone_controller.strip_meta = self.strip_meta
+            dropzone_controller.burn_subs = self.burn_subs
             dropzone_controller.metadata_handler = self.metadata_handler
 
             with DirectoryWatcher(watch_path, handle_file_event) as watcher:

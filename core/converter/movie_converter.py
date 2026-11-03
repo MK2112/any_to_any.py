@@ -45,6 +45,14 @@ _FALLBACK_CODECS = {
 }
 
 
+def _subtitles_filter(srt_path: str) -> str:
+    # Escape a path for use as an ffmpeg subtitles filtergraph option
+    escaped = os.path.abspath(srt_path)
+    for char in ("\\", ":", "'", "[", "]", ",", ";"):
+        escaped = escaped.replace(char, "\\" + char)
+    return f"subtitles='{escaped}'"
+
+
 class MovieConverter:
     def __init__(
         self, file_handler, prog_logger, event_logger, locale: str = "English"
@@ -53,6 +61,11 @@ class MovieConverter:
         self.prog_logger = prog_logger
         self.event_logger = event_logger
         self.locale = locale
+
+    def _paired_subtitles(self, movie_path_set: tuple) -> str:
+        # Same-stem .srt next to the movie (mirrors -f srt output naming)
+        srt_path = os.path.join(movie_path_set[0], f"{movie_path_set[1]}.srt")
+        return srt_path if os.path.isfile(srt_path) else None
 
     def _write_audio_only(
         self,
@@ -126,6 +139,7 @@ class MovieConverter:
         codec: str,
         delete: bool,
         resolution: str = None,
+        burn_subs: bool = False,
     ) -> None:
         env_workers = worker_count_for(self.file_handler)
 
@@ -216,8 +230,20 @@ class MovieConverter:
 
         # Movie to different movie (parallel per file)
         def _movie_to_movie(movie_path_set: tuple):
-            if movie_path_set[2] == format and not resolution and not framerate:
+            srt_path = self._paired_subtitles(movie_path_set) if burn_subs else None
+            if (
+                movie_path_set[2] == format
+                and not resolution
+                and not framerate
+                and srt_path is None
+            ):
                 return None
+            if burn_subs and srt_path is None:
+                self.event_logger.warning(
+                    f"[!] No equally named .srt found for "
+                    f"{self.file_handler.join_back(movie_path_set)} - "
+                    f"subtitle burn-in skipped"
+                )
 
             out_path_local = self.file_handler._resolve_output_file_conflict(
                 os.path.abspath(os.path.join(output, f"{movie_path_set[1]}.{format}"))
@@ -243,6 +269,11 @@ class MovieConverter:
                         fps=effective_fps(video.fps, framerate),
                         codec=codec,
                         audio=video.audio is not None,
+                        ffmpeg_params=(
+                            ["-vf", _subtitles_filter(srt_path)]
+                            if srt_path is not None
+                            else None
+                        ),
                         logger=self.prog_logger,
                     )
                 else:
@@ -439,9 +470,13 @@ class MovieConverter:
         codec: dict,
         delete: bool,
         resolution: str = None,
+        burn_subs: bool = False,
     ) -> None:
         # Convert movie to same movie with different codec
         for codec_path_set in file_paths[Category.MOVIE]:
+            srt_path = (
+                self._paired_subtitles(codec_path_set) if burn_subs else None
+            )
             if not recursive or input != output:
                 out_path = os.path.abspath(
                     os.path.join(
@@ -479,6 +514,11 @@ class MovieConverter:
                         codec=codec[0],
                         fps=effective_fps(video.fps, framerate),
                         audio=video.audio is not None,
+                        ffmpeg_params=(
+                            ["-vf", _subtitles_filter(srt_path)]
+                            if srt_path is not None
+                            else None
+                        ),
                         logger=self.prog_logger,
                     )
                 except Exception as _:
@@ -494,6 +534,11 @@ class MovieConverter:
                         codec=_FALLBACK_CODECS.get(codec[1], codec[0]),
                         fps=effective_fps(video.fps, framerate),
                         audio=video.audio is not None,
+                        ffmpeg_params=(
+                            ["-vf", _subtitles_filter(srt_path)]
+                            if srt_path is not None
+                            else None
+                        ),
                         logger=self.prog_logger,
                     )
                 if video is not source_video:

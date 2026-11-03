@@ -151,6 +151,12 @@ if __name__ == "__main__":
         type=str,
         required=False,
     )
+    parser.add_argument(
+        "--burn-subs",
+        help="Burn an equally named .srt subtitle file into converted movies, e.g. movie.mp4 + movie.srt",
+        action="store_true",
+        required=False,
+    )
 
     args = vars(parser.parse_args())
 
@@ -211,4 +217,5 @@ if __name__ == "__main__":
             add_tag=args["add_tag"],
             strip_meta=args["strip_meta"],
             resolution=args["resolution"],
+            burn_subs=args["burn_subs"],
         )
