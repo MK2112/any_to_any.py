@@ -157,6 +157,20 @@ if __name__ == "__main__":
         action="store_true",
         required=False,
     )
+    parser.add_argument(
+        "-trim",
+        "--trim",
+        help="Trim audio/video to a time range, e.g. 00:00:30-00:01:45",
+        type=str,
+        required=False,
+    )
+    parser.add_argument(
+        "-split-at",
+        "--split-at",
+        help="Split audio/video at time points, e.g. 60,120 or 00:01:00;00:02:00",
+        type=str,
+        required=False,
+    )
 
     args = vars(parser.parse_args())
 
@@ -172,6 +186,16 @@ if __name__ == "__main__":
     if args["merge"] and args["concat"]:
         parser.error(
             f"{lang.get_translation('merge_concat_error', controller.locale)}"
+        )
+
+    if args["trim"] and args["split_at"]:
+        parser.error("--trim and --split-at are mutually exclusive")
+
+    if (args["trim"] or args["split_at"]) and (
+        args["merge"] or args["concat"] or args["split"]
+    ):
+        parser.error(
+            "--trim/--split-at cannot be combined with --merge, --concat or --split"
         )
 
     if args["framerate"] is not None and args["framerate"] < 1:
@@ -218,4 +242,6 @@ if __name__ == "__main__":
             strip_meta=args["strip_meta"],
             resolution=args["resolution"],
             burn_subs=args["burn_subs"],
+            trim=args["trim"],
+            split_at=args["split_at"],
         )

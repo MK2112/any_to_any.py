@@ -17,6 +17,10 @@ from core.converter.movie_converter import MovieConverter
 from core.converter.image_converter import ImageConverter
 from core.converter.doc_converter import DocumentConverter
 from core.utils.file_handler import FileHandler, effective_fps
+from core.utils.time_ranges import (
+    parse_split_points,
+    parse_trim_range,
+)
 from core.utils.resolution import (
     available_resolutions,
     normalize_resolution,
@@ -326,6 +330,8 @@ class Controller:
         self.custom_tags = {}
         self.strip_meta = False
         self.burn_subs = False
+        self.trim_range = None
+        self.split_points = None
 
     def _audio_bitrate(self, format: str, quality: str) -> str:
         # Return bitrate for audio conversion
@@ -395,6 +401,8 @@ class Controller:
         strip_meta: bool = False,
         resolution: str = None,
         burn_subs: bool = False,
+        trim: str = None,
+        split_at: str = None,
     ) -> None:
         # Convert media files to defined formats or
         # merge or concatenate, according to the arguments
@@ -474,6 +482,45 @@ class Controller:
         self.preserve_meta = preserve_meta
         self.strip_meta = strip_meta
         self.burn_subs = burn_subs
+        if trim is not None and split_at is not None:
+            end_with_msg(
+                self.event_logger,
+                ValueError,
+                f"[!] {lang.get_translation('error', self.locale)}: "
+                "--trim and --split-at are mutually exclusive.",
+            )
+        if (trim is not None or split_at is not None) and (
+            self.merging or self.concatenating or self.page_ranges is not None
+        ):
+            end_with_msg(
+                self.event_logger,
+                ValueError,
+                f"[!] {lang.get_translation('error', self.locale)}: "
+                "time trimming/splitting cannot be combined with "
+                "--merge, --concat or --split.",
+            )
+        self.trim_range = None
+        if trim is not None:
+            self.trim_range = parse_trim_range(trim)
+            if self.trim_range is None:
+                end_with_msg(
+                    self.event_logger,
+                    ValueError,
+                    f"[!] {lang.get_translation('error', self.locale)}: "
+                    f"invalid --trim range '{trim}' (expected START-END, "
+                    "e.g. 00:00:30-00:01:45).",
+                )
+        self.split_points = None
+        if split_at is not None:
+            self.split_points = parse_split_points(split_at)
+            if self.split_points is None:
+                end_with_msg(
+                    self.event_logger,
+                    ValueError,
+                    f"[!] {lang.get_translation('error', self.locale)}: "
+                    f"invalid --split-at points '{split_at}' (expected "
+                    "comma-separated times, e.g. 60,120).",
+                )
         self.custom_tags = self.metadata_handler.parse_custom_tags(add_tag or [])
         # Normalize --resolution to its canonical 'WxH' form upfront so every
         # downstream consumer (dropzone included) receives a validated value.
@@ -704,6 +751,7 @@ class Controller:
             or self.concatenating
             or self.resolution is not None
             or self.burn_subs
+            or self._time_edit_requested()
         ):
             self.target_format = None
             self.process_file_paths(file_paths)
@@ -795,6 +843,70 @@ class Controller:
                 burn_subs=self.burn_subs,
             )
 
+    def _time_edit_requested(self) -> bool:
+        return self.trim_range is not None or self.split_points is not None
+
+    def _edit_media(self, file_paths: dict) -> None:
+        if not self._time_edit_requested():
+            self._resize_movies(file_paths)
+            return
+
+        audio_by_format = {}
+        for audio_path_set in file_paths.get(Category.AUDIO, []):
+            fmt = audio_path_set[2]
+            if fmt not in self._fmt_audio_keys:
+                self.event_logger.warning(
+                    f"[!] time edit: unsupported audio format '{fmt}' for "
+                    f'"{audio_path_set[1]}.{fmt}" - '
+                    f"{lang.get_translation('skipping', self.locale)}"
+                )
+                continue
+            audio_by_format.setdefault(fmt, []).append(audio_path_set)
+        for fmt, audio_sets in audio_by_format.items():
+            self.audio_converter.to_audio(
+                file_paths={Category.AUDIO: audio_sets, Category.MOVIE: []},
+                format=fmt,
+                codec=self._supported_formats[Category.AUDIO][fmt],
+                recursive=self.recursive,
+                bitrate=self._audio_bitrate(fmt, self.quality),
+                input=self.input,
+                output=self.output,
+                delete=self.delete,
+                trim=self.trim_range,
+                split_at=self.split_points,
+            )
+
+        movie_by_format = {}
+        for movie_path_set in file_paths.get(Category.MOVIE, []):
+            fmt = movie_path_set[2]
+            if fmt not in self._fmt_movie_keys:
+                self.event_logger.warning(
+                    f"[!] time edit: unsupported movie format '{fmt}' for "
+                    f'"{movie_path_set[1]}.{fmt}" - '
+                    f"{lang.get_translation('skipping', self.locale)}"
+                )
+                continue
+            movie_by_format.setdefault(fmt, []).append(movie_path_set)
+        for fmt, movie_sets in movie_by_format.items():
+            self.movie_converter.to_movie(
+                input=self.input,
+                output=self.output,
+                recursive=self.recursive,
+                file_paths={
+                    Category.IMAGE: [],
+                    Category.MOVIE: movie_sets,
+                    Category.DOCUMENT: [],
+                },
+                format=fmt,
+                framerate=self.framerate,
+                codec=self._supported_formats[Category.MOVIE][fmt][0],
+                delete=self.delete,
+                resolution=self.resolution,
+                burn_subs=self.burn_subs,
+                trim=self.trim_range,
+                split_at=self.split_points,
+            )
+
     def process_file_paths(self, file_paths: dict) -> None:
         # Check if value associated to format is tuple/string or function to call specific conversion
         self.file_handler.check_cancelled()
@@ -802,10 +914,12 @@ class Controller:
             self.merge(file_paths, getattr(self, "across", False))
         elif self.concatenating:
             self.concat(file_paths, getattr(self, "target_format", None))
-        elif (
-            self.resolution is not None or self.burn_subs
-        ) and self.target_format is None:
-            self._resize_movies(file_paths)
+        elif self.target_format is None and (
+            self.resolution is not None
+            or self.burn_subs
+            or self._time_edit_requested()
+        ):
+            self._edit_media(file_paths)
         elif self.target_format in self._fmt_movie_keys:
             self.movie_converter.to_movie(
                 input=self.input,
@@ -818,6 +932,8 @@ class Controller:
                 delete=self.delete,
                 resolution=self.resolution,
                 burn_subs=self.burn_subs,
+                trim=self.trim_range,
+                split_at=self.split_points,
             )
         elif self.target_format in self._fmt_audio_keys:
             self.audio_converter.to_audio(
@@ -829,6 +945,8 @@ class Controller:
                 input=self.input,
                 output=self.output,
                 delete=self.delete,
+                trim=self.trim_range,
+                split_at=self.split_points,
             )
         elif self.target_format in self._fmt_codec_keys:
             self.movie_converter.to_codec(
@@ -844,6 +962,8 @@ class Controller:
                 delete=self.delete,
                 resolution=self.resolution,
                 burn_subs=self.burn_subs,
+                trim=self.trim_range,
+                split_at=self.split_points,
             )
         elif self.target_format in self._fmt_image_keys:
             self._supported_formats[Category.IMAGE][self.target_format](
@@ -971,6 +1091,8 @@ class Controller:
             dropzone_controller.custom_tags = self.custom_tags
             dropzone_controller.strip_meta = self.strip_meta
             dropzone_controller.burn_subs = self.burn_subs
+            dropzone_controller.trim_range = self.trim_range
+            dropzone_controller.split_points = self.split_points
             dropzone_controller.metadata_handler = self.metadata_handler
 
             with DirectoryWatcher(watch_path, handle_file_event) as watcher:

@@ -23,6 +23,11 @@ from core.utils.file_handler import (
     sort_frame_filenames,
     worker_count_for,
 )
+from core.utils.time_ranges import (
+    normalize_split_points,
+    normalize_trim,
+    plan_time_segments,
+)
 from moviepy import (
     VideoFileClip,
     ImageClip,
@@ -61,6 +66,25 @@ class MovieConverter:
         self.prog_logger = prog_logger
         self.event_logger = event_logger
         self.locale = locale
+
+    def _segment_out_path(
+        self,
+        stem: str,
+        format: str,
+        directory: str,
+        part_number: int = None,
+    ) -> str:
+        if part_number is not None:
+            stem = f"{stem}_part_{part_number}"
+        return self.file_handler._resolve_output_file_conflict(
+            os.path.abspath(os.path.join(directory, f"{stem}.{format}"))
+        )
+
+    def _segments_for(self, clip, trim, split_at):
+        segments = plan_time_segments(
+            getattr(clip, "duration", None), trim, split_at
+        )
+        return [(None, None)] if segments is None else segments
 
     def _paired_subtitles(self, movie_path_set: tuple) -> str:
         # Same-stem .srt next to the movie (mirrors -f srt output naming)
@@ -140,7 +164,12 @@ class MovieConverter:
         delete: bool,
         resolution: str = None,
         burn_subs: bool = False,
+        trim=None,
+        split_at=None,
     ) -> None:
+        trim = normalize_trim(trim)
+        split_at = normalize_split_points(split_at)
+        time_edit = trim is not None or split_at is not None
         env_workers = worker_count_for(self.file_handler)
 
         # Helper for per-GIF conversion to video
@@ -236,6 +265,7 @@ class MovieConverter:
                 and not resolution
                 and not framerate
                 and srt_path is None
+                and not time_edit
             ):
                 return None
             if burn_subs and srt_path is None:
@@ -245,13 +275,11 @@ class MovieConverter:
                     f"subtitle burn-in skipped"
                 )
 
-            out_path_local = self.file_handler._resolve_output_file_conflict(
-                os.path.abspath(os.path.join(output, f"{movie_path_set[1]}.{format}"))
-            )
-
             video = None
             audio = None
-            video_clip = None
+            edit_clip = None
+            out_paths = []
+            pending_path = None
             try:
                 try:
                     video = VideoFileClip(
@@ -262,46 +290,97 @@ class MovieConverter:
                 if video is not None and self.file_handler.has_visuals(
                     movie_path_set, clip=video
                 ):
+                    edit_clip = video
                     if resolution is not None:
-                        video = video.resized(new_size=parse_resolution(resolution))
-                    video.write_videofile(
-                        out_path_local,
-                        fps=effective_fps(video.fps, framerate),
-                        codec=codec,
-                        audio=video.audio is not None,
-                        ffmpeg_params=(
-                            ["-vf", _subtitles_filter(srt_path)]
-                            if srt_path is not None
-                            else None
-                        ),
-                        logger=self.prog_logger,
-                    )
-                else:
-                    if video is not None:
-                        video.close()
-                        video = None
-                    try:
-                        audio = AudioFileClip(
-                            self.file_handler.join_back(movie_path_set)
+                        edit_clip = video.resized(
+                            new_size=parse_resolution(resolution)
                         )
-                        video_clip = self._write_audio_only(
-                            out_path_local, audio, codec, framerate, resolution
-                        )
-                    except Exception as _:
-                        self.event_logger.info(
-                            f"[!] {lang.get_translation('audio_only_video', self.locale)}: {self.file_handler.join_back(movie_path_set)} - {lang.get_translation('skipping', self.locale)}\n"
+                    segments = self._segments_for(edit_clip, trim, split_at)
+                    if not segments:
+                        self.event_logger.warning(
+                            f"[!] {lang.get_translation('skipping', self.locale)}: "
+                            f'no valid time range for "{self.file_handler.join_back(movie_path_set)}"'
                         )
                         return None
-                return (movie_path_set, out_path_local)
-            finally:
-                # video.close() also closes its attached audio, so closing
-                # all three is safe (close() is idempotent).
-                if video_clip is not None:
+                    for index, (start, end) in enumerate(segments):
+                        segment = (
+                            edit_clip
+                            if start is None
+                            else edit_clip.subclipped(start, end)
+                        )
+                        out_path_local = self._segment_out_path(
+                            movie_path_set[1],
+                            format,
+                            output,
+                            index + 1 if split_at is not None else None,
+                        )
+                        pending_path = out_path_local
+                        segment.write_videofile(
+                            out_path_local,
+                            fps=effective_fps(segment.fps, framerate),
+                            codec=codec,
+                            audio=segment.audio is not None,
+                            ffmpeg_params=(
+                                ["-vf", _subtitles_filter(srt_path)]
+                                if srt_path is not None
+                                else None
+                            ),
+                            logger=self.prog_logger,
+                        )
+                        out_paths.append((movie_path_set, out_path_local))
+                        pending_path = None
+                    return out_paths
+                if video is not None:
+                    video.close()
+                    video = None
+                try:
+                    audio = AudioFileClip(
+                        self.file_handler.join_back(movie_path_set)
+                    )
+                except Exception:
+                    self.event_logger.info(
+                        f"[!] {lang.get_translation('audio_only_video', self.locale)}: {self.file_handler.join_back(movie_path_set)} - {lang.get_translation('skipping', self.locale)}\n"
+                    )
+                    return None
+                segments = self._segments_for(audio, trim, split_at)
+                if not segments:
+                    self.event_logger.warning(
+                        f"[!] {lang.get_translation('skipping', self.locale)}: "
+                        f'no valid time range for "{self.file_handler.join_back(movie_path_set)}"'
+                    )
+                    return None
+                for index, (start, end) in enumerate(segments):
+                    segment_audio = (
+                        audio if start is None else audio.subclipped(start, end)
+                    )
+                    out_path_local = self._segment_out_path(
+                        movie_path_set[1],
+                        format,
+                        output,
+                        index + 1 if split_at is not None else None,
+                    )
+                    pending_path = out_path_local
+                    video_clip = self._write_audio_only(
+                        out_path_local,
+                        segment_audio,
+                        codec,
+                        framerate,
+                        resolution,
+                    )
                     try:
                         video_clip.close()
                     except Exception:
                         pass
-                if video is not None:
+                    out_paths.append((movie_path_set, out_path_local))
+                    pending_path = None
+                return out_paths
+            finally:
+                if edit_clip is not None:
+                    try:
+                        edit_clip.close()
+                    except Exception:
+                        pass
+                elif video is not None:
                     try:
                         video.close()
                     except Exception:
@@ -311,13 +390,21 @@ class MovieConverter:
                         audio.close()
                     except Exception:
                         pass
+                if (
+                    isinstance(pending_path, (str, bytes, os.PathLike))
+                    and os.path.isfile(pending_path)
+                ):
+                    try:
+                        os.remove(pending_path)
+                    except OSError:
+                        pass
 
-        for res in filter(
+        for results in filter(
             None,
             run_parallel(file_paths[Category.MOVIE], _movie_to_movie, env_workers),
         ):
-            src, out_path = res
-            self.file_handler.post_process(src, out_path, delete)
+            for src, out_path in results:
+                self.file_handler.post_process(src, out_path, delete)
 
         # Document to movie (because why the hell not)
         for doc_path_set in file_paths[Category.DOCUMENT]:
@@ -471,90 +558,142 @@ class MovieConverter:
         delete: bool,
         resolution: str = None,
         burn_subs: bool = False,
+        trim=None,
+        split_at=None,
     ) -> None:
-        # Convert movie to same movie with different codec
+        trim = normalize_trim(trim)
+        split_at = normalize_split_points(split_at)
         for codec_path_set in file_paths[Category.MOVIE]:
             srt_path = (
                 self._paired_subtitles(codec_path_set) if burn_subs else None
             )
-            if not recursive or input != output:
-                out_path = os.path.abspath(
-                    os.path.join(
-                        output,
-                        f"{codec_path_set[1]}_{format}.{codec[1]}",
-                    )
-                )
-            else:
-                out_path = os.path.abspath(
-                    os.path.join(
-                        codec_path_set[0],
-                        f"{codec_path_set[1]}_{format}.{codec[1]}",
-                    )
-                )
-
-            out_path = self.file_handler._resolve_output_file_conflict(out_path)
-
+            directory = (
+                output
+                if not recursive or input != output
+                else codec_path_set[0]
+            )
+            base_stem = f"{codec_path_set[1]}_{format}"
+            video = None
+            audio = None
+            editor = None
             try:
-                video = VideoFileClip(
-                    self.file_handler.join_back(codec_path_set),
-                    audio=True,
-                    fps_source="tbr",
-                )
-            except Exception:
-                video = None
-            if video is not None and self.file_handler.has_visuals(
-                codec_path_set, clip=video
-            ):
-                source_video = video
-                if resolution is not None:
-                    video = video.resized(new_size=parse_resolution(resolution))
                 try:
-                    video.write_videofile(
-                        out_path,
-                        codec=codec[0],
-                        fps=effective_fps(video.fps, framerate),
-                        audio=video.audio is not None,
-                        ffmpeg_params=(
-                            ["-vf", _subtitles_filter(srt_path)]
-                            if srt_path is not None
-                            else None
-                        ),
-                        logger=self.prog_logger,
+                    video = VideoFileClip(
+                        self.file_handler.join_back(codec_path_set),
+                        audio=True,
+                        fps_source="tbr",
                     )
-                except Exception as _:
-                    if os.path.exists(out_path):
-                        # There might be some residue left, remove it
-                        os.remove(out_path)
-                    codec_path_str = f'"{codec_path_set[2]}"'
-                    self.event_logger.info(
-                        f"\n\n[!] {lang.get_translation('codec_fallback', self.locale).replace('[path]', codec_path_str).replace('[format]', f'{codec[1]}')}\n"
+                except Exception:
+                    video = None
+                if video is not None and self.file_handler.has_visuals(
+                    codec_path_set, clip=video
+                ):
+                    editor = video
+                    if resolution is not None:
+                        editor = video.resized(new_size=parse_resolution(resolution))
+                    segments = self._segments_for(editor, trim, split_at)
+                    if not segments:
+                        self.event_logger.warning(
+                            f"[!] {lang.get_translation('skipping', self.locale)}: "
+                            f'no valid time range for "{self.file_handler.join_back(codec_path_set)}"'
+                        )
+                        continue
+                    for index, (start, end) in enumerate(segments):
+                        segment = (
+                            editor if start is None else editor.subclipped(start, end)
+                        )
+                        out_path = self._segment_out_path(
+                            base_stem,
+                            codec[1],
+                            directory,
+                            index + 1 if split_at is not None else None,
+                        )
+                        try:
+                            segment.write_videofile(
+                                out_path,
+                                codec=codec[0],
+                                fps=effective_fps(segment.fps, framerate),
+                                audio=segment.audio is not None,
+                                ffmpeg_params=(
+                                    ["-vf", _subtitles_filter(srt_path)]
+                                    if srt_path is not None
+                                    else None
+                                ),
+                                logger=self.prog_logger,
+                            )
+                        except Exception:
+                            if os.path.exists(out_path):
+                                os.remove(out_path)
+                            codec_path_str = f'"{codec_path_set[2]}"'
+                            self.event_logger.info(
+                                f"\n\n[!] {lang.get_translation('codec_fallback', self.locale).replace('[path]', codec_path_str).replace('[format]', f'{codec[1]}')}\n"
+                            )
+                            segment.write_videofile(
+                                out_path,
+                                codec=_FALLBACK_CODECS.get(codec[1], codec[0]),
+                                fps=effective_fps(segment.fps, framerate),
+                                audio=segment.audio is not None,
+                                ffmpeg_params=(
+                                    ["-vf", _subtitles_filter(srt_path)]
+                                    if srt_path is not None
+                                    else None
+                                ),
+                                logger=self.prog_logger,
+                            )
+                        self.file_handler.post_process(
+                            codec_path_set, out_path, delete
+                        )
+                else:
+                    if video is not None:
+                        video.close()
+                        video = None
+                    audio = AudioFileClip(
+                        self.file_handler.join_back(codec_path_set)
                     )
-                    video.write_videofile(
-                        out_path,
-                        codec=_FALLBACK_CODECS.get(codec[1], codec[0]),
-                        fps=effective_fps(video.fps, framerate),
-                        audio=video.audio is not None,
-                        ffmpeg_params=(
-                            ["-vf", _subtitles_filter(srt_path)]
-                            if srt_path is not None
-                            else None
-                        ),
-                        logger=self.prog_logger,
-                    )
-                if video is not source_video:
-                    video.close()
-                source_video.close()
-            else:
+                    segments = self._segments_for(audio, trim, split_at)
+                    if not segments:
+                        self.event_logger.warning(
+                            f"[!] {lang.get_translation('skipping', self.locale)}: "
+                            f'no valid time range for "{self.file_handler.join_back(codec_path_set)}"'
+                        )
+                        continue
+                    for index, (start, end) in enumerate(segments):
+                        segment_audio = (
+                            audio if start is None else audio.subclipped(start, end)
+                        )
+                        out_path = self._segment_out_path(
+                            base_stem,
+                            codec[1],
+                            directory,
+                            index + 1 if split_at is not None else None,
+                        )
+                        clip = self._write_audio_only(
+                            out_path,
+                            segment_audio,
+                            codec[0],
+                            framerate,
+                            resolution,
+                        )
+                        clip.close()
+                        self.file_handler.post_process(
+                            codec_path_set, out_path, delete
+                        )
+            finally:
+                if editor is not None and editor is not video:
+                    try:
+                        editor.close()
+                    except Exception:
+                        pass
                 if video is not None:
-                    video.close()
-                # Audio-only video file
-                audio = AudioFileClip(self.file_handler.join_back(codec_path_set))
-                clip = self._write_audio_only(
-                    out_path, audio, codec[0], framerate, resolution
-                )
-                clip.close()
-                audio.close()
-            self.file_handler.post_process(codec_path_set, out_path, delete)
+                    try:
+                        video.close()
+                    except Exception:
+                        pass
+                if audio is not None:
+                    try:
+                        audio.close()
+                    except Exception:
+                        pass
 
     def to_protocol(
         self,

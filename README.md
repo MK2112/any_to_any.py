@@ -180,6 +180,16 @@ Burn an equally named SRT subtitle file into the converted movies (e.g. `file.mp
 python any_to_any.py -i /path/to/mp4-folder -o /path/to/save/folder -f mp4 --burn-subs
 ```
 
+Trim audio/video to a time range (keeps the input format when `-f` is omitted):
+```bash
+python any_to_any.py -i /path/to/media-folder -o /path/to/save/folder --trim 00:00:30-00:01:45
+```
+
+Split audio/video at one or more time points:
+```bash
+python any_to_any.py -i /path/to/media-folder -o /path/to/save/folder --split-at 60,120
+```
+
 Concatenate MP4 files, save to a different directory, delete source files afterwards:
 ```bash
 python any_to_any.py -i /path/to/mp4-folder -o /path/to/save/folder -c -d
@@ -260,6 +270,8 @@ python any_to_any.py -i /path/to/input_dir -f mp3 --workers 4 --recursive
 | `-fps` or</br>`--framerate`  | Set the framerate (fps) when converting to a movie format or codec; default maintains input fps. |
 | `-res` or</br>`--resolution` | Resize movies to a specific resolution, e.g. `1920x1080` or `720p`. Works alone (keeping the input file format) or combined with `-f`/`--format`, subject to what the target format allows. If the resolution is not supported by the effective target format, the available resolutions are listed and the script exits. |
 | `--burn-subs`                | Burn an equally named `.srt` subtitle file next to each movie into the converted movie (e.g. `file.mp4` + `file.srt`). |
+| `--trim`                     | Trim audio/video to a time range, e.g. `00:00:30-00:01:45`. Times accept seconds, `MM:SS`, or `HH:MM:SS(.ms)`; open ends like `30-` are supported. |
+| `--split-at`                 | Split audio/video at time points, e.g. `60,120`. Writes numbered `_part_N` outputs; accepts the same time formats as `--trim`. |
 | `--workers`                  | Set the maximum number of parallel worker threads for per-file conversions (`1` to `cpu_count - 1` are supported). Defaults to `1`. |
 | `--preserve-meta`            | Preserve metadata (ID3 tags for audio, EXIF for images, properties for documents) in output files and save metadata as JSON for archival purposes. |
 | `--add-tag`                  | Add custom tags to files during conversion (format: `key:value key2:value2`). Tags are stored in metadata JSON files. |
