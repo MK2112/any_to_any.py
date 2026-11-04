@@ -632,6 +632,14 @@ class TestMergeConcatDispatch:
         )
         assert calls == ["mp4"]
 
+    def test_merge_with_multiple_formats_dispatches_once(
+        self, controller_instance, tmp_path
+    ):
+        calls = self._run_capture(
+            controller_instance, tmp_path, format="mp3,flac", merge=True
+        )
+        assert calls == ["mp3"]
+
     def test_across_concat_with_format_dispatches_once(
         self, controller_instance, tmp_path
     ):

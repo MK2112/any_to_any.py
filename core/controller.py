@@ -646,6 +646,8 @@ class Controller:
             self.target_format = None
             self.split(file_paths, self.page_ranges)
             return
+        if self.merging:
+            formats = formats[:1]
         requested_delete = self.delete
         track_outputs = requested_delete and len(formats) > 1
         successful = None
