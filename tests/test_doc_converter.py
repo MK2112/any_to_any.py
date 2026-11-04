@@ -584,6 +584,27 @@ class TestDocumentConverterPdfSplitting:
         assert len(part) == 3
         part.close()
 
+    def test_split_pdf_rest_past_last_page_adds_no_extra_output(
+        self, document_converter, temp_output_dir
+    ):
+        pdf_path = os.path.join(temp_output_dir, "test.pdf")
+        doc = pypdf.open()
+        for i in range(5):
+            doc.new_page().insert_text((72, 72), f"Page {i + 1}")
+        doc.save(pdf_path)
+        doc.close()
+
+        document_converter.file_handler.join_back.return_value = pdf_path
+        document_converter.split_pdf(
+            output=temp_output_dir,
+            doc_path_set=(temp_output_dir, "test", "pdf"),
+            page_ranges="1-5,rest",
+            delete=False,
+            format="pdf",
+        )
+
+        assert sorted(os.listdir(temp_output_dir)) == ["test.pdf", "test_1-5.pdf"]
+
 
 class TestDocumentConverterSplitWarnings:
     def _make_pdf(self, path, pages):
