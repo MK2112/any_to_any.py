@@ -79,6 +79,16 @@ def _parse_srt_entries(content: str) -> list:
     return entries
 
 
+class _RunErrorCounter(logging.Handler):
+    # Collect conversion errors so a finished run can report failure
+    def __init__(self):
+        super().__init__(level=logging.ERROR)
+        self.records = []
+
+    def emit(self, record):
+        self.records.append(record)
+
+
 class Controller:
     # Taking an input dir of files, converting them to specified or inferred target formats
     # Trigger via any_to_any.py script (see README.md)
@@ -345,9 +355,23 @@ class Controller:
             }.get(quality, None)
 
     def run(self, *args, **kwargs) -> None:
+        self.file_handler.reset_run_outputs()
+        error_counter = _RunErrorCounter()
+        run_logger = logging.getLogger("core")
+        run_logger.addHandler(error_counter)
         try:
-            return self._run_impl(*args, **kwargs)
+            result = self._run_impl(*args, **kwargs)
+            if error_counter.records and not self.file_handler.has_run_outputs():
+                end_with_msg(
+                    self.event_logger,
+                    SystemExit,
+                    f"[!] {lang.get_translation('error', self.locale)}: "
+                    f"{len(error_counter.records)} conversion(s) failed - "
+                    f"{error_counter.records[-1].getMessage()}",
+                )
+            return result
         finally:
+            run_logger.removeHandler(error_counter)
             self.file_handler.release_job_claims()
 
     def _run_impl(
