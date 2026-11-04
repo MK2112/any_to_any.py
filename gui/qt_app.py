@@ -472,10 +472,41 @@ class MainWindow(QMainWindow):
                 item.setData(Qt.ItemDataRole.UserRole, file)
                 item.setToolTip(file)
                 self.file_list.addItem(item)
+            self._sort_file_list()
         finally:
             self.file_list.setUpdatesEnabled(True)
             self._update_file_count()
             self._update_mode_dependent_ui()
+
+    def _sort_file_list(self):
+        count = self.file_list.count()
+        if count < 2:
+            return
+        current, selected = [], set()
+        for i in range(count):
+            item = self.file_list.item(i)
+            path = item.data(Qt.ItemDataRole.UserRole)
+            current.append(path)
+            if item.isSelected():
+                selected.add(path)
+        entries = sorted(
+            current,
+            key=lambda path: (Path(path).name.lower(), Path(path).name, path.lower()),
+        )
+        if entries == current:
+            return  # already ordered: skip the rebuild
+        self.file_list.setUpdatesEnabled(False)
+        try:
+            self.file_list.clear()
+            for path in entries:
+                item = QListWidgetItem(Path(path).name)
+                item.setData(Qt.ItemDataRole.UserRole, path)
+                item.setToolTip(path)
+                self.file_list.addItem(item)
+                if path in selected:
+                    item.setSelected(True)
+        finally:
+            self.file_list.setUpdatesEnabled(True)
 
     def add_file_to_list(self, file):
         if not os.path.isfile(file):
@@ -487,6 +518,7 @@ class MainWindow(QMainWindow):
         item.setData(Qt.ItemDataRole.UserRole, file)
         item.setToolTip(file)
         self.file_list.addItem(item)
+        self._sort_file_list()
         self._update_file_count()
         self._update_mode_dependent_ui()
 

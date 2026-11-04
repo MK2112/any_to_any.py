@@ -652,7 +652,7 @@ class Controller:
                     with os.scandir(self.input) as it:
                         has_subdirs = any(entry.is_dir() for entry in it)
                 if has_subdirs:
-                    if across:
+                    if across or self.concatenating:
                         prefix = input_path + os.sep
                         for category in list(file_paths):
                             file_paths[category] = [
@@ -688,8 +688,8 @@ class Controller:
                         f"[!] {lang.get_translation('no_media_found', self.locale).replace('[path]', input_path_str)}",
                     )
                 continue
-
-            if not across:
+            
+            if not across and not self.concatenating:
                 if self.output is None or was_none:
                     self.output = os.path.dirname(input_path)
                     was_none = True
@@ -701,7 +701,7 @@ class Controller:
                 found_files = found_files or bool(file_paths)
                 file_paths = {}
 
-        if across:
+        if across or self.concatenating:
             if self.output is None:
                 self.output = os.path.dirname(input_paths[0])
             if self.preserve_meta or self.custom_tags:
@@ -1280,7 +1280,7 @@ class Controller:
                     for doc_path_set in file_paths[Category.DOCUMENT]
                     if doc_path_set[2] == "pdf" and want_pdf
                 ),
-                key=lambda x: x[1],
+                key=lambda x: x[1].lower(),
             )
             srts = sorted(
                 (
@@ -1288,7 +1288,7 @@ class Controller:
                     for doc_path_set in file_paths[Category.DOCUMENT]
                     if doc_path_set[2] == "srt" and want_srt
                 ),
-                key=lambda x: x[1],
+                key=lambda x: x[1].lower(),
             )
 
             if pdfs:
