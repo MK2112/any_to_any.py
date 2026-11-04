@@ -174,6 +174,37 @@ def test_send_to_backend_applies_metadata_mode(tmp_path):
         assert (kwargs["preserve_meta"], kwargs["strip_meta"]) == flags
 
 
+def test_same_format_upload_is_preserved_for_download(client, tmp_storage):
+    tok = _csrf_for(client)
+    response = client.post(
+        "/convert",
+        data={
+            "files": [(io.BytesIO(b"pngdata"), "photo.png")],
+            "conversionType": "png",
+            "csrf_token": tok,
+        },
+        content_type="multipart/form-data",
+    )
+    assert response.status_code == 202
+    job_id = response.get_json()["job_id"]
+
+    deadline = time.time() + 10
+    while time.time() < deadline:
+        data = client.get(f"/progress/{job_id}").get_json()
+        if data["status"] in {"done", "error", "cancelled"}:
+            break
+        time.sleep(0.02)
+
+    assert data["status"] == "done"
+    download = client.get(f"/download/{job_id}")
+    assert download.status_code == 200
+    with zipfile.ZipFile(io.BytesIO(download.data)) as archive:
+        names = archive.namelist()
+        assert any(name.endswith("photo.png") for name in names)
+        source_name = next(name for name in names if name.endswith("photo.png"))
+        assert archive.read(source_name) == b"pngdata"
+
+
 def test_job_is_not_accessible_from_another_session(client, tmp_storage):
     # job_id is bound to the session that created it, and cannot be accessed from another session
     tok = _csrf_for(client)

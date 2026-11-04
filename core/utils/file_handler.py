@@ -274,6 +274,7 @@ class FileHandler:
         self.max_workers = resolve_worker_count()
         self._job_claims = set()
         self._tracked_outputs = None
+        self._run_outputs = set()
         self._tracked_outputs_lock = threading.Lock()
 
     def join_back(self, file_path_set: tuple) -> str:
@@ -365,6 +366,14 @@ class FileHandler:
             _release_name(candidate)
         self._job_claims.clear()
 
+    def reset_run_outputs(self) -> None:
+        with self._tracked_outputs_lock:
+            self._run_outputs.clear()
+
+    def has_run_outputs(self) -> bool:
+        with self._tracked_outputs_lock:
+            return any(os.path.isfile(path) for path in self._run_outputs)
+
     def remove_source(self, source_path: str) -> None:
         self.check_cancelled()
         if os.path.isfile(source_path):
@@ -409,6 +418,7 @@ class FileHandler:
 
             if os.path.isfile(resolved_out_path):
                 with self._tracked_outputs_lock:
+                    self._run_outputs.add(resolved_out_path)
                     if self._tracked_outputs is not None and resolved_out_path != source_path:
                         self._tracked_outputs.setdefault(source_path, set()).add(resolved_out_path)
                 if delete:

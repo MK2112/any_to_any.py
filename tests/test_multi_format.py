@@ -486,6 +486,25 @@ class TestMultiFormatDelete:
         assert (output_dir / "good.bmp").exists()
         assert (output_dir / "good.jpeg").exists()
 
+    def test_total_conversion_failure_raises(self, controller_instance, tmp_path):
+        from PIL import Image
+
+        input_dir = tmp_path / "input"
+        output_dir = tmp_path / "output"
+        input_dir.mkdir()
+        output_dir.mkdir()
+        Image.new("RGB", (8, 8), "red").save(input_dir / "photo.png")
+
+        def fail_save(image, fp, *args, **kwargs):
+            raise OSError("simulated encoder failure")
+
+        with mock.patch.object(Image.Image, "save", fail_save):
+            with pytest.raises(SystemExit):
+                self._run(controller_instance, input_dir, output_dir, "bmp")
+
+        assert (input_dir / "photo.png").exists()
+        assert not (output_dir / "photo.bmp").exists()
+
     def test_skipped_same_format_keeps_source(self, controller_instance, tmp_path):
         from PIL import Image
 

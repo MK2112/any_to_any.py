@@ -452,6 +452,46 @@ def push_zip(source_path: str):
         raise
 
 
+def _has_output_files(output_dir: str) -> bool:
+    if not os.path.isdir(output_dir):
+        return False
+    for _, _, files in os.walk(output_dir):
+        if files:
+            return True
+    return False
+
+
+def _preserve_unconverted_inputs(input_dir: str, output_dir: str) -> int:
+    # Keep skipped or unread inputs downloadable instead of discarding them
+    if (
+        not input_dir
+        or not output_dir
+        or os.path.abspath(input_dir) == os.path.abspath(output_dir)
+        or not os.path.isdir(input_dir)
+        or not os.path.isdir(output_dir)
+    ):
+        return 0
+    preserved = 0
+    with os.scandir(input_dir) as entries:
+        for entry in entries:
+            if not entry.is_file():
+                continue
+            destination = os.path.join(output_dir, entry.name)
+            base, ext = os.path.splitext(entry.name)
+            suffix = 1
+            while os.path.exists(destination):
+                destination = os.path.join(output_dir, f"{base}_{suffix}{ext}")
+                suffix += 1
+            try:
+                shutil.move(entry.path, destination)
+                preserved += 1
+            except OSError:
+                app.logger.exception(
+                    f"Could not preserve unconverted input {entry.path}"
+                )
+    return preserved
+
+
 def process_params() -> tuple:
     uploaded_files = request.files.getlist("files")
     fmt = request.form.get("conversionType")
@@ -662,8 +702,19 @@ def send_to_backend(
         # Decide completion atomically with cancellation and publish only after cleanup.
         with _job_lock:
             cancelled = cancel_event is not None and cancel_event.is_set()
+            had_output = _has_output_files(output)
+            preserved = 0
             if not cancelled and input_path_args and os.path.exists(input_path_args[0]):
+                preserved = _preserve_unconverted_inputs(input_path_args[0], output)
                 shutil.rmtree(input_path_args[0], ignore_errors=True)
+            if (
+                not cancelled
+                and total_files > 0
+                and not had_output
+                and not preserved
+                and not error
+            ):
+                error = RuntimeError("No output files were produced")
             status = "cancelled" if cancelled else ("error" if error else "done")
             completed_at = time.time()
             if record:
