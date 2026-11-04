@@ -40,7 +40,15 @@ jobs:
 
       - name: Install ffmpeg (Windows)
         if: runner.os == 'Windows'
-        run: choco install ffmpeg -y
+        shell: pwsh
+        run: |
+          choco install ffmpeg -y --no-progress
+          $chocoRoot = if ($env:ChocolateyInstall) { $env:ChocolateyInstall } else { 'C:\ProgramData\chocolatey' }
+          $ffmpeg = Get-ChildItem -Path (Join-Path $chocoRoot 'lib/ffmpeg') -Recurse -File -Filter 'ffmpeg.exe' -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+          if (-not $ffmpeg) { throw 'ffmpeg.exe was not installed by chocolatey' }
+          Add-Content -Path $env:GITHUB_PATH -Value $ffmpeg.DirectoryName
+          & $ffmpeg.FullName -version
 
       - name: Install UPX (Linux)
         if: runner.os == 'Linux'
