@@ -255,6 +255,7 @@ python any_to_any.py -i /path/to/input_dir -f mp3 --workers 4 --recursive
 | Command Argument             | Meaning |
 | ---------------------------- | ------- |
 | `-h` or </br>`--help`        | List all available parameters, their description and default values, then exit. |
+| `--formats`                  | List every target format with its availability on this system and the reason when unavailable, then exit. |
 | `-i` or </br>`--input`       | Path to file itself or directory containing files to be converted. If not provided, the directory from where the script is called will be used. |
 | `-f` or </br>`--format`      | Desired output file format, either `mp2`, `mp3`, `flac`, `wav`, `aac`, `aiff`, `ogg`, `oga`, `m4a`, `ac3`, `dts`, `weba`, `wma`, `mka`, `wv`, `caf`, `tta`, `m4b`, `eac3`, `spx`, `au`, `opus`, `m3u8`, `w64`, `mlp`, `adts`, `sbc`, `thd`, `g722`, `ra`, `voc`, `dfpwm`, `apm`, `ircam`, `jpeg` (and `jpg`), `png`, `gif`, `bmp`, `pdf`, `docx`, `pptx`, `srt`, `webp`, `heic`, `heif`, `avif`, `tiff`, `tga`, `eps`, `ps`, `ico`, `jpeg2000`, `im`, `pcx`, `ppm`, `mp4`, `webm`, `mov`, `mkv`, `avi`, `wmv`, `flv`, `m2ts`, `3gp`, `3g2`, `mjpeg`, `asf`, `vob`, `ts`, `raw`, `mpg`, `mxf`, `drc`, `swf`, `f4v`, `m4v`, `mts`, `m2v`, `yuv`, `wtv`, `apng`, `ivf`, movie codecs like `h263p`, `h264`, `h265`, `xvid`, `mpeg1`, `mpeg2`, `mpeg4`, `av1`, `avc`, `theora`, `vp8`, `vp9`, `hevc`, `prores`, `huffyuv`, `ffv1`, `ffvhuff`, `v210`, `v410`, `v308`, `v408`, `zlib`, `qtrle`, `snow`, `svq1`, `utvideo`, `cinepak`, `msmpeg4`, `h264_nvenc`, `vpx`, `h264_rgb`, `mpeg2video`, `prores_ks`, `vc2`, `flv1`, or protocols like `hls` and `dash`. Target formats can also be written in concatenated form like so `jpeg,png,bmp` to convert to all three supported formats `jpeg`, `png` and `bmp` at once, if possible |
 | `-o` or </br>`--output`      | Directory to save converted files into. Writing to the input file path, if none provided. |
@@ -299,6 +300,9 @@ docker-compose up
 ```
 
 ## Supported Formats
+
+Run `python any_to_any.py --formats` to see which targets are available on this
+system, including the reason when a format is unavailable.<br><br>
 
 **Audio:** MP2, MP3, FLAC, AAC, AC3, DTS, OGG, OGA, WMA, WAV, M4A, AIFF, WEBA, MKA, WV, CAF, TTA, M4B, EAC3, SPX, AU, OPUS, M3U8, W64, MLP, ADTS, SBC, THD, G722, RA, VOC, DFPWM, APM, IRCAM<br><br>
 **Image:** JPEG, PNG, GIF, BMP, WEBP, TIFF, TGA, EPS, PS, ICO, EPS, JPEG2000, IM, PCX, PPM, HEIF, HEIC, AVIF<br><br>

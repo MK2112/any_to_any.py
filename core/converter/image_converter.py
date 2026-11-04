@@ -26,6 +26,7 @@ except ImportError:
 _SAVE_FORMAT = {
     "jpg": "JPEG",
     "jpeg": "JPEG",
+    "ps": "EPS",
     "heic": "HEIF",
     "heif": "HEIF",
     "avif": "AVIF",

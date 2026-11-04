@@ -42,6 +42,12 @@ if __name__ == "__main__":
         required=False,
     )
     parser.add_argument(
+        "--formats",
+        help="List all target formats with their availability on this system, then exit.",
+        action="store_true",
+        required=False,
+    )
+    parser.add_argument(
         "-m",
         "--merge",
         help=f"{lang.get_translation('merge_help', controller.locale)}",
@@ -177,6 +183,10 @@ if __name__ == "__main__":
     if args["language"] in lang.LANGUAGE_CODES:
         # Reinitialize controller with new language
         controller = Controller(locale=lang.LANGUAGE_CODES[args["language"]])
+
+    if args["formats"]:
+        print(controller.format_capabilities_report())
+        sys.exit(0)
 
     if args["split"] and (args["merge"] or args["concat"]):
         parser.error(

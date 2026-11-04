@@ -78,6 +78,25 @@ def _script_path():
     )
 
 
+def test_cli_formats_reports_capabilities_without_input(tmp_path):
+    result = subprocess.run(
+        [sys.executable, _script_path(), "--formats"],
+        cwd=str(tmp_path),
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+
+    assert result.returncode == 0
+    combined = (result.stdout + "\n" + result.stderr).lower()
+    assert "target format capabilities" in combined
+    assert "audio" in combined
+    assert "mp3" in combined
+    assert "available" in combined
+    assert "targets available on this system" in combined
+    assert "no convertible media files" not in combined
+
+
 @pytest.mark.parametrize("bad_workers", ["0", "-5"])
 def test_cli_workers_below_range_rejected(tmp_path, bad_workers):
     # --workers below 1 must fail fast with an argparse error (exit 2)

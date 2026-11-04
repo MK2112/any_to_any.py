@@ -385,6 +385,11 @@ class TestSaveFormat:
         assert _save_format("webp") == "WEBP"
         assert _save_format("bmp") == "BMP"
 
+    def test_ps_uses_pillow_eps_writer(self):
+        from core.converter.image_converter import _save_format
+
+        assert _save_format("ps") == "EPS"
+
 
 class TestToHeic:
     # Test to_heic with in-memory image mocks

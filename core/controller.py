@@ -333,6 +333,16 @@ class Controller:
         self.trim_range = None
         self.split_points = None
 
+    def format_capabilities(self) -> list:
+        from core.utils.format_capabilities import collect_format_capabilities
+
+        return collect_format_capabilities(self._supported_formats)
+
+    def format_capabilities_report(self) -> str:
+        from core.utils.format_capabilities import render_format_capabilities
+
+        return render_format_capabilities(self.format_capabilities())
+
     def _audio_bitrate(self, format: str, quality: str) -> str:
         # Return bitrate for audio conversion
         # If formats allow for a higher bitrate, we shift our scale accordingly
