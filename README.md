@@ -218,7 +218,10 @@ This runs continuously, halt it by pressing `CTRL+C`.
 ### Multi Directory/File Processing
 
 You may also process multiple individual files or multiple directories at once.<br>
-Note that only one output directory can be specified (omitting the `-o`/`--output` parameter works and will write to the input file paths).
+Note that only *one* output directory can be specified.<br>
+An output directory is required when multiple inputs are given.<br>
+For a single input, you can omit `-o`/`--output` and the output is written next to that input.
+
 ```bash
 python any_to_any.py -i -1 /path/to/file1.mp4 -2 /path/to/mp4-folder -o /path/to/output-folder -f mp3
 ```

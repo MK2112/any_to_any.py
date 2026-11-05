@@ -64,7 +64,8 @@ def test_join_back_recovers_capitalized_extension(controller_instance, tmp_path)
     assert controller_instance.file_handler.join_back(audio_set) == str(source)
 
 
-def test_multi_input_no_output_does_not_crash(controller_instance, tmp_path):
+@pytest.mark.parametrize("across", [False, True])
+def test_multi_input_no_output_does_not_crash(controller_instance, tmp_path, across):
     d1 = tmp_path / "dir1"
     d2 = tmp_path / "dir2"
     d1.mkdir()
@@ -83,7 +84,7 @@ def test_multi_input_no_output_does_not_crash(controller_instance, tmp_path):
             merge=False,
             concat=False,
             delete=False,
-            across=False,
+            across=across,
             recursive=False,
             dropzone=False,
             language=None,
@@ -128,6 +129,43 @@ def test_run_releases_claims_after_failed_conversion(
     assert handler._job_claims == set()
     assert handler._resolve_output_file_conflict(claimed["path"]) == claimed["path"]
     handler.release_job_claims()  # keep the global registry clean
+
+
+def test_run_completes_when_one_file_fails(controller_instance, tmp_path, monkeypatch):
+    src = tmp_path / "clip.mp3"
+    src.write_bytes(b"\x00" * 128)
+    out = tmp_path / "out"
+    out.mkdir()
+    handler = controller_instance.file_handler
+
+    def dispatch_with_one_failure(file_paths, formats):
+        good_output = out / "good.mp3"
+        good_output.write_bytes(b"ok")
+        handler._run_outputs.add(str(good_output))
+        logging.getLogger("core").error("one file failed")
+
+    monkeypatch.setattr(
+        controller_instance, "_dispatch_targets", dispatch_with_one_failure
+    )
+
+    controller_instance.run(
+        input_path_args=[str(src)],
+        format=["mp3"],
+        output=str(out),
+        framerate=None,
+        quality=None,
+        split=None,
+        merge=False,
+        concat=False,
+        delete=False,
+        across=False,
+        recursive=False,
+        dropzone=False,
+        language=None,
+        workers=1,
+    )
+
+    assert handler.has_run_outputs()
 
 
 def test_recursive_with_file_input_does_not_crash(
@@ -369,3 +407,111 @@ def test_recursive_scan_skips_generated_protocol_dirs(controller_instance, tmp_p
 
     assert not any("_hls" in path or "_dash" in path for path in scanned_roots)
     assert (out / "good.webp").exists()
+
+
+def test_run_does_not_count_another_jobs_errors(tmp_path):
+    import threading
+
+    from core.controller import Controller
+
+    a_in = tmp_path / "a_in"
+    b_in = tmp_path / "b_in"
+    a_out = tmp_path / "a_out"
+    b_out = tmp_path / "b_out"
+    for path in (a_in, b_in, a_out, b_out):
+        path.mkdir()
+    (a_in / "a.mp3").touch()
+    (b_in / "b.mp3").touch()
+
+    a_controller = Controller(locale="English")
+    b_controller = Controller(locale="English")
+    a_ready = threading.Event()
+    b_logged = threading.Event()
+
+    def a_dispatch(file_paths, formats):
+        a_ready.set()
+        assert b_logged.wait(5), "job B never logged its error"
+
+    def b_dispatch(file_paths, formats):
+        assert a_ready.wait(5), "job A never started"
+        logging.getLogger("core").error("job B failure")
+        b_logged.set()
+        good_output = b_out / "good.wav"
+        good_output.write_bytes(b"ok")
+        b_controller.file_handler._run_outputs.add(str(good_output))
+
+    a_controller._dispatch_targets = a_dispatch
+    b_controller._dispatch_targets = b_dispatch
+    errors = {}
+
+    def run_job(name, controller, input_dir, output_dir):
+        try:
+            controller.run(
+                input_path_args=[str(input_dir)],
+                format=["wav"],
+                output=str(output_dir),
+                framerate=None,
+                quality=None,
+                split=None,
+                merge=False,
+                concat=False,
+                delete=False,
+                across=False,
+                recursive=False,
+                dropzone=False,
+                language=None,
+                workers=1,
+            )
+        except BaseException as exc:
+            errors[name] = exc
+
+    threads = [
+        threading.Thread(target=run_job, args=("a", a_controller, a_in, a_out)),
+        threading.Thread(target=run_job, args=("b", b_controller, b_in, b_out)),
+    ]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(10)
+
+    assert all(not thread.is_alive() for thread in threads)
+    assert "a" not in errors, f"job A wrongly failed: {errors.get('a')}"
+    assert "b" not in errors
+    assert not a_controller.file_handler.has_run_outputs()
+    assert b_controller.file_handler.has_run_outputs()
+
+
+def test_run_counts_errors_logged_by_parallel_workers(controller_instance, tmp_path):
+    from core.utils.file_handler import run_parallel
+
+    src = tmp_path / "clip.mp3"
+    src.write_bytes(b"\x00" * 128)
+    out = tmp_path / "out"
+    out.mkdir()
+
+    def dispatch_with_worker_errors(file_paths, formats):
+        run_parallel(
+            [1, 2],
+            lambda _: logging.getLogger("core").error("worker failure"),
+            2,
+        )
+
+    controller_instance._dispatch_targets = dispatch_with_worker_errors
+
+    with pytest.raises(SystemExit):
+        controller_instance.run(
+            input_path_args=[str(src)],
+            format=["wav"],
+            output=str(out),
+            framerate=None,
+            quality=None,
+            split=None,
+            merge=False,
+            concat=False,
+            delete=False,
+            across=False,
+            recursive=False,
+            dropzone=False,
+            language=None,
+            workers=1,
+        )

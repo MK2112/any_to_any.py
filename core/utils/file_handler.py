@@ -5,6 +5,7 @@ import random
 import logging
 import threading
 import subprocess
+import contextvars
 import utils.language_support as lang
 
 from moviepy import VideoFileClip
@@ -78,7 +79,11 @@ class FFmpegProcessTracker:
                         if _is_ffmpeg_command(args):
                             with FFmpegProcessTracker._registry_lock:
                                 for tracker in FFmpegProcessTracker._active:
-                                    if not tracker.current_thread_only or tracker._owner_thread is threading.current_thread():
+                                    if (
+                                        not tracker.current_thread_only
+                                        or tracker._owner_thread
+                                        is threading.current_thread()
+                                    ):
                                         tracker._register(popen_self)
 
                 FFmpegProcessTracker._wrapper = TrackingPopen
@@ -250,7 +255,10 @@ def run_parallel(items, fn, max_workers):
                 logging.getLogger(__name__).error(f"[!] Skipping {item}: {e}")
         return results
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {executor.submit(fn, item): item for item in items}
+        futures = {
+            executor.submit(contextvars.copy_context().run, fn, item): item
+            for item in items
+        }
         results = []
         for future in as_completed(futures):
             try:
@@ -419,8 +427,13 @@ class FileHandler:
             if os.path.isfile(resolved_out_path):
                 with self._tracked_outputs_lock:
                     self._run_outputs.add(resolved_out_path)
-                    if self._tracked_outputs is not None and resolved_out_path != source_path:
-                        self._tracked_outputs.setdefault(source_path, set()).add(resolved_out_path)
+                    if (
+                        self._tracked_outputs is not None
+                        and resolved_out_path != source_path
+                    ):
+                        self._tracked_outputs.setdefault(source_path, set()).add(
+                            resolved_out_path
+                        )
                 if delete:
                     self.remove_source(source_path)
 
@@ -457,6 +470,7 @@ class FileHandler:
     ) -> dict:
         file_paths = file_paths or {}
         supported_formats = supported_formats or {}
+
         # Get media files from input dir
         def process_file(file_path: str) -> tuple:
             # Dissect "path/to/file.txt" into ["path/to", "file", "txt"]

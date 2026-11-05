@@ -2,6 +2,7 @@ import os
 import re
 import time
 import logging
+import contextvars
 import pymupdf as pypdf
 import utils.language_support as lang
 
@@ -83,6 +84,11 @@ def _parse_srt_entries(content: str) -> list:
     return entries
 
 
+_RUN_ERROR_COUNTER = contextvars.ContextVar(
+    "any_to_any_run_error_counter", default=None
+)
+
+
 class _RunErrorCounter(logging.Handler):
     # Collect conversion errors so a finished run can report failure
     def __init__(self):
@@ -90,7 +96,9 @@ class _RunErrorCounter(logging.Handler):
         self.records = []
 
     def emit(self, record):
-        self.records.append(record)
+        # Only count records emitted by this run, not a concurrent job's
+        if _RUN_ERROR_COUNTER.get() is self:
+            self.records.append(record)
 
 
 class Controller:
@@ -375,6 +383,7 @@ class Controller:
         error_counter = _RunErrorCounter()
         run_logger = logging.getLogger("core")
         run_logger.addHandler(error_counter)
+        run_token = _RUN_ERROR_COUNTER.set(error_counter)
         try:
             result = self._run_impl(*args, **kwargs)
             if error_counter.records and not self.file_handler.has_run_outputs():
@@ -387,6 +396,7 @@ class Controller:
                 )
             return result
         finally:
+            _RUN_ERROR_COUNTER.reset(run_token)
             run_logger.removeHandler(error_counter)
             self.file_handler.release_job_claims()
 
@@ -475,6 +485,9 @@ class Controller:
         self.recursive = recursive
         self.merging = merge
         self.concatenating = concat
+        concat_across_inputs = concat and all(
+            os.path.isfile(path) for path in input_paths
+        )
         self.page_ranges = split
         self.framerate = framerate
         self.delete = delete
@@ -564,11 +577,7 @@ class Controller:
         if len(input_paths) == 1:
             self.output = output if output is not None else input_paths[0]
         else:
-            self.output = (
-                output
-                if output is not None
-                else (os.path.dirname(os.getcwd()) if across else None)
-            )
+            self.output = output
 
         # Handle single file output path (could be a file path like /path/to/output.jpg)
         # Check if output looks like a file path and convert to directory
@@ -652,7 +661,7 @@ class Controller:
                     with os.scandir(self.input) as it:
                         has_subdirs = any(entry.is_dir() for entry in it)
                 if has_subdirs:
-                    if across or self.concatenating:
+                    if across or concat_across_inputs:
                         prefix = input_path + os.sep
                         for category in list(file_paths):
                             file_paths[category] = [
@@ -688,8 +697,8 @@ class Controller:
                         f"[!] {lang.get_translation('no_media_found', self.locale).replace('[path]', input_path_str)}",
                     )
                 continue
-            
-            if not across and not self.concatenating:
+
+            if not across and not concat_across_inputs:
                 if self.output is None or was_none:
                     self.output = os.path.dirname(input_path)
                     was_none = True
@@ -701,7 +710,7 @@ class Controller:
                 found_files = found_files or bool(file_paths)
                 file_paths = {}
 
-        if across or self.concatenating:
+        if across or concat_across_inputs:
             if self.output is None:
                 self.output = os.path.dirname(input_paths[0])
             if self.preserve_meta or self.custom_tags:
@@ -742,7 +751,9 @@ class Controller:
                 if track_outputs:
                     outputs = self.file_handler._tracked_outputs
                     if successful is None:
-                        successful = {source: [paths] for source, paths in outputs.items()}
+                        successful = {
+                            source: [paths] for source, paths in outputs.items()
+                        }
                     else:
                         successful = {
                             source: previous + [outputs[source]]
@@ -751,7 +762,10 @@ class Controller:
                         }
             if track_outputs:
                 for source, output_groups in (successful or {}).items():
-                    if all(any(os.path.isfile(path) for path in group) for group in output_groups):
+                    if all(
+                        any(os.path.isfile(path) for path in group)
+                        for group in output_groups
+                    ):
                         self.file_handler.remove_source(source)
         finally:
             self.file_handler._tracked_outputs = None
@@ -925,9 +939,7 @@ class Controller:
         elif self.concatenating:
             self.concat(file_paths, getattr(self, "target_format", None))
         elif self.target_format is None and (
-            self.resolution is not None
-            or self.burn_subs
-            or self._time_edit_requested()
+            self.resolution is not None or self.burn_subs or self._time_edit_requested()
         ):
             self._edit_media(file_paths)
         elif self.target_format in self._fmt_movie_keys:
@@ -1209,9 +1221,7 @@ class Controller:
                 ]
             )
             audio_format = format if format is not None else "mp3"
-            audio_out_path = _concat_out_path(
-                f"concatenated_audio.{audio_format}"
-            )
+            audio_out_path = _concat_out_path(f"concatenated_audio.{audio_format}")
             concat_audio.write_audiofile(
                 audio_out_path,
                 codec=self._supported_formats[Category.AUDIO][audio_format],
@@ -1239,9 +1249,7 @@ class Controller:
                 method="compose",
             )
             video_format = format if format is not None else "mp4"
-            video_out_path = _concat_out_path(
-                f"concatenated_video.{video_format}"
-            )
+            video_out_path = _concat_out_path(f"concatenated_video.{video_format}")
             concat_vid.write_videofile(
                 video_out_path,
                 fps=effective_fps(concat_vid.fps, self.framerate),
@@ -1314,9 +1322,7 @@ class Controller:
 
             if srts:
                 # Manual progress tracking for SRT concatenation
-                srt_out_path = _concat_out_path(
-                    "concatenated_subtitles.srt"
-                )
+                srt_out_path = _concat_out_path("concatenated_subtitles.srt")
                 total_srts = len(srts)
                 for i, _ in enumerate(srts):
                     self.prog_logger.update_shared(
@@ -1466,7 +1472,7 @@ class Controller:
                 self.file_handler.post_process(
                     movie_path_set, merged_out_path, self.delete
                 )
-                # Only delete the audio file if it was in the input set, not if just found in dir
+                # Only delete audio file if it was in input set, not if just found in dir
                 if audio_fit in audio_members:
                     self.file_handler.post_process(
                         audio_fit, merged_out_path, self.delete, show_status=False

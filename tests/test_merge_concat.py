@@ -516,3 +516,91 @@ def test_concat_image_gif_target_still_builds(controller_instance, tmp_path):
         )
 
     assert combined.write_gif.call_count == 1
+
+
+def _run_concat_capture(
+    controller_instance, tmp_path, monkeypatch, inputs, across=False
+):
+    out = tmp_path / "out"
+    out.mkdir(exist_ok=True)
+    batches = []
+
+    def capture(file_paths, formats):
+        batches.append(
+            {category: list(entries) for category, entries in file_paths.items()}
+        )
+
+    monkeypatch.setattr(controller_instance, "_dispatch_targets", capture)
+    controller_instance.run(
+        input_path_args=[str(path) for path in inputs],
+        format=["mp3"],
+        output=str(out),
+        framerate=None,
+        quality=None,
+        split=None,
+        merge=False,
+        concat=True,
+        delete=False,
+        across=across,
+        recursive=False,
+        dropzone=False,
+        language=None,
+        workers=1,
+    )
+    return batches
+
+
+def test_concat_groups_directories_without_across(
+    controller_instance, tmp_path, monkeypatch
+):
+    dir1 = tmp_path / "d1"
+    dir2 = tmp_path / "d2"
+    dir1.mkdir()
+    dir2.mkdir()
+    (dir1 / "a.wav").touch()
+    (dir2 / "b.wav").touch()
+
+    batches = _run_concat_capture(
+        controller_instance, tmp_path, monkeypatch, [dir1, dir2]
+    )
+
+    assert len(batches) == 2
+    assert [len(batch[Category.AUDIO]) for batch in batches] == [1, 1]
+    assert {batch[Category.AUDIO][0][0] for batch in batches} == {
+        str(dir1) + os.sep,
+        str(dir2) + os.sep,
+    }
+
+
+def test_concat_combines_explicit_files_without_across(
+    controller_instance, tmp_path, monkeypatch
+):
+    first = tmp_path / "a.wav"
+    second = tmp_path / "b.wav"
+    first.touch()
+    second.touch()
+
+    batches = _run_concat_capture(
+        controller_instance, tmp_path, monkeypatch, [first, second]
+    )
+
+    assert len(batches) == 1
+    assert len(batches[0][Category.AUDIO]) == 2
+
+
+def test_concat_across_still_combines_directories(
+    controller_instance, tmp_path, monkeypatch
+):
+    dir1 = tmp_path / "d1"
+    dir2 = tmp_path / "d2"
+    dir1.mkdir()
+    dir2.mkdir()
+    (dir1 / "a.wav").touch()
+    (dir2 / "b.wav").touch()
+
+    batches = _run_concat_capture(
+        controller_instance, tmp_path, monkeypatch, [dir1, dir2], across=True
+    )
+
+    assert len(batches) == 1
+    assert len(batches[0][Category.AUDIO]) == 2
