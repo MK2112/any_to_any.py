@@ -1,7 +1,7 @@
 import os
 import docx
-import shutil
 import pytest
+import shutil
 import tempfile
 import numpy as np
 import pymupdf as pypdf
@@ -288,6 +288,50 @@ class TestDocumentConverterToPdf:
 
         mock_doc.save.assert_called_once()
         mock_doc.close.assert_called()
+
+    @patch("core.converter.doc_converter.pypdf.open")
+    @patch("core.converter.doc_converter.pypdf.Pixmap")
+    def test_to_pdf_unsupported_image_logs_and_continues(
+        self,
+        mock_pixmap,
+        mock_pypdf_open,
+        document_converter,
+        temp_output_dir,
+    ):
+        mock_doc = MagicMock()
+        mock_doc.new_page.return_value = MagicMock()
+        mock_pypdf_open.return_value = mock_doc
+        mock_pixmap.side_effect = [
+            RuntimeError("unknown image file format"),
+            MagicMock(width=100, height=100),
+        ]
+        document_converter.file_handler.join_back.side_effect = lambda path_set: (
+            os.path.join(path_set[0], f"{path_set[1]}.{path_set[2]}")
+        )
+
+        document_converter.to_pdf(
+            output=temp_output_dir,
+            file_paths={
+                Category.IMAGE: [
+                    ("path", "bad", "webp"),
+                    ("path", "good", "png"),
+                ],
+                Category.MOVIE: [],
+                Category.DOCUMENT: [],
+            },
+            format="pdf",
+            delete=False,
+        )
+
+        mock_doc.save.assert_called_once()
+        document_converter.event_logger.error.assert_called_once()
+        assert "bad.webp" in document_converter.event_logger.error.call_args.args[0]
+        document_converter.file_handler.post_process.assert_called_once()
+        assert document_converter.file_handler.post_process.call_args.args[0] == (
+            "path",
+            "good",
+            "png",
+        )
 
     @patch("core.converter.doc_converter.gif_to_frames")
     @patch("core.converter.doc_converter.pypdf.open")
@@ -632,7 +676,10 @@ class TestDocumentConverterSplitWarnings:
         mock_event_logger.warning.assert_called()
         assert os.listdir(temp_output_dir) == ["test.pdf"]
 
-    def test_split_pdf_partially_invalid_preserves_source_with_delete(self, tmp_path):
+    @pytest.mark.parametrize("page_ranges", ["1-2,99-100", "1-3,5-x"])
+    def test_split_pdf_partially_invalid_preserves_source_with_delete(
+        self, tmp_path, page_ranges
+    ):
         from core.utils.file_handler import FileHandler
 
         pdf_path = tmp_path / "test.pdf"
@@ -643,7 +690,7 @@ class TestDocumentConverterSplitWarnings:
         converter.split_pdf(
             output=str(tmp_path / "out"),
             doc_path_set=(str(tmp_path) + os.sep, "test", "pdf"),
-            page_ranges="1-2,99-100",
+            page_ranges=page_ranges,
             delete=True,
         )
         assert pdf_path.exists()
@@ -770,6 +817,8 @@ class TestDocumentConverterIntegration:
         ("1-2,99-100", 5, None),
         ("99,1-2", 5, None),
         ("1-2,typo", 5, None),
+        ("1-3,5-x", 10, None),
+        ("1-3,5-x,7-8", 10, None),
         ("1-2,4-3", 5, None),
         ("1-2,", 5, None),
         ("1-5,rest", 5, [(1, 5)]),
@@ -848,6 +897,47 @@ class TestDocumentConverterPptxTitle:
         )
 
         assert (out / "deck.docx").exists()
+
+
+class TestDocumentConverterOfficeUnsupportedImages:
+    @pytest.mark.parametrize("target_format", ["docx", "pptx"])
+    def test_unsupported_image_is_logged_and_batch_continues(
+        self, tmp_path, target_format
+    ):
+        from PIL import Image
+
+        from core.utils.file_handler import FileHandler
+
+        src = tmp_path / "src"
+        src.mkdir()
+        Image.new("RGB", (10, 10), "red").save(src / "bad.webp", "WEBP")
+        Image.new("RGB", (10, 10), "blue").save(src / "good.png")
+        out = tmp_path / "out"
+        out.mkdir()
+        logger = MagicMock()
+        handler = FileHandler(event_logger=logger, locale="English")
+        converter = DocumentConverter(handler, MagicMock(), logger)
+
+        converter.to_office(
+            str(out),
+            {
+                Category.IMAGE: [
+                    (str(src) + os.sep, "bad", "webp"),
+                    (str(src) + os.sep, "good", "png"),
+                ],
+                Category.MOVIE: [],
+                Category.DOCUMENT: [],
+            },
+            target_format,
+            True,
+        )
+
+        assert (out / f"good.{target_format}").exists()
+        assert not (out / f"bad.{target_format}").exists()
+        assert (src / "bad.webp").exists()
+        assert not (src / "good.png").exists()
+        logger.error.assert_called_once()
+        assert "bad.webp" in logger.error.call_args.args[0]
 
 
 class TestDocumentConverterSrtEncoding:

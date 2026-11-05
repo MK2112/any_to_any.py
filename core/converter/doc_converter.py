@@ -5,8 +5,8 @@ import docx
 import pptx
 import shutil
 import mammoth
-import subprocess
 import platform
+import subprocess
 import pymupdf as pypdf
 import utils.language_support as lang
 
@@ -197,9 +197,7 @@ class DocumentConverter:
                     )
                     continue
                 md_path = self.file_handler._resolve_output_file_conflict(
-                    os.path.abspath(
-                        os.path.join(output, f"{doc_path_set[1]}.{format}")
-                    )
+                    os.path.abspath(os.path.join(output, f"{doc_path_set[1]}.{format}"))
                 )
                 with open(md_path, "w", encoding="utf-8") as md_file:
                     for line in lines:
@@ -214,18 +212,30 @@ class DocumentConverter:
         # Convert Images to PDF
         for image_path_set in file_paths[Category.IMAGE]:
             if image_path_set[2] != "gif":
-                doc = pypdf.open()
-                img = pypdf.Pixmap(self.file_handler.join_back(image_path_set))
-                rect = pypdf.Rect(0, 0, img.width, img.height)
-                page = doc.new_page(width=rect.width, height=rect.height)
-                page.insert_image(rect, pixmap=img)
-                pdf_path = self.file_handler._resolve_output_file_conflict(
-                    os.path.abspath(
-                        os.path.join(output, f"{image_path_set[1]}.{format}")
+                doc = None
+                try:
+                    img = pypdf.Pixmap(self.file_handler.join_back(image_path_set))
+                    rect = pypdf.Rect(0, 0, img.width, img.height)
+                    doc = pypdf.open()
+                    page = doc.new_page(width=rect.width, height=rect.height)
+                    page.insert_image(rect, pixmap=img)
+                    pdf_path = self.file_handler._resolve_output_file_conflict(
+                        os.path.abspath(
+                            os.path.join(output, f"{image_path_set[1]}.{format}")
+                        )
                     )
-                )
-                doc.save(pdf_path)
-                doc.close()
+                    doc.save(pdf_path)
+                except Exception as e:
+                    self.event_logger.error(
+                        f"[!] {lang.get_translation('error', self.locale)}: "
+                        f"{lang.get_translation('conversion_failed', self.locale)}: "
+                        f'"{self.file_handler.join_back(image_path_set)}" -> '
+                        f"{format} - {e}"
+                    )
+                    continue
+                finally:
+                    if doc is not None:
+                        doc.close()
                 self.file_handler.post_process(image_path_set, pdf_path, delete)
             elif image_path_set[2] == "gif":
                 # We suppose the gif was converted to frames and we have a folder of pngs
@@ -532,9 +542,21 @@ class DocumentConverter:
                 )
             else:
                 page = _add_page(container)
-                _place_img(
-                    page, self.file_handler.join_back(image_path_set), full_page=True
-                )
+                try:
+                    _place_img(
+                        page,
+                        self.file_handler.join_back(image_path_set),
+                        full_page=True,
+                    )
+                except Exception as e:
+                    detail = str(e) or type(e).__name__
+                    self.event_logger.error(
+                        f"[!] {lang.get_translation('error', self.locale)}: "
+                        f"{lang.get_translation('conversion_failed', self.locale)}: "
+                        f'"{self.file_handler.join_back(image_path_set)}" -> '
+                        f"{format} - {detail}"
+                    )
+                    continue
                 if format == "docx":
                     page.add_paragraph(f"Image: {image_path_set[1]}")
             container.save(out_path)
@@ -876,7 +898,7 @@ class DocumentConverter:
                         try:
                             end = int(end_str)
                         except ValueError:
-                            continue  # Some invalid range
+                            return None  # Reject the entire specification.
 
                     # Validate, add range
                     if (
