@@ -3,6 +3,7 @@ import docx
 import pytest
 import shutil
 import tempfile
+import unicodedata
 import numpy as np
 import pymupdf as pypdf
 
@@ -1121,6 +1122,32 @@ class TestDocumentTargetCoverage:
             assert "Some body text" in "\n".join(page.get_text() for page in pdf)
         finally:
             pdf.close()
+
+    @pytest.mark.parametrize(
+        "ext,text",
+        [("md", "Привет"), ("srt", "你好世界"), ("pptx", "مرحبا")],
+    )
+    def test_sources_to_pdf_preserve_non_latin_glyphs(self, tmp_path, ext, text):
+        self._write_source(tmp_path, ext, text)
+        out = tmp_path / "out"
+        out.mkdir()
+
+        self._converter().to_pdf(
+            str(out), self._paths(tmp_path, "src", ext), "pdf", False
+        )
+
+        produced = out / "src.pdf"
+        assert produced.exists()
+        pdf = pypdf.open(str(produced))
+        try:
+            extracted = unicodedata.normalize(
+                "NFKC", "\n".join(page.get_text() for page in pdf)
+            )
+        finally:
+            pdf.close()
+
+        assert unicodedata.normalize("NFKC", text) in extracted
+        assert "···" not in extracted
 
     @pytest.mark.parametrize("ext", ["srt", "pdf", "pptx"])
     def test_sources_to_markdown_produce_text(self, tmp_path, ext):

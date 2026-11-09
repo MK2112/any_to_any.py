@@ -2,6 +2,7 @@ import io
 import os
 import sys
 import docx
+import html
 import pptx
 import shutil
 import mammoth
@@ -322,7 +323,19 @@ class DocumentConverter:
                 text_content = "\n".join(self._document_text_lines(doc_path_set))
                 doc = pypdf.open()
                 page = doc.new_page()
-                page.insert_text((50, 50), text_content, fontsize=12)
+                if any(ord(char) > 0xFF for char in text_content):
+                    # Helvetica only covers Latin-1 so MuPDF selects a font
+                    # with glyphs for the document's script as fallback
+                    page.insert_htmlbox(
+                        pypdf.Rect(
+                            50, 50, page.rect.width - 50, page.rect.height - 50
+                        ),
+                        "<pre style='white-space: pre-wrap; "
+                        "font-family: sans-serif; margin: 0;'>"
+                        f"{html.escape(text_content)}</pre>",
+                    )
+                else:
+                    page.insert_text((50, 50), text_content, fontsize=12)
                 doc.save(pdf_path)
                 doc.close()
 
