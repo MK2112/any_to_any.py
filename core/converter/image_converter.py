@@ -693,11 +693,7 @@ class ImageConverter:
             )
 
         self._convert_stills(
-            [
-                ips
-                for ips in file_paths[Category.IMAGE]
-                if ips[2] not in ("heic", "heif", "avif")
-            ],
+            [ips for ips in file_paths[Category.IMAGE] if ips[2] != format],
             input,
             output,
             format,

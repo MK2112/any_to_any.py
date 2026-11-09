@@ -12,8 +12,6 @@ from core.converter.image_converter import ImageConverter, office_to_frames
 
 
 class TestOfficeToFrames:
-    # Test the standalone office_to_frames function
-
     @pytest.fixture
     def mock_dependencies(self):
         file_handler = Mock()
@@ -22,17 +20,14 @@ class TestOfficeToFrames:
         file_handler.post_process = Mock()
         return file_handler, event_logger
 
-    # Note: docx is mocked using new_callable=MagicMock, so no need to import it
     @patch("core.converter.image_converter.tqdm")
     @patch("core.converter.image_converter.os")
     @patch("core.converter.image_converter.docx", new_callable=MagicMock)
     def test_office_to_frames_docx_success(
         self, mock_docx, mock_os, mock_tqdm, mock_dependencies
     ):
-        # Test successful DOCX image extraction
         file_handler, event_logger = mock_dependencies
 
-        # Setup mocks
         mock_doc = MagicMock()
         mock_rel1 = MagicMock()
         mock_rel1.reltype = "http://image"
@@ -53,7 +48,6 @@ class TestOfficeToFrames:
                 doc_path_set, "png", "/output", False, file_handler, event_logger
             )
 
-        # Assertions
         mock_docx.Document.assert_called_once_with("/path/to/file.docx")
         mock_os.makedirs.assert_called_once_with("/output/filename_docx", exist_ok=True)
         mock_file.assert_called_once()
@@ -66,10 +60,8 @@ class TestOfficeToFrames:
     def test_office_to_frames_pptx_success(
         self, mock_pptx, mock_os, mock_tqdm, mock_dependencies
     ):
-        # Test successful PPTX image extraction
         file_handler, event_logger = mock_dependencies
 
-        # Setup mocks
         mock_presentation = Mock()
         mock_slide = Mock()
         mock_shape = Mock()
@@ -90,7 +82,6 @@ class TestOfficeToFrames:
                 doc_path_set, "png", "/output", False, file_handler, event_logger
             )
 
-        # Assertions
         mock_pptx.Presentation.assert_called_once_with("/path/to/file.docx")
         mock_os.makedirs.assert_called_once_with("/output/filename_pptx", exist_ok=True)
         mock_file.assert_called_once()
@@ -102,14 +93,10 @@ class TestOfficeToFrames:
     def test_office_to_frames_exception_handling(
         self, mock_docx, mock_os, mock_tqdm, mock_dependencies
     ):
-        # Test exception handling in office_to_frames
         file_handler, event_logger = mock_dependencies
 
-        # Setup mocks
         mock_os.path.join.side_effect = lambda *args: "/".join(args)
         mock_os.makedirs = Mock()
-
-        # Make Document raise an exception
         mock_docx.Document.side_effect = Exception("Test error")
 
         doc_path_set = ("base", "filename_err", "docx")
@@ -117,13 +104,10 @@ class TestOfficeToFrames:
             doc_path_set, "png", "/output", False, file_handler, event_logger
         )
 
-        # Verify error was logged
         event_logger.error.assert_called_once()
 
 
 class TestGifToFrames:
-    # Test the gif_to_frames function
-
     @pytest.fixture
     def mock_file_handler(self):
         handler = MagicMock()
@@ -142,15 +126,12 @@ class TestGifToFrames:
 
 
 class TestImageConverter:
-    # Test the ImageConverter class
-
     @pytest.fixture
     def converter(self):
         file_handler = MagicMock()
         prog_logger = MagicMock()
         event_logger = MagicMock()
 
-        # Setup default return values
         def join_back_side_effect(path_set):
             if len(path_set) == 3:
                 return f"/mocked/path/{path_set[1]}.{path_set[2]}"
@@ -163,8 +144,6 @@ class TestImageConverter:
         return converter
 
     class TestToGif:
-        # Test to_gif method
-
         @patch("core.converter.image_converter.VideoFileClip")
         @patch("core.converter.image_converter.Image.open")
         @patch("core.converter.image_converter.os")
@@ -172,16 +151,13 @@ class TestImageConverter:
             self, mock_os, mock_image_open, mock_video_clip, converter
         ):
             # Test image to GIF conversion
-            # Setup mocks
             mock_os.path.exists.return_value = True
             mock_os.makedirs = Mock()
             mock_os.path.join.side_effect = lambda *args: "/".join(args)
 
-            # Setup mock image
             mock_img = MagicMock()
             mock_image_open.return_value.__enter__.return_value = mock_img
 
-            # Call the method
             converter.to_gif(
                 input="/input",
                 output="/output",
@@ -200,23 +176,17 @@ class TestImageConverter:
                 delete=False,
             )
 
-            # Verify image was processed
             mock_image_open.assert_called_once()
             mock_img.convert.assert_called_once_with("RGB")
 
     class TestErrorHandling:
-        # Test error handling
-
         @patch("core.converter.image_converter.VideoFileClip")
         @patch("core.converter.image_converter.os")
         def test_unsupported_movie_format(self, mock_os, mock_video_clip, converter):
-            # Test handling of unsupported movie formats
-            # Setup mocks
             mock_os.path.exists.return_value = True
             mock_os.makedirs = Mock()
             mock_os.path.join.side_effect = lambda *args: "/".join(args)
 
-            # Call the method with unsupported format
             converter.to_frames(
                 input="/input",
                 output="/output",
@@ -232,23 +202,17 @@ class TestImageConverter:
                 delete=False,
             )
 
-            # Verify error was logged
             converter.event_logger.info.assert_called()
             assert "unsupported" in converter.event_logger.info.call_args[0][0].lower()
 
     class TestEdgeCases:
-        # Test edge cases
-
         @patch("core.converter.image_converter.VideoFileClip")
         @patch("core.converter.image_converter.os")
         def test_empty_file_paths(self, mock_os, mock_video_clip, converter):
-            # Test with empty file paths
-            # Setup mocks
             mock_os.path.exists.return_value = True
             mock_os.makedirs = Mock()
             mock_os.path.join.side_effect = lambda *args: "/".join(args)
 
-            # Call the method with empty file paths
             converter.to_frames(
                 input="/input",
                 output="/output",
@@ -264,7 +228,6 @@ class TestImageConverter:
                 delete=False,
             )
 
-            # Verify no errors occurred
             converter.event_logger.error.assert_not_called()
             converter.event_logger.info.assert_not_called()
 
@@ -273,13 +236,10 @@ class TestImageConverter:
         def test_format_already_matches_target(
             self, mock_os, mock_video_clip, converter
         ):
-            # Test when source format matches target format
-            # Setup mocks
             mock_os.path.exists.return_value = True
             mock_os.makedirs = Mock()
             mock_os.path.join.side_effect = lambda *args: "/".join(args)
 
-            # Call the method with matching format
             converter.to_frames(
                 input="/input",
                 output="/output",
@@ -295,7 +255,6 @@ class TestImageConverter:
                 delete=False,
             )
 
-            # Verify no conversion was done
             converter.file_handler.post_process.assert_not_called()
 
         @patch("core.converter.image_converter.VideoFileClip")
@@ -321,7 +280,6 @@ class TestImageConverter:
                 delete=False,
             )
 
-            # Verify localized message was used
             assert (
                 "unsupported_format"
                 in converter.event_logger.info.call_args[0][0].lower()
@@ -392,7 +350,6 @@ class TestSaveFormat:
 
 
 class TestToHeic:
-    # Test to_heic with in-memory image mocks
     def test_jpeg_to_heic(self, tmp_path):
         import numpy as np
         from PIL import Image
@@ -602,9 +559,7 @@ class TestDeleteAndLogAfterFrameConversion:
         assert not src.exists()
         assert str(frame_dir / "anim-1.png") in caplog.text
 
-    def test_failed_image_does_not_disable_delete_for_next(
-        self, tmp_path, monkeypatch
-    ):
+    def test_failed_image_does_not_disable_delete_for_next(self, tmp_path, monkeypatch):
         from PIL import Image
 
         converter = self._converter("frames-delete-after-failure")
@@ -1111,7 +1066,6 @@ class TestNonOpenableSourcesAreSkipped:
 
 
 class TestAlphaHandling:
-
     def _converter(self, logger_name):
         import logging
 
@@ -1246,7 +1200,9 @@ def test_pptx_frames_extracted_for_bmp(tmp_path):
     presentation.save(str(tmp_path / "deck.pptx"))
 
     logger = logging.getLogger("pptx-bmp-frames")
-    converter = ImageConverter(FileHandler(logger, "English"), MagicMock(), logger, "English")
+    converter = ImageConverter(
+        FileHandler(logger, "English"), MagicMock(), logger, "English"
+    )
     out = tmp_path / "out"
     out.mkdir()
 
