@@ -75,11 +75,11 @@ def _merge_ffmpeg_params(
 
 
 def _subtitles_filter(srt_path: str) -> str:
-    # Escape a path for use as an ffmpeg subtitles filtergraph option
-    escaped = os.path.abspath(srt_path)
-    for char in ("\\", ":", "'", "[", "]", ",", ";"):
-        escaped = escaped.replace(char, "\\" + char)
-    return f"subtitles='{escaped}'"
+    escaped = "".join(
+        ("\\" * 3 + char) if char in "\\:';[],=" else char
+        for char in os.path.abspath(srt_path)
+    )
+    return f"subtitles={escaped}"
 
 
 class MovieConverter:

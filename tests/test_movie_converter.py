@@ -1,11 +1,12 @@
 import os
-
 import pytest
+import shutil
+import subprocess
 
 from utils.category import Category
-from core.converter.movie_converter import MovieConverter
 from unittest.mock import MagicMock, patch, call
 from tests.test_fixtures import setup_file_handler_mock
+from core.converter.movie_converter import MovieConverter, _subtitles_filter
 
 
 @pytest.fixture
@@ -619,6 +620,41 @@ def test_to_movie_only_gifs_skips_merge(mock_vfc, mock_converter):
     # GIF should be individually converted, no merged video created
     mock_vfc.assert_called_once()
     mock_clip.write_videofile.assert_called_once()
+
+
+@pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg is required")
+def test_subtitles_filter_handles_apostrophe_in_path(tmp_path):
+    srt_dir = tmp_path / "jo's clips"
+    srt_dir.mkdir()
+    srt = srt_dir / "clip.srt"
+    srt.write_text(
+        "1\n00:00:00,000 --> 00:00:01,000\nBurned caption\n", encoding="utf-8"
+    )
+
+    result = subprocess.run(
+        [
+            shutil.which("ffmpeg"),
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=c=black:s=160x90:d=0.2",
+            "-vf",
+            _subtitles_filter(str(srt)),
+            "-frames:v",
+            "1",
+            "-f",
+            "null",
+            "-",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+
+    assert result.returncode == 0, result.stderr
 
 
 @patch("core.converter.movie_converter.VideoFileClip")
