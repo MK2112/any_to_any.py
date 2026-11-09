@@ -264,7 +264,7 @@ python any_to_any.py -i /path/to/input_dir -f mp3 --workers 4 --recursive
 | `-o` or </br>`--output`      | Directory to save converted files into. Writing to the input file path, if none provided. |
 | `-q` or </br>`--quality`     | Set output quality, either `low`, `medium`, or `high`. Applies to audio bitrate, lossy images (`jpeg`/`webp`/`heic`/`heif`/`avif`) and video codec CRF. |
 | `-m` or </br>`--merge`       | Merge movie file with equally named audio file to become its audio track. |
-| `-c` or </br>`--concat`      | Concatenate input files of the same type (images, audio, video) into one output file (e.g. `concatenated_video.mp4` for movie files, `concatenated_audio.mp3` for audio files). |
+| `-c` or </br>`--concat`      | Concatenate input files of the same type (images, audio, video) into one output file. Directory scans use natural filename order, explicit file inputs keep the order supplied by the user. |
 | `-s` or </br>`--split`       | Split a PDF into multiple files, either by page count or page ranges, e.g. `1-2,3-5` or `10` or `1-3,2-6,8-end` or `1-5,rest`. |
 | `-a` or </br>`--across`      | Merge/Concatenate across directories when multiple directories are provided. |
 | `-w` or </br>`--web`         | Ignores all other arguments, starts browser + a web server at `http://localhost:5000`. |
