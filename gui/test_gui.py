@@ -677,6 +677,22 @@ def test_add_files_batch_filters_unsupported(main_window, tmp_path):
     assert main_window.file_list.count() == 1
 
 
+def test_add_files_batch_preserves_selection_order(main_window, tmp_path):
+    names = ["c.mp4", "a.mp4", "b.mp4"]
+    files = [tmp_path / name for name in names]
+    for file in files:
+        file.touch()
+
+    main_window.add_files_batch([str(files[0]), str(files[1])])
+    main_window.add_file_to_list(str(files[2]))
+
+    actual = [
+        main_window.file_list.item(i).text()
+        for i in range(main_window.file_list.count())
+    ]
+    assert actual == names
+
+
 def test_prune_missing_sources(main_window, tmp_path):
     f1 = tmp_path / "keep.mp4"
     f2 = tmp_path / "gone.mp4"
@@ -915,9 +931,10 @@ def test_start_conversion_snapshots_output_files(main_window, tmp_path):
     main_window.output_dir_edit.setText(str(out_dir))
     main_window.format_combo.setCurrentIndex(main_window.format_combo.findData("mp4"))
 
-    with patch("gui.qt_app.ConversionThread") as mock_thread, patch(
-        "gui.qt_app.QMessageBox"
-    ) as mock_box:
+    with (
+        patch("gui.qt_app.ConversionThread") as mock_thread,
+        patch("gui.qt_app.QMessageBox") as mock_box,
+    ):
         main_window.start_conversion()
 
     snapshot = main_window._pre_conversion_outputs
