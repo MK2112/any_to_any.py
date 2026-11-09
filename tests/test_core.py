@@ -362,6 +362,49 @@ def test_across_recursive_keeps_files_of_every_input(controller_instance, tmp_pa
     assert produced == ["first.webp", "second.webp", "top.webp"]
 
 
+def test_recursive_scan_walks_directories_in_natural_order(
+    controller_instance, tmp_path, monkeypatch
+):
+    root = tmp_path / "media"
+    for name in ("part10", "part2", "part1"):
+        folder = root / name
+        folder.mkdir(parents=True)
+        (folder / f"{name}.mp3").touch()
+    out = tmp_path / "out"
+    out.mkdir()
+
+    scanned = []
+    real_get_file_paths = controller_instance.file_handler.get_file_paths
+
+    def spy(input_path, file_paths=None, supported_formats=None):
+        scanned.append(os.path.basename(str(input_path)))
+        return real_get_file_paths(input_path, file_paths, supported_formats)
+
+    monkeypatch.setattr(controller_instance.file_handler, "get_file_paths", spy)
+    monkeypatch.setattr(
+        controller_instance, "_dispatch_targets", lambda *args, **kwargs: None
+    )
+    controller_instance.run(
+        input_path_args=[str(root)],
+        format=["mp3"],
+        output=str(out),
+        framerate=None,
+        quality=None,
+        split=None,
+        merge=False,
+        concat=True,
+        delete=False,
+        across=False,
+        recursive=True,
+        dropzone=False,
+        language=None,
+        workers=1,
+    )
+
+    assert scanned.count("media") == 2
+    assert scanned[-3:] == ["part1", "part2", "part10"]
+
+
 def test_recursive_scan_skips_generated_protocol_dirs(controller_instance, tmp_path):
     from unittest import mock
     from PIL import Image

@@ -1,4 +1,5 @@
 import os
+import re
 import time
 import string
 import random
@@ -201,6 +202,17 @@ def safe_output_dir(base_dir: str, timeout: float = 2.0) -> str:
     if isinstance(resolved, str) and resolved:
         return resolved
     raise FileExistsError(f"Could not resolve a free directory for {base_dir}")
+
+
+def natural_sort_key(filename: str) -> tuple:
+    # Case-insensitive natural order: track2 before track10
+    # Original name is the final tie-breaker, case-only variants stay deterministic
+    parts = re.split(r"(\d+)", filename)
+    key = tuple(
+        (0, int(part)) if part.isdigit() else (1, part.casefold())
+        for part in parts
+    )
+    return key, filename
 
 
 def sort_frame_filenames(filenames: list) -> list:
@@ -505,7 +517,7 @@ class FileHandler:
             for directory in [input]:
                 if not os.path.exists(directory):
                     raise FileNotFoundError
-            for file_name in os.listdir(input):
+            for file_name in sorted(os.listdir(input), key=natural_sort_key):
                 file_path = os.path.abspath(os.path.join(input, file_name))
                 if not os.path.isfile(file_path):
                     continue

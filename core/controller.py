@@ -17,7 +17,7 @@ from core.converter.audio_converter import AudioConverter
 from core.converter.movie_converter import MovieConverter
 from core.converter.image_converter import ImageConverter
 from core.converter.doc_converter import DocumentConverter
-from core.utils.file_handler import FileHandler, effective_fps
+from core.utils.file_handler import FileHandler, effective_fps, natural_sort_key
 from core.utils.time_ranges import (
     parse_split_points,
     parse_trim_range,
@@ -673,7 +673,10 @@ class Controller:
                     else:
                         file_paths = {}
                     for root, dirs, _ in os.walk(self.input):
-                        dirs[:] = [d for d in dirs if not d.endswith(("_hls", "_dash"))]
+                        dirs[:] = sorted(
+                            (d for d in dirs if not d.endswith(("_hls", "_dash"))),
+                            key=natural_sort_key,
+                        )
                         try:
                             file_paths = self.file_handler.get_file_paths(
                                 root, file_paths, self._supported_formats

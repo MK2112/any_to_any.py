@@ -12,10 +12,12 @@ from core.utils.file_handler import (
     FFmpegProcessTracker,
     FileHandler,
     effective_fps,
+    natural_sort_key,
     resolve_worker_count,
     sort_frame_filenames,
     worker_count_for,
 )
+from utils.category import Category
 from tests.test_fixtures import controller_instance
 
 
@@ -69,6 +71,35 @@ def test_has_visuals_false_for_passed_clip_without_frames(mock_vfc):
     assert _handler().has_visuals(("dir", "audio", "mp4"), clip=clip) is False
     mock_vfc.assert_not_called()
     clip.close.assert_not_called()
+
+
+def test_natural_sort_key_orders_numbers_numerically():
+    names = ["d12.mp3", "d11.mp3", "d2.mp3", "d1.mp3"]
+    assert sorted(names, key=natural_sort_key) == [
+        "d1.mp3",
+        "d2.mp3",
+        "d11.mp3",
+        "d12.mp3",
+    ]
+
+
+def test_get_file_paths_sorts_directory_entries(controller_instance, tmp_path):
+    names = ["d12.mp3", "d11.mp3", "d2.mp3", "d1.mp3"]
+    for name in names:
+        (tmp_path / name).touch()
+
+    with patch("core.utils.file_handler.os.listdir", return_value=names):
+        file_paths = controller_instance.file_handler.get_file_paths(
+            input=str(tmp_path),
+            supported_formats=controller_instance._supported_formats,
+        )
+
+    assert [entry[1] for entry in file_paths[Category.AUDIO]] == [
+        "d1",
+        "d2",
+        "d11",
+        "d12",
+    ]
 
 
 def test_sort_frame_filenames_numeric_order():
