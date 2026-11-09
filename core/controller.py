@@ -187,7 +187,7 @@ class Controller:
                 "au": "pcm_s16be",
                 "oga": "libvorbis",
                 "opus": "libopus",
-                "m3u8": "pcm_s16le",
+                "m3u8": "aac",
                 "w64": "pcm_s16le",
                 "mlp": "mlp",
                 "adts": "aac",
@@ -332,6 +332,7 @@ class Controller:
             "medium",
             "low",
         )  # Quality step indicators
+        self.quality = None
 
         # Metadata handling flags
         self.preserve_meta = False
@@ -865,6 +866,7 @@ class Controller:
                 delete=self.delete,
                 resolution=self.resolution,
                 burn_subs=self.burn_subs,
+                quality=self.quality,
             )
 
     def _time_edit_requested(self) -> bool:
@@ -929,6 +931,7 @@ class Controller:
                 burn_subs=self.burn_subs,
                 trim=self.trim_range,
                 split_at=self.split_points,
+                quality=self.quality,
             )
 
     def process_file_paths(self, file_paths: dict) -> None:
@@ -956,6 +959,7 @@ class Controller:
                 burn_subs=self.burn_subs,
                 trim=self.trim_range,
                 split_at=self.split_points,
+                quality=self.quality,
             )
         elif self.target_format in self._fmt_audio_keys:
             self.audio_converter.to_audio(
@@ -986,6 +990,7 @@ class Controller:
                 burn_subs=self.burn_subs,
                 trim=self.trim_range,
                 split_at=self.split_points,
+                quality=self.quality,
             )
         elif self.target_format in self._fmt_image_keys:
             self._supported_formats[Category.IMAGE][self.target_format](
@@ -996,6 +1001,7 @@ class Controller:
                 self.framerate,
                 self.target_format,
                 self.delete,
+                quality=self.quality,
             )
         elif self.target_format in self._fmt_doc_keys:
             self._supported_formats[Category.DOCUMENT][self.target_format](

@@ -213,7 +213,7 @@ def test_to_movie_docx_forwards_resolution(mock_office, mock_converter, tmp_path
         delete=False,
         resolution="640x360",
     )
-    assert mock_converter._frames_to_movie.call_args.args[-1] == "640x360"
+    assert mock_converter._frames_to_movie.call_args.args[-2] == "640x360"
 
 
 @patch("core.converter.movie_converter.office_to_frames")

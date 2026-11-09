@@ -49,6 +49,30 @@ _FALLBACK_CODECS = {
     "mpg": "mpeg2video",
 }
 
+_VIDEO_CRF = {"low": "32", "medium": "23", "high": "18"}
+_CRF_CODECS = frozenset(
+    ("libx264", "libx265", "libvpx", "libvpx-vp9", "libaom-av1", "hevc")
+)
+
+
+def _quality_ffmpeg_params(codec: str, quality: str | None) -> list[str]:
+    if quality is None or codec not in _CRF_CODECS:
+        return []
+    crf = _VIDEO_CRF.get(quality)
+    if crf is None:
+        return []
+    if codec in ("libvpx", "libvpx-vp9", "libaom-av1"):
+        return ["-crf", crf, "-b:v", "0"]
+    return ["-crf", crf]
+
+
+def _merge_ffmpeg_params(
+    base: list[str] | None, extra: list[str]
+) -> list[str] | None:
+    params = list(base or [])
+    params.extend(extra)
+    return params or None
+
 
 def _subtitles_filter(srt_path: str) -> str:
     # Escape a path for use as an ffmpeg subtitles filtergraph option
@@ -98,6 +122,7 @@ class MovieConverter:
         codec: str,
         framerate: int,
         resolution: str = None,
+        quality: str = None,
     ):
         # (Audio-only) Placeholder (black) video carries the audio track
         clip = ImageClip(
@@ -116,6 +141,9 @@ class MovieConverter:
             codec=codec,
             fps=24 if framerate is None else framerate,
             audio=True,
+            ffmpeg_params=_merge_ffmpeg_params(
+                None, _quality_ffmpeg_params(codec, quality)
+            ),
             logger=self.prog_logger,
         )
         return clip
@@ -128,6 +156,7 @@ class MovieConverter:
         codec: str,
         framerate: int,
         resolution: str = None,
+        quality: str = None,
     ) -> None:
         # Stitch frame sequence together as movie
         image_files = sort_frame_filenames(image_files)
@@ -147,6 +176,9 @@ class MovieConverter:
                 out_path,
                 fps=24 if framerate is None else framerate,
                 codec=codec,
+                ffmpeg_params=_merge_ffmpeg_params(
+                    None, _quality_ffmpeg_params(codec, quality)
+                ),
                 logger=self.prog_logger,
             )
         finally:
@@ -166,6 +198,7 @@ class MovieConverter:
         burn_subs: bool = False,
         trim=None,
         split_at=None,
+        quality: str = None,
     ) -> None:
         trim = normalize_trim(trim)
         split_at = normalize_split_points(split_at)
@@ -198,6 +231,9 @@ class MovieConverter:
                     codec=codec,
                     fps=effective_fps(clip.fps, framerate),
                     audio=False,
+                    ffmpeg_params=_merge_ffmpeg_params(
+                        None, _quality_ffmpeg_params(codec, quality)
+                    ),
                     logger=self.prog_logger,
                 )
                 return (image_path_set, out_path)
@@ -247,6 +283,9 @@ class MovieConverter:
                 out_path,
                 fps=24 if framerate is None else framerate,
                 codec=codec,
+                ffmpeg_params=_merge_ffmpeg_params(
+                    None, _quality_ffmpeg_params(codec, quality)
+                ),
                 logger=self.prog_logger,
             )
             final_clip.close()
@@ -320,10 +359,13 @@ class MovieConverter:
                             fps=effective_fps(segment.fps, framerate),
                             codec=codec,
                             audio=segment.audio is not None,
-                            ffmpeg_params=(
-                                ["-vf", _subtitles_filter(srt_path)]
-                                if srt_path is not None
-                                else None
+                            ffmpeg_params=_merge_ffmpeg_params(
+                                (
+                                    ["-vf", _subtitles_filter(srt_path)]
+                                    if srt_path is not None
+                                    else None
+                                ),
+                                _quality_ffmpeg_params(codec, quality),
                             ),
                             logger=self.prog_logger,
                         )
@@ -366,6 +408,7 @@ class MovieConverter:
                         codec,
                         framerate,
                         resolution,
+                        quality,
                     )
                     try:
                         video_clip.close()
@@ -442,7 +485,13 @@ class MovieConverter:
                             )
                         )
                         self._frames_to_movie(
-                            frames_dir, pics, out_path, codec, framerate, resolution
+                            frames_dir,
+                            pics,
+                            out_path,
+                            codec,
+                            framerate,
+                            resolution,
+                            quality,
                         )
                         self.file_handler.post_process(doc_path_set, out_path, delete)
                 finally:
@@ -520,6 +569,7 @@ class MovieConverter:
                         codec,
                         framerate,
                         resolution,
+                        quality,
                     )
                     completed = True
                 except Exception as e:
@@ -560,6 +610,7 @@ class MovieConverter:
         burn_subs: bool = False,
         trim=None,
         split_at=None,
+        quality: str = None,
     ) -> None:
         trim = normalize_trim(trim)
         split_at = normalize_split_points(split_at)
@@ -614,10 +665,13 @@ class MovieConverter:
                                 codec=codec[0],
                                 fps=effective_fps(segment.fps, framerate),
                                 audio=segment.audio is not None,
-                                ffmpeg_params=(
-                                    ["-vf", _subtitles_filter(srt_path)]
-                                    if srt_path is not None
-                                    else None
+                                ffmpeg_params=_merge_ffmpeg_params(
+                                    (
+                                        ["-vf", _subtitles_filter(srt_path)]
+                                        if srt_path is not None
+                                        else None
+                                    ),
+                                    _quality_ffmpeg_params(codec[0], quality),
                                 ),
                                 logger=self.prog_logger,
                             )
@@ -633,10 +687,16 @@ class MovieConverter:
                                 codec=_FALLBACK_CODECS.get(codec[1], codec[0]),
                                 fps=effective_fps(segment.fps, framerate),
                                 audio=segment.audio is not None,
-                                ffmpeg_params=(
-                                    ["-vf", _subtitles_filter(srt_path)]
-                                    if srt_path is not None
-                                    else None
+                                ffmpeg_params=_merge_ffmpeg_params(
+                                    (
+                                        ["-vf", _subtitles_filter(srt_path)]
+                                        if srt_path is not None
+                                        else None
+                                    ),
+                                    _quality_ffmpeg_params(
+                                        _FALLBACK_CODECS.get(codec[1], codec[0]),
+                                        quality,
+                                    ),
                                 ),
                                 logger=self.prog_logger,
                             )

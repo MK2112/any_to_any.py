@@ -32,6 +32,22 @@ _SAVE_FORMAT = {
     "avif": "AVIF",
 }
 
+_IMG_QLTY = {"low": 60, "medium": 80, "high": 95}
+_QLTY_FORMATS = frozenset(("jpeg", "jpg", "webp", "heic", "heif", "avif"))
+
+
+def _pillow_quality(quality: str | None) -> int | None:
+    if quality is None:
+        return None
+    return _IMG_QLTY.get(quality)
+
+
+def _save_kwargs(format: str, quality: str | None) -> dict:
+    q = _pillow_quality(quality)
+    if q is None or format not in _QLTY_FORMATS:
+        return {}
+    return {"quality": q}
+
 _RASTER_CONVERTIBLE = frozenset(
     (
         "png",
@@ -247,6 +263,7 @@ class ImageConverter:
         framerate: int,
         format: str,
         delete: bool,
+        quality: str = None,
     ) -> None:
         # Converting to image frame sets
         # This works for images and movies only
@@ -301,7 +318,11 @@ class ImageConverter:
                     continue
                 with source as img:
                     img = _mode_for_target(img, format)
-                    img.save(img_path, format=_save_format(format))
+                    img.save(
+                        img_path,
+                        format=_save_format(format),
+                        **_save_kwargs(format, quality),
+                    )
 
                 self.file_handler.post_process(image_path_set, img_path, delete)
 
@@ -554,6 +575,7 @@ class ImageConverter:
         framerate: int,
         format: str,
         delete: bool,
+        quality: str = None,
     ) -> None:
         # Movies are converted frame-by-frame to bmps
         self._movies_to_frames(
@@ -597,6 +619,7 @@ class ImageConverter:
         framerate: int,  # equally unused, same thing
         format: str,
         delete: bool,
+        quality: str = None,
     ) -> None:
         # Convert frames in webp format
         # Movies are converted to webps, frame by frame
@@ -637,7 +660,7 @@ class ImageConverter:
             format,
             delete,
             lambda img, out_path: _mode_for_target(img, format).save(
-                out_path, format=format
+                out_path, format=format, **_save_kwargs(format, quality)
             ),
         )
 
@@ -653,6 +676,7 @@ class ImageConverter:
         framerate: int,
         format: str,
         delete: bool,
+        quality: str = None,
     ) -> None:
         # Convert still images, PDF, office docs to HEIF/HEIC/AVIF, not movies tho
         if pillow_heif is None:
@@ -664,7 +688,9 @@ class ImageConverter:
             return
 
         def _save(img, out_path):
-            _mode_for_target(img, format).save(out_path, format=_save_format(format))
+            _mode_for_target(img, format).save(
+                out_path, format=_save_format(format), **_save_kwargs(format, quality)
+            )
 
         self._convert_stills(
             [
@@ -689,6 +715,7 @@ class ImageConverter:
         framerate: int,
         format: str,
         delete: bool,
+        quality: str = None,
     ) -> None:
         # All images in the input directory are merged into one gif
         if file_paths[Category.IMAGE]:
