@@ -649,6 +649,47 @@ def test_conversion_thread_new_options():
     assert thread.strip_meta is False
 
 
+@pytest.mark.parametrize(
+    ("kwargs", "expected"),
+    [({}, 3), ({"merge": True}, 1), ({"concat": True}, 1)],
+)
+def test_conversion_thread_sets_total_files(qapp, kwargs, expected):
+    from types import SimpleNamespace
+    from gui.qt_app import ConversionThread
+
+    observed = {}
+
+    class FakeController:
+        def __init__(self, job_id=None, shared_progress_dict=None, is_web=False):
+            self.file_handler = SimpleNamespace(cancel_event=None)
+            observed["shared"] = shared_progress_dict
+            observed["job_id"] = job_id
+            shared_progress_dict[job_id] = {
+                "progress": 0,
+                "total": 1,
+                "status": "starting",
+            }
+
+        def run(self, **kwargs):
+            record = observed["shared"][observed["job_id"]]
+            observed["total_files"] = record.get("total_files")
+            observed["total"] = record.get("total")
+            record.update(progress=0, status="done")
+
+    thread = ConversionThread(
+        ["/one.mp4", "/two.mp4", "/three.mp4"],
+        "mp3",
+        "/out",
+        **kwargs,
+    )
+    with patch("gui.qt_app.Controller", FakeController):
+        thread.start()
+        assert thread.wait(5000)
+
+    assert observed["total_files"] == expected
+    assert observed["total"] == expected * 100
+
+
 def test_job_id_is_hex8():
     import re
     from gui.qt_app import ConversionThread

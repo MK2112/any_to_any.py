@@ -222,6 +222,8 @@ def test_prog_logger_web_mode_reuses_single_lock(monkeypatch):
     logger.bars_callback("bar", "index", 10, old_value=5)
 
     assert factory.created == [lock]
+    assert shared["job-web"]["completed_files"] == 0
+    logger.file_completed(("src", "one", "mp4"))
     assert shared["job-web"]["completed_files"] == 1
 
 
@@ -247,5 +249,59 @@ def test_bars_callback_web_mode_shows_console_bar_without_done_write(monkeypatch
     assert logger.tqdm_bar is None
     assert bar.closed is True
     assert bar.updated == [2, 2]
-    assert shared["job-web-bar"]["completed_files"] == 1
+    assert shared["job-web-bar"]["completed_files"] == 0
     assert shared["job-web-bar"]["status"] == "processing"
+    assert shared["job-web-bar"]["progress_percent"] == 99
+
+
+def test_web_progress_counts_each_source_once(monkeypatch):
+    monkeypatch.setattr(prog_mod, "tqdm", MockTqdm)
+    shared = {}
+    logger = ProgLogger(
+        job_id="job-web-files", shared_progress_dict=shared, is_web=True
+    )
+    shared["job-web-files"]["total_files"] = 2
+    logger.bars.clear()
+    logger.bars["bar"] = {"total": 10}
+
+    logger.bars_callback("bar", "index", 5, old_value=0)
+    assert shared["job-web-files"]["completed_files"] == 0
+    assert shared["job-web-files"]["progress"] == 50
+    assert shared["job-web-files"]["progress_percent"] == 25
+
+    logger.file_completed(("src", "one", "mp4"))
+    logger.file_completed(("src", "one", "mp4"))
+    assert shared["job-web-files"]["completed_files"] == 1
+    assert shared["job-web-files"]["progress"] == 100
+    assert shared["job-web-files"]["progress_percent"] == 50
+
+    logger.bars_callback("bar", "index", 10, old_value=5)
+    assert shared["job-web-files"]["progress_percent"] == 99
+
+    logger.file_completed(("src", "two", "mp4"))
+    assert shared["job-web-files"]["completed_files"] == 2
+    assert shared["job-web-files"]["progress_percent"] == 99
+
+
+def test_web_progress_does_not_reset_between_bars_for_one_file(monkeypatch):
+    monkeypatch.setattr(prog_mod, "tqdm", MockTqdm)
+    shared = {}
+    logger = ProgLogger(
+        job_id="job-web-bars", shared_progress_dict=shared, is_web=True
+    )
+    shared["job-web-bars"]["total_files"] = 2
+    logger.bars.clear()
+
+    logger.bars["chunk"] = {"total": 10}
+    logger.bars_callback("chunk", "index", 10, old_value=0)
+    assert shared["job-web-bars"]["progress"] == 100
+    assert shared["job-web-bars"]["progress_percent"] == 50
+
+    logger.bars["frame_index"] = {"total": 10}
+    logger.bars_callback("frame_index", "index", 0, old_value=0)
+    assert shared["job-web-bars"]["progress"] == 100
+    assert shared["job-web-bars"]["progress_percent"] == 50
+
+    logger.bars_callback("frame_index", "index", 5, old_value=0)
+    assert shared["job-web-bars"]["progress"] == 100
+    assert shared["job-web-bars"]["progress_percent"] == 50

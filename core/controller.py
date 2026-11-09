@@ -144,6 +144,7 @@ class Controller:
         self.file_handler = FileHandler(self.event_logger, self.locale)
         self.metadata_handler = MetadataHandler(self.event_logger, self.locale)
         self.file_handler.metadata_callback = self._metadata_hook
+        self.file_handler.file_completed_callback = self.prog_logger.file_completed
 
         self.audio_converter = AudioConverter(
             self.file_handler, self.prog_logger, self.event_logger, self.locale

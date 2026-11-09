@@ -290,6 +290,7 @@ class FileHandler:
         self.locale = locale
         self.CONFLICT_RESOLUTION_TIMEOUT = 2.0  # numeric suffix loop attempt time in s
         self.metadata_callback = None
+        self.file_completed_callback = None
         self.cancel_event = None
         self.max_workers = resolve_worker_count()
         self._job_claims = set()
@@ -448,6 +449,13 @@ class FileHandler:
                         )
                 if delete:
                     self.remove_source(source_path)
+                if self.file_completed_callback is not None:
+                    try:
+                        self.file_completed_callback(file_path_set)
+                    except Exception as e:
+                        self.event_logger.debug(
+                            f"File completion callback skipped for {source_path}: {e}"
+                        )
 
             return resolved_out_path
 

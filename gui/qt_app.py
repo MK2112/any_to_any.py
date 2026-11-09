@@ -222,6 +222,15 @@ class ConversionThread(QThread):
             )
             controller.file_handler.cancel_event = self._cancel_event
 
+            total_files = (
+                1 if self.merge or self.concat else max(1, len(self.input_files))
+            )
+            progress_record = self.shared_progress.get(self.job_id)
+            if progress_record is not None:
+                progress_record.update(
+                    {"total_files": total_files, "total": total_files * 100}
+                )
+
             # The backend derives concrete output file names itself; reporting
             # the directory stays correct across convert/merge/concat/split/
             # resize-only jobs alike.
@@ -1290,8 +1299,8 @@ class MainWindow(QMainWindow):
         if message and message.lower().strip() not in GENERIC_STATUS_TOKENS:
             label_parts.append(message)
         if eta_str:
-            label_parts.append(f"ETA {eta_str}")
-        self.status_label.setText("  –  ".join(label_parts))
+            label_parts.append(f"ETA: {eta_str}")
+        self.status_label.setText("  -  ".join(label_parts))
 
         if status in ("done", "cancelled"):
             self.progress_bar.setValue(100 if status == "done" else 0)

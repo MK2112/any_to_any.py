@@ -18,11 +18,22 @@ class ProgLogger(ProgressBarLogger):
         self.shared_progress_dict = shared_progress_dict
         self.is_web = is_web
         self.completed_files = 0
+        self._completed_sources = set()
+        self._file_progress = 0
         self._lock = threading.Lock()
         if self.job_id and self.shared_progress_dict is not None:
+            total_files = 1
+            existing = self.shared_progress_dict.get(self.job_id)
+            if isinstance(existing, dict):
+                try:
+                    total_files = max(1, int(existing.get("total_files", 1)))
+                except (TypeError, ValueError):
+                    total_files = 1
             self.shared_progress_dict[self.job_id] = {
                 "progress": 0,
-                "total": 1,
+                "total": total_files * 100,
+                "total_files": total_files,
+                "completed_files": 0,
                 "status": "starting",
                 "error": None,
                 "eta_seconds": None,
@@ -202,20 +213,53 @@ class ProgLogger(ProgressBarLogger):
                     {"status": "error", "error": error_msg}
                 )
 
+    def file_completed(self, file_path_set) -> None:
+        if self.job_id is None or self.shared_progress_dict is None:
+            return
+
+        source = tuple(file_path_set)
+        with self._lock:
+            if source in self._completed_sources:
+                return
+            self._completed_sources.add(source)
+            record = self.shared_progress_dict.get(self.job_id, {})
+            try:
+                total_files = max(1, int(record.get("total_files", 1)))
+            except (TypeError, ValueError):
+                total_files = 1
+            self.completed_files = min(self.completed_files + 1, total_files)
+            self._file_progress = 0
+            total_units = total_files * 100
+            progress = self.completed_files * 100
+            if self.job_id in self.shared_progress_dict:
+                self.shared_progress_dict[self.job_id].update(
+                    {
+                        "progress": progress,
+                        "total": total_units,
+                        "completed_files": self.completed_files,
+                        "status": "processing",
+                        "last_updated": time.time(),
+                        "progress_percent": min(
+                            int(progress / total_units * 100), 99
+                        ),
+                    }
+                )
+
     def _update_web_progress(self, bar, value, current_time):
         if self.job_id is None or self.shared_progress_dict is None:
             return
 
         total = self.bars.get(bar, {}).get("total", 100)
         progress_percent = int((value / total) * 100) if total > 0 else 0
+        self._file_progress = max(self._file_progress, progress_percent)
         total_files = self.shared_progress_dict.get(self.job_id, {}).get(
             "total_files", 1
         )
         total_units = max(total_files, 1) * 100
         cumulative_progress = min(
-            self.completed_files * 100 + progress_percent, total_units
+            self.completed_files * 100 + self._file_progress, total_units
         )
-        overall_percent = int((cumulative_progress / total_units) * 100)
+        overall_percent = min(int((cumulative_progress / total_units) * 100), 99)
 
         with self._lock:
             if self.job_id in self.shared_progress_dict:
@@ -231,11 +275,3 @@ class ProgLogger(ProgressBarLogger):
                         "aggregate_progress": True,
                     }
                 )
-
-        if value >= total:
-            self.completed_files = min(self.completed_files + 1, total_files)
-            with self._lock:
-                if self.job_id in self.shared_progress_dict:
-                    self.shared_progress_dict[self.job_id].update(
-                        {"completed_files": self.completed_files}
-                    )
