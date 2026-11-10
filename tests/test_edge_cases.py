@@ -191,6 +191,38 @@ def test_single_image_conversion_no_subfolder(controller_instance, tmp_path):
     assert len(subdirs) == 0, f"No subdirectories should exist, but found: {subdirs}"
 
 
+def test_existing_output_directory_ending_in_target_extension(
+    controller_instance, tmp_path
+):
+    # An existing directory is a destination even when its name ends in the target extension
+    from PIL import Image
+
+    input_file = tmp_path / "test.jpg"
+    Image.new("RGB", (1, 1), color="blue").save(str(input_file), "JPEG")
+    output_dir = tmp_path / "photos.png"
+    output_dir.mkdir()
+
+    controller_instance.run(
+        [str(input_file)],
+        format="png",
+        output=str(output_dir),
+        framerate=None,
+        quality=None,
+        split=None,
+        merge=False,
+        concat=False,
+        delete=False,
+        across=False,
+        recursive=False,
+        dropzone=False,
+        language=None,
+        workers=1,
+    )
+
+    assert (output_dir / "test.png").exists()
+    assert not (tmp_path / "test.png").exists()
+
+
 def test_wav_to_mp3_real_conversion(controller_instance, tmp_path):
     # Generate some sine WAV, convert through full pipeline, verify decodability of the MP3
     import wave

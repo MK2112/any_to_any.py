@@ -584,8 +584,9 @@ class Controller:
         # Handle single file output path (could be a file path like /path/to/output.jpg)
         # Check if output looks like a file path and convert to directory
         if self.output is not None:
-            # If it's an existing file, extract directory
-            if os.path.isfile(self.output):
+            if os.path.isdir(self.output):
+                pass
+            elif os.path.isfile(self.output):
                 self.output = os.path.dirname(self.output)
             # If it looks like a file path (has a recognized extension), extract directory
             elif formats and "." in self.output:
