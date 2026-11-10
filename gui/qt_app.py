@@ -755,7 +755,13 @@ class MainWindow(QMainWindow):
 
         quality_label = QLabel(f"{lang.get_translation('quality', self.locale)}:")
         self.quality_combo = QComboBox()
-        self.quality_combo.addItems(["Default", "High", "Medium", "Low"])
+        for label_key, value in (
+            ("quality_default", None),
+            ("quality_high", "high"),
+            ("quality_medium", "medium"),
+            ("quality_low", "low"),
+        ):
+            self.quality_combo.addItem(self._tr(label_key), value)
         settings_layout.addWidget(quality_label, 1, 2)
         settings_layout.addWidget(self.quality_combo, 1, 3)
 
@@ -793,7 +799,12 @@ class MainWindow(QMainWindow):
         # Row 3: Metadata handling (single selector, details on hover)
         self.metadata_label = QLabel(f"{self._tr('metadata_label')}:")
         self.metadata_combo = QComboBox()
-        self.metadata_combo.addItems(["Default", "Preserve", "Strip"])
+        for label_key, value in (
+            ("metadata_mode_none", "none"),
+            ("metadata_mode_preserve", "preserve"),
+            ("metadata_mode_strip", "strip"),
+        ):
+            self.metadata_combo.addItem(self._tr(label_key), value)
         self.metadata_combo.setToolTip(
             f"{lang.get_translation('preserve_meta', self.locale)}\n\n"
             f"{lang.get_translation('strip_meta', self.locale)}"
@@ -1129,13 +1140,6 @@ class MainWindow(QMainWindow):
             )
             return
 
-        quality_map = {
-            "Default": None,
-            "High": "high",
-            "Medium": "medium",
-            "Low": "low",
-        }
-
         resolution = (
             self.resolution_combo.currentData() or None
             if self.resolution_combo.isVisibleTo(self)
@@ -1231,14 +1235,14 @@ class MainWindow(QMainWindow):
             framerate=self.framerate_spin.value()
             if self.framerate_spin.value() > 0
             else None,
-            quality=quality_map.get(self.quality_combo.currentText()),
+            quality=self.quality_combo.currentData(),
             recursive=self.recursive_check.isChecked(),
             delete=self.delete_check.isChecked(),
             workers=self.workers_spin.value(),
             resolution=resolution,
             split=run_split,
-            preserve_meta=self.metadata_combo.currentText() == "Preserve",
-            strip_meta=self.metadata_combo.currentText() == "Strip",
+            preserve_meta=self.metadata_combo.currentData() == "preserve",
+            strip_meta=self.metadata_combo.currentData() == "strip",
         )
         self.current_thread.progress_updated.connect(self.update_progress)
         self.current_thread.conversion_finished.connect(self.conversion_completed)
