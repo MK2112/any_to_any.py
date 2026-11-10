@@ -379,12 +379,14 @@ with app.app_context():
     _ = controller.supported_formats
 
 
-def _zip_without_metadata(source_path: str, zip_path: str) -> None:
-    # Archive a dir, leave potential internal metadata remnants out
+def _zip_without_metadata(
+    source_path: str, zip_path: str, include_metadata: bool = False
+) -> None:
     dir_name = os.path.basename(source_path)
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as archive:
         for root, dirs, files in os.walk(source_path):
-            dirs[:] = [d for d in dirs if d != ".metadata"]
+            if not include_metadata:
+                dirs[:] = [d for d in dirs if d != ".metadata"]
             for file_name in files:
                 file_path = os.path.join(root, file_name)
                 archive_name = os.path.join(
@@ -393,9 +395,8 @@ def _zip_without_metadata(source_path: str, zip_path: str) -> None:
                 archive.write(file_path, archive_name)
 
 
-def push_zip(source_path: str):
+def push_zip(source_path: str, include_metadata: bool = False):
     # Create .zip file from source path, serve it for download
-    # Source can be either a directory or a single file, doesn't matter
     temp_fd, temp_path = tempfile.mkstemp(suffix=".zip")
     os.close(temp_fd)
 
@@ -404,26 +405,15 @@ def push_zip(source_path: str):
             # If source is a directory, zip its contents
             dir_name = os.path.basename(source_path)
             # Create the zip file with the directory's contents
-            _zip_without_metadata(source_path, temp_path)
-            shutil.rmtree(source_path, ignore_errors=True)
+            _zip_without_metadata(source_path, temp_path, include_metadata)
             # Set the download name based on the directory name
             download_name = f"any_to_any_-_{dir_name}.zip"
         else:
             # If source is a file, zip just that file
             file_name = os.path.basename(source_path)
-            # Create a temp dir to hold file
-            temp_dir = tempfile.mkdtemp()
-            temp_file_path = os.path.join(temp_dir, file_name)
-
-            try:
-                shutil.move(source_path, temp_file_path)
-                # Create the zip file with the single file
-                shutil.make_archive(temp_path[:-4], "zip", temp_dir)
-                # Set the download name based on the file name
-                download_name = f"any_to_any_-_{file_name}.zip"
-            finally:
-                # Clean up the temporary directory
-                shutil.rmtree(temp_dir, ignore_errors=True)
+            with zipfile.ZipFile(temp_path, "w", zipfile.ZIP_DEFLATED) as archive:
+                archive.write(source_path, file_name)
+            download_name = f"any_to_any_-_{file_name}.zip"
 
         # Send the file
         response = send_file(
@@ -540,6 +530,8 @@ def process_params() -> tuple:
     if metadata_mode not in {"none", "preserve", "strip"}:
         abort(400, "Invalid metadata mode")
     conv_key, up_dir, cv_dir = _create_job_storage()
+    with _job_lock:
+        _job_records[conv_key]["metadata_mode"] = metadata_mode
     try:
         saved_files = 0
         for uploaded_file in uploaded_files:
@@ -706,7 +698,8 @@ def send_to_backend(
             preserved = 0
             if not cancelled and input_path_args and os.path.exists(input_path_args[0]):
                 preserved = _preserve_unconverted_inputs(input_path_args[0], output)
-                shutil.rmtree(input_path_args[0], ignore_errors=True)
+                if not _has_output_files(input_path_args[0]):
+                    shutil.rmtree(input_path_args[0], ignore_errors=True)
             if (
                 not cancelled
                 and total_files > 0
@@ -942,12 +935,18 @@ def download_zip(job_id: str):
 
     # If it's a single file
     try:
-        response = push_zip(base_path)
+        response = push_zip(
+            base_path,
+            include_metadata=(
+                record.get("metadata_mode") == "preserve"
+                or os.path.isdir(os.path.join(base_path, ".metadata"))
+            ),
+        )
     except Exception as e:
         app.logger.error(f"Error processing output: {str(e)}")
         abort(500, f"Error processing file: {str(e)}")
 
-    _cleanup_job_storage(job_id)
+    # The job remains available for re-download until its retention period expires
     return response
 
 

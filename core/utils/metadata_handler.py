@@ -6,7 +6,7 @@ import subprocess
 from pathlib import Path
 from datetime import datetime
 
-_IMAGE_STRIP_FORMATS = {
+_IMG_STRIP_FORMATS = {
     "jpg": "JPEG",
     "jpeg": "JPEG",
     "png": "PNG",
@@ -21,6 +21,84 @@ _IMAGE_STRIP_FORMATS = {
 }
 
 _METADATA_FREE_FORMATS = frozenset({"bmp", "ico", "pcx", "ppm", "pgm", "pbm"})
+_IMG_METADATA_FORMATS = {
+    "jpg": "JPEG",
+    "jpeg": "JPEG",
+    "png": "PNG",
+    "webp": "WEBP",
+    "tif": "TIFF",
+    "tiff": "TIFF",
+    "heic": "HEIF",
+    "heif": "HEIF",
+    "avif": "AVIF",
+}
+_IMG_TECHNICAL_TAGS = frozenset({"width", "height", "format", "mode"})
+_PDF_METADATA_KEYS = (
+    "title",
+    "author",
+    "subject",
+    "keywords",
+    "creator",
+    "producer",
+    "creationDate",
+    "modDate",
+    "trapped",
+)
+_OOXML_METADATA_KEYS = frozenset(
+    {
+        "title",
+        "author",
+        "subject",
+        "keywords",
+        "comments",
+        "category",
+        "last_modified_by",
+    }
+)
+_MOVIE_TECHNICAL_TAGS = frozenset(
+    {
+        "format_name",
+        "format_long_name",
+        "duration",
+        "bit_rate",
+        "size",
+        "nb_streams",
+        "nb_frames",
+        "start_time",
+        "probe_score",
+    }
+)
+_MOVIE_METADATA_FORMATS = frozenset(
+    {
+        "mp4",
+        "webm",
+        "mov",
+        "mkv",
+        "avi",
+        "wmv",
+        "flv",
+        "m2ts",
+        "3gp",
+        "3g2",
+        "mjpeg",
+        "asf",
+        "vob",
+        "ts",
+        "raw",
+        "mpg",
+        "mxf",
+        "drc",
+        "swf",
+        "f4v",
+        "m4v",
+        "mts",
+        "m2v",
+        "yuv",
+        "wtv",
+        "apng",
+        "ivf",
+    }
+)
 _EMPTY_PDF_METADATA = {
     "title": "",
     "author": "",
@@ -354,16 +432,30 @@ class MetadataHandler:
 
     def apply_metadata_to_file(self, output_file: str, metadata: dict) -> bool:
         file_ext = Path(output_file).suffix.lower().lstrip(".")
-        common = {
-            key: value
-            for key, value in metadata.get("tags", {}).items()
-            if key in _COMMON_AUDIO_TAGS
-        }
+        tags = metadata.get("tags") or {}
         custom = metadata.get("custom_tags") or {}
-        if not common and not custom:
+        if not tags and not custom:
             return False
 
         try:
+            if file_ext in _IMG_METADATA_FORMATS:
+                return _apply_image_metadata(output_file, tags)
+            if file_ext in ("pdf", "docx", "pptx"):
+                return _apply_document_metadata(output_file, tags)
+            if metadata.get("format") == "movie" or (
+                metadata.get("format") not in {"audio", "image", "document"}
+                and file_ext in _MOVIE_METADATA_FORMATS
+            ):
+                return _apply_movie_metadata(output_file, tags, custom)
+
+            common = {
+                key: value
+                for key, value in tags.items()
+                if key in _COMMON_AUDIO_TAGS
+            }
+            if not common and not custom:
+                return False
+
             handler = {
                 "mp3": _apply_id3_tags,
                 "wav": _apply_id3_tags,
@@ -375,6 +467,12 @@ class MetadataHandler:
 
             if handler is not None:
                 return handler(output_file, file_ext, common, custom)
+
+            category = metadata.get("format")
+            if category == "image":
+                return _apply_image_metadata(output_file, tags)
+            if category == "document":
+                return _apply_document_metadata(output_file, tags)
         except Exception as e:
             self.event_logger.debug(f"Could not apply tags to {output_file}: {e}")
             return False
@@ -494,7 +592,7 @@ class MetadataHandler:
                 return self._strip_gif_metadata(file_path)
             if file_ext in _METADATA_FREE_FORMATS:
                 return True
-            save_format = _IMAGE_STRIP_FORMATS.get(file_ext)
+            save_format = _IMG_STRIP_FORMATS.get(file_ext)
             if save_format is None:
                 return False
 
@@ -675,6 +773,229 @@ def _drop_gif_metadata_blocks(data: bytes) -> bytes | None:
             continue
         return None
     return None
+
+
+def _exif_value(value, tag_id: int):
+    from PIL import TiffTags
+
+    info = TiffTags.TAGS_V2.get(tag_id)
+    type_code = info.type if info is not None else 2
+
+    if type_code == 2:
+        if isinstance(value, bytes):
+            return value.decode("utf-8", "replace")
+        return str(value)
+    if type_code in (1, 3, 4, 6, 8, 9):
+        try:
+            return int(str(value))
+        except (TypeError, ValueError):
+            try:
+                return int(float(str(value)))
+            except (TypeError, ValueError):
+                return None
+    if type_code in (5, 10):
+        if isinstance(value, (tuple, list)) and len(value) == 2:
+            return (int(value[0]), int(value[1]))
+        text = str(value)
+        if "/" in text:
+            numerator, denominator = text.split("/", 1)
+            try:
+                return (int(numerator), int(denominator))
+            except (TypeError, ValueError):
+                return None
+        try:
+            return (int(float(text)), 1)
+        except (TypeError, ValueError):
+            return None
+    if type_code in (11, 12):
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+    if type_code == 7:
+        if isinstance(value, bytes):
+            return value
+        text = str(value)
+        if text.startswith("b'") and text.endswith("'"):
+            return text[2:-1].encode("latin-1", "replace")
+        return text.encode("utf-8")
+    return None
+
+
+def _build_exif(tags: dict):
+    from PIL import ExifTags, Image
+
+    name_to_id = {name: tag_id for tag_id, name in ExifTags.TAGS.items()}
+    exif = Image.Exif()
+    for name, value in tags.items():
+        if str(name).lower() in _IMG_TECHNICAL_TAGS:
+            continue
+        tag_id = name_to_id.get(str(name))
+        if tag_id is None:
+            try:
+                tag_id = int(name)
+            except (TypeError, ValueError):
+                continue
+        if tag_id in (34665, 34853, 40965):
+            continue
+        converted = _exif_value(value, tag_id)
+        if converted is not None:
+            exif[tag_id] = converted
+    return exif
+
+
+def _apply_image_metadata(file_path: str, tags: dict) -> bool:
+    from PIL import Image
+
+    file_ext = Path(file_path).suffix.lower().lstrip(".")
+    save_format = _IMG_METADATA_FORMATS.get(file_ext)
+    if save_format is None:
+        return False
+    if file_ext in ("heic", "heif", "avif"):
+        try:
+            import pillow_heif
+
+            pillow_heif.register_heif_opener()
+        except ImportError:
+            pass
+
+    exif = _build_exif(tags)
+    if len(exif) == 0:
+        return False
+
+    tmp_path = f"{file_path}.meta.tmp"
+    try:
+        with Image.open(file_path) as img:
+            save_kwargs = {"exif": exif.tobytes()}
+            if save_format == "JPEG":
+                save_kwargs["quality"] = 95
+                if img.mode not in ("L", "RGB", "CMYK", "YCbCr"):
+                    img = img.convert("RGB")
+            img.save(tmp_path, save_format, **save_kwargs)
+        os.replace(tmp_path, file_path)
+        return True
+    finally:
+        if os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
+
+
+def _apply_document_metadata(file_path: str, tags: dict) -> bool:
+    file_ext = Path(file_path).suffix.lower().lstrip(".")
+
+    if file_ext == "pdf":
+        info = {}
+        for key in _PDF_METADATA_KEYS:
+            value = tags.get(key)
+            if value is None:
+                for tag_key, tag_value in tags.items():
+                    if str(tag_key).lower() == key.lower():
+                        value = tag_value
+                        break
+            if value not in (None, ""):
+                info[key] = str(value)
+        if not info:
+            return False
+
+        import pymupdf as pypdf
+
+        tmp_path = f"{file_path}.meta.tmp"
+        doc = pypdf.open(file_path)
+        try:
+            merged = {
+                key: str((doc.metadata or {}).get(key) or "")
+                for key in _PDF_METADATA_KEYS
+            }
+            merged.update(info)
+            doc.set_metadata(merged)
+            doc.save(tmp_path, garbage=3, deflate=True)
+        finally:
+            doc.close()
+        try:
+            os.replace(tmp_path, file_path)
+        finally:
+            if os.path.exists(tmp_path):
+                try:
+                    os.remove(tmp_path)
+                except OSError:
+                    pass
+        return True
+
+    if file_ext in ("docx", "pptx"):
+        properties = {}
+        for key, value in tags.items():
+            name = str(key).lower()
+            if name in _OOXML_METADATA_KEYS and value not in (None, ""):
+                properties[name] = str(value)
+        if not properties:
+            return False
+
+        if file_ext == "docx":
+            from docx import Document
+
+            document = Document(file_path)
+            for name, value in properties.items():
+                setattr(document.core_properties, name, value)
+            document.save(file_path)
+        else:
+            from pptx import Presentation
+
+            presentation = Presentation(file_path)
+            for name, value in properties.items():
+                setattr(presentation.core_properties, name, value)
+            presentation.save(file_path)
+        return True
+
+    return False
+
+
+def _apply_movie_metadata(file_path: str, tags: dict, custom: dict) -> bool:
+    values = {}
+    for key, value in tags.items():
+        name = str(key).strip()
+        if not name or name.lower() in _MOVIE_TECHNICAL_TAGS:
+            continue
+        if isinstance(value, (dict, list, tuple)):
+            continue
+        values[name] = str(value)
+    for key, value in custom.items():
+        name = str(key).strip()
+        if name:
+            values[name] = str(value)
+    if not values:
+        return False
+
+    file_ext = Path(file_path).suffix
+    tmp_path = f"{file_path}.meta{file_ext}"
+    cmd = [
+        "ffmpeg",
+        "-y",
+        "-i",
+        file_path,
+        "-map_metadata",
+        "0",
+        "-c",
+        "copy",
+    ]
+    for key, value in values.items():
+        cmd.extend(["-metadata", f"{key}={value}"])
+    cmd.append(tmp_path)
+    try:
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=300, check=False
+        )
+        if result.returncode != 0 or not os.path.isfile(tmp_path):
+            return False
+        os.replace(tmp_path, file_path)
+        return True
+    finally:
+        if os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
 
 
 def _apply_id3_tags(file_path: str, file_ext: str, common: dict, custom: dict) -> bool:
