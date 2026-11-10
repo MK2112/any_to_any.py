@@ -126,4 +126,8 @@ ROMANIAN = {
     "metadata_mode_none": "Nu păstra metadatele",
     "metadata_mode_preserve": "Păstrează metadatele",
     "metadata_mode_strip": "Elimină metadatele",
+    "quality_default": "Neschimbată",
+    "quality_high": "Ridicată",
+    "quality_medium": "Medie",
+    "quality_low": "Scăzută",
 }

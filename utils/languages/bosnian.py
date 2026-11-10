@@ -126,4 +126,8 @@ BOSNIAN = {
     "metadata_mode_none": "Ne čuvaj metapodatke",
     "metadata_mode_preserve": "Sačuvaj metapodatke",
     "metadata_mode_strip": "Ukloni metapodatke",
+    "quality_default": "Nepromijenjeno",
+    "quality_high": "Visok",
+    "quality_medium": "Srednji",
+    "quality_low": "Nizak",
 }

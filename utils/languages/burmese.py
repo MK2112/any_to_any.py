@@ -126,4 +126,8 @@ BURMESE = {
     "metadata_mode_none": "မက်တာဒေတာကို မသိမ်းဆည်းပါနှင့်",
     "metadata_mode_preserve": "မက်တာဒေတာကို သိမ်းဆည်းပါ",
     "metadata_mode_strip": "မက်တာဒေတာကို ဖယ်ရှားပါ",
+    "quality_default": "မပြောင်းလဲ",
+    "quality_high": "မြင့်",
+    "quality_medium": "အလယ်အလတ်",
+    "quality_low": "နိမ့်",
 }

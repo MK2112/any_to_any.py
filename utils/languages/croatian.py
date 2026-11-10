@@ -126,4 +126,8 @@ CROATIAN = {
     "metadata_mode_none": "Nemoj čuvati metapodatke",
     "metadata_mode_preserve": "Sačuvaj metapodatke",
     "metadata_mode_strip": "Ukloni metapodatke",
+    "quality_default": "Nepromijenjena",
+    "quality_high": "Visoka",
+    "quality_medium": "Srednja",
+    "quality_low": "Niska",
 }

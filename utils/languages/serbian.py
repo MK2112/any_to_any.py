@@ -126,4 +126,8 @@ SERBIAN = {
     "metadata_mode_none": "Nemojte čuvati metapodatke",
     "metadata_mode_preserve": "Sačuvajte metapodatke",
     "metadata_mode_strip": "Uklonite metapodatke",
+    "quality_default": "Нepromijenjeno",
+    "quality_high": "Visok",
+    "quality_medium": "Srednji",
+    "quality_low": "Nizak",
 }

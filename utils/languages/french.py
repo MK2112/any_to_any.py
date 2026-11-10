@@ -126,4 +126,8 @@ FRENCH = {
     "metadata_mode_none": "Ne pas conserver les métadonnées",
     "metadata_mode_preserve": "Conserver les métadonnées",
     "metadata_mode_strip": "Supprimer les métadonnées",
+    "quality_default": "Inchangée",
+    "quality_high": "Élevée",
+    "quality_medium": "Moyenne",
+    "quality_low": "Faible",
 }

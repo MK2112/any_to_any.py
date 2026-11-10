@@ -126,4 +126,8 @@ TURKISH = {
     "metadata_mode_none": "Üst verileri koruma",
     "metadata_mode_preserve": "Üst verileri koru",
     "metadata_mode_strip": "Üst verileri kaldır",
+    "quality_default": "Değiştirilmedi",
+    "quality_high": "Yüksek",
+    "quality_medium": "Orta",
+    "quality_low": "Düşük",
 }

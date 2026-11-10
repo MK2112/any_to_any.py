@@ -126,4 +126,8 @@ ICELANDIC = {
     "metadata_mode_none": "Ekki varðveita lýsigögn",
     "metadata_mode_preserve": "Varðveita lýsigögn",
     "metadata_mode_strip": "Fjarlægja lýsigögn",
+    "quality_default": "Óbreytt",
+    "quality_high": "Há",
+    "quality_medium": "Miðlungs",
+    "quality_low": "Lág",
 }

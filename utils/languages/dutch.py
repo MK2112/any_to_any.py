@@ -126,4 +126,8 @@ DUTCH = {
     "metadata_mode_none": "Metagegevens niet behouden",
     "metadata_mode_preserve": "Metagegevens behouden",
     "metadata_mode_strip": "Metagegevens verwijderen",
+    "quality_default": "Ongewijzigd",
+    "quality_high": "Hoog",
+    "quality_medium": "Gemiddeld",
+    "quality_low": "Laag",
 }

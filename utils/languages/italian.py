@@ -126,4 +126,8 @@ ITALIAN = {
     "metadata_mode_none": "Non conservare i metadati",
     "metadata_mode_preserve": "Conservare i metadati",
     "metadata_mode_strip": "Rimuovere i metadati",
+    "quality_default": "Invariata",
+    "quality_high": "Alta",
+    "quality_medium": "Media",
+    "quality_low": "Bassa",
 }

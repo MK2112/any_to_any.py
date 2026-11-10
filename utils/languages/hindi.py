@@ -126,4 +126,8 @@ HINDI = {
     "metadata_mode_none": "मेटाडेटा सुरक्षित न रखें",
     "metadata_mode_preserve": "मेटाडेटा सुरक्षित रखें",
     "metadata_mode_strip": "मेटाडेटा हटाएँ",
+    "quality_default": "अपरिवर्तित",
+    "quality_high": "उच्च",
+    "quality_medium": "मध्यम",
+    "quality_low": "निम्न",
 }

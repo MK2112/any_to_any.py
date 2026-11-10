@@ -126,4 +126,8 @@ KOREAN = {
     "metadata_mode_none": "메타데이터 유지 안 함",
     "metadata_mode_preserve": "메타데이터 유지",
     "metadata_mode_strip": "메타데이터 제거",
+    "quality_default": "그대로의",
+    "quality_high": "높음",
+    "quality_medium": "보통",
+    "quality_low": "낮음",
 }

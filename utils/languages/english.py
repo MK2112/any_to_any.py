@@ -132,5 +132,9 @@ ENGLISH = {
     "metadata_mode_strip": "Strip metadata",
     "update_available_title": "Update Available",
     "update_available_text": "Version [latest] is available on GitHub.",
-    "update_available_info": "You are running version [current]. Would you like to visit the releases page?"
+    "update_available_info": "You are running version [current]. Would you like to visit the releases page?",
+    "quality_default": "Unchanged",
+    "quality_high": "High",
+    "quality_medium": "Medium",
+    "quality_low": "Low",
 }

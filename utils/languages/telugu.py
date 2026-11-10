@@ -126,4 +126,8 @@ TELUGU = {
     "metadata_mode_none": "మెటాడేటాను భద్రపరచవద్దు",
     "metadata_mode_preserve": "మెటాడేటాను భద్రపరచండి",
     "metadata_mode_strip": "మెటాడేటాను తొలగించండి",
+    "quality_default": "మార్పులేదు",
+    "quality_high": "అధికం",
+    "quality_medium": "మధ్యస్థం",
+    "quality_low": "తక్కువ",
 }

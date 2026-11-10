@@ -126,4 +126,8 @@ NORWEGIAN = {
     "metadata_mode_none": "Ikke behold metadata",
     "metadata_mode_preserve": "Behold metadata",
     "metadata_mode_strip": "Fjern metadata",
+    "quality_default": "Uendret",
+    "quality_high": "Høy",
+    "quality_medium": "Middels",
+    "quality_low": "Lav",
 }

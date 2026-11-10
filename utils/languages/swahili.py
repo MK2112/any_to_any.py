@@ -126,4 +126,8 @@ SWAHILI = {
     "metadata_mode_none": "Usihifadhi metadata",
     "metadata_mode_preserve": "Hifadhi metadata",
     "metadata_mode_strip": "Ondoa metadata",
+    "quality_default": "Haijabadilika",
+    "quality_high": "Juu",
+    "quality_medium": "Wastani",
+    "quality_low": "Chini",
 }

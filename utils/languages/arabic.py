@@ -126,4 +126,8 @@ ARABIC = {
     "metadata_mode_none": "عدم الاحتفاظ بالبيانات الوصفية",
     "metadata_mode_preserve": "الاحتفاظ بالبيانات الوصفية",
     "metadata_mode_strip": "إزالة البيانات الوصفية",
+    "quality_default": "دون تغيير",
+    "quality_high": "عالية",
+    "quality_medium": "متوسطة",
+    "quality_low": "منخفضة",
 }

@@ -126,4 +126,8 @@ SLOVAK = {
     "metadata_mode_none": "Nezachovávať metadáta",
     "metadata_mode_preserve": "Zachovávať metadáta",
     "metadata_mode_strip": "Odstrániť metadáta",
+    "quality_default": "Bez zmeny",
+    "quality_high": "Vysoká",
+    "quality_medium": "Stredná",
+    "quality_low": "Nízka",
 }

@@ -126,4 +126,8 @@ PUNJABI_INDIAN = {
     "metadata_mode_none": "ਮੈਟਾਡੇਟਾ ਸੁਰੱਖਿਅਤ ਨਾ ਰੱਖੋ",
     "metadata_mode_preserve": "ਮੈਟਾਡੇਟਾ ਸੁਰੱਖਿਅਤ ਰੱਖੋ",
     "metadata_mode_strip": "ਮੈਟਾਡੇਟਾ ਹਟਾਓ",
+    "quality_default": "ਅਣਬਦਲਿਆ",
+    "quality_high": "ਉੱਚ",
+    "quality_medium": "ਦਰਮਿਆਨਾ",
+    "quality_low": "ਘੱਟ",
 }

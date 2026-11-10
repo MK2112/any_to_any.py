@@ -126,4 +126,8 @@ HEBREW = {
     "metadata_mode_none": "אין לשמור מטא-נתונים",
     "metadata_mode_preserve": "שמור מטא-נתונים",
     "metadata_mode_strip": "הסר מטא-נתונים",
+    "quality_default": "ללא שינוי",
+    "quality_high": "גבוהה",
+    "quality_medium": "בינונית",
+    "quality_low": "נמוכה",
 }

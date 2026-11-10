@@ -126,4 +126,8 @@ MALAY = {
     "metadata_mode_none": "Jangan kekalkan metadata",
     "metadata_mode_preserve": "Kekalkan metadata",
     "metadata_mode_strip": "Buang metadata",
+    "quality_default": "Tidak berubah",
+    "quality_high": "Tinggi",
+    "quality_medium": "Sederhana",
+    "quality_low": "Rendah",
 }

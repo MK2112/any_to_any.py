@@ -126,4 +126,8 @@ HUNGARIAN = {
     "metadata_mode_none": "Metaadatok megőrzésének mellőzése",
     "metadata_mode_preserve": "Metaadatok megőrzése",
     "metadata_mode_strip": "Metaadatok eltávolítása",
+    "quality_default": "Változatlan",
+    "quality_high": "Magas",
+    "quality_medium": "Közepes",
+    "quality_low": "Alacsony",
 }

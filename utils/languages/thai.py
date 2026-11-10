@@ -126,4 +126,8 @@ THAI = {
     "metadata_mode_none": "ไม่เก็บข้อมูลเมตา",
     "metadata_mode_preserve": "เก็บข้อมูลเมตา",
     "metadata_mode_strip": "ลบข้อมูลเมตา",
+    "quality_default": "ไม่เปลี่ยนแปลง",
+    "quality_high": "สูง",
+    "quality_medium": "ปานกลาง",
+    "quality_low": "ต่ำ",
 }

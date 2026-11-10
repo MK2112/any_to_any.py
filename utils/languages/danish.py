@@ -126,4 +126,8 @@ DANISH = {
     "metadata_mode_none": "Bevar ikke metadata",
     "metadata_mode_preserve": "Bevar metadata",
     "metadata_mode_strip": "Fjern metadata",
+    "quality_default": "Uændret",
+    "quality_high": "Høj",
+    "quality_medium": "Mellem",
+    "quality_low": "Lav",
 }

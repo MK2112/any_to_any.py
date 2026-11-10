@@ -126,4 +126,8 @@ INDONESIAN = {
     "metadata_mode_none": "Jangan pertahankan metadata",
     "metadata_mode_preserve": "Pertahankan metadata",
     "metadata_mode_strip": "Hapus metadata",
+    "quality_default": "Tidak berubah",
+    "quality_high": "Tinggi",
+    "quality_medium": "Sedang",
+    "quality_low": "Rendah",
 }

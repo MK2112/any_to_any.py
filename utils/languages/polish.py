@@ -126,4 +126,8 @@ POLISH = {
     "metadata_mode_none": "Nie zachowuj metadanych",
     "metadata_mode_preserve": "Zachowaj metadane",
     "metadata_mode_strip": "Usuń metadane",
+    "quality_default": "Bez zmian",
+    "quality_high": "Wysoka",
+    "quality_medium": "Średnia",
+    "quality_low": "Niska",
 }

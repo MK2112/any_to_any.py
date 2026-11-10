@@ -126,4 +126,8 @@ FINNISH = {
     "metadata_mode_none": "Älä säilytä metatietoja",
     "metadata_mode_preserve": "Säilytä metatiedot",
     "metadata_mode_strip": "Poista metatiedot",
+    "quality_default": "Muuttumaton",
+    "quality_high": "Korkea",
+    "quality_medium": "Keskitaso",
+    "quality_low": "Matala",
 }

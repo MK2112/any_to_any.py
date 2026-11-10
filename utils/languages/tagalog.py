@@ -126,4 +126,8 @@ TAGALOG = {
     "metadata_mode_none": "Huwag panatilihin ang metadata",
     "metadata_mode_preserve": "Panatilihin ang metadata",
     "metadata_mode_strip": "Alisin ang metadata",
+    "quality_default": "Hindi nagbago",
+    "quality_high": "Mataas",
+    "quality_medium": "Katamtaman",
+    "quality_low": "Mababa",
 }

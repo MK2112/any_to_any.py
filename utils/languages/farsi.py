@@ -126,4 +126,8 @@ FARSI = {
     "metadata_mode_none": "فراداده‌ها را حفظ نکن",
     "metadata_mode_preserve": "فراداده‌ها را حفظ کن",
     "metadata_mode_strip": "فراداده‌ها را حذف کن",
+    "quality_default": "بدون تغییر",
+    "quality_high": "بالا",
+    "quality_medium": "متوسط",
+    "quality_low": "پایین",
 }

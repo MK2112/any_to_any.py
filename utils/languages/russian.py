@@ -126,4 +126,8 @@ RUSSIAN = {
     "metadata_mode_none": "Не сохранять метаданные",
     "metadata_mode_preserve": "Сохранять метаданные",
     "metadata_mode_strip": "Удалить метаданные",
+    "quality_default": "Без изменений",
+    "quality_high": "Высокое",
+    "quality_medium": "Среднее",
+    "quality_low": "Низкое",
 }

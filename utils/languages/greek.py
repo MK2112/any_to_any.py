@@ -126,4 +126,8 @@ GREEK = {
     "metadata_mode_none": "Να μη διατηρούνται τα μεταδεδομένα",
     "metadata_mode_preserve": "Διατήρηση μεταδεδομένων",
     "metadata_mode_strip": "Αφαίρεση μεταδεδομένων",
+    "quality_default": "Αμετάβλητη",
+    "quality_high": "Υψηλή",
+    "quality_medium": "Μεσαία",
+    "quality_low": "Χαμηλή",
 }

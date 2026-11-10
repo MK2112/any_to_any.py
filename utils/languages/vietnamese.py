@@ -126,4 +126,8 @@ VIETNAMESE = {
     "metadata_mode_none": "Không giữ lại siêu dữ liệu",
     "metadata_mode_preserve": "Giữ lại siêu dữ liệu",
     "metadata_mode_strip": "Xóa siêu dữ liệu",
+    "quality_default": "Không thay đổi",
+    "quality_high": "Cao",
+    "quality_medium": "Trung bình",
+    "quality_low": "Thấp",
 }

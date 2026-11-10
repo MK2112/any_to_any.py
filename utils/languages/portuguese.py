@@ -126,4 +126,8 @@ PORTUGUESE = {
     "metadata_mode_none": "Não preservar os metadados",
     "metadata_mode_preserve": "Preservar os metadados",
     "metadata_mode_strip": "Remover os metadados",
+    "quality_default": "Inalterada",
+    "quality_high": "Alta",
+    "quality_medium": "Média",
+    "quality_low": "Baixa",
 }

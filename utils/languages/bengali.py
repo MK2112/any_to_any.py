@@ -126,4 +126,8 @@ BENGALI = {
     "metadata_mode_none": "মেটাডেটা সংরক্ষণ করবেন না",
     "metadata_mode_preserve": "মেটাডেটা সংরক্ষণ করুন",
     "metadata_mode_strip": "মেটাডেটা সরিয়ে ফেলুন",
+    "quality_default": "অপরিবর্তিত",
+    "quality_high": "উচ্চ",
+    "quality_medium": "মাঝারি",
+    "quality_low": "নিম্ন",
 }

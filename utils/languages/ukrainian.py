@@ -126,4 +126,8 @@ UKRAINIAN = {
     "metadata_mode_none": "Не зберігати метадані",
     "metadata_mode_preserve": "Зберігати метадані",
     "metadata_mode_strip": "Видалити метадані",
+    "quality_default": "Без змін",
+    "quality_high": "Висока",
+    "quality_medium": "Середня",
+    "quality_low": "Низька",
 }

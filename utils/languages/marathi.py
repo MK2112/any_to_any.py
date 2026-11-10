@@ -126,4 +126,8 @@ MARATHI = {
     "metadata_mode_none": "मेटाडेटा जतन करू नका",
     "metadata_mode_preserve": "मेटाडेटा जतन करा",
     "metadata_mode_strip": "मेटाडेटा काढून टाका",
+    "quality_default": "अपरिवर्तित",
+    "quality_high": "उच्च",
+    "quality_medium": "मध्यम",
+    "quality_low": "कमी",
 }

@@ -125,5 +125,9 @@ GERMAN = {
     "update_available_info": "Sie verwenden derzeit Version [current]. Möchten Sie die Release-Seite aufrufen?",
     "metadata_mode_none": "Metadaten nicht behalten",
     "metadata_mode_preserve": "Metadaten behalten",
-    "metadata_mode_strip": "Metadaten entfernen"
+    "metadata_mode_strip": "Metadaten entfernen",
+    "quality_default": "Unverändert",
+    "quality_high": "Hoch",
+    "quality_medium": "Mittel",
+    "quality_low": "Niedrig",
 }

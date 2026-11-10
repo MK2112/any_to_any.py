@@ -126,4 +126,8 @@ SPANISH = {
     "metadata_mode_none": "No conservar los metadatos",
     "metadata_mode_preserve": "Conservar los metadatos",
     "metadata_mode_strip": "Eliminar los metadatos",
+    "quality_default": "Sin cambios",
+    "quality_high": "Alta",
+    "quality_medium": "Media",
+    "quality_low": "Baja",
 }

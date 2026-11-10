@@ -126,4 +126,8 @@ CATALAN = {
     "metadata_mode_none": "No conservar les metadades",
     "metadata_mode_preserve": "Conservar les metadades",
     "metadata_mode_strip": "Eliminar les metadades",
+    "quality_default": "Sense canvis",
+    "quality_high": "Alta",
+    "quality_medium": "Mitjana",
+    "quality_low": "Baixa",
 }

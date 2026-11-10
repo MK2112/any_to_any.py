@@ -126,4 +126,8 @@ TAMIL = {
     "metadata_mode_none": "மெட்டாடேட்டாவைப் பாதுகாக்க வேண்டாம்",
     "metadata_mode_preserve": "மெட்டாடேட்டாவைப் பாதுகாக்கவும்",
     "metadata_mode_strip": "மெட்டாடேட்டாவை அகற்றவும்",
+    "quality_default": "மாறாமல்",
+    "quality_high": "உயர்",
+    "quality_medium": "நடுத்தரம்",
+    "quality_low": "குறைவு",
 }

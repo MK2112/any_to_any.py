@@ -126,4 +126,8 @@ SWEDISH = {
     "metadata_mode_none": "Bevara inte metadata",
     "metadata_mode_preserve": "Bevara metadata",
     "metadata_mode_strip": "Ta bort metadata",
+    "quality_default": "Oförändrad",
+    "quality_high": "Hög",
+    "quality_medium": "Medel",
+    "quality_low": "Låg",
 }

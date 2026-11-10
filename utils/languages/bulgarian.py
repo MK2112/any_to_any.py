@@ -126,4 +126,8 @@ BULGARIAN = {
     "metadata_mode_none": "Не запазвай метаданните",
     "metadata_mode_preserve": "Запази метаданните",
     "metadata_mode_strip": "Премахни метаданните",
+    "quality_default": "Без промяна",
+    "quality_high": "Високо",
+    "quality_medium": "Средно",
+    "quality_low": "Ниско",
 }

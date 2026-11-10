@@ -126,4 +126,8 @@ JAPANESE = {
     "metadata_mode_none": "メタデータを保持しない",
     "metadata_mode_preserve": "メタデータを保持する",
     "metadata_mode_strip": "メタデータを削除する",
+    "quality_default": "変更なし",
+    "quality_high": "高",
+    "quality_medium": "中",
+    "quality_low": "低",
 }

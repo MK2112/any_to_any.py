@@ -126,4 +126,8 @@ CZECH = {
     "metadata_mode_none": "Nezachovávat metadata",
     "metadata_mode_preserve": "Zachovat metadata",
     "metadata_mode_strip": "Odstranit metadata",
+    "quality_default": "Beze změny",
+    "quality_high": "Vysoká",
+    "quality_medium": "Střední",
+    "quality_low": "Nízká",
 }

@@ -126,4 +126,8 @@ PUNJABI_PAKISTAN = {
     "metadata_mode_none": "میٹا ڈیٹا محفوظ نہ رکھیں",
     "metadata_mode_preserve": "میٹا ڈیٹا محفوظ رکھیں",
     "metadata_mode_strip": "میٹا ڈیٹا ہٹا دیں",
+    "quality_default": "بغیر تبدیلی",
+    "quality_high": "اعلیٰ",
+    "quality_medium": "درمیانہ",
+    "quality_low": "کم",
 }

@@ -126,4 +126,8 @@ MANDARIN_SIMPLIFIED = {
     "metadata_mode_none": "不保留元数据",
     "metadata_mode_preserve": "保留元数据",
     "metadata_mode_strip": "移除元数据",
+    "quality_default": "不变",
+    "quality_high": "高",
+    "quality_medium": "中",
+    "quality_low": "低",
 }
