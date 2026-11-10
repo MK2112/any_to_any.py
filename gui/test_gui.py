@@ -153,15 +153,22 @@ def test_workers_spin_range(main_window):
 
 
 def test_quality_combo_options(main_window):
-    # Test quality combo has correct options
-    options = [
-        main_window.quality_combo.itemText(i)
-        for i in range(main_window.quality_combo.count())
+    from gui.qt_app import tr_key
+
+    combo = main_window.quality_combo
+    options = [combo.itemText(i) for i in range(combo.count())]
+    expected_options = [
+        tr_key(key, main_window.locale)
+        for key in (
+            "quality_default",
+            "quality_high",
+            "quality_medium",
+            "quality_low",
+        )
     ]
-    assert "Default" in options
-    assert "High" in options
-    assert "Medium" in options
-    assert "Low" in options
+    assert options == expected_options
+    values = [combo.itemData(i) for i in range(combo.count())]
+    assert values == [None, "high", "medium", "low"]
 
 
 def test_add_file_to_list(main_window, tmp_path):
@@ -474,12 +481,23 @@ def test_merge_concat_mutual_exclusion(main_window, tmp_path):
 
 
 def test_metadata_selector_options(main_window):
-    options = [
-        main_window.metadata_combo.itemText(i)
-        for i in range(main_window.metadata_combo.count())
+    from gui.qt_app import tr_key
+
+    combo = main_window.metadata_combo
+    options = [combo.itemText(i) for i in range(combo.count())]
+    expected_options = [
+        tr_key(key, main_window.locale)
+        for key in (
+            "metadata_mode_none",
+            "metadata_mode_preserve",
+            "metadata_mode_strip",
+        )
     ]
-    assert options == ["Default", "Preserve", "Strip"]
-    assert main_window.metadata_combo.currentText() == "Default"
+    assert options == expected_options
+    assert combo.currentData() == "none"
+    assert combo.currentText() == expected_options[0]
+    values = [combo.itemData(i) for i in range(combo.count())]
+    assert values == ["none", "preserve", "strip"]
 
 
 def _pump_events(qapp, seconds):
