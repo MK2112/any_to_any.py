@@ -44,6 +44,7 @@ from core.controller import Controller
 from utils.version_check import check_for_update
 from core.utils.resolution import available_resolutions
 from core.utils.file_handler import ConversionCancelled, FFmpegProcessTracker
+from core.utils.page_ranges import parse_page_ranges
 
 if "--version" in sys.argv or "--self-test" in sys.argv:
     print(VERSION)
@@ -102,9 +103,6 @@ GENERIC_STATUS_TOKENS = {
     "running",
     "done",
 }
-
-SPLIT_RANGE_RE = re.compile(r"^(\d+)\s*-\s*(\d+|end|rest)$", re.IGNORECASE)
-SPLIT_SINGLE_RE = re.compile(r"^(?:\d+|end|rest)$", re.IGNORECASE)
 
 
 def tr_key(key, locale=None):
@@ -1057,24 +1055,29 @@ class MainWindow(QMainWindow):
             self._update_mode_dependent_ui()
 
     @staticmethod
-    def _is_valid_split_pattern(pattern):
-        # Mirrors the backend's page-range grammar ('1-3,8-end', 'rest', also
-        # ';'-delimited), while rejecting reversed ranges up front which the
-        # backend would silently drop.
-        normalized = pattern.replace(";", ",")
-        parts = [part.strip() for part in normalized.split(",") if part.strip()]
-        if not parts:
-            return False
-        for part in parts:
-            if SPLIT_SINGLE_RE.match(part):
-                continue
-            match = SPLIT_RANGE_RE.match(part)
-            if not match:
-                return False
-            end_token = match.group(2)
-            if end_token.isdigit() and int(end_token) < int(match.group(1)):
-                return False
-        return True
+    def _is_valid_split_pattern(pattern, total_pages=None):
+        if total_pages is None:
+            numbers = [int(token) for token in re.findall(r"\d+", pattern)]
+            total_pages = max(numbers, default=1)
+        return parse_page_ranges(pattern, total_pages) is not None
+
+    @staticmethod
+    def _split_page_count(input_files):
+        pdf_files = [
+            path for path in input_files if Path(path).suffix.lower() == ".pdf"
+        ]
+        if len(pdf_files) != 1:
+            return None
+        try:
+            import pymupdf as pypdf
+
+            document = pypdf.open(pdf_files[0])
+            try:
+                return len(document)
+            finally:
+                document.close()
+        except Exception:
+            return None
 
     def start_conversion(self):
         if self.current_thread is not None and self.current_thread.isRunning():
@@ -1143,7 +1146,8 @@ class MainWindow(QMainWindow):
 
         if split_pattern:
             # Splitting ignores the output format and needs a PDF input
-            if not self._is_valid_split_pattern(split_pattern):
+            split_pages = self._split_page_count(input_files)
+            if not self._is_valid_split_pattern(split_pattern, split_pages):
                 QMessageBox.warning(
                     self,
                     lang.get_translation("error", self.locale),

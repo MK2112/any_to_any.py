@@ -400,15 +400,32 @@ def test_split_pattern_validation(main_window):
         "10",
         "1-3,2-6,8-end",
         "1-5,rest",
-        "end",
         "rest",
         "1 - 4",
-        "1-3;5-7",  # Semicolon delimiter accepted like the backend
-        "1-3,,5",  # Empty parts tolerated like the backend
+        "1-3;5-7",
+        "all",
+        "2-rest",
     ]:
         assert main_window._is_valid_split_pattern(pattern), pattern
-    for pattern in ["", "abc", "3-1", "1--2", "all"]:
+    for pattern in ["", "abc", "3-1", "1--2", "end", "1-2,end", "1-3,,5"]:
         assert not main_window._is_valid_split_pattern(pattern), pattern
+    assert not main_window._is_valid_split_pattern("1-2,99-100", 10)
+    assert main_window._is_valid_split_pattern("10", 10)
+
+
+def test_split_page_count_uses_single_pdf(main_window, tmp_path):
+    import pymupdf
+
+    pdf_path = tmp_path / "ten.pdf"
+    document = pymupdf.open()
+    for _ in range(10):
+        document.new_page()
+    document.save(str(pdf_path))
+    document.close()
+
+    assert main_window._split_page_count([str(pdf_path)]) == 10
+    assert main_window._split_page_count([]) is None
+    assert main_window._split_page_count([str(pdf_path), str(pdf_path)]) is None
 
 
 def test_start_conversion_blocked_without_format(main_window, tmp_path):
