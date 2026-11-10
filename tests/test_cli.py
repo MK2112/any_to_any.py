@@ -97,6 +97,46 @@ def test_cli_formats_reports_capabilities_without_input(tmp_path):
     assert "no convertible media files" not in combined
 
 
+@pytest.mark.parametrize("target", ["png", "docx", "pdf,png"])
+def test_cli_split_rejects_non_pdf_format(tmp_path, target):
+    result = subprocess.run(
+        [
+            sys.executable,
+            _script_path(),
+            "-i",
+            str(tmp_path),
+            "-s",
+            "1-3",
+            "-f",
+            target,
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 2
+    assert "--split" in (result.stdout + result.stderr)
+
+
+def test_cli_split_accepts_pdf_format(tmp_path):
+    result = subprocess.run(
+        [
+            sys.executable,
+            _script_path(),
+            "-i",
+            str(tmp_path),
+            "-s",
+            "1-3",
+            "-f",
+            "PDF",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    combined = (result.stdout + "\n" + result.stderr).lower()
+    assert "only produces pdf output" not in combined
+    assert result.returncode in (0, 1)
+
+
 @pytest.mark.parametrize("bad_workers", ["0", "-5"])
 def test_cli_workers_below_range_rejected(tmp_path, bad_workers):
     # --workers below 1 must fail fast with an argparse error (exit 2)

@@ -193,6 +193,17 @@ if __name__ == "__main__":
             f"{lang.get_translation('split_merge_error', controller.locale)}"
         )
 
+    if args["split"]:
+        split_formats = {
+            fmt.strip().lower()
+            for fmt in (args["format"] or "").split(",")
+            if fmt.strip()
+        }
+        if split_formats - {"pdf"}:
+            parser.error(
+                "--split only produces PDF output; use '-f pdf' or omit '-f'"
+            )
+
     if args["merge"] and args["concat"]:
         parser.error(
             f"{lang.get_translation('merge_concat_error', controller.locale)}"
