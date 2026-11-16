@@ -182,11 +182,8 @@ class DocumentConverter:
                         convert_image=mammoth.images.img_element(convert_image),
                     )
                 html_content = document.value  # Already a str, no need to encode
-
                 # Convert HTML to Markdown
                 markdown_text = markdownify(html_content)
-
-                # Write Markdown file
                 with open(md_path, "w", encoding="utf-8") as md_file:
                     md_file.write(markdown_text)
                 self.file_handler.post_process(doc_path_set, md_path, delete)
@@ -205,6 +202,43 @@ class DocumentConverter:
                     for line in lines:
                         md_file.write(f"{line}\n")
                 self.file_handler.post_process(doc_path_set, md_path, delete)
+
+    @staticmethod
+    def _insert_paginated_text(doc, text_content: str) -> None:
+        # Insert plain text over as many pages as needed, non-Latin scripts use
+        # insert_htmlbox so MuPDF can pick a font with the required glyphs (instead of insert_text())
+        margin = 50
+        html_mode = any(ord(char) > 0xFF for char in text_content)
+        line_pitch = 14.4 if html_mode else 16.5  # measured at ~12 pt
+        lines = text_content.splitlines() or [""]
+
+        page = doc.new_page()
+        pos = 0
+        while pos < len(lines):
+            rect = pypdf.Rect(
+                margin, margin, page.rect.width - margin, page.rect.height - margin
+            )
+            per_page = max(1, int(rect.height / line_pitch))
+            while True:
+                chunk_lines = lines[pos : pos + per_page]
+                chunk = "\n".join(chunk_lines)
+                if html_mode:
+                    result = page.insert_htmlbox(
+                        rect,
+                        "<pre style='white-space: pre-wrap; "
+                        "font-family: sans-serif; margin: 0;'>"
+                        f"{html.escape(chunk)}</pre>",
+                    )
+                    spare = result[0] if isinstance(result, (tuple, list)) else result
+                    if spare < 0 and len(chunk_lines) > 1:
+                        per_page = len(chunk_lines) // 2
+                        continue
+                else:
+                    page.insert_text((margin, margin), chunk, fontsize=12)
+                break
+            pos += len(chunk_lines)
+            if pos < len(lines):
+                page = doc.new_page()
 
     def to_pdf(self, output: str, file_paths: dict, format: str, delete: bool) -> None:
         # Convert GIFs to Frames using to_frames
@@ -320,23 +354,9 @@ class DocumentConverter:
                 pdf_path = self.file_handler._resolve_output_file_conflict(
                     os.path.abspath(os.path.join(output, f"{doc_path_set[1]}.{format}"))
                 )
-                # Plain-text sources (SRT, Markdown, PPTX) are inserted as-is
                 text_content = "\n".join(self._document_text_lines(doc_path_set))
                 doc = pypdf.open()
-                page = doc.new_page()
-                if any(ord(char) > 0xFF for char in text_content):
-                    # Helvetica only covers Latin-1 so MuPDF selects a font
-                    # with glyphs for the document's script as fallback
-                    page.insert_htmlbox(
-                        pypdf.Rect(
-                            50, 50, page.rect.width - 50, page.rect.height - 50
-                        ),
-                        "<pre style='white-space: pre-wrap; "
-                        "font-family: sans-serif; margin: 0;'>"
-                        f"{html.escape(text_content)}</pre>",
-                    )
-                else:
-                    page.insert_text((50, 50), text_content, fontsize=12)
+                self._insert_paginated_text(doc, text_content)
                 doc.save(pdf_path)
                 doc.close()
 
