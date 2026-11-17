@@ -418,12 +418,12 @@ class MovieConverter:
                     pending_path = None
                 return out_paths
             finally:
-                if edit_clip is not None:
+                if edit_clip is not None and edit_clip is not video:
                     try:
                         edit_clip.close()
                     except Exception:
                         pass
-                elif video is not None:
+                if video is not None:
                     try:
                         video.close()
                     except Exception:

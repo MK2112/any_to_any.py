@@ -310,6 +310,36 @@ def test_to_codec_closes_resized_and_source_clips(mock_vfc, mock_converter):
     mock_clip.close.assert_called_once()
 
 
+@patch("core.converter.movie_converter.VideoFileClip")
+def test_to_movie_closes_resized_and_source_clips(mock_vfc, mock_converter):
+    mock_clip = MagicMock()
+    resized_clip = MagicMock()
+    mock_clip.resized.return_value = resized_clip
+    mock_vfc.return_value = mock_clip
+    mock_converter.file_handler.has_visuals.return_value = True
+    mock_converter.file_handler.join_back.return_value = "dir/video.mp4"
+
+    mock_converter.to_movie(
+        input="in",
+        output="out",
+        recursive=False,
+        file_paths={
+            Category.IMAGE: [],
+            Category.MOVIE: [("dir", "video", "mp4")],
+            Category.DOCUMENT: [],
+        },
+        format="mp4",
+        framerate=24,
+        codec="libx264",
+        delete=False,
+        resolution="640x360",
+    )
+
+    mock_clip.resized.assert_called_once_with(new_size=(640, 360))
+    resized_clip.close.assert_called_once()
+    mock_clip.close.assert_called_once()
+
+
 @patch("core.converter.movie_converter.subprocess.run")
 def test_to_protocol_hls(mock_run, mock_converter):
     movie = ("dir", "sample", "mp4")

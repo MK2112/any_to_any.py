@@ -541,11 +541,9 @@ class TestMovieConverterResolution:
         resized_clip.write_videofile.assert_called_once()
 
     @patch("core.converter.movie_converter.VideoFileClip")
-    def test_to_movie_resolution_writes_resized_clip_without_closing_source(
+    def test_to_movie_resolution_writes_resized_clip_and_closes_both_clips(
         self, mock_vfc, mock_converter
     ):
-        # The resized clip must be the one written (with its own audio flag)
-        # and closed. Source must be left alone.
         mock_clip = MagicMock()
         resized_clip = MagicMock()
         resized_clip.fps = 24
@@ -574,7 +572,7 @@ class TestMovieConverterResolution:
 
         mock_clip.resized.assert_called_once_with(new_size=(1280, 720))
         mock_clip.write_videofile.assert_not_called()
-        mock_clip.close.assert_not_called()
+        mock_clip.close.assert_called_once()
         resized_clip.write_videofile.assert_called_once()
         # Audio flag must reflect/indicate resized clip (None -> False, if pre-sized held audio)
         _, kwargs = resized_clip.write_videofile.call_args
