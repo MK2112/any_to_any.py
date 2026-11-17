@@ -71,7 +71,7 @@ sudo apt-get install ffmpeg
   4. Add `C:\ffmpeg\bin` to the system `Path`:
      - Open Start, search for `Environment Variables`, open `Edit the system environment variables`
      - Click `Environment Variables...`
-     - Under `System variables`, select `Path` -> `Edit` -> `New`
+     - Under `System variables`, select `Path` > `Edit` > `New`
      - Add `C:\ffmpeg\bin` and confirm with `OK`
 
 <p align="center">
@@ -128,11 +128,11 @@ Resolutions can be given as `WxH` (e.g. `1920x1080`) or as an alias such as `4k`
 
 If you feel like it, you can even convert an MP4 file to a PDF, that PDF to a GIF and the GIF back to MP4:
 ```bash
-# Create the PDF containing the movie's frames [Movie -> Document]
+# Create the PDF containing the movie's frames [Movie > Document]
 python any_to_any.py -i /path/to/file.mp4 -f pdf
-# Create the GIF from your PDF [Document -> Image]
+# Create the GIF from your PDF [Document > Image]
 python any_to_any.py -i /path/to/file.pdf -f gif
-# Create the MP4 from your GIF again [Image -> Movie]
+# Create the MP4 from your GIF again [Image > Movie]
 python any_to_any.py -i /path/to/file.gif -f mp4
 ```
 
