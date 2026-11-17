@@ -246,6 +246,55 @@ def test_colliding_upload_names_rejected_before_storage(client, tmp_storage, end
     backend.assert_not_called()
 
 
+@pytest.mark.parametrize("filename", [".", "..", "..."])
+def test_dot_only_upload_names_rejected(client, tmp_storage, filename):
+    # These filenames could resolve to a file outside the job directory, so we reject them
+    tok = _csrf_for(client)
+    with mock.patch.object(w, "send_to_backend") as backend:
+        response = client.post(
+            "/convert",
+            data={
+                "files": [(io.BytesIO(b"data"), filename)],
+                "conversionType": "jpeg",
+                "csrf_token": tok,
+            },
+            content_type="multipart/form-data",
+        )
+    assert response.status_code == 400
+    assert b"invalid upload filename" in response.data.lower()
+    backend.assert_not_called()
+    assert not list(tmp_storage.glob("uploads_*"))
+    assert not list(tmp_storage.glob("converted_*"))
+
+
+@pytest.mark.parametrize(
+    "filename",
+    ["../escaped.txt", "..\\escaped.txt", "/tmp/escaped.txt", "C:\\escaped.txt"],
+)
+def test_upload_filename_never_escapes_job_dir(client, tmp_storage, filename):
+    tok = _csrf_for(client)
+    with mock.patch.object(w, "send_to_backend") as backend:
+        response = client.post(
+            "/convert",
+            data={
+                "files": [(io.BytesIO(b"payload"), filename)],
+                "conversionType": "jpeg",
+                "csrf_token": tok,
+            },
+            content_type="multipart/form-data",
+        )
+        _wait_for_call(backend)
+    assert response.status_code == 202
+    up_dir = backend.call_args.args[1][0]
+    entries = os.listdir(up_dir)
+    assert len(entries) == 1
+    # The saved file is a direct child of the job dir, not some path outside it
+    assert os.path.dirname(os.path.abspath(os.path.join(up_dir, entries[0]))) == os.path.abspath(up_dir)
+    with open(os.path.join(up_dir, entries[0]), "rb") as saved:
+        assert saved.read() == b"payload"
+    assert not os.path.exists(os.path.join(str(tmp_storage), "escaped.txt"))
+
+
 @pytest.mark.parametrize("endpoint", ["/merge", "/concat"])
 def test_merge_concat_accept_original_format_without_resolution(client, tmp_storage, endpoint):
     tok = _csrf_for(client)

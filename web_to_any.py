@@ -482,6 +482,16 @@ def _preserve_unconverted_inputs(input_dir: str, output_dir: str) -> int:
     return preserved
 
 
+def _sanitize_upload_filename(filename: str) -> str:
+    # Reject empty names, names made up of dots
+    safe_name = re.sub(r"[^\w\.\-]", "_", filename)
+    if not safe_name or not safe_name.strip("."):
+        abort(400, "Invalid upload filename")
+    if os.path.isabs(safe_name) or os.path.basename(safe_name) != safe_name:
+        abort(400, "Invalid upload filename")
+    return safe_name
+
+
 def process_params(merge: bool = False, concat: bool = False) -> tuple:
     uploaded_files = request.files.getlist("files")
     fmt = request.form.get("conversionType")
@@ -502,8 +512,8 @@ def process_params(merge: bool = False, concat: bool = False) -> tuple:
     for uploaded_file in uploaded_files:
         if not uploaded_file or not uploaded_file.filename:
             continue
-        safe_name = re.sub(r"[^\w\.\-]", "_", uploaded_file.filename)
-        # Reject rather than rename: merge pairs inputs by filename.
+        safe_name = _sanitize_upload_filename(uploaded_file.filename)
+        # Reject rather than rename, merge pairs inputs by filename
         collision_key = safe_name.rstrip(". ").casefold()
         if collision_key in safe_names:
             abort(400, "Upload filenames collide after sanitization")
@@ -535,8 +545,12 @@ def process_params(merge: bool = False, concat: bool = False) -> tuple:
         saved_files = 0
         for uploaded_file in uploaded_files:
             if uploaded_file and uploaded_file.filename:
-                safe_name = re.sub(r"[^\w\.\-]", "_", uploaded_file.filename)
-                uploaded_file.save(os.path.join(up_dir, safe_name))
+                safe_name = _sanitize_upload_filename(uploaded_file.filename)
+                destination = os.path.join(up_dir, safe_name)
+                up_abs = os.path.abspath(up_dir)
+                if os.path.dirname(os.path.abspath(destination)) != up_abs:
+                    abort(400, "Invalid upload filename")
+                uploaded_file.save(destination)
                 saved_files += 1
         if saved_files == 0:
             abort(400, "No files or empty filenames")
