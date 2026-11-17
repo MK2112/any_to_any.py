@@ -327,14 +327,16 @@ class ConversionThread(QThread):
                 return
 
             worker.join(timeout=30.0)
+            if worker.is_alive():
+                error_holder["error"] = "Conversion worker did not finish in time"
 
             prog = self.shared_progress.get(self.job_id, {})
             self.progress_updated.emit(
                 {
-                    "progress": 100,
+                    "progress": 100 if "error" not in error_holder else prog.get("progress"),
                     "message": prog.get("message", prog.get("status", "Done")),
-                    "status": prog.get("status", "done"),
-                    "error": prog.get("error"),
+                    "status": "error" if "error" in error_holder else prog.get("status", "done"),
+                    "error": error_holder.get("error") or prog.get("error"),
                 }
             )
 

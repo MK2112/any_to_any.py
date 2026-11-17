@@ -725,6 +725,60 @@ def test_conversion_thread_sets_total_files(qapp, kwargs, expected):
     assert observed["total"] == expected * 100
 
 
+def test_conversion_reports_error_when_worker_still_alive(qapp):
+    from types import SimpleNamespace
+    from unittest.mock import patch
+    import threading as _threading
+    from PyQt6.QtCore import Qt
+    from gui.qt_app import ConversionThread
+
+    real_thread = _threading.Thread
+
+    class FakeController:
+        def __init__(self, **kwargs):
+            self.file_handler = SimpleNamespace(cancel_event=None)
+
+        def run(self, **kwargs):
+            pass
+
+    class StillAliveWorker:
+        def __init__(self, target, daemon=False):
+            self._real = real_thread(target=target, daemon=daemon)
+
+        def start(self):
+            self._real.start()
+
+        def join(self, timeout=None):
+            self._real.join(timeout=5)
+
+        def is_alive(self):
+            return True
+
+    thread = ConversionThread(["/file.mp4"], "mp3", "/out")
+    observed = {}
+    thread.conversion_finished.connect(
+        lambda *args: observed.__setitem__("finished", True),
+        Qt.ConnectionType.DirectConnection,
+    )
+    thread.error_occurred.connect(
+        lambda msg: observed.__setitem__("error", msg),
+        Qt.ConnectionType.DirectConnection,
+    )
+
+    with (
+        patch("gui.qt_app.Controller", FakeController),
+        patch(
+            "gui.qt_app.threading",
+            SimpleNamespace(Thread=StillAliveWorker, Event=_threading.Event),
+        ),
+    ):
+        thread.start()
+        assert thread.wait(10000)
+
+    assert observed.get("finished") is not True
+    assert "did not finish" in observed.get("error", "")
+
+
 def test_job_id_is_hex8():
     import re
     from gui.qt_app import ConversionThread
