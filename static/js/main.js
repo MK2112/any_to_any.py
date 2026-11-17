@@ -120,8 +120,7 @@ function submitForm(endpoint) {
         return;
     }
 
-    // Resize-only (keep the source format) requires a chosen resolution
-    if (conversionType === 'original' && resolutionData) {
+    if (endpoint === '/convert' && conversionType === 'original' && resolutionData) {
         const resolutionSelect = document.getElementById('conversion-resolution');
         if (resolutionSelect.value === '') {
             errorMessage.style.display = 'block';

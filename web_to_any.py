@@ -482,7 +482,7 @@ def _preserve_unconverted_inputs(input_dir: str, output_dir: str) -> int:
     return preserved
 
 
-def process_params() -> tuple:
+def process_params(merge: bool = False, concat: bool = False) -> tuple:
     uploaded_files = request.files.getlist("files")
     fmt = request.form.get("conversionType")
     resolution = request.form.get("resolution") or None
@@ -518,8 +518,7 @@ def process_params() -> tuple:
         if file_size > file_max_size:
             abort(413, "Uploaded file exceeds the per-file size limit")
 
-    # A resize-only job (no format change) is meaningless without a resolution
-    if fmt is None and resolution is None:
+    if fmt is None and resolution is None and not (merge or concat):
         abort(400, "A resolution is required for resize-only mode")
     if resolution is not None:
         resolution = normalize_resolution(
@@ -734,7 +733,9 @@ def create_conversion_endpoint(merge: bool = False, concat: bool = False):
         job_id = None
         slot_transferred = False
         try:
-            fmt, up_dir, cv_dir, job_id, resolution, metadata_mode = process_params()
+            fmt, up_dir, cv_dir, job_id, resolution, metadata_mode = process_params(
+                merge=merge, concat=concat
+            )
             job_controller = create_controller(
                 job_id=job_id, shared_progress_dict=shared_progress_dict
             )

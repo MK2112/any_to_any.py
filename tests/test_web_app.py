@@ -246,6 +246,45 @@ def test_colliding_upload_names_rejected_before_storage(client, tmp_storage, end
     backend.assert_not_called()
 
 
+@pytest.mark.parametrize("endpoint", ["/merge", "/concat"])
+def test_merge_concat_accept_original_format_without_resolution(client, tmp_storage, endpoint):
+    tok = _csrf_for(client)
+    with mock.patch.object(w, "send_to_backend") as backend:
+        response = client.post(
+            endpoint,
+            data={
+                "files": [(io.BytesIO(b"video"), "clip.mp4")],
+                "conversionType": "original",
+                "csrf_token": tok,
+            },
+            content_type="multipart/form-data",
+        )
+        _wait_for_call(backend)
+    assert response.status_code == 202
+    args = backend.call_args.args
+    assert args[2] is None  # target frmt keep original
+    assert args[9] is None  # no resolution
+    assert args[7] is (endpoint == "/merge")
+    assert args[8] is (endpoint == "/concat")
+
+
+def test_convert_still_requires_resolution_for_original_format(client, tmp_storage):
+    tok = _csrf_for(client)
+    with mock.patch.object(w, "send_to_backend") as backend:
+        response = client.post(
+            "/convert",
+            data={
+                "files": [(io.BytesIO(b"video"), "clip.mp4")],
+                "conversionType": "original",
+                "csrf_token": tok,
+            },
+            content_type="multipart/form-data",
+        )
+    assert response.status_code == 400
+    assert b"resolution" in response.data
+    backend.assert_not_called()
+
+
 def test_merge_preserves_distinct_matching_basenames(client, tmp_storage):
     tok = _csrf_for(client)
     with mock.patch.object(w, "send_to_backend") as backend:
