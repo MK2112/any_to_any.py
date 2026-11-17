@@ -74,9 +74,12 @@ class DirectoryWatcher:
     def watch(self, interval: float = 1.0) -> None:
         while True:
             try:
+                if self._running and not self.is_running():
+                    self.stop_watching()
                 self.start_watching()
                 while self.is_running():
                     time.sleep(interval)
+                time.sleep(interval)
             except KeyboardInterrupt:
                 break
             except Exception as e:

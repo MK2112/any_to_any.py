@@ -151,11 +151,56 @@ class TestDirectoryWatcher:
             callback.assert_called_once()
 
         finally:
-            # Stop the watcher by interrupting the thread
+            # Stop watcher by interrupting thread
             thread.join(timeout=1)
             if thread.is_alive():
-                # If thread is still alive, it means join timed out
-                thread.join(timeout=0.1)  # Give it a bit more time
+                # If thread is still alive, join timed out
+                thread.join(timeout=0.1)  # Give a bit more time
+
+    def test_watch_restarts_dead_observer_without_busy_loop(self, temp_dir, monkeypatch):
+        import core.utils.directory_watcher as dw
+
+        observers = []
+        alive_checks = {"count": 0}
+
+        class FakeObserver:
+            def __init__(self):
+                observers.append(self)
+
+            def schedule(self, *args, **kwargs):
+                pass
+
+            def start(self):
+                pass
+
+            def stop(self):
+                pass
+
+            def join(self):
+                pass
+
+            def is_alive(self):
+                alive_checks["count"] += 1
+                if alive_checks["count"] > 30:
+                    raise KeyboardInterrupt
+                return self is not observers[0]
+
+        monkeypatch.setattr(dw, "Observer", FakeObserver)
+        sleeps = []
+
+        def fake_sleep(interval):
+            sleeps.append(interval)
+            if len(sleeps) >= 3:
+                raise KeyboardInterrupt
+
+        monkeypatch.setattr(dw.time, "sleep", fake_sleep)
+
+        watcher = DirectoryWatcher(str(temp_dir), MagicMock())
+        watcher.watch(interval=0.01)
+
+        # A dead observer must be replaced, loop must sleep
+        assert len(observers) == 2
+        assert len(sleeps) == 3
 
     def test_error_handling(self, temp_dir):
         # Test that errors in the callback don't crash the watcher
