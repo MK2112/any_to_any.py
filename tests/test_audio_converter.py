@@ -1,6 +1,7 @@
 import os
 import sys
 import pytest
+
 from pathlib import Path
 from utils.category import Category
 from moviepy import AudioFileClip, VideoFileClip
@@ -194,7 +195,11 @@ class TestAudioConverter:
             "/path/to/video1.mp4", audio=True, fps_source="tbr"
         )
         mock_audio.write_audiofile.assert_called_with(
-            "/output/video1.mp3", codec="mp3", bitrate="128k", logger=prog_logger
+            "/output/video1.mp3",
+            codec="mp3",
+            bitrate="128k",
+            fps=44100,
+            logger=prog_logger,
         )
         mock_audio.close.assert_called()
         mock_video.close.assert_called()

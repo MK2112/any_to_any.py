@@ -226,12 +226,7 @@ class AudioConverter:
                         index + 1 if split_at is not None else None,
                     )
                     pending_path = out_path
-                    segment.write_audiofile(
-                        out_path,
-                        codec=codec,
-                        bitrate=bitrate,
-                        logger=self.prog_logger,
-                    )
+                    self._write_segment(segment, out_path, codec, bitrate, format)
                     out_paths.append((movie_path_set, out_path))
                     pending_path = None
                 return out_paths or None
