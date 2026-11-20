@@ -613,9 +613,8 @@ class Controller:
             os.makedirs(self.output)
 
         file_paths = {}
-        was_none, found_files = False, False
-        # With explicit formats, resolution validation does
-        # not depend on the per-input file sets -> validate once
+        was_none, found_files, saw_movies = False, False, False
+
         if formats and self.resolution is not None:
             self._validate_resolution(file_paths, formats)
         for input_path in input_paths:
@@ -704,13 +703,19 @@ class Controller:
                     )
                 continue
 
+            saw_movies = saw_movies or bool(file_paths[Category.MOVIE])
+
             if not across and not concat_across_inputs:
                 if self.output is None or was_none:
                     self.output = os.path.dirname(input_path)
                     was_none = True
                 if self.preserve_meta or self.custom_tags:
                     self.metadata_handler.set_metadata_dir(str(self.output))
-                if not formats and self.resolution is not None:
+                if (
+                    not formats
+                    and self.resolution is not None
+                    and file_paths[Category.MOVIE]
+                ):
                     self._validate_resolution(file_paths, formats)
                 self._dispatch_targets(file_paths, formats)
                 found_files = found_files or bool(file_paths)
@@ -721,10 +726,19 @@ class Controller:
                 self.output = os.path.dirname(input_paths[0])
             if self.preserve_meta or self.custom_tags:
                 self.metadata_handler.set_metadata_dir(str(self.output))
-            if not formats and self.resolution is not None:
+            if (
+                not formats
+                and self.resolution is not None
+                and file_paths[Category.MOVIE]
+            ):
                 self._validate_resolution(file_paths, formats)
             self._dispatch_targets(file_paths, formats)
             found_files = found_files or any(file_paths.values())
+
+        if not formats and self.resolution is not None and not saw_movies:
+            self._validate_resolution(
+                {category: [] for category in self._supported_formats}, formats
+            )
 
         if not found_files:
             self.event_logger.warning(
@@ -1075,6 +1089,16 @@ class Controller:
                         )
                         if file_paths:
                             try:
+                                # Resize-only dropzones must validate each
+                                # dropped movie's format (no -f to validate up front).
+                                if (
+                                    dropzone_controller.resolution is not None
+                                    and dropzone_controller.target_format is None
+                                    and file_paths.get(Category.MOVIE)
+                                ):
+                                    dropzone_controller._validate_resolution(
+                                        file_paths, []
+                                    )
                                 dropzone_controller.process_file_paths(file_paths)
                             except Exception as e:
                                 self.event_logger.error(
