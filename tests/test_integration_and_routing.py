@@ -274,3 +274,82 @@ def test_watch_dropzone_reuses_one_controller(
 
     assert len(created_controllers) == 1
     assert created_controllers[0].input == str(new_file)
+
+
+def test_watch_dropzone_uses_all_formats_and_shared_handler(
+    controller_instance, tmp_path, monkeypatch
+):
+    # H7: a multi-format dropzone must dispatch every format, and the per-event
+    # converters must use the shared handler/logger (not throwaway instances).
+    import core.controller as controller_module
+
+    watch_dir = tmp_path / "watch"
+    watch_dir.mkdir()
+    dropped = watch_dir / "track.mp3"
+    dropped.write_bytes(b"\x00" * 64)
+
+    class FakeWatcher:
+        def __init__(self, path, handler):
+            self.handler = handler
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            return False
+
+        def watch(self):
+            self.handler("created", str(dropped))
+
+    monkeypatch.setattr(controller_module, "DirectoryWatcher", FakeWatcher)
+    clock = {"now": 0.0}
+
+    def fake_time():
+        clock["now"] += 2.0
+        return clock["now"]
+
+    monkeypatch.setattr(controller_module.time, "time", fake_time)
+    monkeypatch.setattr(controller_module.time, "sleep", lambda _: None)
+
+    created_controllers = []
+    real_init = controller_module.Controller.__init__
+
+    def tracking_init(self, *args, **kwargs):
+        real_init(self, *args, **kwargs)
+        created_controllers.append(self)
+
+    monkeypatch.setattr(controller_module.Controller, "__init__", tracking_init)
+
+    converter = controller_instance
+    converter.output = str(tmp_path / "out")
+    converter.recursive = False
+    converter.framerate = None
+    converter.quality = None
+    converter.locale = "en_US"
+    converter.delete = False
+    converter.resolution = None
+    converter.target_format = "mp3"
+    converter.target_formats = ["mp3", "flac"]
+    converter.page_ranges = None
+    converter.merging = False
+    converter.concatenating = False
+
+    with mock.patch.object(
+        controller_module.Controller, "_dispatch_targets"
+    ) as dispatch:
+        converter.watch_dropzone(str(watch_dir))
+
+    dispatch.assert_called_once()
+    assert dispatch.call_args.args[1] == ["mp3", "flac"]
+    event_controller = created_controllers[0]
+    assert event_controller.file_handler is converter.file_handler
+    assert event_controller.prog_logger is converter.prog_logger
+    for name in (
+        "audio_converter",
+        "movie_converter",
+        "image_converter",
+        "doc_converter",
+    ):
+        sub_converter = getattr(event_controller, name)
+        assert sub_converter.file_handler is converter.file_handler
+        assert sub_converter.prog_logger is converter.prog_logger

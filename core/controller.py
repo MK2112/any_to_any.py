@@ -648,6 +648,7 @@ class Controller:
                         f"[!] {lang.get_translation('error', self.locale)}: {lang.get_translation('dropzone_diff', self.locale)}",
                     )
                 self.target_format = formats[0].lower() if formats else None
+                self.target_formats = [fmt.lower() for fmt in formats]
                 if self.preserve_meta or self.custom_tags:
                     self.metadata_handler.set_metadata_dir(str(self.output))
                 self.event_logger.info(
@@ -1099,11 +1100,15 @@ class Controller:
                                     dropzone_controller._validate_resolution(
                                         file_paths, []
                                     )
-                                dropzone_controller.process_file_paths(file_paths)
+                                dropzone_controller._dispatch_targets(
+                                    file_paths, self.target_formats
+                                )
                             except Exception as e:
                                 self.event_logger.error(
                                     f"{lang.get_translation('error', self.locale)}: {file_path} - {str(e)}"
                                 )
+                            finally:
+                                self.file_handler.release_job_claims()
                 except Exception as e:
                     self.event_logger.error(
                         f"{lang.get_translation('error', self.locale)}: {file_path} - {str(e)}"
@@ -1151,6 +1156,15 @@ class Controller:
             dropzone_controller.trim_range = self.trim_range
             dropzone_controller.split_points = self.split_points
             dropzone_controller.metadata_handler = self.metadata_handler
+            dropzone_controller.prog_logger = self.prog_logger
+            for converter in (
+                dropzone_controller.audio_converter,
+                dropzone_controller.movie_converter,
+                dropzone_controller.image_converter,
+                dropzone_controller.doc_converter,
+            ):
+                converter.file_handler = self.file_handler
+                converter.prog_logger = self.prog_logger
 
             with DirectoryWatcher(watch_path, handle_file_event) as watcher:
                 watcher.watch()
