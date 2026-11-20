@@ -438,10 +438,147 @@ class TestDocumentConverterToPdf:
             format="pdf",
             delete=False,
         )
-
-        # Verify the PDF was created
+        
         mock_doc.save.assert_called_once()
         mock_video_clip.assert_called_once()
+
+    @patch("core.converter.doc_converter.gif_to_frames")
+    @patch("core.converter.doc_converter.pypdf.open")
+    @patch("core.converter.doc_converter.pypdf.Pixmap")
+    def test_to_pdf_gif_without_frames_is_skipped(
+        self,
+        mock_pixmap,
+        mock_open,
+        mock_gif_to_frames,
+        document_converter,
+        temp_output_dir,
+    ):
+        frame_dir = os.path.join(temp_output_dir, "empty_gif")
+        os.makedirs(frame_dir, exist_ok=True)
+        mock_gif_to_frames.return_value = {"empty_gif": frame_dir}
+
+        bad_doc, good_doc = MagicMock(), MagicMock()
+        bad_doc.save.side_effect = ValueError("cannot save with zero pages")
+        mock_open.side_effect = [bad_doc, good_doc]
+        mock_pixmap.return_value = MagicMock(width=8, height=8)
+        document_converter.file_handler.join_back.side_effect = lambda ps: os.path.join(
+            ps[0], f"{ps[1]}.{ps[2]}"
+        )
+
+        document_converter.to_pdf(
+            output=temp_output_dir,
+            file_paths={
+                Category.IMAGE: [
+                    ("path", "empty_gif", "gif"),
+                    ("path", "good", "png"),
+                ],
+                Category.MOVIE: [],
+                Category.DOCUMENT: [],
+            },
+            format="pdf",
+            delete=False,
+        )
+
+        assert document_converter.event_logger.error.call_count == 1
+        assert "empty_gif" in document_converter.event_logger.error.call_args.args[0]
+        bad_doc.close.assert_called_once()
+        good_doc.save.assert_called_once()
+        assert any(
+            call.args[0] == ("path", "good", "png")
+            for call in document_converter.file_handler.post_process.call_args_list
+        )
+
+    @patch("core.converter.doc_converter.VideoFileClip")
+    @patch("core.converter.doc_converter.pypdf.open")
+    @patch("core.converter.doc_converter.pypdf.Pixmap")
+    def test_to_pdf_movie_save_failure_closes_handles_and_continues(
+        self,
+        mock_pixmap,
+        mock_open,
+        mock_video_clip,
+        document_converter,
+        temp_output_dir,
+    ):
+        frame = np.zeros((4, 4, 3), dtype=np.uint8)
+        bad_clip, good_clip = MagicMock(), MagicMock()
+        for clip in (bad_clip, good_clip):
+            clip.fps = 30
+            clip.duration = 1.0
+            clip.iter_frames.return_value = [frame]
+        mock_video_clip.side_effect = [bad_clip, good_clip]
+
+        bad_doc, good_doc = MagicMock(), MagicMock()
+        bad_doc.save.side_effect = RuntimeError("pdf save failed")
+        mock_open.side_effect = [bad_doc, good_doc]
+        mock_pixmap.return_value = MagicMock(width=4, height=4)
+        document_converter.file_handler.join_back.side_effect = lambda ps: os.path.join(
+            ps[0], f"{ps[1]}.{ps[2]}"
+        )
+
+        document_converter.to_pdf(
+            output=temp_output_dir,
+            file_paths={
+                Category.IMAGE: [],
+                Category.MOVIE: [
+                    ("path", "bad_movie", "mp4"),
+                    ("path", "good_movie", "mp4"),
+                ],
+                Category.DOCUMENT: [],
+            },
+            format="pdf",
+            delete=False,
+        )
+
+        assert document_converter.event_logger.error.call_count == 1
+        bad_doc.close.assert_called_once()
+        bad_clip.close.assert_called_once()
+        good_doc.save.assert_called_once()
+        good_clip.close.assert_called_once()
+
+    @patch("core.converter.doc_converter.platform.system", return_value="Linux")
+    @patch("core.converter.doc_converter.HTML")
+    @patch("core.converter.doc_converter.mammoth.convert_to_html")
+    def test_to_pdf_docx_write_failure_is_skipped(
+        self,
+        mock_convert,
+        mock_html,
+        _mock_platform,
+        document_converter,
+        temp_output_dir,
+    ):
+        docx_path = os.path.join(temp_output_dir, "test_doc.docx")
+        doc = docx.Document()
+        doc.add_paragraph("Test content")
+        doc.save(docx_path)
+        document_converter.file_handler.join_back.return_value = docx_path
+        mock_convert.return_value = MagicMock(value="<p>Test content</p>")
+        mock_html.return_value.write_pdf.side_effect = [
+            RuntimeError("write failed"),
+            None,
+        ]
+
+        document_converter.to_pdf(
+            output=temp_output_dir,
+            file_paths={
+                Category.IMAGE: [],
+                Category.MOVIE: [],
+                Category.DOCUMENT: [
+                    ("path", "bad_doc", "docx"),
+                    ("path", "good_doc", "docx"),
+                ],
+            },
+            format="pdf",
+            delete=False,
+        )
+
+        assert document_converter.event_logger.error.call_count == 1
+        assert "write failed" in document_converter.event_logger.error.call_args.args[0]
+        assert document_converter.file_handler.post_process.call_count == 1
+        assert document_converter.file_handler.post_process.call_args.args[0] == (
+            "path",
+            "good_doc",
+            "docx",
+        )
 
 
 class TestDocumentConverterToSubtitles:

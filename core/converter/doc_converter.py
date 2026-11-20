@@ -285,19 +285,28 @@ class DocumentConverter:
                     )
                 )
 
-                doc = pypdf.open()
+                doc = None
                 try:
+                    doc = pypdf.open()
                     _frames = sort_frame_filenames(os.listdir(gif_frame_path))
-                except OSError:
-                    _frames = []
-                for frame in _frames:
-                    if frame.endswith(".png"):
-                        img = pypdf.Pixmap(os.path.join(gif_frame_path, frame))
-                        rect = pypdf.Rect(0, 0, img.width, img.height)
-                        page = doc.new_page(width=rect.width, height=rect.height)
-                        page.insert_image(rect, pixmap=img)
-                doc.save(pdf_path)
-                doc.close()
+                    for frame in _frames:
+                        if frame.endswith(".png"):
+                            img = pypdf.Pixmap(os.path.join(gif_frame_path, frame))
+                            rect = pypdf.Rect(0, 0, img.width, img.height)
+                            page = doc.new_page(width=rect.width, height=rect.height)
+                            page.insert_image(rect, pixmap=img)
+                    doc.save(pdf_path)
+                except Exception as e:
+                    self.event_logger.error(
+                        f"[!] {lang.get_translation('error', self.locale)}: "
+                        f"{lang.get_translation('conversion_failed', self.locale)}: "
+                        f'"{self.file_handler.join_back(image_path_set)}" -> '
+                        f"{format} - {e}"
+                    )
+                    continue
+                finally:
+                    if doc is not None:
+                        doc.close()
                 self._cleanup_gif_frame_dir(
                     gif_frame_path,
                     image_path_set[1],
@@ -326,24 +335,36 @@ class DocumentConverter:
                 os.path.abspath(os.path.join(output, f"{movie_path_set[1]}.{format}"))
             )
 
-            doc = pypdf.open()
-            total_frames = max(1, int(clip.duration * clip.fps))
-            for frame_index, frame in enumerate(
-                tqdm(clip.iter_frames(fps=clip.fps, dtype="uint8")), 1
-            ):
-                self.prog_logger.update_shared(
-                    f"{movie_path_set[1]} ({frame_index}/{total_frames})",
-                    frame_index,
-                    total_frames,
+            doc = None
+            try:
+                doc = pypdf.open()
+                total_frames = max(1, int(clip.duration * clip.fps))
+                for frame_index, frame in enumerate(
+                    tqdm(clip.iter_frames(fps=clip.fps, dtype="uint8")), 1
+                ):
+                    self.prog_logger.update_shared(
+                        f"{movie_path_set[1]} ({frame_index}/{total_frames})",
+                        frame_index,
+                        total_frames,
+                    )
+                    h, w = frame.shape[:2]
+                    pix = pypdf.Pixmap(pypdf.csRGB, w, h, frame.tobytes(), stride=w * 3)
+                    rect = pypdf.Rect(0, 0, w, h)
+                    page = doc.new_page(width=rect.width, height=rect.height)
+                    page.insert_image(rect, pixmap=pix)
+                doc.save(pdf_path)
+            except Exception as e:
+                self.event_logger.error(
+                    f"[!] {lang.get_translation('error', self.locale)}: "
+                    f"{lang.get_translation('conversion_failed', self.locale)}: "
+                    f'"{self.file_handler.join_back(movie_path_set)}" -> '
+                    f"{format} - {e}"
                 )
-                h, w = frame.shape[:2]
-                pix = pypdf.Pixmap(pypdf.csRGB, w, h, frame.tobytes(), stride=w * 3)
-                rect = pypdf.Rect(0, 0, w, h)
-                page = doc.new_page(width=rect.width, height=rect.height)
-                page.insert_image(rect, pixmap=pix)
-            doc.save(pdf_path)
-            doc.close()
-            clip.close()
+                continue
+            finally:
+                if doc is not None:
+                    doc.close()
+                clip.close()
             self.file_handler.post_process(movie_path_set, pdf_path, delete)
         # Convert Documents to PDF
         for doc_path_set in file_paths[Category.DOCUMENT]:
@@ -367,15 +388,21 @@ class DocumentConverter:
                 )
 
                 docx_path = self.file_handler.join_back(doc_path_set)
-                if platform.system() == "Windows" or HTML is None:
-                    self._docx_to_pdf_reportlab(docx_path, pdf_path)
-                else:
-                    docx_doc = open(docx_path, "rb")
-                    # Convert docx to HTML as intermediary
-                    document = mammoth.convert_to_html(docx_doc)
-                    docx_doc.close()
-                    # Convert html to PDF, save that
-                    HTML(string=document.value.encode("utf-8")).write_pdf(pdf_path)
+                try:
+                    if platform.system() == "Windows" or HTML is None:
+                        self._docx_to_pdf_reportlab(docx_path, pdf_path)
+                    else:
+                        with open(docx_path, "rb") as docx_doc:
+                            document = mammoth.convert_to_html(docx_doc)
+                        HTML(string=document.value.encode("utf-8")).write_pdf(pdf_path)
+                except Exception as e:
+                    self.event_logger.error(
+                        f"[!] {lang.get_translation('error', self.locale)}: "
+                        f"{lang.get_translation('conversion_failed', self.locale)}: "
+                        f'"{self.file_handler.join_back(doc_path_set)}" -> '
+                        f"{format} - {e}"
+                    )
+                    continue
                 self.file_handler.post_process(doc_path_set, pdf_path, delete)
 
     def _docx_to_pdf_reportlab(self, docx_path: str, pdf_path: str) -> None:
