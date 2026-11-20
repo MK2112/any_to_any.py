@@ -407,6 +407,15 @@ class DocumentConverter:
 
     def _docx_to_pdf_reportlab(self, docx_path: str, pdf_path: str) -> None:
         doc = docx.Document(docx_path)
+        text_content = "\n".join(p.text for p in doc.paragraphs)
+        if any(ord(char) > 0xFF for char in text_content):
+            pdf = pypdf.open()
+            try:
+                self._insert_paginated_text(pdf, text_content)
+                pdf.save(pdf_path)
+            finally:
+                pdf.close()
+            return
         # Default page dimensions, margins for PDFs
         page_width, page_height = A4
         left_margin = 0.75 * inch

@@ -188,6 +188,32 @@ class TestDocumentConverterToMarkdown:
 
         reportlab_mock.assert_called_once()
 
+    @patch("core.converter.doc_converter.platform.system", return_value="Windows")
+    def test_docx_pdf_fallback_preserves_non_latin_text(
+        self, _mock_platform, document_converter, temp_output_dir
+    ):
+        docx_path = os.path.join(temp_output_dir, "unicode.docx")
+        doc = docx.Document()
+        doc.add_paragraph("Привет мир 世界")
+        doc.save(docx_path)
+        document_converter.file_handler.join_back.return_value = docx_path
+
+        document_converter.to_pdf(
+            output=temp_output_dir,
+            file_paths={
+                Category.DOCUMENT: [("/path", "unicode", "docx")],
+                Category.IMAGE: [],
+                Category.MOVIE: [],
+            },
+            format="pdf",
+            delete=False,
+        )
+
+        pdf_path = os.path.join(temp_output_dir, "unicode.pdf")
+        with pypdf.open(pdf_path) as pdf:
+            text = "".join(page.get_text() for page in pdf)
+        assert "Привет мир 世界" in text
+
     @patch("mammoth.convert_to_html")
     @patch("os.makedirs")
     def test_to_markdown_with_images(
