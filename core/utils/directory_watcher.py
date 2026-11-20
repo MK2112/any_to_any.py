@@ -1,3 +1,4 @@
+import os
 import time
 import logging
 
@@ -23,6 +24,7 @@ class DirectoryWatcher:
             return
 
         event_handler = self.event_handler
+        watch_root = str(self.watch_path) + os.sep
 
         class Handler(FileSystemEventHandler):
             def _safe_callback(self, callback, *args):
@@ -40,6 +42,17 @@ class DirectoryWatcher:
             def on_modified(self, event):
                 if not event.is_directory:
                     self._safe_callback(event_handler, "modified", event.src_path)
+
+            def on_moved(self, event):
+                if event.is_directory:
+                    return
+                dest = getattr(event, "dest_path", None)
+                if dest and os.path.abspath(dest).startswith(watch_root):
+                    self._safe_callback(event_handler, "created", dest)
+
+            def on_deleted(self, event):
+                if not event.is_directory:
+                    self._safe_callback(event_handler, "deleted", event.src_path)
 
         try:
             self.observer = Observer()

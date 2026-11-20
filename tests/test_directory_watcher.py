@@ -202,6 +202,64 @@ class TestDirectoryWatcher:
         assert len(observers) == 2
         assert len(sleeps) == 3
 
+    def test_moved_and_deleted_events_forwarded(self, temp_dir, monkeypatch):
+        import core.utils.directory_watcher as dw
+
+        captured = {}
+
+        class FakeObserver:
+            def schedule(self, handler, path, recursive=False):
+                captured["handler"] = handler
+
+            def start(self):
+                pass
+
+            def stop(self):
+                pass
+
+            def join(self):
+                pass
+
+            def is_alive(self):
+                return True
+
+        monkeypatch.setattr(dw, "Observer", FakeObserver)
+        events = []
+        watcher = dw.DirectoryWatcher(
+            str(temp_dir), lambda kind, path: events.append((kind, path))
+        )
+        watcher.start_watching()
+        try:
+            handler = captured["handler"]
+            inside = (temp_dir / "moved.mp4").resolve()
+
+            class MovedIn:
+                is_directory = False
+                src_path = str(temp_dir / "staging" / "moved.mp4")
+                dest_path = str(inside)
+
+            handler.on_moved(MovedIn())
+            assert ("created", str(inside)) in events
+            
+            events.clear()
+
+            class MovedOut:
+                is_directory = False
+                src_path = str(inside)
+                dest_path = str(temp_dir.parent / "outside" / "moved.mp4")
+
+            handler.on_moved(MovedOut())
+            assert events == []
+
+            class Deleted:
+                is_directory = False
+                src_path = str(inside)
+
+            handler.on_deleted(Deleted())
+            assert ("deleted", str(inside)) in events
+        finally:
+            watcher.stop_watching()
+
     def test_error_handling(self, temp_dir):
         # Test that errors in the callback don't crash the watcher
         def error_callback(event_type, file_path):
