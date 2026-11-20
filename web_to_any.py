@@ -884,7 +884,7 @@ def get_progress(job_id: str):
         _last_progress_cache[job_id] = current_prog
 
         if total_n_files > 1 and completed_files > 0:
-            cumulative_prog = completed_files * 100 + current_prog
+            cumulative_prog = min(current_prog, total_n_files * 100)
             progress_percent = int((cumulative_prog / (total_n_files * 100)) * 100)
         elif prog.get("progress_percent") is not None:
             progress_percent = prog.get("progress_percent")
