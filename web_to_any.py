@@ -972,11 +972,13 @@ def set_language():
     lang_code = data.get("language")
     if not lang_code:
         return {"success": False}, 400
-    if "_" not in lang_code:
-        for code, _ in lang.LANGUAGE_CODES.items():
-            if lang_code in code:
-                lang_code = code
-                break
+    if lang_code not in lang.LANGUAGE_CODES:
+        name = lang.resolve_language_tag(str(lang_code).replace("-", "_"))
+        if name:
+            for code, value in lang.LANGUAGE_CODES.items():
+                if value == name:
+                    lang_code = code
+                    break
     if lang_code and lang_code in lang.LANGUAGE_CODES:
         session["language"] = lang_code
         language = lang.LANGUAGE_CODES[lang_code]

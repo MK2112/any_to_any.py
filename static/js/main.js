@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', function() {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({
-                language: lang.replace('-', '_'),
+                language: lang.replace(/-/g, '_'),
                 csrf_token: csrfInput ? csrfInput.value : ''
             })
         }).then(function(response) {

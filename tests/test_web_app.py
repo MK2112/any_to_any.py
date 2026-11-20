@@ -646,6 +646,31 @@ def test_set_language_requires_a_valid_csrf_token(client):
     assert 'lang="de"' in client.get("/").get_data(as_text=True)
 
 
+@pytest.mark.parametrize(
+    "browser_tag, expected_code, expected_language",
+    [
+        ("en-GB", "en_US", "English"),
+        ("en_GB", "en_US", "English"),
+        ("zh-Hans-CN", "zh_CN", "Mandarin (Simplified)"),
+        ("es-419", "es_ES", "Spanish"),
+        ("de", "de_DE", "German"),
+    ],
+)
+def test_set_language_resolves_browser_tags(
+    client, browser_tag, expected_code, expected_language
+):
+    tok = _csrf_for(client)
+    response = client.post(
+        "/language", json={"language": browser_tag, "csrf_token": tok}
+    )
+    assert response.status_code == 200, response.get_data(as_text=True)
+    payload = response.get_json()
+    assert payload["success"] is True
+    assert payload["lang_code"] == expected_code
+    assert payload["language"] == expected_language
+    assert client.get("/").status_code == 200
+
+
 def test_cancel_queued_job_auth_csrf_cleanup_and_slot(client, tmp_storage, monkeypatch):
     future = Future()
     executor = mock.Mock()
