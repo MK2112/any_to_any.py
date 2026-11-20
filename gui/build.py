@@ -19,10 +19,12 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 ##
 
 def clean_build():
+    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     for dir_name in ["build", "dist"]:
-        if os.path.exists(dir_name):
+        dir_path = os.path.join(repo_root, dir_name)
+        if os.path.exists(dir_path):
             print(f"Removing {dir_name} directory...")
-            shutil.rmtree(dir_name)
+            shutil.rmtree(dir_path)
 
 
 def _prepare_windows_icon(repo_root: str) -> str | None:
