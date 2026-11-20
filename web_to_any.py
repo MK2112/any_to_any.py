@@ -70,8 +70,8 @@ def _create_job_storage() -> tuple[str, str, str]:
     # Reserve both directories with exclusive creation before accepting files
     for _ in range(10):
         job_id = secrets.token_hex(_JOB_ID_BYTES)
-        up_dir = f"{app.config['UPLOADED_FILES_DEST']}_{job_id}"
-        cv_dir = f"{app.config['CONVERTED_FILES_DEST']}_{job_id}"
+        up_dir = os.path.join(app.config["UPLOADED_FILES_DEST"], job_id)
+        cv_dir = os.path.join(app.config["CONVERTED_FILES_DEST"], job_id)
         created_upload_dir = False
         try:
             os.makedirs(up_dir, exist_ok=False)
@@ -335,17 +335,15 @@ def _cleanup_expired_jobs() -> None:
     }
 
     for base_path in prefixes:
-        parent = os.path.dirname(base_path)
-        prefix = os.path.basename(base_path) + "_"
         try:
-            candidates = os.scandir(parent)
+            candidates = os.scandir(base_path)
         except OSError:
             continue
         with candidates:
             for entry in candidates:
-                if not entry.name.startswith(prefix):
+                if not entry.is_dir():
                     continue
-                job_id = entry.name[len(prefix) :]
+                job_id = entry.name
                 if not _JOB_ID_RE.fullmatch(job_id):
                     continue
                 path = os.path.abspath(entry.path)

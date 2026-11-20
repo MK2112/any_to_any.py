@@ -36,6 +36,33 @@ def test_web_paths_anchored_to_repo_directory():
     assert w.app.config["CONVERTED_FILES_DEST"] == os.path.join(base, "converted")
 
 
+def test_job_storage_lives_inside_configured_destinations(client, tmp_storage):
+    with w.app.test_request_context():
+        job_id, up_dir, cv_dir = w._create_job_storage()
+    assert os.path.dirname(up_dir) == w.app.config["UPLOADED_FILES_DEST"]
+    assert os.path.dirname(cv_dir) == w.app.config["CONVERTED_FILES_DEST"]
+    assert os.path.isdir(up_dir)
+    assert os.path.isdir(cv_dir)
+    assert re.fullmatch(r"[0-9a-f]{32}", job_id)
+
+
+def test_cleanup_removes_abandoned_job_dirs_inside_destinations(
+    client, tmp_storage
+):
+    base = w.app.config["UPLOADED_FILES_DEST"]
+    stale_id = "b" * 32
+    stale = os.path.join(base, stale_id)
+    os.makedirs(stale)
+    old = time.time() - w.app.config["JOB_RETENTION_SECONDS"] - 10
+    os.utime(stale, (old, old))
+    recent = os.path.join(base, "c" * 32)
+    os.makedirs(recent)
+    w._cleanup_expired_jobs()
+
+    assert not os.path.exists(stale)
+    assert os.path.isdir(recent)
+
+
 @pytest.fixture
 def client(reset_web_globals):
     return w.app.test_client()
@@ -497,10 +524,10 @@ def test_job_id_collision_does_not_merge_storage(client, tmp_storage, monkeypatc
     # If generated job_id collides with an existing upload/converted directory,
     # new job gets different id and does not merge with existing data
     fixed_id = "a" * 32
-    colliding_upload_dir = tmp_storage / "uploads_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-    colliding_output_dir = tmp_storage / "converted_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-    colliding_upload_dir.mkdir()
-    colliding_output_dir.mkdir()
+    colliding_upload_dir = tmp_storage / "uploads" / fixed_id
+    colliding_output_dir = tmp_storage / "converted" / fixed_id
+    colliding_upload_dir.mkdir(parents=True)
+    colliding_output_dir.mkdir(parents=True)
     (colliding_upload_dir / "existing.png").write_bytes(b"existing")
 
     token = _csrf_for(client)
@@ -525,7 +552,7 @@ def test_job_id_collision_does_not_merge_storage(client, tmp_storage, monkeypatc
 
     assert response.get_json()["job_id"] == "b" * 32
     assert (colliding_upload_dir / "existing.png").read_bytes() == b"existing"
-    assert (tmp_storage / "uploads_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb").is_dir()
+    assert (tmp_storage / "uploads" / ("b" * 32)).is_dir()
 
 
 def _convert_post(client, tok):
@@ -641,12 +668,12 @@ def test_cancel_queued_job_auth_csrf_cleanup_and_slot(client, tmp_storage, monke
     assert client.get(f"/progress/{job_id}").get_json()["status"] == "cancelled"
     assert client.post(f"/cancel/{job_id}", headers={"X-CSRF-Token": token}).status_code == 200
     assert slots.release.call_count == 1
-    assert (tmp_storage / f"uploads_{job_id}").is_dir()
+    assert (tmp_storage / "uploads" / job_id).is_dir()
     assert client.get(f"/download/{job_id}").status_code == 409
     monkeypatch.setitem(w.app.config, "JOB_RETENTION_SECONDS", 0)
     w._cleanup_expired_jobs()
-    assert not (tmp_storage / f"uploads_{job_id}").exists()
-    assert not (tmp_storage / f"converted_{job_id}").exists()
+    assert not (tmp_storage / "uploads" / job_id).exists()
+    assert not (tmp_storage / "converted" / job_id).exists()
 
 
 def test_cancel_running_job_waits_for_worker(client, tmp_storage, monkeypatch):
@@ -672,7 +699,7 @@ def test_cancel_running_job_waits_for_worker(client, tmp_storage, monkeypatch):
         assert started.wait(5)
         assert client.post(f"/cancel/{job_id}", headers={"X-CSRF-Token": token}).status_code == 202
         assert client.get(f"/progress/{job_id}").get_json()["status"] == "cancelling"
-        assert (tmp_storage / f"uploads_{job_id}" / "photo.png").exists()
+        assert (tmp_storage / "uploads" / job_id / "photo.png").exists()
         release.set()
         deadline = time.time() + 5
         while time.time() < deadline:
@@ -681,7 +708,7 @@ def test_cancel_running_job_waits_for_worker(client, tmp_storage, monkeypatch):
             time.sleep(0.02)
         assert client.get(f"/progress/{job_id}").get_json()["status"] == "cancelled"
         assert not finished.is_set()
-        assert (tmp_storage / f"uploads_{job_id}" / "photo.png").exists()
+        assert (tmp_storage / "uploads" / job_id / "photo.png").exists()
     finally:
         release.set()
 
