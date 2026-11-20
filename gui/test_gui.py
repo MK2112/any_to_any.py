@@ -1182,5 +1182,23 @@ def test_linux_build_bundles_app_icon(monkeypatch):
     assert any(entry.endswith(f"{os.pathsep}img") for entry in add_data)
 
 
+def test_force_system_ffmpeg_respects_user_override(monkeypatch):
+    import importlib
+
+    from gui import force_system_ffmpeg
+
+    monkeypatch.setenv("IMAGEIO_FFMPEG_EXE", "/custom/ffmpeg")
+    monkeypatch.setenv("FFMPEG_BINARY", "/custom/ffmpeg")
+    importlib.reload(force_system_ffmpeg)
+    assert os.environ["IMAGEIO_FFMPEG_EXE"] == "/custom/ffmpeg"
+    assert os.environ["FFMPEG_BINARY"] == "/custom/ffmpeg"
+
+    monkeypatch.delenv("IMAGEIO_FFMPEG_EXE", raising=False)
+    monkeypatch.delenv("FFMPEG_BINARY", raising=False)
+    importlib.reload(force_system_ffmpeg)
+    assert os.environ["IMAGEIO_FFMPEG_EXE"] == "ffmpeg"
+    assert os.environ["FFMPEG_BINARY"] == "ffmpeg"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
