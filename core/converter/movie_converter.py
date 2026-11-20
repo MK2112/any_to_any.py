@@ -74,12 +74,16 @@ def _merge_ffmpeg_params(
     return params or None
 
 
-def _subtitles_filter(srt_path: str) -> str:
+def _subtitles_filter(srt_path: str, start: float = 0.0) -> str:
     escaped = "".join(
         ("\\" * 3 + char) if char in "\\:';[],=" else char
         for char in os.path.abspath(srt_path)
     )
-    return f"subtitles={escaped}"
+    filter_chain = f"subtitles={escaped}"
+    if start and start > 0:
+        offset = f"{start:.6f}"
+        filter_chain = f"setpts=PTS+{offset}/TB,{filter_chain},setpts=PTS-STARTPTS"
+    return filter_chain
 
 
 class MovieConverter:
@@ -361,7 +365,7 @@ class MovieConverter:
                             audio=segment.audio is not None,
                             ffmpeg_params=_merge_ffmpeg_params(
                                 (
-                                    ["-vf", _subtitles_filter(srt_path)]
+                                    ["-vf", _subtitles_filter(srt_path, start)]
                                     if srt_path is not None
                                     else None
                                 ),
@@ -667,7 +671,7 @@ class MovieConverter:
                                 audio=segment.audio is not None,
                                 ffmpeg_params=_merge_ffmpeg_params(
                                     (
-                                        ["-vf", _subtitles_filter(srt_path)]
+                                        ["-vf", _subtitles_filter(srt_path, start)]
                                         if srt_path is not None
                                         else None
                                     ),
@@ -689,7 +693,7 @@ class MovieConverter:
                                 audio=segment.audio is not None,
                                 ffmpeg_params=_merge_ffmpeg_params(
                                     (
-                                        ["-vf", _subtitles_filter(srt_path)]
+                                        ["-vf", _subtitles_filter(srt_path, start)]
                                         if srt_path is not None
                                         else None
                                     ),

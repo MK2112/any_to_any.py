@@ -687,6 +687,19 @@ def test_subtitles_filter_handles_apostrophe_in_path(tmp_path):
     assert result.returncode == 0, result.stderr
 
 
+def test_subtitles_filter_shifts_timeline_for_trimmed_segments(tmp_path):
+    srt = str(tmp_path / "clip.srt")
+    plain = _subtitles_filter(srt)
+    assert plain.startswith("subtitles=")
+    assert "setpts" not in plain
+
+    shifted = _subtitles_filter(srt, 30.0)
+    assert shifted.startswith("setpts=PTS+30.000000/TB,subtitles=")
+    assert shifted.endswith(",setpts=PTS-STARTPTS")
+    assert _subtitles_filter(srt, 0.0) == plain
+    assert _subtitles_filter(srt, None) == plain
+
+
 @patch("core.converter.movie_converter.VideoFileClip")
 def test_to_movie_burns_equally_named_srt(mock_vfc, mock_converter, tmp_path):
     mock_clip = MagicMock()
@@ -717,6 +730,44 @@ def test_to_movie_burns_equally_named_srt(mock_vfc, mock_converter, tmp_path):
     assert ffmpeg_params[0] == "-vf"
     assert "subtitles=" in ffmpeg_params[1]
     assert "movie.srt" in ffmpeg_params[1]
+
+
+@patch("core.converter.movie_converter.VideoFileClip")
+def test_to_movie_burns_subtitles_on_trimmed_segment(mock_vfc, mock_converter, tmp_path):
+    mock_clip = MagicMock()
+    mock_clip.duration = 100.0
+    mock_clip.fps = 24
+    mock_vfc.return_value = mock_clip
+    mock_converter.file_handler.has_visuals.return_value = True
+    mock_converter.file_handler.join_back.return_value = str(tmp_path / "movie.mp4")
+    (tmp_path / "movie.srt").write_text(
+        "1\n00:00:30,000 --> 00:00:31,000\nLater caption\n", encoding="utf-8"
+    )
+
+    mock_converter.to_movie(
+        input=str(tmp_path),
+        output=str(tmp_path),
+        recursive=False,
+        file_paths={
+            Category.IMAGE: [],
+            Category.MOVIE: [(str(tmp_path) + os.sep, "movie", "mp4")],
+            Category.DOCUMENT: [],
+        },
+        format="mp4",
+        framerate=None,
+        codec="libx264",
+        delete=False,
+        burn_subs=True,
+        trim=(30.0, 60.0),
+    )
+
+    params = mock_clip.subclipped.return_value.write_videofile.call_args.kwargs[
+        "ffmpeg_params"
+    ]
+    vf = params[params.index("-vf") + 1]
+    assert "setpts=PTS+30.000000/TB" in vf
+    assert "setpts=PTS-STARTPTS" in vf
+    assert "movie.srt" in vf
 
 
 @patch("core.converter.movie_converter.VideoFileClip")
