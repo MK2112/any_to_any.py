@@ -28,6 +28,67 @@
 - Access the web view at `http://localhost:5000` via your browser
 - Stop the web interface by pressing `CTRL+C` in the terminal
 
+## REST API
+
+The same web server exposes a small, key-authenticated REST API. **It is disabled
+unless at least one API key is configured** via `Any2Any_API_KEYS` (comma-separated)
+or `Any2Any_API_KEY`. Signed links and webhook payloads use `Any2Any_API_SECRET`
+if set, otherwise `SECRET_KEY`.
+
+| Endpoint | Purpose |
+| --- | --- |
+| `POST /api/jobs` | Submit files (multipart: `files`, `conversionType`, optional `resolution`, `metadataMode`, `webhook_url`) with `X-API-Key: <key>` or `Authorization: Bearer <key>`. Returns a job id and a signed download link. |
+| `GET /api/jobs/<id>` | Status/progress (same API key). |
+| `POST /api/jobs/<id>/cancel` | Cancel a running job (same API key). |
+| `GET /api/jobs/<id>/download?token=...` | Download the result ZIP using the signed, 15-minute link — no key required. |
+| `GET /api/openapi.json` · `/api/docs` | OpenAPI specification and short usage page. |
+
+### Webhooks (completion callbacks)
+
+If you pass a `webhook_url` when submitting a job, the server will call that URL
+**once**, as soon as the job finishes (`done`, `error` or `cancelled`). A webhook
+is simply an HTTP POST from the server to your application, so you can react to
+a finished conversion without repeatedly polling `GET /api/jobs/<id>`.
+
+The POST body is JSON, for example:
+
+```json
+{
+  "event": "job.done",
+  "job_id": "9f1c0b7e4a2d...",
+  "status": "done",
+  "error": null
+}
+```
+
+- `event` — `job.done`, `job.error` or `job.cancelled`
+- `status` — the job's final status (the same value used by the status endpoint)
+- `error` — the error message on failure, otherwise `null`
+
+Each request also has an `X-Any2Any-Signature` header of the form
+`sha256=<hexdigest>`. It is a cryptographic signature so you can confirm the
+call really came from this server and that the body was not altered. The digest
+is HMAC-SHA256 computed over the **exact raw bytes** of the POST body, keyed with
+`Any2Any_API_SECRET` (or `SECRET_KEY` if that is not set). Verify it before
+trusting the payload:
+
+```python
+import hmac, hashlib
+from flask import request
+
+secret = b"your-api-secret"          # Any2Any_API_SECRET / SECRET_KEY
+raw = request.get_data()              # unmodified body bytes
+signature = request.headers["X-Any2Any-Signature"]  # "sha256=<hex>"
+received = signature.split("=", 1)[1]
+expected = hmac.new(secret, raw, hashlib.sha256).hexdigest()
+assert hmac.compare_digest(received, expected)
+```
+
+Do **not** parse and re-encode the JSON before verifying — the signature only
+matches the original bytes. If your endpoint is unreachable or returns an error,
+the failure is logged but the job status is unchanged and the webhook is **not**
+retried; use the status endpoint as the source of truth.
+
 ## Graphical User Interface (GUI)
 
 The GUI is intended for users who want as much ease of use as possible without requiring a browser.

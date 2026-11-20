@@ -2,8 +2,11 @@ import os
 import re
 import sys
 import time
+import json
+import hmac
 import shutil
 import logging
+import hashlib
 import secrets
 import zipfile
 import tempfile
@@ -22,6 +25,7 @@ from flask_uploads import UploadSet, configure_uploads, ALL
 from core.utils.resolution import available_resolutions, normalize_resolution
 from core.utils.file_handler import ConversionCancelled, FFmpegProcessTracker
 from flask import Flask, render_template, request, send_file, jsonify, abort, session, g
+from werkzeug.exceptions import HTTPException
 
 # Web server providing a web interface
 # Extension to the CLI-based any_to_any.py
@@ -40,6 +44,20 @@ app.config.update(
 )
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+# REST API (4.2): disabled unless keys are configured via
+# Any2Any_API_KEYS (comma-separated) or Any2Any_API_KEY.
+app.config["API_KEYS"] = {
+    key.strip()
+    for key in os.environ.get(
+        "Any2Any_API_KEYS", os.environ.get("Any2Any_API_KEY", "")
+    ).split(",")
+    if key.strip()
+}
+_api_secret = os.environ.get("Any2Any_API_SECRET") or app.secret_key
+if isinstance(_api_secret, str):
+    _api_secret = _api_secret.encode("utf-8")
+app.config["API_SECRET"] = _api_secret
+_API_DOWNLOAD_TTL = 15 * 60
 
 _CSRF_SESSION_KEY = "csrf_token"
 _CSRF_ISSUED_AT_KEY = "csrf_token_issued_at"
@@ -989,6 +1007,308 @@ def set_language():
             "csrf_token": get_csrf_token(),
         }
     return {"success": False}, 400
+
+
+# ---------------------------------------------------------------------------
+# REST API (feature 4.2): stateless, key-authenticated job submission, status,
+# signed expiring download links, webhooks and an OpenAPI description. The
+# existing browser endpoints and their behaviour are untouched.
+# ---------------------------------------------------------------------------
+
+
+def _api_auth(view):
+    @wraps(view)
+    def wrapper(*args, **kwargs):
+        keys = app.config["API_KEYS"]
+        if not keys:
+            return jsonify({"error": "API is not configured"}), 503
+        header = request.headers.get("Authorization", "")
+        token = header[7:] if header.lower().startswith("bearer ") else ""
+        token = token or request.headers.get("X-API-Key", "")
+        if not token or not any(secrets.compare_digest(token, key) for key in keys):
+            return jsonify({"error": "Unauthorized"}), 401
+        return view(*args, **kwargs)
+
+    return wrapper
+
+
+def _sign_download_token(job_id: str, expires: int) -> str:
+    payload = f"{job_id}:{expires}".encode()
+    digest = hmac.new(app.config["API_SECRET"], payload, hashlib.sha256).hexdigest()
+    return f"{expires}.{digest}"
+
+
+def _verify_download_token(job_id: str, token: str) -> bool:
+    try:
+        expires_str, signature = token.split(".", 1)
+        expires = int(expires_str)
+    except (ValueError, AttributeError):
+        return False
+    if expires < time.time():
+        return False
+    expected = hmac.new(
+        app.config["API_SECRET"], f"{job_id}:{expires}".encode(), hashlib.sha256
+    ).hexdigest()
+    return secrets.compare_digest(signature, expected)
+
+
+def _send_webhook(job_id: str) -> None:
+    with _job_lock:
+        record = _job_records.get(job_id)
+        if record is None:
+            return
+        url, status = record.get("webhook_url"), record.get("status", "unknown")
+        error = record.get("error")
+    if not url:
+        return
+    body = json.dumps(
+        {
+            "event": f"job.{status}",
+            "job_id": job_id,
+            "status": status,
+            "error": error,
+        }
+    ).encode("utf-8")
+    signature = hmac.new(app.config["API_SECRET"], body, hashlib.sha256).hexdigest()
+    try:
+        import requests
+
+        requests.post(
+            url,
+            data=body,
+            headers={
+                "Content-Type": "application/json",
+                "X-Any2Any-Signature": f"sha256={signature}",
+            },
+            timeout=10,
+        )
+    except Exception as exc:
+        app.logger.warning("Webhook for job %s failed: %s", job_id, exc)
+
+
+def _api_job_finished(job_id: str, future) -> None:
+    # Runs on the executor's completion thread, after send_to_backend has
+    # published the final job status.
+    try:
+        _send_webhook(job_id)
+    finally:
+        _job_slots.release()
+
+
+@app.route("/api/jobs", methods=["POST"])
+@_api_auth
+def api_create_job():
+    if not _job_slots.acquire(blocking=False):
+        return jsonify({"error": "Conversion queue is full"}), 429
+    job_id = None
+    slot_transferred = False
+    try:
+        fmt, up_dir, cv_dir, job_id, resolution, metadata_mode = process_params()
+        webhook_url = (request.form.get("webhook_url") or "").strip() or None
+        if webhook_url and not webhook_url.startswith(("http://", "https://")):
+            return jsonify({"error": "webhook_url must be an http(s) URL"}), 400
+        with _job_lock:
+            record = _job_records[job_id]
+            record["webhook_url"] = webhook_url
+            record["api_job"] = True
+        job_controller = create_controller(
+            job_id=job_id, shared_progress_dict=shared_progress_dict
+        )
+        future = _job_executor.submit(
+            send_to_backend,
+            job_controller,
+            [up_dir],
+            fmt,
+            cv_dir,
+            None,
+            "high",
+            None,
+            False,
+            False,
+            resolution,
+            metadata_mode,
+        )
+        with _job_lock:
+            _job_records[job_id]["future"] = future
+        future.add_done_callback(lambda f, jid=job_id: _api_job_finished(jid, f))
+        slot_transferred = True
+        expires = int(time.time()) + _API_DOWNLOAD_TTL
+        return (
+            jsonify(
+                {
+                    "job_id": job_id,
+                    "status_url": f"/api/jobs/{job_id}",
+                    "download_url": (
+                        f"/api/jobs/{job_id}/download?token={_sign_download_token(job_id, expires)}"
+                    ),
+                    "download_expires_at": expires,
+                }
+            ),
+            202,
+        )
+    except HTTPException as exc:
+        if not slot_transferred:
+            _job_slots.release()
+        if job_id:
+            _cleanup_job_storage(job_id)
+        return jsonify({"error": exc.description}), exc.code
+    except Exception as exc:
+        if not slot_transferred:
+            _job_slots.release()
+        if job_id:
+            _cleanup_job_storage(job_id)
+        app.logger.exception("API job submission failed")
+        return jsonify({"error": str(exc)}), 500
+
+
+@app.route("/api/jobs/<job_id>", methods=["GET"])
+@_api_auth
+def api_get_job(job_id):
+    if not _JOB_ID_RE.fullmatch(job_id):
+        return jsonify({"error": "Invalid job ID"}), 400
+    with _job_lock:
+        record = _job_records.get(job_id)
+    if record is None:
+        return jsonify({"error": "Job not found"}), 404
+    with progress_lock:
+        progress = dict(shared_progress_dict.get(job_id, {}))
+    payload = {
+        "job_id": job_id,
+        "status": record.get("status"),
+        "progress": progress.get("progress", 0),
+        "total": progress.get("total", 100),
+        "progress_percent": progress.get("progress_percent", 0),
+        "total_files": progress.get("total_files", 1),
+        "completed_files": progress.get("completed_files", 0),
+        "error": progress.get("error"),
+    }
+    if record.get("status") in {"done", "error"}:
+        expires = int(time.time()) + _API_DOWNLOAD_TTL
+        payload["download_url"] = (
+            f"/api/jobs/{job_id}/download?token={_sign_download_token(job_id, expires)}"
+        )
+    return jsonify(payload)
+
+
+@app.route("/api/jobs/<job_id>/cancel", methods=["POST"])
+@_api_auth
+def api_cancel_job(job_id):
+    if not _JOB_ID_RE.fullmatch(job_id):
+        return jsonify({"error": "Invalid job ID"}), 400
+    with _job_lock:
+        record = _job_records.get(job_id)
+        if record is None:
+            return jsonify({"error": "Job not found"}), 404
+        if record.get("status") in {"done", "error", "cancelled"}:
+            return jsonify({"error": "Job is already complete"}), 409
+        record["cancel_event"].set()
+        record["status"] = "cancelling"
+        future = record.get("future")
+    if future is not None:
+        future.cancel()
+    return jsonify({"status": "cancelling"}), 202
+
+
+@app.route("/api/jobs/<job_id>/download", methods=["GET"])
+def api_download_job(job_id):
+    # The signed link is the credential here: no session or API key needed.
+    if not _JOB_ID_RE.fullmatch(job_id) or not _verify_download_token(
+        job_id, request.args.get("token", "")
+    ):
+        return jsonify({"error": "Invalid or expired token"}), 403
+    with _job_lock:
+        record = _job_records.get(job_id)
+    if record is None:
+        return jsonify({"error": "Job not found"}), 404
+    if record.get("status") not in {"done", "error"}:
+        return jsonify({"error": "Conversion is not complete"}), 409
+    base_path = record["converted_dir"]
+    if not os.path.exists(base_path):
+        return jsonify({"error": "Output not found"}), 404
+    try:
+        return push_zip(
+            base_path, include_metadata=record.get("metadata_mode") == "preserve"
+        )
+    except Exception as exc:
+        app.logger.exception("API download failed")
+        return jsonify({"error": str(exc)}), 500
+
+
+_API_SPEC = {
+    "openapi": "3.0.3",
+    "info": {
+        "title": "any_to_any.py API",
+        "version": VERSION,
+        "description": "Submit conversion jobs, poll status and download results.",
+    },
+    "components": {
+        "securitySchemes": {
+            "ApiKeyAuth": {"type": "apiKey", "in": "header", "name": "X-API-Key"},
+            "BearerAuth": {"type": "http", "scheme": "bearer"},
+        }
+    },
+    "paths": {
+        "/api/jobs": {
+            "post": {
+                "summary": "Submit a job (multipart: files, conversionType, resolution, metadataMode, webhook_url)",
+                "security": [{"ApiKeyAuth": []}, {"BearerAuth": []}],
+                "responses": {"202": {"description": "Job accepted"}},
+            }
+        },
+        "/api/jobs/{job_id}": {
+            "get": {
+                "summary": "Job status and progress",
+                "security": [{"ApiKeyAuth": []}, {"BearerAuth": []}],
+                "responses": {"200": {"description": "Job details"}},
+            }
+        },
+        "/api/jobs/{job_id}/cancel": {
+            "post": {
+                "summary": "Cancel a running job",
+                "security": [{"ApiKeyAuth": []}, {"BearerAuth": []}],
+                "responses": {"202": {"description": "Cancellation requested"}},
+            }
+        },
+        "/api/jobs/{job_id}/download": {
+            "get": {
+                "summary": "Download the result ZIP using the signed, expiring token (no key required)",
+                "parameters": [
+                    {
+                        "name": "job_id",
+                        "in": "path",
+                        "required": True,
+                        "schema": {"type": "string"},
+                    },
+                    {
+                        "name": "token",
+                        "in": "query",
+                        "required": True,
+                        "schema": {"type": "string"},
+                    },
+                ],
+                "responses": {"200": {"description": "ZIP archive"}},
+            }
+        },
+    },
+}
+
+
+@app.route("/api/openapi.json")
+def api_openapi():
+    return jsonify(_API_SPEC)
+
+
+@app.route("/api/docs")
+def api_docs():
+    return (
+        "<!doctype html><title>any_to_any.py API</title>"
+        "<h1>any_to_any.py REST API</h1>"
+        '<p><a href="/api/openapi.json">OpenAPI specification</a></p>'
+        "<pre>POST /api/jobs    X-API-Key: &lt;key&gt;    multipart: files, conversionType\n"
+        "GET  /api/jobs/&lt;job_id&gt;\n"
+        "POST /api/jobs/&lt;job_id&gt;/cancel\n"
+        "GET  /api/jobs/&lt;job_id&gt;/download?token=...  (signed, 15 min)</pre>"
+    )
 
 
 def _open_browser_quietly(url: str) -> None:
