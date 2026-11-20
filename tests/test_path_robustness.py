@@ -116,6 +116,35 @@ def test_output_directory_creation(controller, tmp_path):
     assert out_dir.is_dir()
 
 
+def test_output_path_with_non_matching_extension_is_not_a_directory(
+    controller, tmp_path
+):
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
+    (input_dir / "track.mp3").touch()
+    requested_output = tmp_path / "result.wav"
+
+    controller.run(
+        input_path_args=[str(input_dir)],
+        format="mp3",
+        output=str(requested_output),
+        framerate=None,
+        quality=None,
+        split=None,
+        merge=False,
+        concat=False,
+        delete=False,
+        across=False,
+        recursive=False,
+        dropzone=False,
+        language=None,
+        workers=1,
+    )
+    
+    assert not requested_output.exists()
+    assert Path(controller.output) == tmp_path
+
+
 def test_numbered_markers_split_multiple_directories(controller, tmp_path):
     # -i -1 /path/one -2 /path/two :: The "-N" markers must start a new input
     dir1 = tmp_path / "dir1"

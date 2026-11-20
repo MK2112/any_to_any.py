@@ -588,17 +588,8 @@ class Controller:
                 pass
             elif os.path.isfile(self.output):
                 self.output = os.path.dirname(self.output)
-            # If it looks like a file path (has a recognized extension), extract directory
-            elif formats and "." in self.output:
-                _, ext = os.path.splitext(self.output)
-                ext_clean = ext.lstrip(".").lower()
-                ext_normalized = "jpeg" if ext_clean == "jpg" else ext_clean
-                # Check if extension matches any of the target formats
-                fmt_normalized = [
-                    ("jpeg" if f.lower() == "jpg" else f.lower()) for f in formats
-                ]
-                if ext_normalized in fmt_normalized:
-                    self.output = os.path.dirname(self.output)
+            elif "." in os.path.basename(self.output):
+                self.output = os.path.dirname(self.output) or "."
 
         # Validate input paths exist before any directory creation
         for input_path in input_paths:
