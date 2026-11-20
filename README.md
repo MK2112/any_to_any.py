@@ -45,13 +45,12 @@ if set, otherwise `SECRET_KEY`.
 
 ### Webhooks (completion callbacks)
 
-If you pass a `webhook_url` when submitting a job, the server will call that URL
-**once**, as soon as the job finishes (`done`, `error` or `cancelled`). A webhook
-is simply an HTTP POST from the server to your application, so you can react to
-a finished conversion without repeatedly polling `GET /api/jobs/<id>`.
+If you pass a `webhook_url` when submitting a job, the server will call that URL once,
+as soon as the job finishes (`done`, `error` or `cancelled`). A webhook is simply an
+HTTP POST from the server to your application, so you can react to a finished conversion
+without repeatedly polling `GET /api/jobs/<id>`.
 
 The POST body is JSON, for example:
-
 ```json
 {
   "event": "job.done",
@@ -61,17 +60,17 @@ The POST body is JSON, for example:
 }
 ```
 
-- `event` — `job.done`, `job.error` or `job.cancelled`
-- `status` — the job's final status (the same value used by the status endpoint)
-- `error` — the error message on failure, otherwise `null`
+- `event`: `job.done`, `job.error` or `job.cancelled`
+- `status`: the job's final status (the same value used by the status endpoint)
+- `error`: the error message on failure, otherwise `null`
 
 Each request also has an `X-Any2Any-Signature` header of the form
 `sha256=<hexdigest>`. It is a cryptographic signature so you can confirm the
 call really came from this server and that the body was not altered. The digest
 is HMAC-SHA256 computed over the **exact raw bytes** of the POST body, keyed with
-`Any2Any_API_SECRET` (or `SECRET_KEY` if that is not set). Verify it before
-trusting the payload:
+`Any2Any_API_SECRET` (or `SECRET_KEY` if that is not set).
 
+Verify it before trusting the payload:
 ```python
 import hmac, hashlib
 from flask import request
@@ -84,10 +83,10 @@ expected = hmac.new(secret, raw, hashlib.sha256).hexdigest()
 assert hmac.compare_digest(received, expected)
 ```
 
-Do **not** parse and re-encode the JSON before verifying — the signature only
+Do not parse and re-encode the JSON before verifying. The signature only
 matches the original bytes. If your endpoint is unreachable or returns an error,
 the failure is logged but the job status is unchanged and the webhook is **not**
-retried; use the status endpoint as the source of truth.
+retried. Use the status endpoint as the source of truth.
 
 ## Graphical User Interface (GUI)
 
