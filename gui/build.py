@@ -114,7 +114,7 @@ def build_executable():
         common_exec_args.extend(["--upx-dir", os.path.dirname(upx_path)])
         common_exec_args.extend(upx_exclude)
 
-    for data_dir in ["assets", "templates", "utils", "core"]:
+    for data_dir in ["assets", "templates", "utils", "core", "img"]:
         data_path = os.path.join(repo_root, data_dir)
         if os.path.exists(data_path):
             common_exec_args.append(f"--add-data={data_path}{path_sep}{data_dir}")

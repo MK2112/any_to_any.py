@@ -1159,5 +1159,28 @@ def test_start_conversion_snapshots_output_files(main_window, tmp_path):
     assert not any(f.endswith("video.mp4") for f in snapshot)
 
 
+def test_linux_build_bundles_app_icon(monkeypatch):
+    from gui import build as build_module
+
+    recorded = {}
+
+    def fake_run(args):
+        recorded["args"] = args
+
+    monkeypatch.setattr(build_module.PyInstaller.__main__, "run", fake_run)
+    monkeypatch.setattr(build_module.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(
+        build_module.shutil,
+        "which",
+        lambda name: "/usr/bin/upx" if name == "upx" else None,
+    )
+    monkeypatch.setattr(build_module.os, "chdir", lambda path: None)
+
+    build_module.build_executable()
+
+    add_data = [a for a in recorded["args"] if a.startswith("--add-data=")]
+    assert any(entry.endswith(f"{os.pathsep}img") for entry in add_data)
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
