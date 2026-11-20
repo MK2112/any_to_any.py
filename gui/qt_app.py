@@ -335,7 +335,9 @@ class ConversionThread(QThread):
                 {
                     "progress": 100 if "error" not in error_holder else prog.get("progress"),
                     "message": prog.get("message", prog.get("status", "Done")),
-                    "status": "error" if "error" in error_holder else prog.get("status", "done"),
+                    # ProgLogger in is_web mode never writes "done", so the
+                    # worker's completion is the authoritative success signal.
+                    "status": "error" if "error" in error_holder else "done",
                     "error": error_holder.get("error") or prog.get("error"),
                 }
             )

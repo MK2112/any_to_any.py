@@ -739,6 +739,40 @@ def test_conversion_thread_sets_total_files(qapp, kwargs, expected):
     assert observed["total"] == expected * 100
 
 
+def test_conversion_thread_final_progress_status_is_done(qapp):
+    from types import SimpleNamespace
+    from PyQt6.QtCore import Qt
+    from gui.qt_app import ConversionThread
+
+    emits = []
+
+    class FakeController:
+        def __init__(self, job_id=None, shared_progress_dict=None, is_web=False):
+            self.file_handler = SimpleNamespace(cancel_event=None)
+            self.shared = shared_progress_dict
+            self.job_id = job_id
+            shared_progress_dict[job_id] = {
+                "progress": 0,
+                "total": 100,
+                "status": "processing",
+            }
+
+        def run(self, **kwargs):
+            self.shared[self.job_id].update(progress=100, status="processing")
+
+    thread = ConversionThread(["/file.mp4"], "mp3", "/out")
+    thread.progress_updated.connect(
+        lambda info: emits.append(dict(info)), Qt.ConnectionType.DirectConnection
+    )
+    with patch("gui.qt_app.Controller", FakeController):
+        thread.start()
+        assert thread.wait(5000)
+
+    assert emits
+    assert emits[-1]["status"] == "done"
+    assert emits[-1]["progress"] == 100
+
+
 def test_conversion_reports_error_when_worker_still_alive(qapp):
     from types import SimpleNamespace
     from unittest.mock import patch
