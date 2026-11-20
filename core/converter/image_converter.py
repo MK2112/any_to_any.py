@@ -753,8 +753,9 @@ class ImageConverter:
                         error_msg = f"Error processing image {os.path.basename(image_path_set[1])}: {str(e)}"
                         if hasattr(self, "prog_logger"):
                             self.prog_logger.log(error_msg)
-                        progress_bar.write(error_msg)  # Show error in tqdm output
-                        raise  # Re-raise to maintain original error handling
+                        progress_bar.write(error_msg)
+                        progress_bar.update(1)
+                        continue
 
             finally:
                 progress_bar.close()
@@ -821,14 +822,15 @@ class ImageConverter:
                     logger=self.prog_logger,
                 )
 
-                video.close()
                 self.file_handler.post_process(movie_path_set, gif_path, delete)
             except Exception as e:
                 if hasattr(self, "prog_logger"):
                     self.prog_logger.log(
                         f"Error converting video {movie_path_set} to GIF: {str(e)}"
                     )
-                raise
+                continue
+            finally:
+                video.close()
         # Documents may be convertable to gifs, e.g. pdfs
         for doc_path_set in file_paths[Category.DOCUMENT]:
             if doc_path_set[2] == "pdf":

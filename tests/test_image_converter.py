@@ -65,7 +65,7 @@ class TestOfficeToFrames:
         mock_presentation = Mock()
         mock_slide = Mock()
         mock_shape = Mock()
-        mock_shape.shape_type = 13  # Picture type
+        mock_shape.shape_type = 13
         mock_shape.image.blob = b"fake_image_data"
         mock_slide.shapes = [mock_shape]
         mock_presentation.slides = [mock_slide]
@@ -178,6 +178,7 @@ class TestImageConverter:
 
             mock_image_open.assert_called_once()
             mock_img.convert.assert_called_once_with("RGB")
+
 
     class TestErrorHandling:
         @patch("core.converter.image_converter.VideoFileClip")
