@@ -883,7 +883,6 @@ class ImageConverter:
                         if "image" in rel.reltype:
                             img = Image.open(BytesIO(rel.target_part.blob))
                             images.append(img.convert("RGB"))
-                    frame_count = len(doc.paragraphs) or 1
                 else:
                     prs = pptx.Presentation(input_path)
                     slides = prs.slides
@@ -901,14 +900,12 @@ class ImageConverter:
                                 img_bytes = image.blob
                                 img = Image.open(BytesIO(img_bytes))
                                 images.append(img.convert("RGB"))
-                    frame_count = len(prs.slides) or 1
                 if images:
                     images[0].save(
                         gif_path,
                         save_all=True,
                         append_images=images[1:],
-                        duration=(len(images) * 1000 // frame_count)
-                        // (12 if framerate is None else framerate),
+                        duration=1000 // (12 if framerate is None else framerate),
                         loop=0,
                     )
                 self.file_handler.post_process(doc_path_set, gif_path, delete)
