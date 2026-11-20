@@ -247,6 +247,20 @@ def test_set_ui_enabled_true(main_window):
     assert not main_window.cancel_btn.isEnabled()
 
 
+def test_conversion_disables_settings_and_input_widgets(main_window):
+    guarded = (
+        main_window.settings_btn,
+        main_window.help_btn,
+        main_window.output_dir_edit,
+        main_window.browse_btn,
+        main_window.file_list,
+    )
+    main_window.set_ui_enabled(False)
+    assert all(not widget.isEnabled() for widget in guarded)
+    main_window.set_ui_enabled(True)
+    assert all(widget.isEnabled() for widget in guarded)
+
+
 def test_file_list_performance_large_batch(main_window, tmp_path):
     import time
 
@@ -863,6 +877,39 @@ def test_language_switch_preserves_file_list(main_window, tmp_path):
     assert main_window.file_list.count() == 1
     assert str(test_file) in main_window._file_paths_set
     assert main_window.locale == "German"
+
+
+def test_language_switch_during_conversion_is_ignored(main_window, tmp_path):
+    from unittest.mock import MagicMock
+    from gui import qt_app
+
+    test_file = tmp_path / "clip.mp4"
+    test_file.touch()
+    main_window.add_files_batch([str(test_file)])
+    original_locale = main_window.locale
+    original_progress_bar = main_window.progress_bar
+    original_cancel_btn = main_window.cancel_btn
+    main_window.current_thread = MagicMock()
+    main_window.current_thread.isRunning.return_value = True
+
+    class FakeDialog:
+        def __init__(self, *args, **kwargs):
+            self.selected_locale = "German"
+
+        def exec(self):
+            return True
+
+    original = qt_app.SettingsDialog
+    qt_app.SettingsDialog = FakeDialog
+    try:
+        main_window.open_settings_dialog()
+        assert main_window.locale == original_locale
+        assert main_window.file_list.count() == 1
+        assert main_window.progress_bar is original_progress_bar
+        assert main_window.cancel_btn is original_cancel_btn
+    finally:
+        qt_app.SettingsDialog = original
+        main_window.current_thread = None
 
 
 def test_save_settings_merges_existing_keys():

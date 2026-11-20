@@ -732,8 +732,8 @@ class MainWindow(QMainWindow):
         output_dir_label = QLabel(lang.get_translation("output_dir", self.locale) + ":")
         self.output_dir_edit = QLineEdit(str(Path.home() / "Downloads"))
         self.output_dir_edit.setMinimumWidth(200)
-        browse_btn = QPushButton(lang.get_translation("browse", self.locale))
-        browse_btn.clicked.connect(self.browse_output_dir)
+        self.browse_btn = QPushButton(lang.get_translation("browse", self.locale))
+        self.browse_btn.clicked.connect(self.browse_output_dir)
         self.open_output_btn = QPushButton()
         self.open_output_btn.setIcon(self._create_folder_icon())
         self.open_output_btn.setToolTip("Open target folder")
@@ -741,7 +741,7 @@ class MainWindow(QMainWindow):
         self.open_output_btn.clicked.connect(self.open_current_output_dir)
         settings_layout.addWidget(output_dir_label, 0, 2)
         settings_layout.addWidget(self.output_dir_edit, 0, 3)
-        settings_layout.addWidget(browse_btn, 0, 4)
+        settings_layout.addWidget(self.browse_btn, 0, 4)
         settings_layout.addWidget(self.open_output_btn, 0, 5)
 
         framerate_label = QLabel(f"{lang.get_translation('framerate', self.locale)}:")
@@ -1416,6 +1416,11 @@ class MainWindow(QMainWindow):
             self.add_folder_btn,
             self.remove_btn,
             self.clear_btn,
+            self.file_list,
+            self.output_dir_edit,
+            self.browse_btn,
+            self.settings_btn,
+            self.help_btn,
             self.format_combo,
             self.merge_check,
             self.concat_check,
@@ -1463,6 +1468,8 @@ class MainWindow(QMainWindow):
         event.accept()
 
     def open_settings_dialog(self):
+        if self.current_thread is not None and self.current_thread.isRunning():
+            return
         dlg = SettingsDialog(self, self.locale, list(lang.TRANSLATIONS.keys()))
         if dlg.exec():
             self.locale = dlg.selected_locale
