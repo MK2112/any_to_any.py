@@ -64,9 +64,6 @@ class ProgLogger(ProgressBarLogger):
         if attr != "index":
             return
 
-        if self.is_web:
-            self._update_web_progress(bar, value, current_time)
-
         # Reset per new bar to ensure progress shows across multiple conversions
         if self.current_bar != bar:
             if self.tqdm_bar is not None:
@@ -75,6 +72,10 @@ class ProgLogger(ProgressBarLogger):
             self.start_time = None
             self.last_print_time = None
             self.current_bar = bar
+            self._file_progress = 0
+
+        if self.is_web:
+            self._update_web_progress(bar, value, current_time)
 
         # Init progress tracking if this is a first update
         if self.start_time is None:

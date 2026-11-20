@@ -283,7 +283,7 @@ def test_web_progress_counts_each_source_once(monkeypatch):
     assert shared["job-web-files"]["progress_percent"] == 99
 
 
-def test_web_progress_does_not_reset_between_bars_for_one_file(monkeypatch):
+def test_web_progress_resets_when_a_new_bar_starts(monkeypatch):
     monkeypatch.setattr(prog_mod, "tqdm", MockTqdm)
     shared = {}
     logger = ProgLogger(
@@ -299,9 +299,28 @@ def test_web_progress_does_not_reset_between_bars_for_one_file(monkeypatch):
 
     logger.bars["frame_index"] = {"total": 10}
     logger.bars_callback("frame_index", "index", 0, old_value=0)
-    assert shared["job-web-bars"]["progress"] == 100
-    assert shared["job-web-bars"]["progress_percent"] == 50
+    assert shared["job-web-bars"]["progress"] == 0
+    assert shared["job-web-bars"]["progress_percent"] == 0
 
     logger.bars_callback("frame_index", "index", 5, old_value=0)
-    assert shared["job-web-bars"]["progress"] == 100
-    assert shared["job-web-bars"]["progress_percent"] == 50
+    assert shared["job-web-bars"]["progress"] == 50
+    assert shared["job-web-bars"]["progress_percent"] == 25
+
+
+def test_web_progress_new_bar_first_update_does_not_inherit_old_bar(monkeypatch):
+    monkeypatch.setattr(prog_mod, "tqdm", MockTqdm)
+    shared = {}
+    logger = ProgLogger(
+        job_id="job-web-reset", shared_progress_dict=shared, is_web=True
+    )
+    shared["job-web-reset"]["total_files"] = 2
+    logger.bars.clear()
+
+    logger.bars["chunk"] = {"total": 10}
+    logger.bars_callback("chunk", "index", 10, old_value=0)
+    assert shared["job-web-reset"]["progress"] == 100
+
+    logger.bars["frame_index"] = {"total": 10}
+    logger.bars_callback("frame_index", "index", 1, old_value=0)
+    assert shared["job-web-reset"]["progress"] == 10
+    assert shared["job-web-reset"]["progress_percent"] == 5
