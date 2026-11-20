@@ -478,7 +478,7 @@ class Controller:
                 input_paths.append(arg)
             elif os.path.exists(joined) and not os.path.exists(previous):
                 input_paths[-1] = joined
-            elif os.path.exists(previous):
+            elif os.path.exists(previous) and os.path.exists(arg):
                 input_paths.append(arg)
             else:
                 input_paths[-1] = joined

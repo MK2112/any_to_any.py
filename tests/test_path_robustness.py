@@ -58,6 +58,32 @@ def test_path_with_spaces_reconstruction(controller, tmp_path):
     assert os.path.exists(str(out_dir))
 
 
+def test_two_relative_existing_paths_stay_separate(controller, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    for name, media in (("a", "one.mp3"), ("b", "two.mp3")):
+        (tmp_path / name).mkdir()
+        (tmp_path / name / media).touch()
+
+    controller.run(
+        input_path_args=["a", "b"],
+        format="wav",
+        output=str(tmp_path / "out"),
+        framerate=None,
+        quality=None,
+        split=None,
+        merge=False,
+        concat=False,
+        delete=False,
+        across=False,
+        recursive=False,
+        dropzone=False,
+        language=None,
+        workers=1,
+    )
+
+    assert controller.audio_converter.to_audio.call_count == 2
+
+
 def test_recursive_path_scanning(controller, tmp_path):
     deep_dir = tmp_path / "a" / "b" / "c"
     deep_dir.mkdir(parents=True)
