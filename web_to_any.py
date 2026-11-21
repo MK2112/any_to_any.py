@@ -5,27 +5,26 @@ import time
 import json
 import hmac
 import shutil
-import logging
 import hashlib
+import logging
 import secrets
 import zipfile
 import tempfile
 import threading
 import subprocess
-
 import utils.language_support as lang
 
-from functools import wraps
 from utils.version import VERSION
 from utils.category import Category
 from core.controller import Controller
+from functools import wraps, lru_cache
 from datetime import datetime, timedelta
+from werkzeug.exceptions import HTTPException
 from concurrent.futures import ThreadPoolExecutor
 from flask_uploads import UploadSet, configure_uploads, ALL
 from core.utils.resolution import available_resolutions, normalize_resolution
 from core.utils.file_handler import ConversionCancelled, FFmpegProcessTracker
 from flask import Flask, render_template, request, send_file, jsonify, abort, session, g
-from werkzeug.exceptions import HTTPException
 
 # Web server providing a web interface
 # Extension to the CLI-based any_to_any.py
@@ -576,18 +575,8 @@ def process_params(merge: bool = False, concat: bool = False) -> tuple:
     return fmt, up_dir, cv_dir, conv_key, resolution, metadata_mode
 
 
-@app.route("/")
-def index():
-    # Retrieve language from session (from browser), default to 'en_US'
-    lang_code = session.get("language", "en_US")
-    if lang_code not in lang.LANGUAGE_CODES:
-        lang_code = "en_US"
-    translations = lang.get_all_translations(lang.LANGUAGE_CODES[lang_code])
-    # Graceful fallback: any untranslated key resolves to its English text
-    translations = {
-        **lang.get_all_translations("English"),
-        **translations,
-    }
+@lru_cache(maxsize=1)
+def _static_index_data():
     grouped_options = []
     for category, mapping in controller._supported_formats.items():
         cat_name = str(category).split(".")[-1].replace("_", " ").title()
@@ -597,8 +586,6 @@ def index():
                 "formats": sorted(mapping.keys(), key=str.lower),
             }
         )
-    # Only movie formats, codecs and protocols accept resizing. Expose the per
-    # format allowed resolutions so the UI can constrain the choices up front.
     movie_resolutions = {
         fmt: available_resolutions(controller._supported_formats[Category.MOVIE], fmt)
         for fmt in controller._fmt_movie_keys
@@ -618,6 +605,21 @@ def index():
             for fmt in controller._fmt_protocol_keys
         },
     }
+    return grouped_options, movie_resolutions, resized_formats
+
+
+@app.route("/")
+def index():
+    # Retrieve language from session (from browser), default to 'en_US'
+    lang_code = session.get("language", "en_US")
+    if lang_code not in lang.LANGUAGE_CODES:
+        lang_code = "en_US"
+    translations = lang.get_all_translations(lang.LANGUAGE_CODES[lang_code])
+    translations = {
+        **lang.get_all_translations("English"),
+        **translations,
+    }
+    grouped_options, movie_resolutions, resized_formats = _static_index_data()
     return render_template(
         "index.html",
         title=f"any_to_any.py {VERSION}",
