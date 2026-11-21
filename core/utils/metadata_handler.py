@@ -5,6 +5,13 @@ import subprocess
 
 from pathlib import Path
 from datetime import datetime
+from functools import lru_cache
+from PIL import TiffTags, ExifTags, Image
+
+
+@lru_cache(maxsize=1)
+def _exif_name_to_id() -> dict:
+    return {name: tag_id for tag_id, name in ExifTags.TAGS.items()}
 
 _IMG_STRIP_FORMATS = {
     "jpg": "JPEG",
@@ -776,8 +783,6 @@ def _drop_gif_metadata_blocks(data: bytes) -> bytes | None:
 
 
 def _exif_value(value, tag_id: int):
-    from PIL import TiffTags
-
     info = TiffTags.TAGS_V2.get(tag_id)
     type_code = info.type if info is not None else 2
 
@@ -823,9 +828,7 @@ def _exif_value(value, tag_id: int):
 
 
 def _build_exif(tags: dict):
-    from PIL import ExifTags, Image
-
-    name_to_id = {name: tag_id for tag_id, name in ExifTags.TAGS.items()}
+    name_to_id = _exif_name_to_id()
     exif = Image.Exif()
     for name, value in tags.items():
         if str(name).lower() in _IMG_TECHNICAL_TAGS:
