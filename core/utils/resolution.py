@@ -1,3 +1,6 @@
+from functools import lru_cache
+
+
 def normalize_resolution(res_aliases, res_all, resolution: str) -> str | None:
     # Resolve alias like '1080p' or 'WxH' string to 'WxH' form
     if not resolution:
@@ -37,6 +40,11 @@ def resolution_allowed(
 
 
 def resolution_size(resolution: str) -> tuple:
+    return _resolution_size_cached(resolution)
+
+
+@lru_cache(maxsize=64)
+def _resolution_size_cached(resolution: str) -> tuple:
     width, height = resolution.split("x")
     return int(width), int(height)
 
