@@ -43,8 +43,6 @@ app.config.update(
 )
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
-# REST API (4.2): disabled unless keys are configured via
-# Any2Any_API_KEYS (comma-separated) or Any2Any_API_KEY.
 app.config["API_KEYS"] = {
     key.strip()
     for key in os.environ.get(
@@ -74,8 +72,7 @@ _job_slots = threading.BoundedSemaphore(
 
 
 def _job_owner_id() -> str:
-    # Unique owner id per session so user can
-    # authenticate for access to its jobs
+    # Unique owner id per session
     owner_id = session.get("job_owner_id")
     if owner_id is None:
         owner_id = secrets.token_urlsafe(32)
