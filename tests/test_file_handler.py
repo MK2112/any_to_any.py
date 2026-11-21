@@ -402,3 +402,19 @@ def test_ffmpeg_process_tracker_ignores_other_commands():
         finally:
             process.kill()
             process.wait()
+
+
+def test_join_back_caches_case_insensitive_resolution(tmp_path):
+    handler = _handler()
+    (tmp_path / "DEMO.MP3").write_bytes(b"x")
+    path_set = (f"{tmp_path}{os.sep}", "demo", "mp3")
+
+    with patch("core.utils.file_handler.os.listdir", wraps=os.listdir) as listdir:
+        first = handler.join_back(path_set)
+        second = handler.join_back(path_set)
+
+    assert first == second == str(tmp_path / "DEMO.MP3")
+    assert listdir.call_count == 1
+    assert path_set in handler._join_back_cache
+    handler.reset_run_outputs()
+    assert handler._join_back_cache == {}

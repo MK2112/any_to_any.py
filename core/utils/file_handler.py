@@ -294,12 +294,16 @@ class FileHandler:
         self.cancel_event = None
         self.max_workers = resolve_worker_count()
         self._job_claims = set()
+        self._join_back_cache = {}
         self._tracked_outputs = None
         self._run_outputs = set()
         self._tracked_outputs_lock = threading.Lock()
 
     def join_back(self, file_path_set: tuple) -> str:
         # Join back the file path set to a concurrent path
+        cached = self._join_back_cache.get(file_path_set)
+        if cached is not None:
+            return cached
         path = os.path.abspath(
             f"{file_path_set[0]}{file_path_set[1]}.{file_path_set[2]}"
         )
@@ -311,9 +315,11 @@ class FileHandler:
                 for entry in os.listdir(file_path_set[0]):
                     candidate = os.path.join(file_path_set[0], entry)
                     if entry.lower() == target and os.path.isfile(candidate):
-                        return os.path.abspath(candidate)
+                        path = os.path.abspath(candidate)
+                        break
             except OSError:
                 pass
+        self._join_back_cache[file_path_set] = path
         return path
 
     def _resolve_output_file_conflict(self, output_path: str) -> str:
@@ -388,6 +394,7 @@ class FileHandler:
         self._job_claims.clear()
 
     def reset_run_outputs(self) -> None:
+        self._join_back_cache.clear()
         with self._tracked_outputs_lock:
             self._run_outputs.clear()
 
@@ -421,13 +428,14 @@ class FileHandler:
             source_path = self.join_back(file_path_set)
             resolved_out_path = os.path.abspath(out_path)
             self.release_claim(resolved_out_path)
-            if show_status and os.path.isfile(resolved_out_path):
+            output_exists = os.path.isfile(resolved_out_path)
+            if show_status and output_exists:
                 self.event_logger.info(
                     f"[>] {lang.get_translation('converted', self.locale)} "
                     f'"{source_path}" -> "{resolved_out_path}"'
                 )
 
-            if os.path.isfile(resolved_out_path) and self.metadata_callback is not None:
+            if output_exists and self.metadata_callback is not None:
                 try:
                     self.metadata_callback(
                         source_path, resolved_out_path, file_path_set[2]
@@ -437,7 +445,7 @@ class FileHandler:
                         f"Metadata handling skipped for {resolved_out_path}: {e}"
                     )
 
-            if os.path.isfile(resolved_out_path):
+            if output_exists:
                 with self._tracked_outputs_lock:
                     self._run_outputs.add(resolved_out_path)
                     if (
