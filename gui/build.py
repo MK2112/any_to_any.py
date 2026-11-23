@@ -148,7 +148,7 @@ def build_executable():
 
     try:
         plugins_path = Path(QLibraryInfo.path(QLibraryInfo.LibraryPath.PluginsPath))
-        plugin_dirs = ["platforms", "imageformats"]
+        plugin_dirs = ["platforms", "imageformats", "multimedia"]
 
         if platform.system() == "Windows":
             for plugin_dir in plugin_dirs:
@@ -173,6 +173,7 @@ def build_executable():
         "--hidden-import=PyQt6.QtGui",
         "--hidden-import=PyQt6.QtWidgets",
         "--hidden-import=PyQt6.QtNetwork",
+        "--hidden-import=PyQt6.QtMultimedia",
     ])
 
     PyInstaller.__main__.run(common_exec_args)
