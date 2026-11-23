@@ -33,18 +33,23 @@ from PyQt6.QtWidgets import (
     QGroupBox,
     QGridLayout,
     QMenu,
+    QTabWidget,
 )
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import utils.language_support as lang
 from utils.version import VERSION
+from gui.edit_view import EditView
 from utils.category import Category
 from core.controller import Controller
 from utils.version_check import check_for_update
-from core.utils.resolution import available_resolutions
-from core.utils.file_handler import ConversionCancelled, FFmpegProcessTracker
 from core.utils.page_ranges import parse_page_ranges
+from core.utils.resolution import available_resolutions
+from gui.styles import STYLE_CONVERT_BTN, STYLE_CANCEL_BTN
+from gui.formats import configure_formats
+from core.utils.file_handler import ConversionCancelled, FFmpegProcessTracker
+from utils.language_support import tr_key  # re-exported for existing imports
 
 if "--version" in sys.argv or "--self-test" in sys.argv:
     print(VERSION)
@@ -52,34 +57,6 @@ if "--version" in sys.argv or "--self-test" in sys.argv:
 
 APP_ROOT = Path(__file__).resolve().parent.parent
 SETTINGS_FILE = str(Path.home() / ".any_to_any_gui_settings.json")
-
-STYLE_CONVERT_BTN = """
-    QPushButton {
-        background-color: #4CAF50;
-        color: white;
-        font-weight: bold;
-        padding: 10px 20px;
-        border: none;
-        border-radius: 4px;
-    }
-    QPushButton:hover { background-color: #43A047; }
-    QPushButton:pressed { background-color: #388E3C; }
-    QPushButton:disabled { background-color: #777777; }
-"""
-
-STYLE_CANCEL_BTN = """
-    QPushButton {
-        background-color: #f44336;
-        color: white;
-        font-weight: bold;
-        padding: 10px 20px;
-        border: none;
-        border-radius: 4px;
-    }
-    QPushButton:hover { background-color: #e53935; }
-    QPushButton:pressed { background-color: #c62828; }
-    QPushButton:disabled { background-color: #777777; }
-"""
 
 PROGRESS_STYLE_DONE = (
     "QProgressBar {background: #e0ffe0;} QProgressBar::chunk {background: #4CAF50;}"
@@ -103,16 +80,6 @@ GENERIC_STATUS_TOKENS = {
     "running",
     "done",
 }
-
-
-def tr_key(key, locale=None):
-    # Resolve a translation with graceful fallback to English, mirroring the
-    # web interface behaviour: untranslated keys never surface as raw keys.
-    language = locale if locale is not None else lang.get_system_language()
-    text = lang.TRANSLATIONS.get(language, lang.TRANSLATIONS["English"]).get(key)
-    if text is None:
-        text = lang.TRANSLATIONS["English"].get(key, key)
-    return text
 
 
 def get_gui_system_locale():
@@ -333,7 +300,9 @@ class ConversionThread(QThread):
             prog = self.shared_progress.get(self.job_id, {})
             self.progress_updated.emit(
                 {
-                    "progress": 100 if "error" not in error_holder else prog.get("progress"),
+                    "progress": 100
+                    if "error" not in error_holder
+                    else prog.get("progress"),
                     "message": prog.get("message", prog.get("status", "Done")),
                     # ProgLogger in is_web mode never writes "done", so the
                     # worker's completion is the authoritative success signal.
@@ -387,6 +356,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.controller = Controller(locale=get_gui_system_locale(), is_web=True)
+        configure_formats(self.controller._supported_formats)
         self.locale = self.controller.locale
         self._file_paths_set = set()  # Performance: O(1) duplicate checking
         self.conversion_threads = {}
@@ -394,6 +364,7 @@ class MainWindow(QMainWindow):
         self._pre_conversion_outputs = set()
         self._conversion_start_time = None
         self._progress_epoch = 0  # Guards stale progress-reset timers
+        self._edit_busy = False  # Global guard: a render runs in the Edit tab
         self.supported_formats = self.get_supported_formats()
         self.supported_extensions = {
             ext.lower()
@@ -442,11 +413,12 @@ class MainWindow(QMainWindow):
         return files_to_add
 
     def dragEnterEvent(self, event):
-        if event.mimeData().hasUrls():
-            self.file_list.setStyleSheet(DRAG_OVER_STYLE_WINDOW)
-            event.acceptProposedAction()
-        else:
+        if not event.mimeData().hasUrls():
             event.ignore()
+            return
+        if not self._edit_active():
+            self.file_list.setStyleSheet(DRAG_OVER_STYLE_WINDOW)
+        event.acceptProposedAction()
 
     def dragLeaveEvent(self, event):
         self.file_list.setStyleSheet("")
@@ -461,7 +433,10 @@ class MainWindow(QMainWindow):
             url.toLocalFile() for url in event.mimeData().urls() if url.toLocalFile()
         ]
         files_to_add = self._expand_paths(paths)
-        if files_to_add:
+        if self._edit_active():
+            if files_to_add:
+                self.edit_view.add_paths(files_to_add)
+        elif files_to_add:
             self.add_files_batch(files_to_add)
         event.accept()
 
@@ -651,10 +626,23 @@ class MainWindow(QMainWindow):
         if "locale" in self.settings:
             self.locale = self.settings["locale"]
 
-        # Main widget and layout
-        main_widget = QWidget()
-        self.setCentralWidget(main_widget)
-        layout = QVBoxLayout(main_widget)
+        previous_tab = (
+            self.tab_widget.currentIndex() if hasattr(self, "tab_widget") else None
+        )
+        edit_state = None
+        if hasattr(self, "edit_view") and not self.edit_view.is_busy():
+            edit_state = self.edit_view.snapshot()
+            self.edit_view.shutdown()
+
+        self.tab_widget = QTabWidget()
+        self.tab_widget.setTabPosition(QTabWidget.TabPosition.North)
+        self.tab_widget.setDocumentMode(True)
+        self.setCentralWidget(self.tab_widget)
+        self.tab_bar = self.tab_widget.tabBar()
+
+        convert_page = QWidget()
+        self.convert_page = convert_page
+        layout = QVBoxLayout(convert_page)
 
         # Input files section
         input_group = QGroupBox(lang.get_translation("select_files", self.locale))
@@ -892,8 +880,49 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(15)
 
-        # Initialize dependent controls once everything exists
         self._update_mode_dependent_ui()
+
+        self.edit_view = EditView(self)
+        self.tab_widget.addTab(self.convert_page, self._tr("tab_convert"))
+        self.tab_widget.addTab(self.edit_view, self._tr("tab_edit"))
+        self.tab_widget.currentChanged.connect(self._on_view_changed)
+        if edit_state:
+            self.edit_view.restore(edit_state)
+        target = previous_tab
+        if target is None:
+            target = self.settings.get("active_view", 0)
+        try:
+            target = int(target)
+        except (TypeError, ValueError):
+            target = 0
+        if 0 <= target < self.tab_widget.count():
+            self.tab_widget.setCurrentIndex(target)
+
+    def _edit_active(self) -> bool:
+        return (
+            hasattr(self, "tab_widget")
+            and hasattr(self, "edit_view")
+            and self.tab_widget.currentWidget() is self.edit_view
+        )
+
+    def _on_view_changed(self, index: int) -> None:
+        save_settings({"active_view": index})
+
+    def _persist_settings(self) -> None:
+        active = self.tab_widget.currentIndex() if hasattr(self, "tab_widget") else 0
+        save_settings(
+            {"last_dir": self.last_dir, "locale": self.locale, "active_view": active}
+        )
+
+    def set_edit_export_busy(self, busy: bool) -> None:
+        self._edit_busy = bool(busy)
+        for widget in (
+            self.convert_btn,
+            self.add_files_btn,
+            self.add_folder_btn,
+            self.file_list,
+        ):
+            widget.setEnabled(not busy)
 
     def clear_all_files(self):
         self.file_list.clear()
@@ -902,6 +931,9 @@ class MainWindow(QMainWindow):
         self._update_mode_dependent_ui()
 
     def add_files(self):
+        if self._edit_active():
+            self.edit_view.add_files()
+            return
         file_dialog = QFileDialog()
         file_dialog.setFileMode(QFileDialog.FileMode.ExistingFiles)
         files, _ = file_dialog.getOpenFileNames(
@@ -912,16 +944,19 @@ class MainWindow(QMainWindow):
         )
         if files:
             self.last_dir = str(Path(files[0]).parent)
-            save_settings({"last_dir": self.last_dir, "locale": self.locale})
+            self._persist_settings()
             self.add_files_batch(files)
 
     def add_folder(self):
+        if self._edit_active():
+            self.edit_view.add_folder()
+            return
         folder = QFileDialog.getExistingDirectory(
             self, lang.get_translation("select_folder", self.locale), self.last_dir
         )
         if folder:
             self.last_dir = folder
-            save_settings({"last_dir": self.last_dir, "locale": self.locale})
+            self._persist_settings()
             files = []
             for root, _, names in os.walk(folder):
                 for name in names:
@@ -929,6 +964,9 @@ class MainWindow(QMainWindow):
             self.add_files_batch(files)
 
     def remove_selected(self):
+        if self._edit_active():
+            self.edit_view.delete_selected()
+            return
         rows = sorted(
             {self.file_list.row(item) for item in self.file_list.selectedItems()},
             reverse=True,
@@ -1049,7 +1087,7 @@ class MainWindow(QMainWindow):
         )
         if directory:
             self.last_dir = directory
-            save_settings({"last_dir": self.last_dir, "locale": self.locale})
+            self._persist_settings()
             self.output_dir_edit.setText(directory)
 
     def _prune_missing_sources(self):
@@ -1095,6 +1133,11 @@ class MainWindow(QMainWindow):
             return None
 
     def start_conversion(self):
+        if self._edit_active():
+            self.edit_view.start_export()
+            return
+        if self._edit_busy:
+            return  # A render is running in the Edit tab
         if self.current_thread is not None and self.current_thread.isRunning():
             return  # Shortcut-triggered double start guard
 
@@ -1256,6 +1299,9 @@ class MainWindow(QMainWindow):
         self.current_thread.start()
 
     def cancel_conversion(self):
+        if self._edit_active():
+            self.edit_view.cancel_export()
+            return
         if self.current_thread and self.current_thread.isRunning():
             self.current_thread.cancel()
             self.status_label.setText(self._tr("cancelling"))
@@ -1440,6 +1486,7 @@ class MainWindow(QMainWindow):
             widget.setEnabled(enabled)
 
         self.cancel_btn.setEnabled(not enabled)
+        self.edit_view.set_enabled(enabled)
 
         if not enabled:
             self.convert_btn.setText(lang.get_translation("converting", self.locale))
@@ -1450,32 +1497,41 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event):
         converting = self.current_thread is not None and self.current_thread.isRunning()
-        if converting:
+        rendering = self.edit_view.is_busy()
+        if converting or rendering:
             reply = QMessageBox.question(
                 self,
                 self.windowTitle(),
-                self._tr("exit_while_converting"),
+                self._tr("exit_while_converting")
+                if converting
+                else self._tr("edit_exit_while_rendering"),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.No,
             )
             if reply != QMessageBox.StandardButton.Yes:
                 event.ignore()
                 return
-            self.current_thread.cancel()
+            if converting:
+                self.current_thread.cancel()
+            if rendering:
+                self.edit_view.export_thread.cancel()
         for thread in list(self.conversion_threads.values()):
             if thread.isRunning():
                 thread.cancel()
                 thread.wait(10000)
-        save_settings({"last_dir": self.last_dir, "locale": self.locale})
+        self.edit_view.shutdown()
+        self._persist_settings()
         event.accept()
 
     def open_settings_dialog(self):
-        if self.current_thread is not None and self.current_thread.isRunning():
+        if (
+            self.current_thread is not None and self.current_thread.isRunning()
+        ) or self.edit_view.is_busy():
             return
         dlg = SettingsDialog(self, self.locale, list(lang.TRANSLATIONS.keys()))
         if dlg.exec():
             self.locale = dlg.selected_locale
-            save_settings({"last_dir": self.last_dir, "locale": self.locale})
+            self._persist_settings()
             # Preserve current selection across UI rebuild
             # Set must be cleared too, otherwise re-adding would be deduped away
             current_files = [
@@ -1540,12 +1596,12 @@ class SettingsDialog(QDialog):
         layout = QVBoxLayout(self)
         layout.addWidget(QLabel(tr_key("language", locale)))
         self.locale_combo = QComboBox()
-        for loc in supported_locales:
+        for loc in sorted(supported_locales, key=str.casefold):
             self.locale_combo.addItem(loc)
             if loc == locale:
                 self.locale_combo.setCurrentText(loc)
         layout.addWidget(self.locale_combo)
-        btn = QPushButton("Ok")
+        btn = QPushButton("OK")
         btn.clicked.connect(self.accept)
         layout.addWidget(btn)
         self.locale_combo.currentTextChanged.connect(self.set_locale)
@@ -1567,12 +1623,28 @@ any_to_any.py {VERSION}
 
 https://github.com/MK2112/any_to_any.py
 
-Keyboard shortcuts:
-- Ctrl+O: Add Files
+Views (tabs at the top):
+- Convert: the classic file conversion screen
+- Edit: a timeline editor for trimming, cutting and stitching media
+
+Keyboard shortcuts (active in both views):
+- Ctrl+O: Add Files / Media
 - Ctrl+Shift+A: Add Folder
-- Delete: Remove Selected
-- Ctrl+Return: Convert
+- Delete: Remove Selected Files / Clips
+- Ctrl+Return: Convert / Render
 - Escape: Cancel
+
+Edit view tips:
+- Drag media into the Media Pool or straight onto a timeline track
+- Drag a clip to move it; drag its left/right edge to trim it, or use the
+  Clip Properties fields for exact positions
+- Move the playhead (or use arrow keys) and press "Cut at Playhead" (S)
+- Space: play/pause, M: add cut marker (in Split mode)
+- Ctrl+C / Ctrl+V: copy and paste selected timeline clips
+- Right-click the pool or timeline for more actions
+- Render modes: "As in timeline" keeps exact positions and overlaps;
+  Stitch uses --concat, Trim uses --trim, Split uses --split-at and
+  Merge uses --merge behind the scenes
 
 For more info, see the project README on GitHub:
 https://github.com/MK2112/any_to_any.py/blob/main/README.md

@@ -111,11 +111,15 @@ def qapp():
 
 @pytest.fixture
 def main_window(qapp):
-    from gui.qt_app import MainWindow
+    from gui.qt_app import MainWindow, save_settings
 
+    # These tests exercise the Convert view; start on it regardless of the
+    # view remembered from a previous run.
+    save_settings({"active_view": 0})
     window = MainWindow()
     yield window
     window.close()
+    save_settings({"active_view": 0})
 
 
 def test_main_window_creation(main_window):
@@ -294,6 +298,17 @@ def test_settings_dialog_locale_change(qapp):
 
     dlg.set_locale("German")
     assert dlg.selected_locale == "German"
+
+
+def test_settings_dialog_locales_are_alphabetical(qapp):
+    import utils.language_support as lang
+    from gui.qt_app import SettingsDialog
+
+    names = list(lang.TRANSLATIONS.keys())
+    dlg = SettingsDialog(None, "English", names)
+    items = [dlg.locale_combo.itemText(i) for i in range(dlg.locale_combo.count())]
+    assert items == sorted(names, key=str.casefold)
+    assert dlg.locale_combo.currentText() == "English"
 
 
 def test_help_dialog_creation(qapp):
