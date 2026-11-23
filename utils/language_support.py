@@ -268,6 +268,20 @@ def get_translation(key, language=None):
     return TRANSLATIONS.get(language, TRANSLATIONS["English"]).get(key, key)
 
 
+def tr_key(key, language=None):
+    """Translate a key, falling back to English text for untranslated keys.
+
+    Unlike :func:`get_translation`, a key missing from the requested language
+    resolves to its English wording instead of surfacing the raw key. Used by
+    the GUI, whose newer controls are not translated into every language yet.
+    """
+    language = language if language is not None else get_system_language()
+    text = TRANSLATIONS.get(language, TRANSLATIONS["English"]).get(key)
+    if text is None:
+        text = TRANSLATIONS["English"].get(key, key)
+    return text
+
+
 def get_all_translations(language=None):
     if language is None:
         language = get_system_language()
