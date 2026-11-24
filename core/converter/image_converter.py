@@ -10,7 +10,7 @@ from tqdm import tqdm
 from io import BytesIO
 from moviepy import VideoFileClip
 from utils.category import Category
-from core.utils.file_handler import run_parallel, worker_count_for
+from core.utils.file_handler import run_parallel, worker_count_for, effective_fps
 from core.utils.file_handler import safe_output_dir as _safe_out_dir
 
 
@@ -399,14 +399,15 @@ class ImageConverter:
                         f"[!] {lang.get_translation('error', self.locale)}: {e} - {lang.get_translation('set_out_dir', self.locale)} {input}"
                     )
                     return None
+                movie_fps = effective_fps(video.fps, framerate, default=24)
                 img_path = os.path.abspath(
                     os.path.join(
                         movie_out_dir,
-                        f"{movie_path_set[1]}-%0{len(str(int(video.duration * video.fps)))}d.{format}",
+                        f"{movie_path_set[1]}-%0{len(str(int(video.duration * movie_fps)))}d.{format}",
                     )
                 )
                 frame_names = video.write_images_sequence(
-                    img_path, fps=video.fps, logger=self.prog_logger
+                    img_path, fps=movie_fps, logger=self.prog_logger
                 )
                 return (movie_path_set, frame_names[-1]) if frame_names else None
             finally:
@@ -636,14 +637,15 @@ class ImageConverter:
                 webp_frame_out_dir = _safe_out_dir(
                     os.path.join(output, movie_path_set[1])
                 )
+            movie_fps = effective_fps(video.fps, framerate, default=24)
             img_path = os.path.abspath(
                 os.path.join(
                     webp_frame_out_dir,
-                    f"{movie_path_set[1]}-%0{len(str(int(video.duration * video.fps)))}d.{format}",
+                    f"{movie_path_set[1]}-%0{len(str(int(video.duration * movie_fps)))}d.{format}",
                 )
             )
             frame_names = video.write_images_sequence(
-                img_path, fps=video.fps, logger=self.prog_logger
+                img_path, fps=movie_fps, logger=self.prog_logger
             )
             return frame_names[-1] if frame_names else None
 
@@ -814,7 +816,9 @@ class ImageConverter:
                         os.path.join(output, f"{movie_path_set[1]}.{format}")
                     )
                 )
-                target_fps = max(1, int(video.fps // 3))
+                target_fps = max(
+                    1, int(effective_fps(video.fps, framerate, default=24) // 3)
+                )
 
                 video.write_gif(
                     gif_path,
