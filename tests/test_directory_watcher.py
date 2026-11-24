@@ -157,7 +157,9 @@ class TestDirectoryWatcher:
                 # If thread is still alive, join timed out
                 thread.join(timeout=0.1)  # Give a bit more time
 
-    def test_watch_restarts_dead_observer_without_busy_loop(self, temp_dir, monkeypatch):
+    def test_watch_restarts_dead_observer_without_busy_loop(
+        self, temp_dir, monkeypatch
+    ):
         import core.utils.directory_watcher as dw
 
         observers = []
@@ -202,6 +204,50 @@ class TestDirectoryWatcher:
         assert len(observers) == 2
         assert len(sleeps) == 3
 
+    def test_stop_watching_exits_watch_loop_without_restart(
+        self, temp_dir, monkeypatch
+    ):
+        import core.utils.directory_watcher as dw
+
+        observers, sleeps = [], []
+
+        class FakeObserver:
+            def __init__(self):
+                observers.append(self)
+
+            def schedule(self, *args, **kwargs):
+                pass
+
+            def start(self):
+                pass
+
+            def stop(self):
+                pass
+
+            def join(self):
+                pass
+
+            def is_alive(self):
+                return True
+
+        monkeypatch.setattr(dw, "Observer", FakeObserver)
+
+        def fake_sleep(interval):
+            sleeps.append(interval)
+            watcher.stop_watching()  # programmatic stop while watch() is running
+            if len(sleeps) >= 3:  # safety net for the buggy behaviour
+                raise KeyboardInterrupt
+
+        monkeypatch.setattr(dw.time, "sleep", fake_sleep)
+
+        watcher = DirectoryWatcher(str(temp_dir), MagicMock())
+        watcher.watch(interval=0.01)
+
+        # The observer must not be recreated after an explicit stop.
+        assert len(observers) == 1
+        assert len(sleeps) == 1
+        assert watcher.is_running() is False
+
     def test_moved_and_deleted_events_forwarded(self, temp_dir, monkeypatch):
         import core.utils.directory_watcher as dw
 
@@ -240,7 +286,7 @@ class TestDirectoryWatcher:
 
             handler.on_moved(MovedIn())
             assert ("created", str(inside)) in events
-            
+
             events.clear()
 
             class MovedOut:

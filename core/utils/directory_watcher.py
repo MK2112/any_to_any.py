@@ -1,6 +1,7 @@
 import os
 import time
 import logging
+import threading
 
 from pathlib import Path
 from typing import Callable, Optional
@@ -18,6 +19,7 @@ class DirectoryWatcher:
         self.recursive = recursive
         self.observer: Optional[Observer] = None
         self._running = False
+        self._should_stop = threading.Event()
 
     def start_watching(self) -> None:
         if self._running:
@@ -67,12 +69,16 @@ class DirectoryWatcher:
                 self.observer = None
             raise RuntimeError(f"Failed to start directory watcher: {e}")
 
-    def stop_watching(self) -> None:
+    def _stop_observer(self) -> None:
         if self.observer:
             self.observer.stop()
             self.observer.join()
             self.observer = None
         self._running = False
+
+    def stop_watching(self) -> None:
+        self._should_stop.set()
+        self._stop_observer()
 
     def __enter__(self):
         self.start_watching()
@@ -85,17 +91,24 @@ class DirectoryWatcher:
         return self._running and self.observer is not None and self.observer.is_alive()
 
     def watch(self, interval: float = 1.0) -> None:
-        while True:
+        self._should_stop.clear()
+        while not self._should_stop.is_set():
             try:
                 if self._running and not self.is_running():
-                    self.stop_watching()
+                    self._stop_observer()
+                if self._should_stop.is_set():
+                    break
                 self.start_watching()
-                while self.is_running():
+                while self.is_running() and not self._should_stop.is_set():
                     time.sleep(interval)
+                if self._should_stop.is_set():
+                    break
                 time.sleep(interval)
             except KeyboardInterrupt:
                 break
             except Exception as e:
                 logging.warning(f"Watcher error, restarting in {interval}s: {e}")
+                if self._should_stop.is_set():
+                    break
                 time.sleep(interval)
         self.stop_watching()
