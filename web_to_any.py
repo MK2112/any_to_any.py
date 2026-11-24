@@ -1089,6 +1089,8 @@ def _api_job_finished(job_id: str, future) -> None:
     # Runs on the executor's completion thread, after send_to_backend has
     # published the final job status.
     try:
+        if future.cancelled():
+            _set_job_status(job_id, "cancelled", time.time())
         _send_webhook(job_id)
     finally:
         _job_slots.release()

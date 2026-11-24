@@ -124,6 +124,58 @@ def test_webhook_payload_is_signed(api_client, monkeypatch):
     assert json.loads(captured["data"])["status"] == "done"
 
 
+def test_api_cancel_queued_job_reaches_terminal_state(api_client, monkeypatch):
+    client, _ = api_client
+    headers = {"X-API-Key": "test-key"}
+    from concurrent.futures import Future
+
+    pending = []
+
+    def submit(*args, **kwargs):
+        future = Future()
+        pending.append(future)
+        return future
+
+    monkeypatch.setattr(w._job_executor, "submit", submit)
+
+    captured = {}
+
+    class FakeRequests:
+        @staticmethod
+        def post(url, data=None, headers=None, timeout=None):
+            captured.update(url=url, data=data, headers=headers, timeout=timeout)
+
+    monkeypatch.setitem(sys.modules, "requests", FakeRequests)
+
+    response = client.post(
+        "/api/jobs",
+        headers=headers,
+        data={
+            "files": [(io.BytesIO(b"pngdata"), "photo.png")],
+            "conversionType": "jpeg",
+            "webhook_url": "https://example.com/hook",
+        },
+        content_type="multipart/form-data",
+    )
+    assert response.status_code == 202, response.get_data(as_text=True)
+    job_id = response.get_json()["job_id"]
+    assert not pending[0].done()  # the job really was queued, not running
+
+    cancel = client.post(f"/api/jobs/{job_id}/cancel", headers=headers)
+    assert cancel.status_code == 202
+    with w._job_lock:
+        record = dict(w._job_records[job_id])
+    assert record["status"] == "cancelled"
+    assert record["completed_at"] > 0  # eligible for retention cleanup
+
+    status = client.get(f"/api/jobs/{job_id}", headers=headers)
+    assert status.get_json()["status"] == "cancelled"
+
+    payload = json.loads(captured["data"])
+    assert payload["event"] == "job.cancelled"
+    assert payload["status"] == "cancelled"
+
+
 def test_api_secret_is_bytes(api_client):
     # hmac.new() requires bytes; a string SECRET_KEY must be normalized.
     assert isinstance(w.app.config["API_SECRET"], bytes)
