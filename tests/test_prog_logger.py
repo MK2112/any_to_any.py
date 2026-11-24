@@ -136,6 +136,35 @@ def test_bars_callback_zero_total_avoids_division_by_zero(monkeypatch):
     assert logger.tqdm_bar is None
 
 
+def test_bars_callback_none_total_does_not_crash(monkeypatch):
+    monkeypatch.setattr(prog_mod, "tqdm", MockTqdm)
+    shared = {}
+    logger = ProgLogger(job_id="job-none-total", shared_progress_dict=shared)
+    logger.bars.clear()
+    logger.bars["encode"] = {"total": None}  # ProgLog stores the key as None
+
+    logger.bars_callback("encode", "index", 3, old_value=0)
+
+    assert shared["job-none-total"]["total"] == 0
+    assert shared["job-none-total"]["status"] == "done"
+
+
+def test_web_progress_none_total_does_not_crash(monkeypatch):
+    monkeypatch.setattr(prog_mod, "tqdm", MockTqdm)
+    shared = {"job-none-web": {"total_files": 2}}
+    logger = ProgLogger(
+        job_id="job-none-web", shared_progress_dict=shared, is_web=True
+    )
+    logger.bars.clear()
+    logger.bars["encode"] = {"total": None}
+
+    logger.bars_callback("encode", "index", 3, old_value=0)
+
+    assert shared["job-none-web"]["progress"] == 0
+    assert shared["job-none-web"]["progress_percent"] == 0
+    assert shared["job-none-web"]["status"] == "processing"
+
+
 def test_set_error_sets_error_state():
     shared = {}
     logger = ProgLogger(job_id="job-4", shared_progress_dict=shared)

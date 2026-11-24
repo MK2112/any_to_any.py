@@ -81,9 +81,7 @@ class ProgLogger(ProgressBarLogger):
         if self.start_time is None:
             self.start_time = current_time
             self.last_print_time = self.start_time
-            total = self.bars[bar].get(
-                "total", 100
-            )  # Default to this if total not available
+            total = self.bars[bar].get("total") or 0
 
             self.tqdm_bar = tqdm(
                 total=total,
@@ -110,8 +108,8 @@ class ProgLogger(ProgressBarLogger):
                     }
 
         # Calculate progress percentage
-        total = self.bars[bar].get("total", 100)
-        if total > 0:
+        total = self.bars[bar].get("total") or 0
+        if isinstance(total, (int, float)) and total > 0:
             progress_percent = int((value / total) * 100)
         else:
             progress_percent = 0
@@ -250,8 +248,12 @@ class ProgLogger(ProgressBarLogger):
         if self.job_id is None or self.shared_progress_dict is None:
             return
 
-        total = self.bars.get(bar, {}).get("total", 100)
-        progress_percent = int((value / total) * 100) if total > 0 else 0
+        total = self.bars.get(bar, {}).get("total") or 0
+        progress_percent = (
+            int((value / total) * 100)
+            if isinstance(total, (int, float)) and total > 0
+            else 0
+        )
         self._file_progress = max(self._file_progress, progress_percent)
         total_files = self.shared_progress_dict.get(self.job_id, {}).get(
             "total_files", 1
