@@ -996,6 +996,90 @@ def test_render_timeline_preserves_positions_and_trims(tmp_path):
     ]
 
 
+def test_probe_duration_defaults_for_still_images():
+    from gui.timeline import DEFAULT_IMAGE_DURATION, probe_duration
+
+    with patch(
+        "gui.timeline.subprocess.run", return_value=SimpleNamespace(stdout="N/A\n")
+    ):
+        assert probe_duration("/photo.png") == DEFAULT_IMAGE_DURATION
+        assert probe_duration("/photo.jpg") == DEFAULT_IMAGE_DURATION
+        assert probe_duration("/clip.mp4") is None
+
+
+def test_render_timeline_keeps_still_image(tmp_path):
+    import threading
+
+    from gui.edit_export import render_timeline
+    from gui.timeline import probe_duration
+
+    image_path = tmp_path / "photo.png"
+    image_path.write_bytes(b"\x89PNG\r\n\x1a\n")
+    with patch(
+        "gui.timeline.subprocess.run", return_value=SimpleNamespace(stdout="N/A\n")
+    ):
+        duration = probe_duration(str(image_path))
+    assert duration == 5.0
+
+    images, composites = [], []
+
+    class FakeImage:
+        def __init__(self, path):
+            self.path = path
+            self.duration = None
+            self.started = None
+            images.append(self)
+
+        def with_duration(self, value):
+            self.duration = value
+            return self
+
+        def with_start(self, value):
+            self.started = value
+            return self
+
+        def close(self):
+            pass
+
+    class FakeComposite:
+        def __init__(self, segments, size=None):
+            self.segments = segments
+            self.fps = 24
+            composites.append(self)
+
+        def write_videofile(self, path, **kwargs):
+            with open(path, "wb") as handle:
+                handle.write(b"x")
+
+        def close(self):
+            pass
+
+    job = {
+        "clips": [
+            {
+                "path": str(image_path),
+                "in": 0.0,
+                "out": None,
+                "duration": duration,
+                "start": 1.0,
+            }
+        ],
+        "output_ext": "mp4",
+    }
+    output = tmp_path / "timeline.mp4"
+    with (
+        patch("moviepy.ImageClip", FakeImage),
+        patch("moviepy.CompositeVideoClip", FakeComposite),
+    ):
+        render_timeline(job, threading.Event(), str(output), lambda p, m: None)
+
+    assert output.exists()
+    assert len(images) == 1
+    assert images[0].duration == 5.0
+    assert images[0].started == 1.0
+    assert composites[0].segments == [images[0]]
+
+
 def test_export_disables_and_restores_editing_controls(main_window, qapp, tmp_path):
     import time
 

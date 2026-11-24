@@ -52,6 +52,7 @@ MIN_PPS = 2.0
 MAX_PPS = 500.0
 EDGE_GRAB = 7  # px near a clip edge starts a trim instead of a move
 SNAP_PX = 7
+DEFAULT_IMAGE_DURATION = 5.0
 
 
 def probe_duration(path: str) -> float | None:
@@ -87,6 +88,8 @@ def probe_duration(path: str) -> float | None:
                     return frames / rate
     except Exception:
         pass
+    if media_kind(path) == "image":
+        return DEFAULT_IMAGE_DURATION
     return None
 
 
