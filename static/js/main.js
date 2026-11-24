@@ -22,6 +22,13 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    const filesInput = document.getElementById('files');
+    if (filesInput) {
+        filesInput.addEventListener('change', function() {
+            handleFiles(this.files, true);
+        });
+    }
+
     // Resolution controls (the JSON block lives below in the body)
     const dataEl = document.getElementById('resolution-data');
     if (dataEl) {
@@ -386,7 +393,3 @@ function hideLoader() {
     document.getElementById('loader').style.display = 'none';
 }
 
-// Wiring up the <input> change to our handler
-document.getElementById('files').addEventListener('change', function() {
-    handleFiles(this.files, true);
-});

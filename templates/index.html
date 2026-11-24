@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>any_to_any.py {{ title.split(' ')[1] }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
 </head>
 <body>
     <header>
@@ -57,7 +57,7 @@
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <div id="drop-area" ondrop="drop(event)" ondragover="allowDrop(event)" onclick="triggerUploadDialogue(event)">
                     <p>{{ translations['drag_drop_hint'] }}</p>
-                    <input type="file" name="files" id="files" multiple onchange="handleFiles(this.files, true)">
+                    <input type="file" name="files" id="files" multiple>
                     <ul id="file-list"></ul>
                 </div>
                 <div id="conversion-options">

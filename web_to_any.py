@@ -189,6 +189,12 @@ def get_csrf_token():
     return rotate_csrf_token()
 
 
+def _safe_compare_digest(a: str, b: str) -> bool:
+    # compare_digest() rejects non-ASCII str operands; encode so attacker-
+    # controlled tokens simply fail to match instead of raising HTTP 500.
+    return secrets.compare_digest(a.encode("utf-8"), b.encode("utf-8"))
+
+
 def validate_csrf_token(token):
     expected = session.get(_CSRF_SESSION_KEY)
     issued_at = session.get(_CSRF_ISSUED_AT_KEY)
@@ -200,7 +206,7 @@ def validate_csrf_token(token):
         return False
     if time.time() - issued_at >= _csrf_ttl_seconds:
         return False
-    return secrets.compare_digest(expected, token)
+    return _safe_compare_digest(expected, token)
 
 
 def rotate_csrf_token():
@@ -1008,13 +1014,6 @@ def set_language():
     return {"success": False}, 400
 
 
-# ---------------------------------------------------------------------------
-# REST API (feature 4.2): stateless, key-authenticated job submission, status,
-# signed expiring download links, webhooks and an OpenAPI description. The
-# existing browser endpoints and their behaviour are untouched.
-# ---------------------------------------------------------------------------
-
-
 def _api_auth(view):
     @wraps(view)
     def wrapper(*args, **kwargs):
@@ -1024,7 +1023,7 @@ def _api_auth(view):
         header = request.headers.get("Authorization", "")
         token = header[7:] if header.lower().startswith("bearer ") else ""
         token = token or request.headers.get("X-API-Key", "")
-        if not token or not any(secrets.compare_digest(token, key) for key in keys):
+        if not token or not any(_safe_compare_digest(token, key) for key in keys):
             return jsonify({"error": "Unauthorized"}), 401
         return view(*args, **kwargs)
 
@@ -1048,7 +1047,7 @@ def _verify_download_token(job_id: str, token: str) -> bool:
     expected = hmac.new(
         app.config["API_SECRET"], f"{job_id}:{expires}".encode(), hashlib.sha256
     ).hexdigest()
-    return secrets.compare_digest(signature, expected)
+    return _safe_compare_digest(signature, expected)
 
 
 def _send_webhook(job_id: str) -> None:
