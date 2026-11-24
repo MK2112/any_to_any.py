@@ -21,9 +21,9 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.units import inch
 from reportlab.lib.pagesizes import A4
 from core.utils.page_ranges import parse_page_ranges
-from core.utils.file_handler import sort_frame_filenames
 from core.converter.image_converter import gif_to_frames
 from core.utils.file_handler import safe_output_dir as _safe_out_dir
+from core.utils.file_handler import sort_frame_filenames, effective_fps
 
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -126,7 +126,9 @@ class DocumentConverter:
                 if title is not None and title.text:
                     lines.append(title.text)
                 for shape in slide.shapes:
-                    if shape is title or not hasattr(shape, "text"):
+                    if (
+                        title is not None and shape.shape_id == title.shape_id
+                    ) or not hasattr(shape, "text"):
                         continue
                     if shape.text:
                         lines.extend(shape.text.splitlines())
@@ -338,9 +340,10 @@ class DocumentConverter:
             doc = None
             try:
                 doc = pypdf.open()
-                total_frames = max(1, int(clip.duration * clip.fps))
+                fps = effective_fps(clip.fps, default=24)
+                total_frames = max(1, int(clip.duration * fps))
                 for frame_index, frame in enumerate(
-                    tqdm(clip.iter_frames(fps=clip.fps, dtype="uint8")), 1
+                    tqdm(clip.iter_frames(fps=fps, dtype="uint8")), 1
                 ):
                     self.prog_logger.update_shared(
                         f"{movie_path_set[1]} ({frame_index}/{total_frames})",
@@ -653,10 +656,9 @@ class DocumentConverter:
             )
 
             container = _new_container()
-            total_frames = max(1, int(clip.duration * clip.fps))
-            for idx, frame in tqdm(
-                enumerate(clip.iter_frames(fps=clip.fps, dtype="uint8"))
-            ):
+            fps = effective_fps(clip.fps, default=24)
+            total_frames = max(1, int(clip.duration * fps))
+            for idx, frame in tqdm(enumerate(clip.iter_frames(fps=fps, dtype="uint8"))):
                 self.prog_logger.update_shared(
                     f"{movie_path_set[1]} ({idx + 1}/{total_frames})",
                     idx + 1,
