@@ -47,6 +47,7 @@ CLIP_COLORS = (
 
 RULER_H = 26
 TRACK_H = 64
+TRACK_GUTTER = 30  # px reserved for track numbers and flags
 MIN_CLIP_LEN = 0.05  # seconds
 MIN_PPS = 2.0
 MAX_PPS = 500.0
@@ -122,6 +123,8 @@ class TimelineClip:
     out_point: float | None = None  # None means "to the end of the source"
     color: str = CLIP_COLORS[0]
     clip_id: str = field(default_factory=lambda: uuid.uuid4().hex[:10])
+    volume: float = 1.0
+    muted: bool = False
     peaks: list | None = None
     peaks_duration: float | None = None  # seconds actually covered by peaks
 
@@ -178,7 +181,7 @@ class WaveformWorker(QThread):
         self._cache: dict[tuple[str, float], tuple] = {}
 
     def request(self, clip: TimelineClip) -> None:
-        if not clip.media.duration or clip.media.kind == "other":
+        if not clip.media.duration or clip.media.kind in ("other", "image"):
             return
         key = (clip.media.path, round(clip.media.duration, 3))
         cached = self._cache.get(key)
@@ -369,6 +372,7 @@ class TimelineWidget(QWidget):
         self.locale = locale
         self.clips: list[TimelineClip] = []
         self.track_names: list[str] = ["1"]
+        self.track_states: dict[int, dict] = {}
         self.playhead = 0.0
         self.pps = 40.0
         self._scroll_x = 0.0
@@ -394,6 +398,13 @@ class TimelineWidget(QWidget):
 
     def set_locale(self, locale: str) -> None:
         self.locale = locale
+
+    def track_state(self, index: int) -> dict:
+        state = self.track_states.get(index)
+        if state is None:
+            state = {"muted": False, "solo": False, "locked": False, "volume": 1.0}
+            self.track_states[index] = state
+        return state
 
     def add_media(
         self,
@@ -442,6 +453,8 @@ class TimelineWidget(QWidget):
         self.track_names = [
             str(index + 1) for index in range(max(track_count, self._needed_tracks()))
         ]
+        for index in range(len(self.track_names)):
+            self.track_state(index)
         self.selected_ids.clear()
         if self.waveforms:
             for clip in self.clips:
@@ -539,6 +552,7 @@ class TimelineWidget(QWidget):
     def add_track(self) -> int:
         index = len(self.track_names)
         self.track_names.append(str(index + 1))
+        self.track_state(index)
         self.update()
         return index
 
@@ -592,9 +606,12 @@ class TimelineWidget(QWidget):
     def _ensure_track(self, index: int) -> None:
         while len(self.track_names) <= index:
             self.track_names.append(str(len(self.track_names) + 1))
+        self.track_state(index)
 
     def _first_free_track(self, start: float, length: float) -> int:
         for index in range(max(1, self._needed_tracks() + 1)):
+            if self.track_state(index).get("locked"):
+                continue
             if not any(
                 clip.track == index
                 and start < clip.end + 0.01
@@ -647,6 +664,29 @@ class TimelineWidget(QWidget):
             painter.drawLine(0, y + TRACK_H, width, y + TRACK_H)
             painter.setPen(QColor("#4a4a4a"))
             painter.drawText(4, y + 14, str(index + 1))
+            state = self.track_state(index)
+            flags = "".join(
+                flag
+                for flag, key in (
+                    ("M", "muted"),
+                    ("S", "solo"),
+                    ("L", "locked"),
+                )
+                if state.get(key)
+            )
+            if flags:
+                previous_font = painter.font()
+                font = QFont()
+                font.setPointSize(7)
+                font.setBold(True)
+                painter.setFont(font)
+                painter.setPen(
+                    QColor("#ffb300")
+                    if state.get("solo")
+                    else QColor("#ff8a80")
+                )
+                painter.drawText(TRACK_GUTTER - 14, y + 14, flags)
+                painter.setFont(previous_font)
 
         for clip in self.clips:
             rect = self._clip_rect(clip)
@@ -772,6 +812,9 @@ class TimelineWidget(QWidget):
             self.set_playhead(self._x_to_time(pos.x()))
             return
 
+        if self.track_state(self._y_to_track(pos.y())).get("locked"):
+            return
+
         clip = self._clip_at(pos.x(), pos.y())
         if clip is None:
             if not (event.modifiers() & Qt.KeyboardModifier.ControlModifier):
@@ -865,8 +908,12 @@ class TimelineWidget(QWidget):
                     changed = True
             else:  # trim_right
                 source = clip.source_duration
-                limit = source if source > 0 else (state["out"] or 0.0) + max(0.0, dt)
-                base = state["out"] if state["out"] is not None else limit
+                if clip.media.kind == "image":
+                    base = state["out"] if state["out"] is not None else source
+                    limit = 36000.0
+                else:
+                    limit = source if source > 0 else (state["out"] or 0.0) + max(0.0, dt)
+                    base = state["out"] if state["out"] is not None else limit
                 new_out = min(limit, max(clip.in_point + MIN_CLIP_LEN, base + dt))
                 if new_out != clip.out_point:
                     clip.out_point = new_out
@@ -965,6 +1012,10 @@ class TimelineWidget(QWidget):
         pos = event.position()
         start = self._snap_time(self._x_to_time(pos.x()))
         track = self._y_to_track(pos.y())
+        if self.track_state(track).get("locked"):
+            self.status_message.emit("Track is locked")
+            event.ignore()
+            return
         event.acceptProposedAction()
         if paths:
             self.files_dropped.emit(paths, start, track)

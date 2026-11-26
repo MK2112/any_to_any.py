@@ -57,6 +57,14 @@ def _fmt_seconds(value: float) -> str:
     return text or "0"
 
 
+def _compose_audio(clip, volume: float, muted: bool, start: float):
+    if muted or volume <= 0:
+        return None
+    if volume != 1.0:
+        clip = clip.with_volume_scaled(volume)
+    return clip.with_start(start)
+
+
 def _trim_spec(clip: dict) -> str | None:
     # Return a --trim range for a clip, or None when not trimmed
     in_point = float(clip.get("in") or 0.0)
@@ -167,11 +175,25 @@ def render_timeline(job: dict, cancel_event, output_path: str, report) -> None:
         VideoFileClip,
     )
 
-    clips = job["clips"]
+    clips = sorted(
+        job["clips"],
+        key=lambda item: (
+            int(item.get("track") or 0),
+            float(item.get("start") or 0.0),
+        ),
+    )
+
+    tracks = job.get("track_states") or {}
+
+    any_solo = any(
+        bool(state.get("solo")) for state in tracks.values() if isinstance(state, dict)
+    )
+
     movie_segments: list = []
     audio_segments: list = []
     opened: list = []
     composites: list = []
+
     try:
         for index, item in enumerate(clips):
             if cancel_event.is_set():
@@ -184,6 +206,15 @@ def render_timeline(job: dict, cancel_event, output_path: str, report) -> None:
             if source_end <= in_point + 0.01:
                 continue
             start = float(item.get("start") or 0.0)
+            track = int(item.get("track") or 0)
+            track_state = tracks.get(track) or {}
+            track_volume = float(track_state.get("volume", 1.0) or 1.0)
+            muted = (
+                bool(item.get("muted"))
+                or bool(track_state.get("muted"))
+                or (any_solo and not bool(track_state.get("solo")))
+            )
+            volume = float(item.get("volume", 1.0) or 1.0) * track_volume
             report(
                 int(70 * (index + 1) / max(1, len(clips))),
                 f"Compositing {index + 1}/{len(clips)}",
@@ -202,16 +233,20 @@ def render_timeline(job: dict, cancel_event, output_path: str, report) -> None:
                 segment = source.subclipped(in_point, end).with_start(start)
                 movie_segments.append(segment)
                 if segment.audio is not None:
-                    audio_segments.append(segment.audio.with_start(start))
+                    audio = _compose_audio(segment.audio, volume, muted, start)
+                    if audio is not None:
+                        audio_segments.append(audio)
             else:
                 source = AudioFileClip(path)
                 opened.append(source)
                 end = min(source_end, source.duration)
                 if end <= in_point + 0.01:
                     continue
-                audio_segments.append(
-                    source.subclipped(in_point, end).with_start(start)
+                audio = _compose_audio(
+                    source.subclipped(in_point, end), volume, muted, start
                 )
+                if audio is not None:
+                    audio_segments.append(audio)
 
         if not movie_segments and not audio_segments:
             raise RuntimeError("No usable clips on the timeline")

@@ -1204,3 +1204,234 @@ def test_progress_bar_only_visible_during_render(main_window, qapp, tmp_path):
             time.sleep(0.02)
     assert ev.progress_bar.isHidden()
     assert ev.status_label.isHidden()
+
+
+def test_image_clip_can_extend_past_probe_default(main_window):
+    ev = main_window.edit_view
+    clip = ev.timeline.add_media(
+        _media("/slide.png", 5.0, "image"), start=0, track=0
+    )
+    assert clip.out == 5.0
+    ev.out_spin.setValue(12.0)
+    assert clip.out == 12.0
+    assert clip.length == 12.0
+
+
+def test_clip_volume_and_mute_round_trip(main_window):
+    ev = main_window.edit_view
+    ev.timeline.add_media(_media("/a.wav", 5.0), start=0, track=0)
+    ev.volume_spin.setValue(150)
+    ev.mute_check.setChecked(True)
+    state = ev.snapshot()
+    ev.timeline.clear()
+    ev.restore(state)
+    restored = ev.timeline.clips[0]
+    assert restored.volume == 1.5
+    assert restored.muted is True
+
+
+def test_undo_redo_restores_timeline(main_window):
+    ev = main_window.edit_view
+    ev.timeline.add_media(_media("/a.wav", 5.0), start=0, track=0)
+    ev._commit_pending_undo()
+    assert ev._undo_stack.count() == 1
+    ev._undo()
+    assert ev.timeline.clips == []
+    ev._redo()
+    assert len(ev.timeline.clips) == 1
+
+
+def test_save_load_timeline_file(main_window, tmp_path):
+    from PyQt6.QtWidgets import QFileDialog
+
+    ev = main_window.edit_view
+    ev.timeline.add_media(_media("/a.wav", 5.0), start=2.0, track=1)
+    ev.volume_spin.setValue(50)
+    path = tmp_path / "saved_timeline.anytoany"
+    with (
+        patch.object(QFileDialog, "getSaveFileName", return_value=(str(path), "")),
+        patch.object(main_window, "_persist_settings"),
+    ):
+        ev.save_timeline()
+    assert path.exists()
+    ev.timeline.clear()
+    with patch.object(QFileDialog, "getOpenFileName", return_value=(str(path), "")):
+        ev.load_timeline()
+    assert len(ev.timeline.clips) == 1
+    loaded = ev.timeline.clips[0]
+    assert loaded.start == 2.0
+    assert loaded.track == 1
+    assert loaded.volume == 0.5
+
+
+def test_timeline_mode_disables_unsupported_export_options(main_window):
+    ev = main_window.edit_view
+    ev.timeline.add_media(_media("/a.wav", 5.0), start=0, track=0)
+    ev.mode_combo.setCurrentIndex(ev.mode_combo.findData("timeline"))
+    assert ev.burn_subs_check.isHidden()
+    assert not ev.metadata_combo.isEnabled()
+    ev.mode_combo.setCurrentIndex(ev.mode_combo.findData("stitch"))
+    assert ev.burn_subs_check.isHidden()
+    assert ev.metadata_combo.isEnabled()
+    for mode in ("trim", "split"):
+        ev.mode_combo.setCurrentIndex(ev.mode_combo.findData(mode))
+        assert not ev.burn_subs_check.isHidden()
+    ev.timeline.clear()
+    ev.mode_combo.setCurrentIndex(ev.mode_combo.findData("timeline"))
+    assert ev.burn_subs_check.isHidden()
+
+
+def test_render_timeline_applies_volume_and_mute(tmp_path):
+    import threading
+
+    from gui.edit_export import render_timeline
+
+    created, composites = [], []
+
+    class FakeAudio:
+        def __init__(self, path):
+            self.path = path
+            self.duration = 3.0
+            self.volume = None
+            created.append(self)
+
+        def subclipped(self, start, end):
+            return self
+
+        def with_volume_scaled(self, factor):
+            self.volume = factor
+            return self
+
+        def with_start(self, value):
+            return self
+
+        def close(self):
+            pass
+
+    class FakeComposite:
+        def __init__(self, segments):
+            self.segments = segments
+            composites.append(self)
+
+        def write_audiofile(self, path, codec=None, logger=None):
+            with open(path, "wb") as handle:
+                handle.write(b"x")
+
+        def close(self):
+            pass
+
+    job = {
+        "clips": [
+            {"path": "/loud.wav", "in": 0, "out": 3, "duration": 3,
+             "start": 0, "volume": 1.5},
+            {"path": "/silent.wav", "in": 0, "out": 3, "duration": 3,
+             "start": 0, "muted": True},
+        ],
+        "audio_codec": "libmp3lame",
+    }
+    output = tmp_path / "timeline.mp3"
+    with (
+        patch("moviepy.AudioFileClip", FakeAudio),
+        patch("moviepy.CompositeAudioClip", FakeComposite),
+    ):
+        render_timeline(
+            job, threading.Event(), str(output), lambda percent, message: None
+        )
+    assert output.exists()
+    assert created[0].volume == 1.5
+    assert created[1].volume is None
+    assert len(composites[0].segments) == 1
+
+
+def test_higher_track_renders_in_front(tmp_path):
+    import threading
+
+    from gui.edit_export import render_timeline
+
+    composites = []
+
+    class FakeImage:
+        def __init__(self, path):
+            self.path = path
+
+        def with_duration(self, value):
+            return self
+
+        def with_start(self, value):
+            return self
+
+        def close(self):
+            pass
+
+    class FakeComposite:
+        def __init__(self, segments, size=None):
+            self.segments = segments
+            self.fps = 24
+            composites.append(self)
+
+        def with_audio(self, audio):
+            return self
+
+        def write_videofile(self, path, **kwargs):
+            with open(path, "wb") as handle:
+                handle.write(b"x")
+
+        def close(self):
+            pass
+
+    job = {
+        "clips": [
+            {"path": "/low.png", "in": 0, "out": 3, "duration": 3,
+             "start": 5.0, "track": 0},
+            {"path": "/high.png", "in": 0, "out": 3, "duration": 3,
+             "start": 0.0, "track": 1},
+        ],
+        "output_ext": "mp4",
+    }
+    output = tmp_path / "timeline.mp4"
+    with (
+        patch("moviepy.ImageClip", FakeImage),
+        patch("moviepy.CompositeVideoClip", FakeComposite),
+    ):
+        render_timeline(
+            job, threading.Event(), str(output), lambda percent, message: None
+        )
+    assert [segment.path for segment in composites[0].segments] == [
+        "/low.png",
+        "/high.png",
+    ]
+
+
+def test_track_mute_solo_volume_and_lock_round_trip(main_window):
+    ev = main_window.edit_view
+    clip = ev.timeline.add_media(_media("/a.wav", 5.0), start=0, track=1)
+    ev.track_combo.setCurrentIndex(1)
+    ev.track_mute_btn.setChecked(True)
+    ev.track_solo_btn.setChecked(True)
+    ev.track_lock_btn.setChecked(True)
+    ev.track_volume_spin.setValue(50)
+    state = ev.snapshot()
+    ev.timeline.clear()
+    ev.restore(state)
+    track = ev.timeline.track_state(1)
+    assert track["muted"] is True
+    assert track["solo"] is True
+    assert track["locked"] is True
+    assert track["volume"] == 0.5
+    assert not ev.track_combo.isHidden()
+    
+    ev.timeline.track_state(0)["solo"] = True
+    assert ev._effective_volume(clip) == 0.0
+
+
+def test_locked_track_rejects_drag(main_window):
+    timeline = main_window.edit_view.timeline
+    timeline.snapping = False
+    timeline.waveforms = False
+    clip = timeline.add_media(_media("/a.wav", 10.0), start=1.0, track=0)
+    timeline.track_state(0)["locked"] = True
+    center = timeline._clip_rect(clip).center()
+    QTest.mousePress(timeline, Qt.MouseButton.LeftButton, pos=center.toPoint())
+    QTest.mouseMove(timeline, (center + QPointF(60, 0)).toPoint())
+    QTest.mouseRelease(timeline, Qt.MouseButton.LeftButton)
+    assert clip.start == 1.0

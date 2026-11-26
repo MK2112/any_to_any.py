@@ -1641,10 +1641,17 @@ Edit view tips:
 - Move the playhead (or use arrow keys) and press "Cut at Playhead" (S)
 - Space: play/pause, M: add cut marker (in Split mode)
 - Ctrl+C / Ctrl+V: copy and paste selected timeline clips
+- Ctrl+Z / Ctrl+Shift+Z: undo / redo timeline edits
+- Save/Load Timeline keeps the whole edit in a .anytoany file
+- Clip Properties has Volume/Mute; still images can be longer than 5 s there
+- Track controls above the timeline: M (mute), S (solo), L (lock) and volume;
+  higher tracks render in front, and locked tracks cannot be edited
 - Right-click the pool or timeline for more actions
 - Render modes: "As in timeline" keeps exact positions and overlaps;
   Stitch uses --concat, Trim uses --trim, Split uses --split-at and
   Merge uses --merge behind the scenes
+- Burn subtitles (Trim/Split only) needs an equally named .srt beside the
+  movie; other modes support burning only via the CLI --burn-subs flag
 
 For more info, see the project README on GitHub:
 https://github.com/MK2112/any_to_any.py/blob/main/README.md

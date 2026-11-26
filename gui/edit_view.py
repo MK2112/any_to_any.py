@@ -4,7 +4,7 @@ import os
 import json
 
 from pathlib import Path
-from PyQt6.QtGui import QKeySequence, QShortcut
+from PyQt6.QtGui import QKeySequence, QShortcut, QUndoCommand, QUndoStack
 from PyQt6.QtCore import (
     QByteArray,
     QMimeData,
@@ -65,6 +65,20 @@ from gui.timeline import (
 CLIP_MIME = "application/x-any2any-timeline-clips"
 
 
+class _TimelineStateCommand(QUndoCommand):
+    def __init__(self, view, before: dict, after: dict, description: str):
+        super().__init__(description)
+        self.view = view
+        self.before = before
+        self.after = after
+
+    def undo(self) -> None:
+        self.view.restore(self.before)
+
+    def redo(self) -> None:
+        self.view.restore(self.after)
+
+
 class MediaProbeWorker(QThread):
     media_ready = pyqtSignal(str, float)
 
@@ -111,12 +125,22 @@ class EditView(QWidget):
         self._auto_switching = False
         self._mode_locked_by_user = False
         self._restoring = False
+        self._undo_stack = QUndoStack(self)
+        self._undo_stack.setUndoLimit(50)
+        self._undo_timer = QTimer(self)
+        self._undo_timer.setSingleShot(True)
+        self._undo_timer.setInterval(350)
+        self._undo_timer.timeout.connect(self._commit_pending_undo)
+        self._undo_pending_before: dict | None = None
+        self._last_state: dict = {}
         self._build_ui()
         self._setup_shortcuts()
-        self._on_mode_changed()  # marker controls only belong to Split mode
-        self._mode_locked_by_user = False  # initial setup is not a user choice
+        self._on_mode_changed()
+        self._mode_locked_by_user = False
         self._update_actions()
         self._update_clip_properties()
+        self._refresh_track_controls()
+        self._last_state = self.snapshot()
 
         app = QApplication.instance()
         if app is not None:
@@ -153,6 +177,19 @@ class EditView(QWidget):
             self.delete_btn,
             self.clear_btn,
         ):
+            toolbar.addWidget(widget)
+        toolbar.addSpacing(8)
+        self.undo_btn = QPushButton(self._tr("edit_undo"))
+        self.undo_btn.setToolTip(self._tr("edit_undo") + "  (Ctrl+Z)")
+        self.undo_btn.clicked.connect(self._undo)
+        self.redo_btn = QPushButton(self._tr("edit_redo"))
+        self.redo_btn.setToolTip(self._tr("edit_redo") + "  (Ctrl+Shift+Z)")
+        self.redo_btn.clicked.connect(self._redo)
+        self.save_btn = QPushButton(self._tr("edit_save_timeline"))
+        self.save_btn.clicked.connect(self.save_timeline)
+        self.load_btn = QPushButton(self._tr("edit_load_timeline"))
+        self.load_btn.clicked.connect(self.load_timeline)
+        for widget in (self.undo_btn, self.redo_btn, self.save_btn, self.load_btn):
             toolbar.addWidget(widget)
         toolbar.addStretch()
         self.snap_check = QCheckBox(self._tr("edit_snap"))
@@ -207,7 +244,39 @@ class EditView(QWidget):
         self.add_track_btn = QPushButton(self._tr("edit_add_track"))
         self.add_track_btn.clicked.connect(self._add_track)
         header.addWidget(self.add_track_btn)
+
+        self.track_combo = QComboBox()
+        self.track_combo.setFixedWidth(90)
+        self.track_combo.currentIndexChanged.connect(self._sync_track_controls)
+        header.addWidget(self.track_combo)
+
+        for text, key, tip, attr in (
+            ("M", "muted", "edit_track_mute", "track_mute_btn"),
+            ("S", "solo", "edit_track_solo", "track_solo_btn"),
+            ("L", "locked", "edit_track_lock", "track_lock_btn"),
+        ):
+            button = QPushButton(text)
+            button.setCheckable(True)
+            button.setFixedWidth(26)
+            button.setToolTip(self._tr(tip))
+            button.toggled.connect(
+                lambda checked, flag=key: self._set_track_flag(flag, checked)
+            )
+            setattr(self, attr, button)
+            header.addWidget(button)
+
+        self.track_volume_spin = QDoubleSpinBox()
+        self.track_volume_spin.setRange(0.0, 200.0)
+        self.track_volume_spin.setDecimals(0)
+        self.track_volume_spin.setSingleStep(10)
+        self.track_volume_spin.setSuffix("%")
+        self.track_volume_spin.setFixedWidth(70)
+        self.track_volume_spin.setToolTip(self._tr("edit_track_volume"))
+        self.track_volume_spin.valueChanged.connect(self._set_track_volume)
+
+        header.addWidget(self.track_volume_spin)
         timeline_layout.addLayout(header)
+
         self.timeline = TimelineWidget(self, self.locale)
         self.timeline.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.timeline.customContextMenuRequested.connect(self._show_timeline_menu)
@@ -216,7 +285,10 @@ class EditView(QWidget):
         self.timeline.selection_changed.connect(self._on_selection_changed)
         self.timeline.clips_changed.connect(self._on_clips_changed)
         self.timeline.playhead_changed.connect(self._update_time_labels)
+        self.timeline.status_message.connect(self.show_message)
+
         timeline_layout.addWidget(self.timeline, 1)
+
         splitter.addWidget(timeline_panel)
         splitter.setStretchFactor(0, 0)
         splitter.setStretchFactor(1, 1)
@@ -283,11 +355,27 @@ class EditView(QWidget):
             props_layout.addWidget(spin)
         self.length_label = QLabel("")
         self.length_label.setMinimumWidth(90)
+
         props_layout.addWidget(QLabel(self._tr("edit_duration") + ":"))
         props_layout.addWidget(self.length_label)
+        props_layout.addWidget(QLabel(self._tr("edit_volume") + ":"))
+
+        self.volume_spin = QDoubleSpinBox()
+        self.volume_spin.setRange(0.0, 200.0)
+        self.volume_spin.setDecimals(0)
+        self.volume_spin.setSingleStep(10)
+        self.volume_spin.setSuffix("%")
+        self.volume_spin.setFixedWidth(80)
+
+        props_layout.addWidget(self.volume_spin)
+
+        self.mute_check = QCheckBox(self._tr("edit_mute"))
+
+        props_layout.addWidget(self.mute_check)
         props_layout.addStretch()
-        for spin in (self.pos_spin, self.in_spin, self.out_spin):
+        for spin in (self.pos_spin, self.in_spin, self.out_spin, self.volume_spin):
             spin.valueChanged.connect(self._on_clip_prop_changed)
+        self.mute_check.toggled.connect(self._on_clip_prop_changed)
         root.addWidget(props)
 
         export_group = QGroupBox(self._tr("edit_export_options"))
@@ -319,6 +407,7 @@ class EditView(QWidget):
         self.output_edit = QLineEdit(str(Path.home() / "Downloads"))
         self.browse_btn = QPushButton(self._tr("browse"))
         self.browse_btn.clicked.connect(self.browse_output)
+
         self.open_dir_btn = QPushButton(self.main._create_folder_icon(), "")
         self.open_dir_btn.setFixedWidth(32)
         self.open_dir_btn.setToolTip(self._tr("open_containing_folder"))
@@ -358,6 +447,7 @@ class EditView(QWidget):
         cpu = os.cpu_count() or 2
         self.workers_spin.setRange(1, max(1, min(cpu - 1, 32)))
         self.burn_subs_check = QCheckBox(self._tr("edit_burn_subs"))
+        self.burn_subs_check.setToolTip(self._tr("edit_burn_subs_hint"))
 
         self.metadata_combo = QComboBox()
         for key, value in (
@@ -369,6 +459,16 @@ class EditView(QWidget):
         self.tags_edit = QLineEdit()
         self.tags_edit.setPlaceholderText("artist:John genre:live")
         self.tags_edit.setToolTip(self._tr("edit_tags"))
+
+        self._export_option_widgets = (
+            self.quality_combo,
+            self.workers_spin,
+            self.metadata_combo,
+            self.tags_edit,
+        )
+        self._export_option_tips = {
+            widget: widget.toolTip() for widget in self._export_option_widgets
+        }
 
         grid = QGridLayout()
         grid.setHorizontalSpacing(8)
@@ -402,7 +502,8 @@ class EditView(QWidget):
         grid.addWidget(_label(self._tr("edit_tags_label"), 50), row, 3)
         grid.addWidget(self.tags_edit, row, 4, 1, 2)
         row += 1
-        grid.addWidget(QLabel(""), row, 0)
+        self._burn_subs_placeholder = QLabel("")
+        grid.addWidget(self._burn_subs_placeholder, row, 0)
         grid.addWidget(self.burn_subs_check, row, 1, 1, 5)
         export.addLayout(grid)
 
@@ -451,6 +552,9 @@ class EditView(QWidget):
             ("M", self.add_marker),
             ("Ctrl+C", self.copy_clips),
             ("Ctrl+V", self.paste_clips),
+            ("Ctrl+Z", self._undo_shortcut),
+            ("Ctrl+Shift+Z", self._redo_shortcut),
+            ("Ctrl+Y", self._redo_shortcut),
         ):
             shortcut = QShortcut(QKeySequence(sequence), self)
             shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
@@ -481,6 +585,8 @@ class EditView(QWidget):
                 "track": clip.track,
                 "in": clip.in_point,
                 "out": clip.out_point,
+                "volume": clip.volume,
+                "muted": clip.muted,
             }
             for clip in clips
         ]
@@ -534,6 +640,8 @@ class EditView(QWidget):
                 in_point=float(entry.get("in") or 0.0),
                 out_point=entry.get("out"),
             )
+            clip.volume = float(entry.get("volume", 1.0) or 1.0)
+            clip.muted = bool(entry.get("muted"))
             new_ids.append(clip.clip_id)
         if not new_ids:
             return
@@ -542,6 +650,122 @@ class EditView(QWidget):
         pasted = [c for c in self.timeline.clips if c.clip_id in new_ids]
         self.timeline.set_playhead(max(clip.end for clip in pasted))
         self.show_message(self._tr("edit_pasted").replace("[count]", str(len(pasted))))
+
+    def _note_state_change(self) -> None:
+        if self._restoring or self.is_busy():
+            return
+        if self._undo_pending_before is None:
+            self._undo_pending_before = self._last_state
+        self._undo_timer.start()  # coalesce drags / spin typing into one entry
+
+    def _commit_pending_undo(self) -> None:
+        if self._undo_pending_before is None:
+            return
+        before = self._undo_pending_before
+        self._undo_pending_before = None
+        after = self.snapshot()
+        for key in ("mode", "output", "format", "format_original", "resolution"):
+            before[key] = after[key]
+        if before != after:
+            self._undo_stack.push(
+                _TimelineStateCommand(self, before, after, self._tr("edit_timeline"))
+            )
+        self._last_state = after
+
+    def _undo(self) -> None:
+        if self.is_busy():
+            return
+        self._commit_pending_undo()
+        self._undo_stack.undo()
+        self.show_message(self._tr("edit_undo"))
+
+    def _redo(self) -> None:
+        if self.is_busy():
+            return
+        self._commit_pending_undo()
+        self._undo_stack.redo()
+        self.show_message(self._tr("edit_redo"))
+
+    def _undo_shortcut(self) -> None:
+        if self._shortcut_allowed():
+            self._undo()
+
+    def _redo_shortcut(self) -> None:
+        if self._shortcut_allowed():
+            self._redo()
+
+    def _update_export_option_availability(self) -> None:
+        applies = not (
+            self.mode_combo.currentData() == "timeline" and bool(self.timeline.clips)
+        )
+        for widget in self._export_option_widgets:
+            widget.setEnabled(applies)
+            widget.setToolTip(
+                self._export_option_tips[widget]
+                if applies
+                else self._tr("edit_option_timeline_only")
+            )
+        # Burn-in only runs on the Trim/Split conversion paths. Stitch, Merge
+        # and the timeline compositor never read this flag.
+        burn_visible = self.mode_combo.currentData() in ("trim", "split")
+        self.burn_subs_check.setVisible(burn_visible)
+        self._burn_subs_placeholder.setVisible(burn_visible)
+
+    def save_timeline(self) -> None:
+        start_dir = self.output_edit.text().strip() or getattr(
+            self.main, "last_dir", str(Path.home())
+        )
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            self._tr("edit_save_timeline"),
+            os.path.join(start_dir, "saved_timeline.anytoany"),
+            "AnyToAny Timeline (*.anytoany);;JSON (*.json)",
+        )
+        if not path:
+            return
+        if not path.lower().endswith((".anytoany", ".json")):
+            path += ".anytoany"
+        try:
+            with open(path, "w", encoding="utf-8") as handle:
+                json.dump(self.snapshot(), handle, ensure_ascii=False, indent=2)
+            self.main.last_dir = str(Path(path).parent)
+            self.main._persist_settings()
+            self.show_message(self._tr("edit_timeline_saved").replace("[path]", path))
+        except OSError as exc:
+            QMessageBox.warning(
+                self,
+                self._tr("error"),
+                self._tr("edit_timeline_io_error").replace("[error]", str(exc)),
+            )
+
+    def load_timeline(self) -> None:
+        if self.is_busy():
+            return
+        start_dir = getattr(self.main, "last_dir", str(Path.home()))
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            self._tr("edit_load_timeline"),
+            start_dir,
+            "AnyToAny Timeline (*.anytoany);;JSON (*.json)",
+        )
+        if not path:
+            return
+        try:
+            with open(path, encoding="utf-8") as handle:
+                state = json.load(handle)
+            if not isinstance(state, dict):
+                raise TypeError("Not a timeline file")
+            self._undo_timer.stop()
+            self._undo_pending_before = None
+            self._undo_stack.clear()
+            self.restore(state)
+            self.show_message(self._tr("edit_timeline_loaded").replace("[path]", path))
+        except (OSError, ValueError, TypeError, KeyError, AttributeError) as exc:
+            QMessageBox.warning(
+                self,
+                self._tr("error"),
+                self._tr("edit_timeline_io_error").replace("[error]", str(exc)),
+            )
 
     def show_message(self, text: str) -> None:
         self.feedback_label.setText(text)
@@ -607,6 +831,7 @@ class EditView(QWidget):
                 self._tr("edit_added_pool").replace("[count]", str(len(added)))
             )
             self._update_actions()
+            self._note_state_change()
 
     def _on_media_ready(self, path: str, duration: float) -> None:
         for media in self.media_pool.media():
@@ -686,6 +911,7 @@ class EditView(QWidget):
         self.timeline.clips_changed.emit()
         self.timeline.selection_changed.emit()
         self.timeline.update()
+        self._note_state_change()
 
     def _show_pool_menu(self, pos) -> None:
         if not self.media_pool.selectedItems():
@@ -740,6 +966,69 @@ class EditView(QWidget):
     def _add_track(self) -> None:
         index = self.timeline.add_track()
         self.show_message(f"{self._tr('edit_track')} {index + 1}")
+        self._refresh_track_controls()
+        self._note_state_change()
+
+    def _refresh_track_controls(self) -> None:
+        current = self.track_combo.currentData()
+        self.track_combo.blockSignals(True)
+        self.track_combo.clear()
+        for index in range(len(self.timeline.track_names)):
+            self.track_combo.addItem(f"{self._tr('edit_track')} {index + 1}", index)
+        if current is not None and 0 <= current < self.track_combo.count():
+            self.track_combo.setCurrentIndex(current)
+        elif self.track_combo.count():
+            self.track_combo.setCurrentIndex(0)
+        self.track_combo.blockSignals(False)
+        self._sync_track_controls()
+
+    def _sync_track_controls(self, *_args) -> None:
+        index = self.track_combo.currentData()
+        if index is None:
+            return
+        state = self.timeline.track_state(index)
+        for button, key in (
+            (self.track_mute_btn, "muted"),
+            (self.track_solo_btn, "solo"),
+            (self.track_lock_btn, "locked"),
+        ):
+            button.blockSignals(True)
+            button.setChecked(bool(state.get(key)))
+            button.blockSignals(False)
+        self.track_volume_spin.blockSignals(True)
+        self.track_volume_spin.setValue(
+            round(float(state.get("volume", 1.0) or 1.0) * 100)
+        )
+        self.track_volume_spin.blockSignals(False)
+
+    def _set_track_flag(self, key: str, checked: bool) -> None:
+        index = self.track_combo.currentData()
+        if index is None:
+            return
+        self.timeline.track_state(index)[key] = bool(checked)
+        self.timeline.update()
+        self._note_state_change()
+
+    def _set_track_volume(self, value: float) -> None:
+        index = self.track_combo.currentData()
+        if index is None:
+            return
+        self.timeline.track_state(index)["volume"] = max(0.0, float(value)) / 100.0
+        self.timeline.update()
+        self._note_state_change()
+
+    def _effective_volume(self, clip) -> float:
+        state = self.timeline.track_state(clip.track)
+        any_solo = any(
+            self.timeline.track_state(index).get("solo")
+            for index in range(len(self.timeline.track_names))
+        )
+        if clip.muted or state.get("muted") or (any_solo and not state.get("solo")):
+            return 0.0
+        return max(
+            0.0,
+            min(1.0, clip.volume * float(state.get("volume", 1.0) or 1.0)),
+        )
 
     def cut_at_playhead(self) -> None:
         if not self._shortcut_allowed():
@@ -813,7 +1102,7 @@ class EditView(QWidget):
             return None
         try:
             output = QAudioOutput(self)
-            output.setVolume(0.85 if len(self.timeline.clips) > 1 else 1.0)
+            output.setVolume(self._effective_volume(clip))
             player = QMediaPlayer(self)
             player.setAudioOutput(output)
             player.setSource(QUrl.fromLocalFile(clip.media.path))
@@ -884,6 +1173,7 @@ class EditView(QWidget):
             self._markers.append(value)
             self._markers.sort()
             self._refresh_markers()
+            self._note_state_change()
 
     def remove_marker(self) -> None:
         if not self._markers:
@@ -891,6 +1181,7 @@ class EditView(QWidget):
         closest = min(self._markers, key=lambda m: abs(m - self.timeline.playhead))
         self._markers.remove(closest)
         self._refresh_markers()
+        self._note_state_change()
 
     def _refresh_markers(self) -> None:
         self.marker_list.clear()
@@ -930,11 +1221,16 @@ class EditView(QWidget):
     def _on_selection_changed(self) -> None:
         self._update_actions()
         self._update_clip_properties()
+        selected = self.timeline.selected_clips()
+        if len(selected) == 1 and 0 <= selected[0].track < self.track_combo.count():
+            self.track_combo.setCurrentIndex(selected[0].track)
 
     def _on_clips_changed(self) -> None:
         self._update_actions()
         self._update_clip_properties()
+        self._refresh_track_controls()
         self._maybe_auto_mode()
+        self._note_state_change()
 
     @staticmethod
     def _has_overlap(clips) -> bool:
@@ -968,10 +1264,12 @@ class EditView(QWidget):
             return
         selected = self.timeline.selected_clips()
         clip = selected[0] if len(selected) == 1 else None
+        spins = (self.pos_spin, self.in_spin, self.out_spin, self.volume_spin)
         self._updating_props = True
         try:
-            for spin in (self.pos_spin, self.in_spin, self.out_spin):
+            for spin in spins:
                 spin.blockSignals(True)
+            self.mute_check.blockSignals(True)
             if clip is None:
                 self.props_group.setTitle(self._tr("edit_clip_properties"))
                 self.clip_name_label.setText(
@@ -982,23 +1280,31 @@ class EditView(QWidget):
                 self.pos_spin.setValue(0)
                 self.in_spin.setValue(0)
                 self.out_spin.setValue(0)
+                self.volume_spin.setValue(100)
+                self.mute_check.setChecked(False)
                 self.length_label.setText("")
-                for spin in (self.pos_spin, self.in_spin, self.out_spin):
+                for spin in spins:
                     spin.setEnabled(False)
+                self.mute_check.setEnabled(False)
             else:
                 source = clip.source_duration or 36000.0
-                for spin in (self.in_spin, self.out_spin):
-                    spin.setMaximum(max(0.01, source))
+                max_out = 36000.0 if clip.media.kind == "image" else max(0.01, source)
+                self.in_spin.setMaximum(max(0.01, source))
+                self.out_spin.setMaximum(max_out)
                 self.clip_name_label.setText(clip.media.name)
                 self.pos_spin.setValue(round(clip.start, 2))
                 self.in_spin.setValue(round(clip.in_point, 2))
                 self.out_spin.setValue(round(clip.out, 2))
-                for spin in (self.pos_spin, self.in_spin, self.out_spin):
+                self.volume_spin.setValue(round(clip.volume * 100))
+                self.mute_check.setChecked(clip.muted)
+                for spin in spins:
                     spin.setEnabled(not self.is_busy())
+                self.mute_check.setEnabled(not self.is_busy())
                 self.length_label.setText(_fmt(clip.length))
         finally:
-            for spin in (self.pos_spin, self.in_spin, self.out_spin):
+            for spin in spins:
                 spin.blockSignals(False)
+            self.mute_check.blockSignals(False)
             self._updating_props = False
 
     def _on_clip_prop_changed(self) -> None:
@@ -1012,9 +1318,11 @@ class EditView(QWidget):
         clip.start = max(0.0, self.pos_spin.value())
         clip.in_point = max(0.0, self.in_spin.value())
         out = self.out_spin.value()
-        if source > 0:
+        if source > 0 and clip.media.kind != "image":
             out = min(out, source)
         clip.out_point = out if out > clip.in_point + 0.01 else clip.in_point + 0.01
+        clip.volume = max(0.0, self.volume_spin.value() / 100.0)
+        clip.muted = self.mute_check.isChecked()
         self.length_label.setText(_fmt(clip.length))
         self.timeline.update()
         self.timeline.clips_changed.emit()
@@ -1030,6 +1338,11 @@ class EditView(QWidget):
         self.stop_btn.setEnabled(has_clips and not self.is_busy())
         self.add_track_btn.setEnabled(not self.is_busy())
         self.export_btn.setEnabled(has_clips and not self.is_busy())
+        busy = self.is_busy()
+        self.undo_btn.setEnabled(not busy and self._undo_stack.canUndo())
+        self.redo_btn.setEnabled(not busy and self._undo_stack.canRedo())
+        self.save_btn.setEnabled(not busy)
+        self.load_btn.setEnabled(not busy)
         self._update_time_labels(self.timeline.playhead)
 
     def _on_mode_changed(self) -> None:
@@ -1039,6 +1352,7 @@ class EditView(QWidget):
         split_mode = self.mode_combo.currentData() == "split"
         self.marker_panel.setVisible(split_mode)
         self.timeline.set_markers(self._markers if split_mode else [])
+        self._update_export_option_availability()
 
     def _on_format_changed(self) -> None:
         text = self.format_combo.currentText().strip()
@@ -1070,6 +1384,10 @@ class EditView(QWidget):
                 self.cut_btn,
                 self.delete_btn,
                 self.clear_btn,
+                self.undo_btn,
+                self.redo_btn,
+                self.save_btn,
+                self.load_btn,
                 self.add_track_btn,
                 self.play_btn,
                 self.stop_btn,
@@ -1081,11 +1399,18 @@ class EditView(QWidget):
                 self.zoom_fit_btn,
                 self.add_marker_btn,
                 self.remove_marker_btn,
+                self.track_combo,
+                self.track_mute_btn,
+                self.track_solo_btn,
+                self.track_lock_btn,
+                self.track_volume_spin,
             ):
                 widget.setEnabled(enabled)
             self.timeline.setEnabled(enabled)
             self._update_actions()
             self._update_clip_properties()
+            if enabled:
+                self._update_export_option_availability()
 
     def set_enabled(self, enabled: bool) -> None:
         self.set_export_enabled(enabled)
@@ -1122,6 +1447,8 @@ class EditView(QWidget):
                     "duration": clip.media.duration or 0.0,
                     "name": clip.media.name,
                     "track": clip.track,
+                    "volume": clip.volume,
+                    "muted": clip.muted,
                 }
                 for clip in clips
             ],
@@ -1130,11 +1457,17 @@ class EditView(QWidget):
             "framerate": self.framerate_spin.value() or None,
             "quality": self.quality_combo.currentData(),
             "resolution": self.resolution_combo.currentData() or None,
-            "burn_subs": self.burn_subs_check.isChecked(),
+            "burn_subs": (
+                self.burn_subs_check.isChecked() and mode in ("trim", "split")
+            ),
             "preserve_meta": self.metadata_combo.currentData() == "preserve",
             "strip_meta": self.metadata_combo.currentData() == "strip",
             "add_tag": [tag for tag in self.tags_edit.text().split() if tag],
             "workers": self.workers_spin.value(),
+            "track_states": {
+                index: dict(self.timeline.track_state(index))
+                for index in range(len(self.timeline.track_names))
+            },
         }
 
         if mode == "timeline":
@@ -1285,17 +1618,23 @@ class EditView(QWidget):
                     "in": clip.in_point,
                     "out": clip.out_point,
                     "color": clip.color,
+                    "volume": clip.volume,
+                    "muted": clip.muted,
+                    "duration": clip.media.duration,
+                    "kind": clip.media.kind,
+                    "name": clip.media.name,
                 }
                 for clip in self.timeline.clips
             ],
             "tracks": len(self.timeline.track_names),
+            "track_states": [
+                dict(self.timeline.track_state(index))
+                for index in range(len(self.timeline.track_names))
+            ],
             "markers": list(self._markers),
             "mode": self.mode_combo.currentData(),
             "output": self.output_edit.text(),
             "format": self.format_combo.currentText(),
-            # Store the *meaning*, not the translated display text: rebuilding
-            # the UI for a new locale retranslates the items, so a saved
-            # "Original behalten" would otherwise linger in the edit field.
             "format_original": (
                 self.format_combo.currentData() == "original"
                 and "," not in self.format_combo.currentText()
@@ -1308,6 +1647,7 @@ class EditView(QWidget):
     def restore(self, state: dict) -> None:
         if not state:
             return
+        self.media_pool.clear()
         media_by_path = {}
         for entry in state.get("pool", []):
             media = MediaFile(
@@ -1321,7 +1661,14 @@ class EditView(QWidget):
         for entry in state.get("clips", []):
             media = media_by_path.get(entry["path"])
             if media is None:
-                continue
+                media = MediaFile(
+                    path=entry["path"],
+                    duration=entry.get("duration"),
+                    kind=entry.get("kind", ""),
+                    name=entry.get("name", ""),
+                )
+                media_by_path[media.path] = media
+                self.media_pool.add_media(media)
             clips.append(
                 TimelineClip(
                     media=media,
@@ -1330,11 +1677,20 @@ class EditView(QWidget):
                     in_point=entry.get("in", 0.0),
                     out_point=entry.get("out"),
                     color=entry.get("color") or CLIP_COLORS[0],
+                    volume=float(entry.get("volume", 1.0) or 1.0),
+                    muted=bool(entry.get("muted")),
                 )
             )
         self._restoring = True
         try:
             self.timeline.set_clips(clips, state.get("tracks", 1))
+            for index, saved in enumerate(state.get("track_states", [])):
+                if not isinstance(saved, dict):
+                    continue
+                target = self.timeline.track_state(index)
+                for key in ("muted", "solo", "locked", "volume"):
+                    if key in saved:
+                        target[key] = saved[key]
             self._markers = list(state.get("markers", []))
             self._refresh_markers()
             if state.get("mode") in [
@@ -1355,8 +1711,13 @@ class EditView(QWidget):
             index = self.resolution_combo.findData(state["resolution"])
             if index >= 0:
                 self.resolution_combo.setCurrentIndex(index)
+        self._undo_timer.stop()
+        self._undo_pending_before = None
+        self._last_state = self.snapshot()
         self._update_actions()
         self._update_clip_properties()
+        self._update_export_option_availability()
+        self._refresh_track_controls()
 
     def shutdown(self) -> None:
         self._play_timer.stop()
