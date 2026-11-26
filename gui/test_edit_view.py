@@ -769,6 +769,140 @@ def test_playback_schedules_appended_clip(main_window):
         ev.stop_play()
 
 
+def test_playback_prerolls_next_clip_before_boundary(main_window):
+    FakeQMediaPlayer, output, created = _fake_multimedia()
+    ev = main_window.edit_view
+    first = ev.timeline.add_media(_media("/a.wav", 4.0), start=0, track=0)
+    second = ev.timeline.add_media(_media("/b.wav", 4.0), start=4.0, track=0)
+    ev._clock = _FakeClock()
+    with (
+        patch("gui.edit_view.QMediaPlayer", FakeQMediaPlayer),
+        patch("gui.edit_view.QAudioOutput", output),
+    ):
+        ev._start_playback()
+        ev._clock.ms = 3800
+        ev._tick_scheduler()
+        assert second.clip_id in ev._prepared
+        assert len(created) == 2
+        assert created[1].source == "/b.wav"
+        assert not created[1].played
+        assert list(ev._voices) == [first.clip_id]
+
+        ev._clock.ms = 4050
+        ev._tick_scheduler()
+        assert second.clip_id in ev._voices
+        assert second.clip_id not in ev._prepared
+        assert created[1].played
+        assert created[1].position_ms == pytest.approx(50, abs=1)
+        ev.stop_play()
+
+
+def test_preview_reseeks_to_playhead_after_late_load(main_window):
+    class StatusSignal:
+        def __init__(self):
+            self.slots = []
+
+        def connect(self, slot):
+            self.slots.append(slot)
+
+    class MediaStatus:
+        LoadedMedia = 2
+
+    class FakePlayer:
+        instances = []
+
+        def __init__(self, parent=None):
+            self.position_ms = None
+            self.mediaStatusChanged = StatusSignal()
+            FakePlayer.instances.append(self)
+
+        def setAudioOutput(self, output):
+            pass
+
+        def setSource(self, url):
+            pass
+
+        def setPosition(self, ms):
+            self.position_ms = ms
+
+        def play(self):
+            pass
+
+        def stop(self):
+            pass
+
+    FakePlayer.MediaStatus = MediaStatus
+    output = lambda parent=None: SimpleNamespace(setVolume=lambda value: None)
+    ev = main_window.edit_view
+    ev.timeline.add_media(
+        _media("/a.wav", 10.0), start=0, track=0, in_point=2.0, out_point=8.0
+    )
+    ev.timeline.set_playhead(4.0)
+    with (
+        patch("gui.edit_view.QMediaPlayer", FakePlayer),
+        patch("gui.edit_view.QAudioOutput", output),
+    ):
+        ev._start_playback()
+        player = FakePlayer.instances[0]
+        assert player.position_ms == 6000
+        for slot in player.mediaStatusChanged.slots:
+            slot(MediaStatus.LoadedMedia)
+        assert player.position_ms == 6000
+        ev.stop_play()
+
+
+def test_editing_during_playback_stops_and_resumes(main_window):
+    FakeQMediaPlayer, output, _ = _fake_multimedia()
+    ev = main_window.edit_view
+    clip = ev.timeline.add_media(_media("/a.wav", 4.0), start=0, track=0)
+    ev._clock = _FakeClock()
+    with (
+        patch("gui.edit_view.QMediaPlayer", FakeQMediaPlayer),
+        patch("gui.edit_view.QAudioOutput", output),
+    ):
+        ev._start_playback()
+        ev._clock.ms = 1000
+        ev._tick_scheduler()
+        assert ev._playing
+        assert ev.timeline.playhead == 1.0
+        assert ev._voices
+        clip.start = 2.0
+        ev.timeline.clips_changed.emit()
+        assert not ev._playing
+        assert not ev._play_timer.isActive()
+        assert ev._voices == {}
+        assert ev.timeline.playhead == 1.0
+        ev._start_playback()
+        assert ev._playing
+        assert ev._play_start == 1.0
+        assert ev.timeline.playhead == 1.0
+        ev.stop_play()
+
+
+def test_edit_stop_leaves_no_stale_players(main_window):
+    FakeQMediaPlayer, output, created = _fake_multimedia()
+    ev = main_window.edit_view
+    clip = ev.timeline.add_media(_media("/a.wav", 4.0), start=0, track=0)
+    ev._clock = _FakeClock()
+    with (
+        patch("gui.edit_view.QMediaPlayer", FakeQMediaPlayer),
+        patch("gui.edit_view.QAudioOutput", output),
+    ):
+        ev._start_playback()
+        ev._clock.ms = 1000
+        ev._tick_scheduler()
+        old = list(created)
+        assert old and old[0].played
+
+        clip.out_point = 2.0
+        ev.timeline.clips_changed.emit()
+        assert not ev._playing
+        assert all(player.stopped for player in old)
+        assert not any(
+            player.played and not player.stopped for player in old
+        ), "old voices must be silent after the edit"
+
+
 def test_playback_timer_keeps_running_without_multimedia(main_window):
     ev = main_window.edit_view
     ev.timeline.add_media(_media("/a.wav", 10.0), start=0, track=0)
@@ -1435,3 +1569,56 @@ def test_locked_track_rejects_drag(main_window):
     QTest.mouseMove(timeline, (center + QPointF(60, 0)).toPoint())
     QTest.mouseRelease(timeline, Qt.MouseButton.LeftButton)
     assert clip.start == 1.0
+
+
+def test_zoom_percent_control_drives_timeline(main_window):
+    ev = main_window.edit_view
+    ev.zoom_spin.setValue(200)
+    assert ev.timeline.pps == pytest.approx(80.0)
+    ev.timeline.zoom_out()
+    assert ev.zoom_spin.value() == 160
+
+
+def test_timeline_scrollbars_follow_latest_clip_and_track_count(main_window):
+    timeline = main_window.edit_view.timeline
+    timeline.resize(400, 200)
+    timeline.add_media(_media("/a.wav", 20.0), start=0, track=0)
+    late = timeline.add_media(_media("/b.wav", 1.0), start=30.0, track=4)
+    assert timeline._v_scroll.maximum() > 0  # five tracks exceed the viewport
+    assert timeline._h_scroll.maximum() >= int(late.end * timeline.pps) - timeline.width()
+    x0 = timeline._clip_rect(late).left()
+    timeline._h_scroll.setValue(50)
+    assert timeline._clip_rect(late).left() == x0 - 50
+    y0 = timeline._clip_rect(late).top()
+    timeline._v_scroll.setValue(64)
+    assert timeline._clip_rect(late).top() == y0 - 64
+
+
+def test_waveform_keeps_density_on_long_source():
+    import array
+
+    from gui.timeline import WaveformWorker
+
+    raw = array.array("f", [0.1] * 120000).tobytes()
+    process = SimpleNamespace(
+        communicate=lambda timeout: (raw, b""),
+        poll=lambda: None,
+        terminate=lambda: None,
+    )
+    worker = WaveformWorker()
+    with patch("gui.timeline.subprocess.Popen", return_value=process):
+        result = worker._compute("/long.mp3", 120.0)
+    assert result is not None
+    peaks, covered = result
+    assert covered == 120.0
+    assert len(peaks) >= 4000
+
+
+def test_peaks_ready_fills_recreated_clip_by_path(main_window):
+    clip = main_window.edit_view.timeline.add_media(
+        _media("/a.wav", 5.0), start=0, track=0
+    )
+    main_window.edit_view.timeline._on_peaks_ready(
+        "stale-id", "/a.wav", [0.1, 0.2], 5.0
+    )
+    assert clip.peaks == [0.1, 0.2]

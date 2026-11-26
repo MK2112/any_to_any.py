@@ -63,6 +63,7 @@ from gui.timeline import (
 )
 
 CLIP_MIME = "application/x-any2any-timeline-clips"
+PREVIEW_LEAD = 1.0  # sec before a boundary to load/seek the next clip
 
 
 class _TimelineStateCommand(QUndoCommand):
@@ -113,12 +114,14 @@ class EditView(QWidget):
         self._probe = MediaProbeWorker(self)
         self._probe.media_ready.connect(self._on_media_ready)
         self._play_timer = QTimer(self)
-        self._play_timer.setInterval(50)
+        self._play_timer.setInterval(20)
         self._play_timer.timeout.connect(self._on_play_tick)
         self._clock = QElapsedTimer()
         self._markers: list[float] = []
         self._updating_props = False
         self._voices: dict[str, tuple] = {}  # clip_id -> (QMediaPlayer, QAudioOutput)
+        self._prepared: dict[str, tuple] = {}
+        self._voice_seek: dict[str, list[int]] = {}
         self._scheduled: set[str] = set()
         self._playing = False
         self._play_start = 0.0
@@ -140,6 +143,7 @@ class EditView(QWidget):
         self._update_actions()
         self._update_clip_properties()
         self._refresh_track_controls()
+        self._sync_zoom_spin()
         self._last_state = self.snapshot()
 
         app = QApplication.instance()
@@ -219,6 +223,17 @@ class EditView(QWidget):
         toolbar.addWidget(self.zoom_out_btn)
         toolbar.addWidget(self.zoom_in_btn)
         toolbar.addWidget(self.zoom_fit_btn)
+        self.zoom_spin = QSpinBox()
+        self.zoom_spin.setRange(10, 2000)
+        self.zoom_spin.setSingleStep(10)
+        self.zoom_spin.setSuffix("%")
+        self.zoom_spin.setFixedWidth(70)
+        self.zoom_spin.setToolTip(self._tr("edit_zoom_percent"))
+        self.zoom_spin.setValue(100)
+        self.zoom_spin.valueChanged.connect(
+            lambda value: self.timeline.set_zoom_percent(value)
+        )
+        toolbar.addWidget(self.zoom_spin)
         root.addLayout(toolbar)
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
@@ -270,7 +285,8 @@ class EditView(QWidget):
         self.track_volume_spin.setDecimals(0)
         self.track_volume_spin.setSingleStep(10)
         self.track_volume_spin.setSuffix("%")
-        self.track_volume_spin.setFixedWidth(70)
+        self.track_volume_spin.setPrefix(self._tr("edit_track_volume_prefix") + " ")
+        self.track_volume_spin.setFixedWidth(100)
         self.track_volume_spin.setToolTip(self._tr("edit_track_volume"))
         self.track_volume_spin.valueChanged.connect(self._set_track_volume)
 
@@ -286,6 +302,7 @@ class EditView(QWidget):
         self.timeline.clips_changed.connect(self._on_clips_changed)
         self.timeline.playhead_changed.connect(self._update_time_labels)
         self.timeline.status_message.connect(self.show_message)
+        self.timeline.zoom_changed.connect(self._sync_zoom_spin)
 
         timeline_layout.addWidget(self.timeline, 1)
 
@@ -982,6 +999,11 @@ class EditView(QWidget):
         self.track_combo.blockSignals(False)
         self._sync_track_controls()
 
+    def _sync_zoom_spin(self, *_args) -> None:
+        self.zoom_spin.blockSignals(True)
+        self.zoom_spin.setValue(self.timeline.zoom_percent())
+        self.zoom_spin.blockSignals(False)
+
     def _sync_track_controls(self, *_args) -> None:
         index = self.track_combo.currentData()
         if index is None:
@@ -1088,6 +1110,8 @@ class EditView(QWidget):
             start = 0.0
         self._play_start = start
         self._scheduled.clear()
+        for clip_id in list(self._prepared):
+            self._drop_prepared(clip_id)
         self._playing = True
         self._clock.start()
         self._play_timer.start()
@@ -1096,8 +1120,7 @@ class EditView(QWidget):
         self.show_message(self._tr("edit_play"))
         self._tick_scheduler()
 
-    def _start_voice(self, clip, now: float):
-        # Create and start one media player for a clip at timeline time
+    def _make_voice(self, clip, seek: list[int]):
         if not _HAS_MULTIMEDIA:
             return None
         try:
@@ -1106,38 +1129,84 @@ class EditView(QWidget):
             player = QMediaPlayer(self)
             player.setAudioOutput(output)
             player.setSource(QUrl.fromLocalFile(clip.media.path))
-            offset_ms = int(max(0.0, clip.in_point + (now - clip.start)) * 1000)
-            player.setPosition(offset_ms)
 
             def on_status(status):
                 if status == QMediaPlayer.MediaStatus.LoadedMedia:
-                    player.setPosition(offset_ms)
-                    try:
-                        player.mediaStatusChanged.disconnect(on_status)
-                    except Exception:
-                        pass
+                    player.setPosition(seek[0])
 
             player.mediaStatusChanged.connect(on_status)
-            player.play()
-            self._voices[clip.clip_id] = (player, output)
-            return player
+            return player, output
         except Exception:
             return None
 
-    def _stop_voice(self, clip_id: str) -> None:
-        voice = self._voices.pop(clip_id, None)
-        if voice is None:
+    def _prepare_voice(self, clip) -> None:
+        if clip.clip_id in self._voices or clip.clip_id in self._prepared:
             return
+        seek = [int(clip.in_point * 1000)]
+        voice = self._make_voice(clip, seek)
+        if voice is not None:
+            self._prepared[clip.clip_id] = voice
+            self._voice_seek[clip.clip_id] = seek
+
+    def _activate_voice(self, clip, now: float) -> None:
+        offset_ms = int(max(0.0, clip.in_point + (now - clip.start)) * 1000)
+        voice = self._prepared.pop(clip.clip_id, None)
+        seek = self._voice_seek.get(clip.clip_id)
+        if seek is None:
+            seek = [offset_ms]
+            voice = self._make_voice(clip, seek)
+            if voice is None:
+                return
+        else:
+            seek[0] = offset_ms
+        self._voice_seek[clip.clip_id] = seek
         player, output = voice
+        output.setVolume(self._effective_volume(clip))
+        player.setPosition(offset_ms)
+        player.play()
+        self._voices[clip.clip_id] = (player, output)
+
+    @staticmethod
+    def _release_voice(voice) -> None:
+        player, output = voice
+        try:
+            output.setVolume(0.0)
+        except Exception:
+            pass
+        try:
+            player.mediaStatusChanged.disconnect()
+        except (TypeError, RuntimeError, AttributeError):
+            pass
         try:
             player.stop()
         except Exception:
             pass
+        try:
+            player.setSource(QUrl())
+        except Exception:
+            pass
+        for obj in (player, output):
+            delete = getattr(obj, "deleteLater", None)
+            if callable(delete):
+                delete()
+
+    def _drop_prepared(self, clip_id: str) -> None:
+        voice = self._prepared.pop(clip_id, None)
+        self._voice_seek.pop(clip_id, None)
+        if voice is not None:
+            self._release_voice(voice)
+
+    def _stop_voice(self, clip_id: str) -> None:
+        voice = self._voices.pop(clip_id, None)
+        self._voice_seek.pop(clip_id, None)
+        if voice is not None:
+            self._release_voice(voice)
 
     def _tick_scheduler(self) -> None:
         if not self._playing:
             return
         now = self._play_start + self._clock.elapsed() / 1000.0
+        self.timeline.set_playhead(now)  # reflect playback time before any handoff
         total = self.timeline.total_duration()
         if total and now >= total:
             self.stop_play()
@@ -1147,20 +1216,28 @@ class EditView(QWidget):
             if clip.start <= now < clip.end:
                 if clip_id not in self._scheduled:
                     self._scheduled.add(clip_id)
-                    self._start_voice(clip, now)
-            elif clip_id in self._voices:
-                self._stop_voice(clip_id)
-        self.timeline.set_playhead(now)
+                    self._activate_voice(clip, now)
+                self._drop_prepared(clip_id)
+            else:
+                if clip_id in self._voices:
+                    self._stop_voice(clip_id)
+                if clip.start - PREVIEW_LEAD <= now < clip.start:
+                    self._prepare_voice(clip)
+                else:
+                    self._drop_prepared(clip_id)
 
-    def stop_play(self) -> None:
+    def stop_play(self, keep_playhead: bool = False) -> None:
         self._playing = False
         self._play_timer.stop()
         for clip_id in list(self._voices):
             self._stop_voice(clip_id)
+        for clip_id in list(self._prepared):
+            self._drop_prepared(clip_id)
         self._scheduled.clear()
         self.play_btn.setChecked(False)
         self.play_btn.setText(self._tr("edit_play"))
-        self.timeline.set_playhead(self._play_start)
+        if not keep_playhead:
+            self.timeline.set_playhead(self._play_start)
 
     def _on_play_tick(self) -> None:
         self._tick_scheduler()
@@ -1226,6 +1303,8 @@ class EditView(QWidget):
             self.track_combo.setCurrentIndex(selected[0].track)
 
     def _on_clips_changed(self) -> None:
+        if self._playing and not self._restoring:
+            self.stop_play(keep_playhead=True)
         self._update_actions()
         self._update_clip_properties()
         self._refresh_track_controls()
@@ -1397,6 +1476,7 @@ class EditView(QWidget):
                 self.zoom_in_btn,
                 self.zoom_out_btn,
                 self.zoom_fit_btn,
+                self.zoom_spin,
                 self.add_marker_btn,
                 self.remove_marker_btn,
                 self.track_combo,

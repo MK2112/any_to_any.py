@@ -29,6 +29,7 @@ from PyQt6.QtWidgets import (
     QApplication,
     QListWidget,
     QListWidgetItem,
+    QScrollBar,
     QWidget,
 )
 
@@ -48,6 +49,8 @@ CLIP_COLORS = (
 RULER_H = 26
 TRACK_H = 64
 TRACK_GUTTER = 30  # px reserved for track numbers and flags
+SCROLL_T = 10
+DEFAULT_PPS = 40.0
 MIN_CLIP_LEN = 0.05  # seconds
 MIN_PPS = 2.0
 MAX_PPS = 500.0
@@ -169,8 +172,8 @@ class TimelineClip:
 
 class WaveformWorker(QThread):
     peaks_ready = pyqtSignal(
-        str, object, float
-    )  # clip_id, list[float], covered seconds
+        str, str, object, float
+    )  # clip_id, path, list[float], covered seconds
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -218,7 +221,9 @@ class WaveformWorker(QThread):
                 key = (clip.media.path, round(clip.media.duration, 3))
                 self._cache[key] = (peaks, covered)
                 if not self._stop:
-                    self.peaks_ready.emit(clip.clip_id, peaks, covered)
+                    self.peaks_ready.emit(
+                        clip.clip_id, clip.media.path, peaks, covered
+                    )
 
     def _compute(self, path: str, duration: float | None) -> tuple | None:
         if not duration or duration <= 0:
@@ -260,7 +265,7 @@ class WaveformWorker(QThread):
                 samples.byteswap()
             if not samples:
                 return None
-            buckets = min(480, max(32, len(samples) // 40))
+            buckets = max(32, min(12000, len(samples) // 10))
             width = max(1, len(samples) // buckets)
             peaks = []
             for index in range(0, len(samples), width):
@@ -366,6 +371,7 @@ class TimelineWidget(QWidget):
     playhead_changed = pyqtSignal(float)
     clips_changed = pyqtSignal()
     status_message = pyqtSignal(str)
+    zoom_changed = pyqtSignal(float)
 
     def __init__(self, parent=None, locale="English"):
         super().__init__(parent)
@@ -374,8 +380,22 @@ class TimelineWidget(QWidget):
         self.track_names: list[str] = ["1"]
         self.track_states: dict[int, dict] = {}
         self.playhead = 0.0
-        self.pps = 40.0
+        self.pps = DEFAULT_PPS
         self._scroll_x = 0.0
+        self._scroll_y = 0.0
+        self._h_scroll = QScrollBar(Qt.Orientation.Horizontal, self)
+        self._v_scroll = QScrollBar(Qt.Orientation.Vertical, self)
+        thin = (
+            "QScrollBar { background: #2b2b2b; border: none; }"
+            "QScrollBar::handle { background: #707070; border-radius: 4px; }"
+            "QScrollBar::add-line, QScrollBar::sub-line { width: 0px; height: 0px; }"
+            "QScrollBar::add-page, QScrollBar::sub-page { background: none; }"
+        )
+        self._h_scroll.setStyleSheet(thin)
+        self._v_scroll.setStyleSheet(thin)
+        self._h_scroll.valueChanged.connect(self._on_h_scroll)
+        self._v_scroll.valueChanged.connect(self._on_v_scroll)
+        self.clips_changed.connect(self._update_scrollbars)
         self.selected_ids: set[str] = set()
         self.markers: list[float] = []
         self.snapping = True
@@ -390,6 +410,42 @@ class TimelineWidget(QWidget):
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setAutoFillBackground(True)
         self.setMinimumHeight(200)
+
+    def _view_size(self) -> tuple[int, int]:
+        return (
+            max(1, self.width() - SCROLL_T),
+            max(1, self.height() - RULER_H - SCROLL_T),
+        )
+
+    def _update_scrollbars(self, *_args) -> None:
+        view_w, view_h = self._view_size()
+        tracks = max(len(self.track_names), self._needed_tracks(), 1)
+        content_w = int(self.total_duration() * self.pps + 60)
+        self._h_scroll.setRange(0, max(0, content_w - view_w))
+        self._h_scroll.setPageStep(view_w)
+        self._h_scroll.setSingleStep(20)
+        self._v_scroll.setRange(0, max(0, tracks * TRACK_H - view_h))
+        self._v_scroll.setPageStep(view_h)
+        self._v_scroll.setSingleStep(TRACK_H)
+
+    def _on_h_scroll(self, value: int) -> None:
+        self._scroll_x = float(value)
+        self.update()
+
+    def _on_v_scroll(self, value: int) -> None:
+        self._scroll_y = float(value)
+        self.update()
+
+    def resizeEvent(self, event) -> None:
+        width, height = event.size().width(), event.size().height()
+        self._h_scroll.setGeometry(
+            0, height - SCROLL_T, max(0, width - SCROLL_T), SCROLL_T
+        )
+        self._v_scroll.setGeometry(
+            width - SCROLL_T, RULER_H, SCROLL_T, max(0, height - RULER_H - SCROLL_T)
+        )
+        self._update_scrollbars()
+        super().resizeEvent(event)
 
     def sizeHint(self):
         from PyQt6.QtCore import QSize
@@ -487,7 +543,8 @@ class TimelineWidget(QWidget):
         self.clips.clear()
         self.selected_ids.clear()
         self.playhead = 0.0
-        self._scroll_x = 0.0
+        self._h_scroll.setValue(0)
+        self._v_scroll.setValue(0)
         self.playhead_changed.emit(0.0)
         self.selection_changed.emit()
         self.clips_changed.emit()
@@ -553,6 +610,7 @@ class TimelineWidget(QWidget):
         index = len(self.track_names)
         self.track_names.append(str(index + 1))
         self.track_state(index)
+        self._update_scrollbars()
         self.update()
         return index
 
@@ -581,12 +639,21 @@ class TimelineWidget(QWidget):
     def zoom_fit(self) -> None:
         total = max(self.total_duration(), 5.0)
         self._set_pps(max(MIN_PPS, (self.width() - 24) / total))
-        self._scroll_x = 0.0
+        self._h_scroll.setValue(0)
+        self._v_scroll.setValue(0)
         self.update()
 
     def _set_pps(self, value: float) -> None:
         self.pps = max(MIN_PPS, min(MAX_PPS, value))
+        self._update_scrollbars()
+        self.zoom_changed.emit(self.pps)
         self.update()
+
+    def zoom_percent(self) -> int:
+        return round(self.pps / DEFAULT_PPS * 100)
+
+    def set_zoom_percent(self, value: int) -> None:
+        self._set_pps(DEFAULT_PPS * max(10, min(2000, float(value))) / 100.0)
 
     def shutdown(self) -> None:
         self._wave_worker.stop()
@@ -598,7 +665,7 @@ class TimelineWidget(QWidget):
         return max(0.0, (x + self._scroll_x) / self.pps)
 
     def _y_to_track(self, y: float) -> int:
-        return max(0, int((y - RULER_H) // TRACK_H))
+        return max(0, int((y + self._scroll_y - RULER_H) // TRACK_H))
 
     def _needed_tracks(self) -> int:
         return max((clip.track for clip in self.clips), default=-1) + 1
@@ -623,7 +690,7 @@ class TimelineWidget(QWidget):
 
     def _clip_rect(self, clip: TimelineClip) -> QRectF:
         x = self._time_to_x(clip.start)
-        y = RULER_H + clip.track * TRACK_H + 4
+        y = RULER_H + clip.track * TRACK_H + 4 - self._scroll_y
         return QRectF(x, y, max(2.0, clip.length * self.pps), TRACK_H - 8)
 
     def _clip_at(self, x: float, y: float) -> TimelineClip | None:
@@ -652,12 +719,15 @@ class TimelineWidget(QWidget):
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.fillRect(self.rect(), QColor("#1b1b1b"))
-        width = self.width()
-        height = self.height()
+        width, view_h = self._view_size()
+        bottom = RULER_H + view_h
+        painter.setClipRect(0, 0, width, bottom)
 
         tracks = max(len(self.track_names), self._needed_tracks(), 1)
         for index in range(tracks):
-            y = RULER_H + index * TRACK_H
+            y = int(RULER_H + index * TRACK_H - self._scroll_y)
+            if y > bottom or y + TRACK_H < RULER_H:
+                continue
             color = QColor("#232323") if index % 2 == 0 else QColor("#282828")
             painter.fillRect(0, y, width, TRACK_H, color)
             painter.setPen(QColor("#333333"))
@@ -694,6 +764,7 @@ class TimelineWidget(QWidget):
                 continue
             self._draw_clip(painter, clip, rect)
 
+        painter.setClipRect(0, 0, width, bottom)
         painter.fillRect(0, 0, width, RULER_H, QColor("#2f2f2f"))
         painter.setPen(QColor("#3d3d3d"))
         painter.drawLine(0, RULER_H, width, RULER_H)
@@ -711,7 +782,7 @@ class TimelineWidget(QWidget):
         if self._drop_pos is not None:
             x = self._drop_pos.x()
             track = self._y_to_track(self._drop_pos.y())
-            y = RULER_H + track * TRACK_H
+            y = int(RULER_H + track * TRACK_H - self._scroll_y)
             painter.setPen(QPen(QColor("#8bc34a"), 2))
             painter.drawLine(int(x), y, int(x), y + TRACK_H)
 
@@ -719,7 +790,7 @@ class TimelineWidget(QWidget):
             mx = self._time_to_x(value)
             if 0 <= mx <= width:
                 painter.setPen(QPen(QColor("#ffb300"), 1, Qt.PenStyle.DashLine))
-                painter.drawLine(int(mx), RULER_H, int(mx), height)
+                painter.drawLine(int(mx), RULER_H, int(mx), bottom)
                 painter.setBrush(QBrush(QColor("#ffb300")))
                 painter.setPen(Qt.PenStyle.NoPen)
                 painter.drawPolygon(
@@ -733,7 +804,7 @@ class TimelineWidget(QWidget):
         px = self._time_to_x(self.playhead)
         if 0 <= px <= width:
             painter.setPen(QPen(QColor("#ff5252"), 2))
-            painter.drawLine(int(px), RULER_H, int(px), height)
+            painter.drawLine(int(px), RULER_H, int(px), bottom)
             painter.setBrush(QBrush(QColor("#ff5252")))
             painter.setPen(Qt.PenStyle.NoPen)
             painter.drawPolygon(
@@ -780,8 +851,11 @@ class TimelineWidget(QWidget):
             body_height = rect.bottom() - body_top - 4
             if body_height > 2:
                 shown = clip.visible_peaks()
+                if len(shown) > rect.width() > 0:
+                    stride = max(1, len(shown) // int(rect.width()))
+                    shown = shown[::stride]
                 painter.setPen(QPen(QColor(255, 255, 255, 110)))
-                step = rect.width() / len(shown)
+                step = rect.width() / max(1, len(shown))
                 mid = body_top + body_height / 2
                 for index, peak in enumerate(shown):
                     x = rect.left() + index * step
@@ -952,8 +1026,9 @@ class TimelineWidget(QWidget):
             factor = 1.15 if delta.y() > 0 else 1 / 1.15
             self._set_pps(self.pps * factor)
         else:
-            self._scroll_x = max(0.0, self._scroll_x - (delta.x() or delta.y()) * 0.6)
-            self.update()
+            step = (delta.x() or delta.y()) * 0.6
+            self._h_scroll.setValue(int(self._h_scroll.value() - step))
+            self._v_scroll.setValue(int(self._v_scroll.value() - step))
         event.accept()
 
     def keyPressEvent(self, event):
@@ -1021,13 +1096,19 @@ class TimelineWidget(QWidget):
             self.files_dropped.emit(paths, start, track)
         self.update()
 
-    def _on_peaks_ready(self, clip_id: str, peaks, covered: float) -> None:
+    def _on_peaks_ready(
+        self, clip_id: str, path: str, peaks, covered: float
+    ) -> None:
+        changed = False
         for clip in self.clips:
-            if clip.clip_id == clip_id:
+            if clip.clip_id == clip_id or (
+                clip.peaks is None and clip.media.path == path
+            ):
                 clip.peaks = peaks
                 clip.peaks_duration = covered
-                self.update()
-                break
+                changed = True
+        if changed:
+            self.update()
 
 
 def _fmt_time(seconds: float | None) -> str:
