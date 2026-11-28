@@ -679,14 +679,16 @@ def _fake_multimedia():
             self.source = None
             self.position_ms = None
             self.played = False
+            self.play_count = 0
             self.stopped = False
+            self.output = None
             self.mediaStatusChanged = SimpleNamespace(
                 connect=lambda slot: None, disconnect=lambda slot: None
             )
             created.append(self)
 
         def setAudioOutput(self, output):
-            pass
+            self.output = output
 
         def setSource(self, url):
             self.source = url.toLocalFile()
@@ -696,11 +698,16 @@ def _fake_multimedia():
 
         def play(self):
             self.played = True
+            self.play_count += 1
 
         def stop(self):
             self.stopped = True
 
-    output = lambda parent=None: SimpleNamespace(setVolume=lambda value: None)
+    def output(parent=None):
+        result = SimpleNamespace(volume=None)
+        result.setVolume = lambda value: setattr(result, "volume", value)
+        return result
+
     return FakeQMediaPlayer, output, created
 
 
@@ -715,6 +722,7 @@ def test_playback_starts_voice_with_source_offset(main_window):
         patch("gui.edit_view.QMediaPlayer", FakeQMediaPlayer),
         patch("gui.edit_view.QAudioOutput", output),
     ):
+        ev._last_edit_stop = 0.0  # bypass the edit cooldown
         ev._start_playback()
     player = created[0]
     assert player.source == "/a.wav"
@@ -736,6 +744,7 @@ def test_playback_plays_adjacent_then_overlapping_clips(main_window):
         patch("gui.edit_view.QMediaPlayer", FakeQMediaPlayer),
         patch("gui.edit_view.QAudioOutput", output),
     ):
+        ev._last_edit_stop = 0.0  # bypass the edit cooldown
         ev._start_playback()
         assert list(ev._voices) == [first.clip_id]
 
@@ -760,6 +769,7 @@ def test_playback_schedules_appended_clip(main_window):
         patch("gui.edit_view.QMediaPlayer", FakeQMediaPlayer),
         patch("gui.edit_view.QAudioOutput", output),
     ):
+        ev._last_edit_stop = 0.0  # bypass the edit cooldown
         ev._start_playback()
         assert list(ev._voices) == [first.clip_id]
         ev._clock.ms = 5000
@@ -779,21 +789,53 @@ def test_playback_prerolls_next_clip_before_boundary(main_window):
         patch("gui.edit_view.QMediaPlayer", FakeQMediaPlayer),
         patch("gui.edit_view.QAudioOutput", output),
     ):
+        ev._last_edit_stop = 0.0  # bypass the edit cooldown
         ev._start_playback()
         ev._clock.ms = 3800
         ev._tick_scheduler()
         assert second.clip_id in ev._prepared
         assert len(created) == 2
         assert created[1].source == "/b.wav"
-        assert not created[1].played
+        assert created[1].play_count == 1  # warm up silently ahead of the cut
+        assert created[1].output.volume == 0
         assert list(ev._voices) == [first.clip_id]
+
+        ev._clock.ms = 3950  # inside the 50 ms rewind window
+        ev._tick_scheduler()
+        assert ev._voice_warmed[second.clip_id]
+        assert created[1].position_ms == 0  # rewound to the clip in-point
 
         ev._clock.ms = 4050
         ev._tick_scheduler()
         assert second.clip_id in ev._voices
         assert second.clip_id not in ev._prepared
-        assert created[1].played
-        assert created[1].position_ms == pytest.approx(50, abs=1)
+        assert created[1].play_count == 1  # no restart at the boundary
+        assert created[1].output.volume == 1.0
+        assert created[1].position_ms == pytest.approx(50, abs=1)  # exact in-point
+        ev.stop_play()
+
+
+def test_adjacent_clips_crossfade_at_boundary(main_window):
+    FakeQMediaPlayer, output, created = _fake_multimedia()
+    ev = main_window.edit_view
+    first = ev.timeline.add_media(_media("/a.wav", 4.0), start=0, track=0)
+    second = ev.timeline.add_media(_media("/b.wav", 4.0), start=4.0, track=0)
+    ev._clock = _FakeClock()
+    with (
+        patch("gui.edit_view.QMediaPlayer", FakeQMediaPlayer),
+        patch("gui.edit_view.QAudioOutput", output),
+    ):
+        ev._clock.ms = 0
+        ev._last_edit_stop = 0.0
+        ev._start_playback()
+        ev._clock.ms = 3980
+        ev._tick_scheduler()
+        assert {first.clip_id, second.clip_id} <= set(ev._voices)
+        ev._clock.ms = 4000
+        ev._tick_scheduler()
+        volumes = {id_: voice[1].volume for id_, voice in ev._voices.items()}
+        assert volumes[first.clip_id] == pytest.approx(0.5, abs=0.05)
+        assert volumes[second.clip_id] == pytest.approx(0.5, abs=0.05)
         ev.stop_play()
 
 
@@ -842,6 +884,7 @@ def test_preview_reseeks_to_playhead_after_late_load(main_window):
         patch("gui.edit_view.QMediaPlayer", FakePlayer),
         patch("gui.edit_view.QAudioOutput", output),
     ):
+        ev._last_edit_stop = 0.0  # bypass the edit cooldown
         ev._start_playback()
         player = FakePlayer.instances[0]
         assert player.position_ms == 6000
@@ -860,6 +903,7 @@ def test_editing_during_playback_stops_and_resumes(main_window):
         patch("gui.edit_view.QMediaPlayer", FakeQMediaPlayer),
         patch("gui.edit_view.QAudioOutput", output),
     ):
+        ev._last_edit_stop = 0.0  # bypass the edit cooldown
         ev._start_playback()
         ev._clock.ms = 1000
         ev._tick_scheduler()
@@ -872,6 +916,8 @@ def test_editing_during_playback_stops_and_resumes(main_window):
         assert not ev._play_timer.isActive()
         assert ev._voices == {}
         assert ev.timeline.playhead == 1.0
+        ev._last_edit_stop = 0.0  # simulate the mandatory short cooldown
+        ev._last_edit_stop = 0.0  # bypass the edit cooldown
         ev._start_playback()
         assert ev._playing
         assert ev._play_start == 1.0
@@ -888,6 +934,7 @@ def test_edit_stop_leaves_no_stale_players(main_window):
         patch("gui.edit_view.QMediaPlayer", FakeQMediaPlayer),
         patch("gui.edit_view.QAudioOutput", output),
     ):
+        ev._last_edit_stop = 0.0  # bypass the edit cooldown
         ev._start_playback()
         ev._clock.ms = 1000
         ev._tick_scheduler()
@@ -903,10 +950,28 @@ def test_edit_stop_leaves_no_stale_players(main_window):
         ), "old voices must be silent after the edit"
 
 
+def test_playback_cooldown_after_edit(main_window):
+    import time
+
+    ev = main_window.edit_view
+    ev.timeline.add_media(_media("/a.wav", 4.0), start=0, track=0)
+    with patch("gui.edit_view._HAS_MULTIMEDIA", False):
+        ev._last_edit_stop = time.monotonic()
+        ev._start_playback()
+        assert not ev._playing
+        assert "Wait a moment" in ev.feedback_label.text()
+        ev._last_edit_stop = 0.0
+        ev._last_edit_stop = 0.0  # bypass the edit cooldown
+        ev._start_playback()
+        assert ev._playing
+        ev.stop_play()
+
+
 def test_playback_timer_keeps_running_without_multimedia(main_window):
     ev = main_window.edit_view
     ev.timeline.add_media(_media("/a.wav", 10.0), start=0, track=0)
     with patch("gui.edit_view._HAS_MULTIMEDIA", False):
+        ev._last_edit_stop = 0.0  # bypass the edit cooldown
         ev._start_playback()
     assert ev._play_timer.isActive()
     assert ev._voices == {}

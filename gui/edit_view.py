@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import json
+import time
 
 from pathlib import Path
 from PyQt6.QtGui import QKeySequence, QShortcut, QUndoCommand, QUndoStack
@@ -63,7 +64,9 @@ from gui.timeline import (
 )
 
 CLIP_MIME = "application/x-any2any-timeline-clips"
-PREVIEW_LEAD = 1.0  # sec before a boundary to load/seek the next clip
+PREVIEW_LEAD = 1.0  # sec before a boundary to warm up the next clip
+REWIND_LEAD = 0.05  # sec before the cut to seek the warmed player back to its in-point
+HANDOVER = 0.02  # sec of crossfade on each side of a cut (kills the 20 ms gap)
 
 
 class _TimelineStateCommand(QUndoCommand):
@@ -114,7 +117,7 @@ class EditView(QWidget):
         self._probe = MediaProbeWorker(self)
         self._probe.media_ready.connect(self._on_media_ready)
         self._play_timer = QTimer(self)
-        self._play_timer.setInterval(20)
+        self._play_timer.setInterval(10)
         self._play_timer.timeout.connect(self._on_play_tick)
         self._clock = QElapsedTimer()
         self._markers: list[float] = []
@@ -122,9 +125,11 @@ class EditView(QWidget):
         self._voices: dict[str, tuple] = {}  # clip_id -> (QMediaPlayer, QAudioOutput)
         self._prepared: dict[str, tuple] = {}
         self._voice_seek: dict[str, list[int]] = {}
+        self._voice_warmed: dict[str, bool] = {}  # playing muted, rewound at the cut
         self._scheduled: set[str] = set()
         self._playing = False
         self._play_start = 0.0
+        self._last_edit_stop = 0.0
         self._auto_switching = False
         self._mode_locked_by_user = False
         self._restoring = False
@@ -1101,6 +1106,11 @@ class EditView(QWidget):
             self._start_playback()
 
     def _start_playback(self) -> None:
+        # Give the audio backends a moment to release voices stopped by an
+        # edit; restarting instantly can overlap the old and new audio.
+        if self._last_edit_stop and time.monotonic() - self._last_edit_stop < 1.0:
+            self.show_message(self._tr("edit_resume_too_soon"))
+            return
         total = self.timeline.total_duration()
         if not total:
             return
@@ -1145,13 +1155,20 @@ class EditView(QWidget):
         seek = [int(clip.in_point * 1000)]
         voice = self._make_voice(clip, seek)
         if voice is not None:
+            player, output = voice
+            # Let the decoder run early with its output muted. At the cut we
+            # only change the volume, so there is no play() startup pause.
+            output.setVolume(0.0)
+            player.play()
             self._prepared[clip.clip_id] = voice
             self._voice_seek[clip.clip_id] = seek
+            self._voice_warmed[clip.clip_id] = False
 
     def _activate_voice(self, clip, now: float) -> None:
         offset_ms = int(max(0.0, clip.in_point + (now - clip.start)) * 1000)
         voice = self._prepared.pop(clip.clip_id, None)
         seek = self._voice_seek.get(clip.clip_id)
+        warmed = self._voice_warmed.pop(clip.clip_id, False)
         if seek is None:
             seek = [offset_ms]
             voice = self._make_voice(clip, seek)
@@ -1161,9 +1178,12 @@ class EditView(QWidget):
             seek[0] = offset_ms
         self._voice_seek[clip.clip_id] = seek
         player, output = voice
-        output.setVolume(self._effective_volume(clip))
+        # Seek even for a warmed player: it has been running silently since
+        # the rewind, so without this its audio starts ~30 ms into the clip.
         player.setPosition(offset_ms)
-        player.play()
+        output.setVolume(self._effective_volume(clip))
+        if not warmed:
+            player.play()
         self._voices[clip.clip_id] = (player, output)
 
     @staticmethod
@@ -1181,10 +1201,6 @@ class EditView(QWidget):
             player.stop()
         except Exception:
             pass
-        try:
-            player.setSource(QUrl())
-        except Exception:
-            pass
         for obj in (player, output):
             delete = getattr(obj, "deleteLater", None)
             if callable(delete):
@@ -1193,12 +1209,14 @@ class EditView(QWidget):
     def _drop_prepared(self, clip_id: str) -> None:
         voice = self._prepared.pop(clip_id, None)
         self._voice_seek.pop(clip_id, None)
+        self._voice_warmed.pop(clip_id, None)
         if voice is not None:
             self._release_voice(voice)
 
     def _stop_voice(self, clip_id: str) -> None:
         voice = self._voices.pop(clip_id, None)
         self._voice_seek.pop(clip_id, None)
+        self._voice_warmed.pop(clip_id, None)
         if voice is not None:
             self._release_voice(voice)
 
@@ -1213,16 +1231,42 @@ class EditView(QWidget):
             return
         for clip in list(self.timeline.clips):
             clip_id = clip.clip_id
-            if clip.start <= now < clip.end:
+            audible_from = clip.start - HANDOVER
+            audible_to = clip.end + HANDOVER
+            if audible_from <= now < audible_to:
                 if clip_id not in self._scheduled:
                     self._scheduled.add(clip_id)
                     self._activate_voice(clip, now)
+                voice = self._voices.get(clip_id)
+                if voice is not None:
+                    # Short crossfade: new clip ramps in, outgoing clip ramps
+                    # out, so the two outputs overlap around the cut.
+                    if now < clip.start + HANDOVER:
+                        factor = (now - audible_from) / (2 * HANDOVER)
+                    elif now > clip.end - HANDOVER:
+                        factor = (audible_to - now) / (2 * HANDOVER)
+                    else:
+                        factor = 1.0
+                    voice[1].setVolume(
+                        self._effective_volume(clip) * max(0.0, min(1.0, factor))
+                    )
                 self._drop_prepared(clip_id)
             else:
                 if clip_id in self._voices:
                     self._stop_voice(clip_id)
-                if clip.start - PREVIEW_LEAD <= now < clip.start:
+                # Never warm up for longer than half the clip, or a short
+                # chunk could finish before its own cut arrives.
+                lead = min(PREVIEW_LEAD, max(0.05, clip.length * 0.5))
+                if clip.start - lead <= now < audible_from:
                     self._prepare_voice(clip)
+                    if (
+                        now >= clip.start - REWIND_LEAD
+                        and not self._voice_warmed.get(clip_id, False)
+                    ):
+                        voice = self._prepared.get(clip_id)
+                        if voice is not None:
+                            voice[0].setPosition(int(clip.in_point * 1000))
+                        self._voice_warmed[clip_id] = True
                 else:
                     self._drop_prepared(clip_id)
 
@@ -1236,7 +1280,9 @@ class EditView(QWidget):
         self._scheduled.clear()
         self.play_btn.setChecked(False)
         self.play_btn.setText(self._tr("edit_play"))
-        if not keep_playhead:
+        if keep_playhead:
+            self._last_edit_stop = time.monotonic()
+        else:
             self.timeline.set_playhead(self._play_start)
 
     def _on_play_tick(self) -> None:
@@ -1303,8 +1349,12 @@ class EditView(QWidget):
             self.track_combo.setCurrentIndex(selected[0].track)
 
     def _on_clips_changed(self) -> None:
-        if self._playing and not self._restoring:
-            self.stop_play(keep_playhead=True)
+        if not self._restoring:
+            # Any edit (including a cut) starts the short cooldown before
+            # Play becomes available again.
+            self._last_edit_stop = time.monotonic()
+            if self._playing:
+                self.stop_play(keep_playhead=True)
         self._update_actions()
         self._update_clip_properties()
         self._refresh_track_controls()
